@@ -1,3 +1,4 @@
+extern crate async_std;
 extern crate clap;
 extern crate log;
 extern crate pretty_env_logger;
