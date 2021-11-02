@@ -25,7 +25,7 @@ async fn main() {
     authors.push("Elliott Frisch <elliottf@jfrog.com>");
     let matches: ArgMatches = App::new("Pyrsia Node")
         .version("0.1.0")
-        .author(&*authors.join(", "))
+        .author(&*join_authors(authors))
         .about("Application to connect to and participate in the Pyrsia network")
         .arg(
             Arg::with_name("verbose")
@@ -150,6 +150,6 @@ mod tests {
 
     #[test]
     fn test_add() {
-        assert_eq!(1 + 2, 3);
+        assert_eq!("a, b, c", join_authors(Vec::from(["a", "b", "c"])));
     }
 }
