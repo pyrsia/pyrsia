@@ -22,6 +22,10 @@ const BOOTNODES: [&'static str; 4] = [
     "QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
 ];
 
+fn join_authors(authors: Vec<&'static str>) -> String {
+    return authors.join(", ");
+}
+
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
@@ -38,7 +42,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     authors.push("Elliott Frisch <elliottf@jfrog.com>");
     let matches: ArgMatches = App::new("Pyrsia Node")
         .version("0.1.0")
-        .author(&*authors.join(", "))
+        .author(&*join_authors(authors))
         .about("Application to connect to and participate in the Pyrsia network")
         .arg(
             Arg::with_name("verbose")
@@ -130,6 +134,6 @@ mod tests {
 
     #[test]
     fn test_add() {
-        assert_eq!(1 + 2, 3);
+        assert_eq!("a, b, c", join_authors(Vec::from(["a", "b", "c"])));
     }
 }
