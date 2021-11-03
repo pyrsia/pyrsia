@@ -15,13 +15,6 @@ use libp2p::{
 };
 use std::{env, error::Error, str::FromStr, time::Duration};
 
-const BOOTNODES: [&'static str; 4] = [
-    "QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
-    "QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
-    "QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
-    "QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
-];
-
 fn join_authors(authors: Vec<&'static str>) -> String {
     return authors.join(", ");
 }
@@ -29,6 +22,13 @@ fn join_authors(authors: Vec<&'static str>) -> String {
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
+
+    let boot_nodes: Vec<&'static str> = vec![
+        "QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
+        "QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
+        "QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+        "QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
+    ];
 
     // Create a random key for ourselves.
     let local_key: Keypair = Keypair::generate_ed25519();
@@ -72,7 +72,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         // into the `transport` resolves the `dnsaddr` when Kademlia tries
         // to dial these nodes.
         let bootaddr: Multiaddr = Multiaddr::from_str("/dnsaddr/bootstrap.libp2p.io")?;
-        for peer in &BOOTNODES {
+        for peer in &boot_nodes {
             behaviour.add_address(&PeerId::from_str(peer)?, bootaddr.clone());
         }
 
