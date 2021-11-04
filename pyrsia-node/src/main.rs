@@ -20,12 +20,9 @@ const DEFAULT_PORT: &str = "7878";
 async fn main() {
     pretty_env_logger::init();
 
-    let mut authors: Vec<&'static str> = Vec::new();
-    authors.push("Joeri Sykora <joeri@sertik.net>");
-    authors.push("Elliott Frisch <elliottf@jfrog.com>");
     let matches: ArgMatches = App::new("Pyrsia Node")
         .version("0.1.0")
-        .author(&*join_authors(authors))
+        .author(clap::crate_authors!(", "))
         .about("Application to connect to and participate in the Pyrsia network")
         .arg(
             Arg::with_name("verbose")
@@ -148,8 +145,4 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
-    #[test]
-    fn test_add() {
-        assert_eq!("a, b, c", join_authors(Vec::from(["a", "b", "c"])));
-    }
 }
