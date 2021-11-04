@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         "QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
         "QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
         "QmTS3CRTSVsYXzD1nb1yD2N6XhWSWApZnpaxtCn8vLKHmd",
-        "QmQUZCnMVJSQkBsSQba6dvijsLnesqhvB532XeTp1GDhxa"
+        "QmQUZCnMVJSQkBsSQba6dvijsLnesqhvB532XeTp1GDhxa",
     ];
 
     // Create a random key for ourselves.
@@ -56,8 +56,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .takes_value(true)
                 .required(false)
                 .multiple(false)
-                .help("Provide an explicit peerId")
-            ,
+                .help("Provide an explicit peerId"),
         )
         .get_matches();
     let verbosity: u64 = matches.occurrences_of("verbose");
@@ -94,7 +93,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     } else {
         to_search = Keypair::generate_ed25519().public().into();
     }
-
 
     println!("Searching for the closest peers to {:?}", to_search);
     swarm.behaviour_mut().get_closest_peers(to_search);
@@ -141,5 +139,4 @@ async fn main() -> Result<(), Box<dyn Error>> {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
-
 }
