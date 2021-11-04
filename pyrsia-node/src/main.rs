@@ -49,6 +49,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .multiple(true)
                 .help("Enables verbose output"),
         )
+        .arg(
+            Arg::with_name("peer")
+                .short("p")
+                .long("peer")
+                .takes_value(true)
+                .required(false)
+                .multiple(false)
+                .help("Provide an explicit peerId")
+            ,
+        )
         .get_matches();
     let verbosity: u64 = matches.occurrences_of("verbose");
 
@@ -76,12 +86,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     dbg!("swarm");
 
+    let to_search: PeerId;
     // Order Kademlia to search for a peer.
-    let to_search: PeerId = if let Some(peer_id) = env::args().nth(1) {
-        peer_id.parse()?
+    if matches.occurrences_of("peer") > 0 {
+        let peer_id: String = String::from(matches.value_of("peer").unwrap());
+        to_search = PeerId::from_str(&peer_id)?;
     } else {
-        Keypair::generate_ed25519().public().into()
-    };
+        to_search = Keypair::generate_ed25519().public().into();
+    }
+
 
     println!("Searching for the closest peers to {:?}", to_search);
     swarm.behaviour_mut().get_closest_peers(to_search);
