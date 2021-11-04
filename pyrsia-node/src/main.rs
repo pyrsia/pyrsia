@@ -15,19 +15,18 @@ use libp2p::{
 };
 use std::{env, error::Error, str::FromStr, time::Duration};
 
-fn join_authors(authors: Vec<&'static str>) -> String {
-    return authors.join(", ");
-}
-
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
     let boot_nodes: Vec<&'static str> = vec![
+        "QmYiFu1AiWLu3Me73kVrE7z1fmcjjHVwJ7GZRZoNcTLjRF",
         "QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
         "QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
         "QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
         "QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
+        "QmTS3CRTSVsYXzD1nb1yD2N6XhWSWApZnpaxtCn8vLKHmd",
+        "QmQUZCnMVJSQkBsSQba6dvijsLnesqhvB532XeTp1GDhxa"
     ];
 
     // Create a random key for ourselves.
@@ -37,12 +36,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Set up a an encrypted DNS-enabled TCP Transport over the Mplex protocol
     let transport: Boxed<(PeerId, StreamMuxerBox)> = development_transport(local_key).await?;
 
-    let mut authors: Vec<&'static str> = Vec::new();
-    authors.push("Joeri Sykora <joeri@sertik.net>");
-    authors.push("Elliott Frisch <elliottf@jfrog.com>");
     let matches: ArgMatches = App::new("Pyrsia Node")
         .version("0.1.0")
-        .author(&*join_authors(authors))
+        .author(clap::crate_authors!(", "))
         .about("Application to connect to and participate in the Pyrsia network")
         .arg(
             Arg::with_name("verbose")
@@ -58,7 +54,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Pyrsia Node is now running!");
     if verbosity > 0 {
-        println!("Verbosity Level: {}", verbosity.to_string())
+        dbg!("Verbosity Level: {}", verbosity.to_string());
     }
     // Create a swarm to manage peers and events.
     let mut swarm: Swarm<Kademlia<MemoryStore>> = {
@@ -78,6 +74,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         Swarm::new(transport, behaviour, local_peer_id)
     };
+    dbg!("swarm");
 
     // Order Kademlia to search for a peer.
     let to_search: PeerId = if let Some(peer_id) = env::args().nth(1) {
@@ -132,8 +129,4 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
-    #[test]
-    fn test_add() {
-        assert_eq!("a, b, c", join_authors(Vec::from(["a", "b", "c"])));
-    }
 }
