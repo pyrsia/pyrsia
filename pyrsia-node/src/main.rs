@@ -47,8 +47,6 @@ fn main() {
             handle_connection(stream);
         });
     }
-
-    println!("Pyrsia Node exited.");
 }
 
 fn handle_connection(mut stream: TcpStream) {
