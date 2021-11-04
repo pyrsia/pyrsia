@@ -1,7 +1,7 @@
 extern crate clap;
 use clap::{App, Arg, ArgMatches};
-use std::io::{self, Stdin};
-use std::io::prelude::{Read, Write};
+use std::io::prelude::{BufRead, Write};
+use std::io::BufReader;
 use std::net::{TcpListener, TcpStream};
 
 mod threading;
@@ -52,9 +52,13 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream) {
-    let mut buffer = [0; 1024];
-    stream.read(&mut buffer).unwrap();
-    println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
+    let mut reader = BufReader::new(&stream);
+
+    let mut request = String::new();
+    reader.read_line(&mut request).unwrap();
+    let request = request.trim_end_matches(|c| c == '\n' || c == '\r');
+
+    println!("Request: '{}'", request);
 
     let response = "hi!";
     println!("Response: {}", response);
