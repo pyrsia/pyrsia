@@ -144,5 +144,4 @@ fn log_headers() -> impl Filter<Extract = (), Error = Infallible> + Copy {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
-
 }
