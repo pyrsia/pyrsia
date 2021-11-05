@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+  "artifact_manager",
+  "pyrsia-node"
+]
