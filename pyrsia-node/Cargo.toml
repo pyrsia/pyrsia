@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 clap = "2.33.0"
+log = "0.4.14"
 pretty_env_logger = "0.4.0"
 tokio = { version = "1", features = [ "macros", "rt-multi-thread" ] }
 warp = "0.3.1"

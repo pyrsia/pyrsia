@@ -1,4 +1,5 @@
 extern crate clap;
+extern crate log;
 extern crate pretty_env_logger;
 extern crate tokio;
 extern crate warp;
@@ -8,6 +9,7 @@ use std::fs;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use clap::{App, Arg, ArgMatches};
+use log::{debug, info};
 use warp::Filter;
 use warp::http::HeaderMap;
 
@@ -16,8 +18,6 @@ const DEFAULT_PORT: &str = "7878";
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init();
-
-    let log = warp::log("pyrsia");
 
     let mut authors: Vec<&'static str> = Vec::new();
     authors.push("Joeri Sykora <joeri@sertik.net>");
@@ -50,7 +50,7 @@ async fn main() {
 
     let verbosity: u64 = matches.occurrences_of("verbose");
     if verbosity > 0 {
-        println!("Verbosity Level: {}", verbosity.to_string())
+        info!("Verbosity Level: {}", verbosity.to_string())
     }
 
     let mut address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
@@ -58,7 +58,7 @@ async fn main() {
         address.set_port(p.parse::<u16>().unwrap());
     }
 
-    println!("Pyrsia Node is now running on port {}!", address.port());
+    info!("Pyrsia Node is now running on port {}!", address.port());
 
     let empty_json = "{}";
     let v2_base = warp::path("v2")
@@ -68,20 +68,24 @@ async fn main() {
         .with(warp::reply::with::header("Content-Length", empty_json.len()))
         .with(warp::reply::with::header("Content-Type", "application/json"));
 
-    let v2_manifest = warp::path!("v2" / String / "manifests" / String)
+    let v2_manifests = warp::path!("v2" / String / "manifests" / String)
         .and(warp::get().or(warp::head()).unify())
-        .and_then(handle_get_manifest);
+        .and_then(handle_get_manifests);
+
+    let v2_blobs = warp::path!("v2" / String / "blobs" / String)
+        .and(warp::get().or(warp::head()).unify())
+        .and_then(handle_get_blobs);
 
     let routes = warp::any().and(log_headers()).and(
-        v2_base.or(v2_manifest)
-    ).with(log);
+        v2_base.or(v2_manifests).or(v2_blobs)
+    ).with(warp::log("pyrsia_registry"));
 
     warp::serve(routes)
         .run(address)
         .await;
 }
 
-async fn handle_get_manifest(name: String, tag: String) -> Result<impl warp::Reply, warp::Rejection> {
+async fn handle_get_manifests(name: String, tag: String) -> Result<impl warp::Reply, warp::Rejection> {
     let colon = tag.find(':');
     let mut hash = String::from(&tag);
     if colon == None {
@@ -110,12 +114,29 @@ async fn handle_get_manifest(name: String, tag: String) -> Result<impl warp::Rep
         .unwrap());
 }
 
+async fn handle_get_blobs(_name: String, hash: String) -> Result<impl warp::Reply, warp::Rejection> {
+    let blob = format!("/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data", hash.get(7..9).unwrap(), hash.get(7..).unwrap());
+    let blob_content = fs::read(blob);
+    if blob_content.is_err() {
+        // todo: generate error response as specified in https://github.com/opencontainers/distribution-spec/blob/main/spec.md#error-codes
+        return Err(warp::reject::not_found());
+    }
+
+    let content = blob_content.unwrap();
+    return Ok(warp::http::response::Builder::new()
+        .header("Content-Type", "application/octet-stream")
+        .header("Content-Length", content.len())
+        .status(200)
+        .body(content)
+        .unwrap());
+}
+
 fn log_headers() -> impl Filter<Extract = (), Error = Infallible> + Copy {
     warp::header::headers_cloned()
         .map(|headers: HeaderMap| {
             for (k, v) in headers.iter() {
                 // Error from `to_str` should be handled properly
-                println!("{}: {}", k, v.to_str().expect("Failed to print header value"))
+                debug!(target: "pyrsia_registry", "{}: {}", k, v.to_str().expect("Failed to print header value"))
             }
         })
         .untuple_one()
