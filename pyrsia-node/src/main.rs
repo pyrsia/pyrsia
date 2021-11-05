@@ -139,4 +139,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
+
+    #[test]
+    fn test_add() {
+        assert_eq!(1 + 1, 2);
+    }
 }
