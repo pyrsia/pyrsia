@@ -1,5 +1,6 @@
 //use std::error::Error;
 use std::fs;
+
 //
 // # Artifact Manager
 // Library for managing artifacts. It manages a local collection of artifacts and is responsible
@@ -10,14 +11,14 @@ use std::fs;
 // ArtifactManager::new("/var/lib/pyrsia")
 // ```
 pub struct ArtifactManager {
-    pub repository_path : &'static str,
+    pub repository_path: &'static str,
 }
 
 impl ArtifactManager {
     //
     // Create a new ArtifactManager that works with artifacts in the given directory
     //
-    pub fn new(repository_path : &'static str) -> Result<ArtifactManager, &'static str> {
+    pub fn new(repository_path: &'static str) -> Result<ArtifactManager, &'static str> {
         if is_accessible_directory(repository_path) {
             Ok(ArtifactManager { repository_path })
         } else {
@@ -26,7 +27,8 @@ impl ArtifactManager {
     }
 }
 
-fn is_accessible_directory(repository_path : &'static str) -> bool {
+// return true if the given repository path leads to an accessible directory.
+fn is_accessible_directory(repository_path: &'static str) -> bool {
     match fs::metadata(repository_path) {
         Err(_) => false,
         Ok(metadata) => metadata.is_dir()
@@ -35,9 +37,14 @@ fn is_accessible_directory(repository_path : &'static str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn new_artifact_manager_with_valid_directory() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
+        let ok = match ArtifactManager::new(".") {
+            Ok(_) => true,
+            Err(_) => false
+        };
+        assert!(ok)
     }
 }
