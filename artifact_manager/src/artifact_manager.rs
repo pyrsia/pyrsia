@@ -1,15 +1,27 @@
 //use std::error::Error;
 use std::fs;
 
-//
-// # Artifact Manager
-// Library for managing artifacts. It manages a local collection of artifacts and is responsible
-// getting artifacts from other nodes when they are not present locally.
-//
-// Create an ArtifactManager object by passing a path for the local artifact repository to `new`.
-// ```
-// ArtifactManager::new("/var/lib/pyrsia")
-// ```
+///
+/// # Artifact Manager
+/// Library for managing artifacts. It manages a local collection of artifacts and is responsible
+/// getting artifacts from other nodes when they are not present locally.
+///
+///
+/// Create an ArtifactManager object by passing a path for the local artifact repository to `new` \
+/// like this.
+/// `ArtifactManager::new("/var/lib/pyrsia")`
+///
+/// The Artifact manager will store artifacts under the repository directory. The root directory of
+/// the repository will contain directories whose names will be hash algorithms (i.e. `SHA256`,
+/// `BLAKE3`, …).
+///
+/// Each of the hash algorithm directories will contain files whose names consist of the file's
+/// hash followed by an extension. For example<br>
+/// `68efadf3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6ccbb4.file`
+///
+/// For now, all files will have the `.file` extension to signify that they are simple files whose
+/// contents are the artifact having the same hash as indicated by the file name. Other extensions
+/// may be used in the future to indicate that the file has a particular internal structure.
 pub struct ArtifactManager {
     pub repository_path: &'static str,
 }
@@ -41,9 +53,18 @@ mod tests {
 
     #[test]
     fn new_artifact_manager_with_valid_directory() {
-        let ok = match ArtifactManager::new(".") {
+        let ok:bool = match ArtifactManager::new(".") {
             Ok(_) => true,
             Err(_) => false
+        };
+        assert!(ok)
+    }
+
+    #[test]
+    fn new_artifact_manager_with_bad_directory() {
+        let ok :bool = match ArtifactManager::new("BoGuS") {
+            Ok(_) => false,
+            Err(_) => true
         };
         assert!(ok)
     }
