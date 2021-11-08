@@ -1,4 +1,4 @@
-//use std::error::Error;
+use std::io;
 use std::fs;
 
 ///
@@ -36,6 +36,10 @@ impl ArtifactManager {
         } else {
             Err("Not an accessible directory")
         }
+    }
+
+    pub fn push_artifact(reader: &dyn io::Read, hash_algorithm: &str, expected_hash: &[u8]) {
+
     }
 }
 
