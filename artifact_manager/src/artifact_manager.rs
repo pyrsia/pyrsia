@@ -4,16 +4,16 @@ use std::fs;
 
 /// The types of hash that the artifact manager supports
 pub enum Hash {
-    SHA265([u8; 32]),
+    SHA256([u8; 32]),
     BLAKE3([u8; 64])
 }
 
 impl Hash {
-    // the directory name we will store artifacts under that use the given hash algorithm.
-    fn directory_name(&self) -> &'static str {
+    // The base file path (no extension on the file name) that will correspond to this hash
+    fn base_file_path<'a>(&self) -> String {
         match self {
-            Hash::SHA265 => "sha256",
-            Hash::BLAKE3 => "blake3"
+            Hash::SHA256(bytes) => "sha256/".to_owned() + &base64::encode(bytes),
+            Hash::BLAKE3(bytes) => "blake3/".to_owned() + &base64::encode(bytes),
         }
     }
 }
@@ -60,6 +60,7 @@ impl ArtifactManager {
     /// * expected_hash — The hash value that the pushed artifact is expected to have.
     /// Returns a result that contains the the hash
     pub fn push_artifact<'a>(&self, reader: &dyn io::Read, expected_hash: &'a Hash) -> Result<&'a Hash, anyhow::Error> {
+        let base_path = expected_hash.base_file_path();
         unimplemented!();
         //Ok(expected_hash)
     }

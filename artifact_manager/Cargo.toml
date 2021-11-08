@@ -12,4 +12,5 @@ path = "src/artifact_manager.rs"
 
 [dependencies]
 anyhow = "1.0.45"
+base64 = "0.13.0"
 #digest = "0.9.0"
