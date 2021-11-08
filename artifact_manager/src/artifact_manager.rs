@@ -1,6 +1,10 @@
 use anyhow::{Context, Result, anyhow};
+use path::PathBuf;
 use std::io;
+use std::io::{BufWriter, Write};
 use std::fs;
+use std::fs::{File, OpenOptions};
+use std::path;
 
 /// The types of hash that the artifact manager supports
 pub enum Hash {
@@ -10,11 +14,17 @@ pub enum Hash {
 
 impl Hash {
     // The base file path (no extension on the file name) that will correspond to this hash
-    fn base_file_path<'a>(&self) -> String {
-        match self {
-            Hash::SHA256(bytes) => "sha256/".to_owned() + &base64::encode(bytes),
-            Hash::BLAKE3(bytes) => "blake3/".to_owned() + &base64::encode(bytes),
+    fn base_file_path(&self, repo_dir: &'static str) -> PathBuf {
+        fn build_base_path(repo_dir: &'static str, dir_name: &str, bytes: &[u8]) -> PathBuf {
+            let mut buffer: PathBuf = PathBuf::from(repo_dir);
+            buffer.push(dir_name);
+            buffer.push(base64::encode(bytes));
+            return buffer;
         }
+        return match self {
+            Hash::SHA256(bytes) => build_base_path(repo_dir, "sha256",  bytes),
+            Hash::BLAKE3(bytes) => build_base_path(repo_dir, "blake3", bytes),
+        };
     }
 }
 
@@ -58,11 +68,27 @@ impl ArtifactManager {
     /// * reader — An object that this method will use to read the bytes of the artifact being
     ///            pushed.
     /// * expected_hash — The hash value that the pushed artifact is expected to have.
-    /// Returns a result that contains the the hash
-    pub fn push_artifact<'a>(&self, reader: &dyn io::Read, expected_hash: &'a Hash) -> Result<&'a Hash, anyhow::Error> {
-        let base_path = expected_hash.base_file_path();
-        unimplemented!();
-        //Ok(expected_hash)
+    /// Returns true if it created the artifact local or false if the artifact already existed.
+    pub fn push_artifact<'a>(&self, reader:  & mut dyn io::Read, expected_hash: &Hash) -> Result<bool, anyhow::Error> {
+        let mut base_path = expected_hash.base_file_path(self.repository_path);
+        // for now all artifacts are unstructured
+        base_path.set_extension("file");
+
+        let open_result = OpenOptions::new().write(true)
+            .create_new(true)
+            .open(base_path.as_path());
+        match open_result {
+            Ok(out) => {
+                let mut writer: BufWriter<File> = BufWriter::new(out);
+                io::copy(reader, &mut writer);
+                writer.flush();
+                return Ok(true);
+            },
+            Err(error) => match error.kind() {
+                io::ErrorKind::AlreadyExists => return Ok(false),
+                _ => return Err(anyhow!(error))
+            }
+        }
     }
 
     /// Pull an artifact. The current implementation only looks in the local node's repository.
