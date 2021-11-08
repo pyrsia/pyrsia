@@ -28,9 +28,7 @@ pub struct ArtifactManager {
 }
 
 impl ArtifactManager {
-    //
-    // Create a new ArtifactManager that works with artifacts in the given directory
-    //
+    /// Create a new ArtifactManager that works with artifacts in the given directory
     pub fn new(repository_path: &'static str) -> Result<ArtifactManager, anyhow::Error> {
         if is_accessible_directory(repository_path) {
             Ok(ArtifactManager { repository_path })
@@ -39,11 +37,23 @@ impl ArtifactManager {
         }
     }
 
-    //
-    // Push an artifact to this node's local repository.
-    //
-    pub fn push_artifact<'a>(reader: &dyn io::Read, hash_algorithm: &str, expected_hash: &'a [u8]) -> Result<&'a [u8], anyhow::Error>{
-        Ok(expected_hash)
+    /// Push an artifact to this node's local repository.
+    /// Parameters are:
+    /// * reader — An object that this method will use to read the bytes of the artifact being
+    ///            pushed.
+    /// * hash_algorithm — The name of the hash algorithm used to compute the artifact's hash
+    /// * expected_hash — The hash value that the pushed artifact is expected to have.
+    /// Returns a result that contains the the hash
+    pub fn push_artifact<'a>(&self, reader: &dyn io::Read, hash_algorithm: &str, expected_hash: &'a [u8]) -> Result<&'a [u8], anyhow::Error> {
+        unimplemented!();
+        //Ok(expected_hash)
+    }
+
+    /// Pull an artifact. The current implementation only looks in the local node's repository.
+    /// A future
+    ///
+    pub fn pull_artifact(&self, hash_algorithm: &str, hash: & [u8]) -> Result<&dyn io::Read, anyhow::Error> {
+        unimplemented!();
     }
 }
 
