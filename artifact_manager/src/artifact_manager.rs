@@ -1,3 +1,4 @@
+use anyhow::{Context, Result, anyhow};
 use std::io;
 use std::fs;
 
@@ -30,16 +31,19 @@ impl ArtifactManager {
     //
     // Create a new ArtifactManager that works with artifacts in the given directory
     //
-    pub fn new(repository_path: &'static str) -> Result<ArtifactManager, &'static str> {
+    pub fn new(repository_path: &'static str) -> Result<ArtifactManager, anyhow::Error> {
         if is_accessible_directory(repository_path) {
             Ok(ArtifactManager { repository_path })
         } else {
-            Err("Not an accessible directory")
+            Err(anyhow!("Not an accessible directory: {}", repository_path))
         }
     }
 
-    pub fn push_artifact(reader: &dyn io::Read, hash_algorithm: &str, expected_hash: &[u8]) {
-
+    //
+    // Push an artifact to this node's local repository.
+    //
+    pub fn push_artifact<'a>(reader: &dyn io::Read, hash_algorithm: &str, expected_hash: &'a [u8]) -> Result<&'a [u8], anyhow::Error>{
+        Ok(expected_hash)
     }
 }
 
