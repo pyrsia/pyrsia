@@ -2,6 +2,22 @@ use anyhow::{Context, Result, anyhow};
 use std::io;
 use std::fs;
 
+/// The types of hash that the artifact manager supports
+pub enum Hash {
+    SHA265([u8; 32]),
+    BLAKE3([u8; 64])
+}
+
+impl Hash {
+    // the directory name we will store artifacts under that use the given hash algorithm.
+    fn directory_name(&self) -> &'static str {
+        match self {
+            Hash::SHA265 => "sha256",
+            Hash::BLAKE3 => "blake3"
+        }
+    }
+}
+
 ///
 /// # Artifact Manager
 /// Library for managing artifacts. It manages a local collection of artifacts and is responsible
@@ -41,10 +57,9 @@ impl ArtifactManager {
     /// Parameters are:
     /// * reader — An object that this method will use to read the bytes of the artifact being
     ///            pushed.
-    /// * hash_algorithm — The name of the hash algorithm used to compute the artifact's hash
     /// * expected_hash — The hash value that the pushed artifact is expected to have.
     /// Returns a result that contains the the hash
-    pub fn push_artifact<'a>(&self, reader: &dyn io::Read, hash_algorithm: &str, expected_hash: &'a [u8]) -> Result<&'a [u8], anyhow::Error> {
+    pub fn push_artifact<'a>(&self, reader: &dyn io::Read, expected_hash: &'a Hash) -> Result<&'a Hash, anyhow::Error> {
         unimplemented!();
         //Ok(expected_hash)
     }
@@ -52,7 +67,7 @@ impl ArtifactManager {
     /// Pull an artifact. The current implementation only looks in the local node's repository.
     /// A future
     ///
-    pub fn pull_artifact(&self, hash_algorithm: &str, hash: & [u8]) -> Result<&dyn io::Read, anyhow::Error> {
+    pub fn pull_artifact(&self, hash_algorithm: &str, hash: & Hash) -> Result<&dyn io::Read, anyhow::Error> {
         unimplemented!();
     }
 }
