@@ -1,10 +1,41 @@
 use anyhow::{Context, Result, anyhow};
+use crypto::digest::Digest;
 use path::PathBuf;
+use crypto::sha2::Sha256;
 use std::io;
 use std::io::{BufWriter, Write};
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::path;
+
+// We will provide implementations of this trait for each hash algorithm that we support.
+trait Digester {
+    fn update(&mut self, input: Box<[u8]>);
+
+    fn finalize(&mut self) -> &[u8];
+}
+
+impl Digester for Sha256 {
+    fn update(self: &mut Self, input: Box<[u8]>) {
+        self.input(&*input);
+    }
+
+    fn finalize(self: &mut Self) -> &[u8] {
+        let mut hash_buffer: [u8;32] = [0; 32];
+        self.result(&mut hash_buffer);
+        return &hash_buffer[0..31];
+    }
+}
+
+impl Digester for blake3::Hasher {
+    fn update(&mut self, input: Box<[u8]>) {
+        self.update(&*input);
+    }
+
+    fn finalize(&mut self) -> &[u8] {
+        return self.finalize().as_bytes();
+    }
+}
 
 /// The types of hash that the artifact manager supports
 pub enum Hash {
@@ -18,13 +49,20 @@ impl Hash {
         fn build_base_path(repo_dir: &'static str, dir_name: &str, bytes: &[u8]) -> PathBuf {
             let mut buffer: PathBuf = PathBuf::from(repo_dir);
             buffer.push(dir_name);
-            buffer.push(base64::encode(bytes));
+            buffer.push(hex::encode(bytes));
             return buffer;
         }
         return match self {
             Hash::SHA256(bytes) => build_base_path(repo_dir, "sha256",  bytes),
             Hash::BLAKE3(bytes) => build_base_path(repo_dir, "blake3", bytes),
         };
+    }
+
+    fn digest_factory(&self) -> Box<dyn Digester> {
+        return match self {
+            Hash::SHA256(_) => Box::new(Sha256::new()),
+            Hash::BLAKE3(_) => Box::new(blake3::Hasher::new())
+        }
     }
 }
 
@@ -48,7 +86,8 @@ impl Hash {
 ///
 /// For now, all files will have the `.file` extension to signify that they are simple files whose
 /// contents are the artifact having the same hash as indicated by the file name. Other extensions
-/// may be used in the future to indicate that the file has a particular internal structure.
+/// may be used in the future to indicate that the file has a particular internal structure that
+/// Pyrsia needs to know about.
 pub struct ArtifactManager {
     pub repository_path: &'static str,
 }
@@ -77,16 +116,16 @@ impl ArtifactManager {
         let open_result = OpenOptions::new().write(true)
             .create_new(true)
             .open(base_path.as_path());
-        match open_result {
+        return match open_result {
             Ok(out) => {
                 let mut writer: BufWriter<File> = BufWriter::new(out);
                 io::copy(reader, &mut writer);
                 writer.flush();
-                return Ok(true);
+                Ok(true)
             },
             Err(error) => match error.kind() {
-                io::ErrorKind::AlreadyExists => return Ok(false),
-                _ => return Err(anyhow!(error))
+                io::ErrorKind::AlreadyExists => Ok(false),
+                _ => Err(anyhow!(error))
             }
         }
     }
@@ -94,7 +133,7 @@ impl ArtifactManager {
     /// Pull an artifact. The current implementation only looks in the local node's repository.
     /// A future
     ///
-    pub fn pull_artifact(&self, hash_algorithm: &str, hash: & Hash) -> Result<&dyn io::Read, anyhow::Error> {
+    pub fn pull_artifact(&self, _hash_algorithm: &str, _hash: & Hash) -> Result<&dyn io::Read, anyhow::Error> {
         unimplemented!();
     }
 }
