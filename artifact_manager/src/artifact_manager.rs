@@ -64,6 +64,13 @@ impl Hash {
     }
 }
 
+// This is a decorator for the Write trait that allows the bytes written by the writer to be used to
+// comput a hash
+struct WriteHasher {
+    writer: Box<dyn Write>,
+    digester: Box<dyn Digester>
+}
+
 ///
 /// # Artifact Manager
 /// Library for managing artifacts. It manages a local collection of artifacts and is responsible
@@ -117,8 +124,8 @@ impl ArtifactManager {
         return match open_result {
             Ok(out) => {
                 let mut writer: BufWriter<File> = BufWriter::new(out);
-                io::copy(reader, &mut writer).with_context(||"Error while copying artifact contents to {}", base_path.as_os_str())?;
-                writer.flush().with_context(||"Error while flushing last of artifact contents to {}", base_path.as_os_str())?;
+                io::copy(reader, &mut writer).with_context(|| format!("Error while copying artifact contents to {}", base_path.display()))?;
+                writer.flush().with_context(|| format!("Error while flushing last of artifact contents to {}", base_path.display()))?;
                 Ok(true)
             },
             Err(error) => match error.kind() {
