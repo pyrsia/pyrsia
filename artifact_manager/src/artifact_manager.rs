@@ -1,46 +1,46 @@
-use anyhow::{Context, Result, anyhow};
-use crypto::digest::Digest;
 use path::PathBuf;
-use crypto::sha2::Sha256;
-use std::io;
-use std::io::{BufWriter, Write};
 use std::fs;
 use std::fs::{File, OpenOptions};
+use std::io;
+use std::io::{BufWriter, Write};
 use std::path;
+
+use anyhow::{anyhow, Context, Result};
+use crypto::digest::Digest;
+use crypto::sha2::Sha256;
 
 // We will provide implementations of this trait for each hash algorithm that we support.
 trait Digester {
-    fn update(&mut self, input: Box<[u8]>);
+    fn update_hash(&mut self, input: Box<[u8]>);
 
-    fn finalize(&mut self) -> &[u8];
+    fn finalize_hash(&mut self, hash_buffer: &mut [u8]);
+
+    fn hash_size_in_bytes(&self) -> u32;
 }
 
 impl Digester for Sha256 {
-    fn update(self: &mut Self, input: Box<[u8]>) {
+    fn update_hash(self: &mut Self, input: Box<[u8]>) {
         self.input(&*input);
     }
 
-    fn finalize(self: &mut Self) -> &[u8] {
-        let mut hash_buffer: [u8;32] = [0; 32];
-        self.result(&mut hash_buffer);
-        return &hash_buffer[0..31];
-    }
-}
-
-impl Digester for blake3::Hasher {
-    fn update(&mut self, input: Box<[u8]>) {
-        self.update(&*input);
+    fn finalize_hash(self: &mut Self, hash_buffer: &mut [u8]) {
+        let mut hash_array: [u8;32] = [0; 32];
+        self.result(&mut hash_array);
+        let mut i = 0;
+        while i < 32 {
+            hash_buffer[i] = hash_array[i];
+            i += 1;
+        }
     }
 
-    fn finalize(&mut self) -> &[u8] {
-        return self.finalize().as_bytes();
+    fn hash_size_in_bytes(&self) -> u32 {
+        return 32;
     }
 }
 
 /// The types of hash that the artifact manager supports
 pub enum Hash {
-    SHA256([u8; 32]),
-    BLAKE3([u8; 64])
+    SHA256([u8; 32])
 }
 
 impl Hash {
@@ -54,14 +54,12 @@ impl Hash {
         }
         return match self {
             Hash::SHA256(bytes) => build_base_path(repo_dir, "sha256",  bytes),
-            Hash::BLAKE3(bytes) => build_base_path(repo_dir, "blake3", bytes),
         };
     }
 
     fn digest_factory(&self) -> Box<dyn Digester> {
         return match self {
             Hash::SHA256(_) => Box::new(Sha256::new()),
-            Hash::BLAKE3(_) => Box::new(blake3::Hasher::new())
         }
     }
 }
@@ -119,8 +117,8 @@ impl ArtifactManager {
         return match open_result {
             Ok(out) => {
                 let mut writer: BufWriter<File> = BufWriter::new(out);
-                io::copy(reader, &mut writer);
-                writer.flush();
+                io::copy(reader, &mut writer).with_context(||"Error while copying artifact contents to {}", base_path.as_os_str())?;
+                writer.flush().with_context(||"Error while flushing last of artifact contents to {}", base_path.as_os_str())?;
                 Ok(true)
             },
             Err(error) => match error.kind() {
