@@ -11,9 +11,6 @@ use std::fs;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use clap::{App, Arg, ArgMatches};
-use log::{debug, info};
-use warp::Filter;
-use warp::http::HeaderMap;
 use futures::StreamExt;
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::Boxed;
@@ -25,7 +22,10 @@ use libp2p::{
     swarm::{Swarm, SwarmEvent},
     Multiaddr, PeerId,
 };
+use log::{debug, info};
 use std::{env, str::FromStr, time::Duration};
+use warp::http::HeaderMap;
+use warp::Filter;
 
 const DEFAULT_PORT: &str = "7878";
 
@@ -48,7 +48,8 @@ async fn main() {
     let local_peer_id: PeerId = PeerId::from(local_key.public());
 
     // Set up a an encrypted DNS-enabled TCP Transport over the Mplex protocol
-    let transport: Boxed<(PeerId, StreamMuxerBox)> = development_transport(local_key).await.unwrap();
+    let transport: Boxed<(PeerId, StreamMuxerBox)> =
+        development_transport(local_key).await.unwrap();
 
     let matches: ArgMatches = App::new("Pyrsia Node")
         .version("0.1.0")
@@ -127,9 +128,9 @@ async fn main() {
         loop {
             let event: SwarmEvent<KademliaEvent, std::io::Error> = swarm.select_next_some().await;
             if let SwarmEvent::Behaviour(KademliaEvent::OutboundQueryCompleted {
-                                             result: QueryResult::GetClosestPeers(result),
-                                             ..
-                                         }) = event
+                result: QueryResult::GetClosestPeers(result),
+                ..
+            }) = event
             {
                 match result {
                     Ok(ok) => {
@@ -169,8 +170,14 @@ async fn main() {
         .and(warp::get())
         .and(warp::path::end())
         .map(move || empty_json)
-        .with(warp::reply::with::header("Content-Length", empty_json.len()))
-        .with(warp::reply::with::header("Content-Type", "application/json"));
+        .with(warp::reply::with::header(
+            "Content-Length",
+            empty_json.len(),
+        ))
+        .with(warp::reply::with::header(
+            "Content-Type",
+            "application/json",
+        ));
 
     let v2_manifests = warp::path!("v2" / String / "manifests" / String)
         .and(warp::get().or(warp::head()).unify())
@@ -180,20 +187,25 @@ async fn main() {
         .and(warp::get().or(warp::head()).unify())
         .and_then(handle_get_blobs);
 
-    let routes = warp::any().and(log_headers()).and(
-        v2_base.or(v2_manifests).or(v2_blobs)
-    ).with(warp::log("pyrsia_registry"));
+    let routes = warp::any()
+        .and(log_headers())
+        .and(v2_base.or(v2_manifests).or(v2_blobs))
+        .with(warp::log("pyrsia_registry"));
 
-    warp::serve(routes)
-        .run(address)
-        .await;
+    warp::serve(routes).run(address).await;
 }
 
-async fn handle_get_manifests(name: String, tag: String) -> Result<impl warp::Reply, warp::Rejection> {
+async fn handle_get_manifests(
+    name: String,
+    tag: String,
+) -> Result<impl warp::Reply, warp::Rejection> {
     let colon = tag.find(':');
     let mut hash = String::from(&tag);
     if colon == None {
-        let manifest = format!("/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current/link", name, tag);
+        let manifest = format!(
+            "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current/link",
+            name, tag
+        );
         let manifest_content = fs::read_to_string(manifest);
         if manifest_content.is_err() {
             // todo: generate error response as specified in https://github.com/opencontainers/distribution-spec/blob/main/spec.md#error-codes
@@ -202,7 +214,11 @@ async fn handle_get_manifests(name: String, tag: String) -> Result<impl warp::Re
         hash = manifest_content.unwrap();
     }
 
-    let blob = format!("/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data", hash.get(7..9).unwrap(), hash.get(7..).unwrap());
+    let blob = format!(
+        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
+        hash.get(7..9).unwrap(),
+        hash.get(7..).unwrap()
+    );
     let blob_content = fs::read_to_string(blob);
     if blob_content.is_err() {
         // todo: generate error response as specified in https://github.com/opencontainers/distribution-spec/blob/main/spec.md#error-codes
@@ -211,15 +227,25 @@ async fn handle_get_manifests(name: String, tag: String) -> Result<impl warp::Re
 
     let content = blob_content.unwrap();
     return Ok(warp::http::response::Builder::new()
-        .header("Content-Type", "application/vnd.docker.distribution.manifest.v2+json")
+        .header(
+            "Content-Type",
+            "application/vnd.docker.distribution.manifest.v2+json",
+        )
         .header("Content-Length", content.len())
         .status(200)
         .body(content)
         .unwrap());
 }
 
-async fn handle_get_blobs(_name: String, hash: String) -> Result<impl warp::Reply, warp::Rejection> {
-    let blob = format!("/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data", hash.get(7..9).unwrap(), hash.get(7..).unwrap());
+async fn handle_get_blobs(
+    _name: String,
+    hash: String,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let blob = format!(
+        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
+        hash.get(7..9).unwrap(),
+        hash.get(7..).unwrap()
+    );
     let blob_content = fs::read(blob);
     if blob_content.is_err() {
         // todo: generate error response as specified in https://github.com/opencontainers/distribution-spec/blob/main/spec.md#error-codes
