@@ -31,10 +31,7 @@ use libp2p::{
     swarm::{Swarm, SwarmEvent},
     Multiaddr, PeerId,
 };
-use log::{debug, info};
 use std::{env, str::FromStr, time::Duration};
-use warp::http::HeaderMap;
-use warp::Filter;
 use easy_hasher::easy_hasher::{file_hash, Hash, raw_sha256};
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
@@ -351,7 +348,7 @@ async fn handle_put_manifest(name: String, reference: String, bytes: Bytes) -> R
                 return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
             }
         }
-    
+
         Ok(warp::http::response::Builder::new()
             .header("Location", format!("http://localhost:7878/v2/{}/manifests/sha256:{}", name, hash))
             .header("Docker-Content-Digest", format!("sha256:{}", hash))
