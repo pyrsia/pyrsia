@@ -1,8 +1,9 @@
 use path::PathBuf;
+use std::fmt::Arguments;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io;
-use std::io::{BufWriter, Write};
+use std::io::{BufWriter, IoSlice, Read, Write};
 use std::path;
 
 use anyhow::{anyhow, Context, Result};
@@ -11,7 +12,7 @@ use crypto::sha2::Sha256;
 
 // We will provide implementations of this trait for each hash algorithm that we support.
 trait Digester {
-    fn update_hash(&mut self, input: Box<[u8]>);
+    fn update_hash(&mut self, input: &[u8]);
 
     fn finalize_hash(&mut self, hash_buffer: &mut [u8]);
 
@@ -19,12 +20,12 @@ trait Digester {
 }
 
 impl Digester for Sha256 {
-    fn update_hash(self: &mut Self, input: Box<[u8]>) {
+    fn update_hash(self: &mut Self, input: &[u8]) {
         self.input(&*input);
     }
 
     fn finalize_hash(self: &mut Self, hash_buffer: &mut [u8]) {
-        let mut hash_array: [u8;32] = [0; 32];
+        let mut hash_array: [u8; 32] = [0; 32];
         self.result(&mut hash_array);
         let mut i = 0;
         while i < 32 {
@@ -53,22 +54,73 @@ impl Hash {
             return buffer;
         }
         return match self {
-            Hash::SHA256(bytes) => build_base_path(repo_dir, "sha256",  bytes),
+            Hash::SHA256(bytes) => build_base_path(repo_dir, "sha256", bytes),
         };
     }
 
     fn digest_factory(&self) -> Box<dyn Digester> {
         return match self {
             Hash::SHA256(_) => Box::new(Sha256::new()),
-        }
+        };
     }
 }
 
 // This is a decorator for the Write trait that allows the bytes written by the writer to be used to
-// comput a hash
-struct WriteHasher {
-    writer: Box<dyn Write>,
-    digester: Box<dyn Digester>
+// compute a hash
+struct WriteHashDecorator<'a> {
+    writer: &'a mut dyn Write,
+    digester: &'a mut dyn Digester,
+}
+
+impl<'a> WriteHashDecorator<'a> {
+    fn new(writer: &'a mut impl Write, digester: &'a mut impl Digester) -> Self {
+        return Self { writer, digester };
+    }
+}
+
+// Decorator logic is supplied only for the methods that we expect to be called by io::copy
+impl<'a> Write for WriteHashDecorator<'a> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let result = self.writer.write(buf);
+        match result { // hash just the number of bytes that were actually written. This may be less than the whole buffer.
+            Ok(bytes_written) => self.digester.update_hash(&buf[0..bytes_written]),
+            _ => {}
+        }
+        return result;
+    }
+
+    fn write_vectored(&mut self, _bufs: &[IoSlice<'_>]) -> io::Result<usize> {
+        todo!()
+    }
+
+    // fn is_write_vectored(&self) -> bool {
+    //     todo!()
+    // }
+
+    fn flush(&mut self) -> io::Result<()> {
+        return self.writer.flush();
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        let result = self.writer.write(buf);
+        match result { // hash just the number of bytes that were actually written. This may be less than the whole buffer.
+            Ok(_) => self.digester.update_hash(buf),
+            _ => {}
+        }
+        return Ok(());
+    }
+
+    // fn write_all_vectored(&mut self, bufs: &mut [IoSlice<'_>]) -> io::Result<()> {
+    //     todo!()
+    // }
+
+    fn write_fmt(&mut self, _fmt: Arguments<'_>) -> io::Result<()> {
+        todo!()
+    }
+
+    fn by_ref(&mut self) -> &mut Self where Self: Sized {
+        todo!()
+    }
 }
 
 ///
@@ -113,7 +165,7 @@ impl ArtifactManager {
     ///            pushed.
     /// * expected_hash — The hash value that the pushed artifact is expected to have.
     /// Returns true if it created the artifact local or false if the artifact already existed.
-    pub fn push_artifact<'a>(&self, reader:  & mut dyn io::Read, expected_hash: &Hash) -> Result<bool, anyhow::Error> {
+    pub fn push_artifact<'a>(&self, reader: &mut impl Read, expected_hash: &Hash) -> Result<bool, anyhow::Error> {
         let mut base_path = expected_hash.base_file_path(self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension("file");
@@ -127,18 +179,18 @@ impl ArtifactManager {
                 io::copy(reader, &mut writer).with_context(|| format!("Error while copying artifact contents to {}", base_path.display()))?;
                 writer.flush().with_context(|| format!("Error while flushing last of artifact contents to {}", base_path.display()))?;
                 Ok(true)
-            },
+            }
             Err(error) => match error.kind() {
                 io::ErrorKind::AlreadyExists => Ok(false),
                 _ => Err(anyhow!(error))
             }
-        }
+        };
     }
 
     /// Pull an artifact. The current implementation only looks in the local node's repository.
     /// A future
     ///
-    pub fn pull_artifact(&self, _hash_algorithm: &str, _hash: & Hash) -> Result<&dyn io::Read, anyhow::Error> {
+    pub fn pull_artifact(&self, _hash_algorithm: &str, _hash: &Hash) -> Result<&dyn io::Read, anyhow::Error> {
         unimplemented!();
     }
 }
@@ -157,7 +209,7 @@ mod tests {
 
     #[test]
     fn new_artifact_manager_with_valid_directory() {
-        let ok:bool = match ArtifactManager::new(".") {
+        let ok: bool = match ArtifactManager::new(".") {
             Ok(_) => true,
             Err(_) => false
         };
@@ -166,7 +218,7 @@ mod tests {
 
     #[test]
     fn new_artifact_manager_with_bad_directory() {
-        let ok :bool = match ArtifactManager::new("BoGuS") {
+        let ok: bool = match ArtifactManager::new("BoGuS") {
             Ok(_) => false,
             Err(_) => true
         };
