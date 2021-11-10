@@ -10,6 +10,11 @@ This is a sandbox project for Pyrsia to become familiar with the concepts and to
 2. cd pyrsia-node
 3. cargo run
 
+
+### Setting up Visual Studio Code Debugger
+
+[How to Debug Rust with Visual Studio Code](https://www.forrestthewoods.com/blog/how-to-debug-rust-with-visual-studio-code/)
+
 ### Running the docker integraion:
 
 1. open a terminal and start a pyrsia node with: RUST_LOG=pyrsia cargo run -q
