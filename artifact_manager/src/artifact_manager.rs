@@ -51,23 +51,51 @@ pub mod artifact_manager {
     }
 
     impl Hash {
+        ///////////////////////////////////////////////////////////////
+        // Add another constant for each new member of Hash.         //
+        // Don't forget to add the contstant to the following array. //
+        const SHA256_DIR: &'static str = "sha256";
+
+        ////////////////////////////////////////////////////////////////////////
+        // When there is a new Hash enum sure to add the directory names here //
+        ////////////////////////////////////////////////////////////////////////
+        const ALGORITHM_NAMES: [&'static str;1] = [Hash::SHA256_DIR];
+
+        fn ensure_directories_for_hash_algorithms_exist(repository_path: &str) -> Result<(), anyhow::Error >{
+            let mut path_buf = PathBuf::new();
+            path_buf.push(repository_path);
+            for name in Hash::ALGORITHM_NAMES {
+                let mut this_buf = path_buf.clone();
+                this_buf.push(name);
+                fs::create_dir_all( this_buf.as_os_str()).with_context(|| format!("Error creating directory {}", this_buf.display()))?;
+            }
+            Ok(())
+
+        }
+
         // The base file path (no extension on the file name) that will correspond to this hash
-        fn base_file_path(&self, repo_dir: &'static str) -> PathBuf {
-            fn build_base_path(repo_dir: &'static str, dir_name: &str, bytes: &[u8]) -> PathBuf {
+        fn base_file_path(&self, repo_dir: &str) -> PathBuf {
+            fn build_base_path(repo_dir: &str, dir_name: &str, bytes: &[u8]) -> PathBuf {
                 let mut buffer: PathBuf = PathBuf::from(repo_dir);
                 buffer.push(dir_name);
                 buffer.push(hex::encode(bytes));
                 return buffer;
             }
             return match self {
-                Hash::SHA256(bytes) => build_base_path(repo_dir, "sha256", bytes),
-            };
+                Hash::SHA256(bytes) => build_base_path(repo_dir, self.algorithm_directory_name(), bytes),
+            }
         }
 
         fn digest_factory(&self) -> impl Digester {
             return match self {
                 Hash::SHA256(_) => Sha256::new(),
             };
+        }
+
+        fn algorithm_directory_name(&self) -> &'static str {
+            return match self {
+                Hash::SHA256(_) => Hash::SHA256_DIR
+            }
         }
     }
 
@@ -79,7 +107,7 @@ pub mod artifact_manager {
     }
 
     impl<'a> WriteHashDecorator<'a> {
-        fn new(writer: &'a mut impl Write, digester: &'a mut impl Digester) -> WriteHashDecorator<'a> {
+        fn new(writer: &'a mut impl Write, digester: &'a mut impl Digester) -> Self {
             return WriteHashDecorator { writer, digester };
         }
     }
@@ -146,14 +174,15 @@ pub mod artifact_manager {
     /// contents are the artifact having the same hash as indicated by the file name. Other extensions
     /// may be used in the future to indicate that the file has a particular internal structure that
     /// Pyrsia needs to know about.
-    pub struct ArtifactManager {
-        pub repository_path: &'static str,
+    pub struct ArtifactManager<'a> {
+        pub repository_path: &'a str,
     }
 
-    impl ArtifactManager {
+    impl<'a> ArtifactManager<'a> {
         /// Create a new ArtifactManager that works with artifacts in the given directory
-        pub fn new(repository_path: &'static str) -> Result<ArtifactManager, anyhow::Error> {
+        pub fn new(repository_path: &str) -> Result<ArtifactManager, anyhow::Error> {
             if is_accessible_directory(repository_path) {
+                Hash::ensure_directories_for_hash_algorithms_exist(repository_path)?;
                 Ok(ArtifactManager { repository_path })
             } else {
                 Err(anyhow!("Not an accessible directory: {}", repository_path))
@@ -166,7 +195,7 @@ pub mod artifact_manager {
         ///            pushed.
         /// * expected_hash — The hash value that the pushed artifact is expected to have.
         /// Returns true if it created the artifact local or false if the artifact already existed.
-        pub fn push_artifact<'a>(&self, reader: &mut impl Read, expected_hash: &Hash) -> Result<bool, anyhow::Error> {
+        pub fn push_artifact(&self, reader: &mut impl Read, expected_hash: &Hash) -> Result<bool, anyhow::Error> {
             let mut base_path = expected_hash.base_file_path(self.repository_path);
             // for now all artifacts are unstructured
             base_path.set_extension("file");
@@ -181,7 +210,7 @@ pub mod artifact_manager {
                 Err(error) => match error.kind() {
                     io::ErrorKind::AlreadyExists => Ok(false),
                     _ => Err(anyhow!(error))
-                }
+                }.with_context(|| format!("Error creating file {}", base_path.display()))
             };
         }
 
@@ -203,7 +232,7 @@ pub mod artifact_manager {
     }
 
     // return true if the given repository path leads to an accessible directory.
-    fn is_accessible_directory(repository_path: &'static str) -> bool {
+    fn is_accessible_directory(repository_path: &str) -> bool {
         match fs::metadata(repository_path) {
             Err(_) => false,
             Ok(metadata) => metadata.is_dir()
@@ -214,6 +243,10 @@ pub mod artifact_manager {
 #[cfg(test)]
 mod tests {
     use super::artifact_manager::*;
+    use stringreader::StringReader;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use anyhow::Context;
 
     #[test]
     fn new_artifact_manager_with_valid_directory() {
@@ -224,6 +257,9 @@ mod tests {
         assert!(ok)
     }
 
+    const TEST_ARTIFACT_DATA: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
+    const TEST_ARTIFACT_HASH: [u8;32] = [0x2d, 0x8c, 0x2f, 0x6d, 0x97, 0x8c, 0xa2, 0x17, 0x12, 0xb5, 0xf6, 0xde, 0x36, 0xc9, 0xd3, 0x1f, 0xa8, 0xe9, 0x6a, 0x4f, 0xa5, 0xd8, 0xff, 0x8b, 0x01, 0x88, 0xdf, 0xb9, 0xe7, 0xc1, 0x71, 0xbb];
+
     #[test]
     fn new_artifact_manager_with_bad_directory() {
         let ok: bool = match ArtifactManager::new("BoGuS") {
@@ -231,5 +267,26 @@ mod tests {
             Err(_) => true
         };
         assert!(ok)
+    }
+
+    #[test]
+    fn happy_push_test() -> Result<(), anyhow::Error> {
+        let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
+        let hash = Hash::SHA256(TEST_ARTIFACT_HASH);
+        let dir_name = tmp_dir_name();
+        println!("tmp dir: {}", dir_name);
+        fs::create_dir(dir_name.clone()).context(format!("Error creating directory {}", dir_name.clone()))?;
+        let am = ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
+        am.push_artifact(&mut string_reader, &hash).context("Error from push_artifact")?;
+        fs::remove_dir_all(dir_name.clone()).context(format!("Error removing directory {}", dir_name))?;
+        Ok(())
+    }
+
+    fn tmp_dir_name() -> String {
+        return format!("{}{}","tmp",
+            SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_millis());
     }
 }
