@@ -1,3 +1,8 @@
+///
+/// # Artifact Manager
+/// Module for managing artifacts. It manages a local collection of artifacts and is responsible
+/// getting artifacts from other nodes when they are not present locally.
+///
 pub mod artifact_manager {
     use path::PathBuf;
     use std::fmt::Arguments;
@@ -7,7 +12,7 @@ pub mod artifact_manager {
     use std::io::{BufWriter, IoSlice, Read, Write};
     use std::path;
 
-    use anyhow::{anyhow, Context, Result};
+    use anyhow::{anyhow, Context, Error, Result};
     use crypto::digest::Digest;
     use crypto::sha2::Sha256;
 
@@ -59,23 +64,23 @@ pub mod artifact_manager {
             };
         }
 
-        fn digest_factory(&self) -> Box<dyn Digester> {
+        fn digest_factory(&self) -> impl Digester {
             return match self {
-                Hash::SHA256(_) => Box::new(Sha256::new()),
+                Hash::SHA256(_) => Sha256::new(),
             };
         }
     }
 
-    // This is a decorator for the Write trait that allows the bytes written by the writer to be used to
-// compute a hash
+    // This is a decorator for the Write trait that allows the bytes written by the writer to be
+    // used to compute a hash
     struct WriteHashDecorator<'a> {
         writer: &'a mut dyn Write,
         digester: &'a mut dyn Digester,
     }
 
     impl<'a> WriteHashDecorator<'a> {
-        fn new(writer: &'a mut impl Write, digester: &'a mut impl Digester) -> Self {
-            return Self { writer, digester };
+        fn new(writer: &'a mut impl Write, digester: &'a mut impl Digester) -> WriteHashDecorator<'a> {
+            return WriteHashDecorator { writer, digester };
         }
     }
 
@@ -125,11 +130,6 @@ pub mod artifact_manager {
     }
 
     ///
-    /// # Artifact Manager
-    /// Library for managing artifacts. It manages a local collection of artifacts and is responsible
-    /// getting artifacts from other nodes when they are not present locally.
-    ///
-    ///
     /// Create an ArtifactManager object by passing a path for the local artifact repository to `new` \
     /// like this.
     /// `ArtifactManager::new("/var/lib/pyrsia")`
@@ -176,16 +176,22 @@ pub mod artifact_manager {
                 .open(base_path.as_path());
             return match open_result {
                 Ok(out) => {
-                    let mut writer: BufWriter<File> = BufWriter::new(out);
-                    io::copy(reader, &mut writer).with_context(|| format!("Error while copying artifact contents to {}", base_path.display()))?;
-                    writer.flush().with_context(|| format!("Error while flushing last of artifact contents to {}", base_path.display()))?;
-                    Ok(true)
+                    Self::do_push(reader, expected_hash, base_path, out)
                 }
                 Err(error) => match error.kind() {
                     io::ErrorKind::AlreadyExists => Ok(false),
                     _ => Err(anyhow!(error))
                 }
             };
+        }
+
+        fn do_push(reader: &mut impl Read, expected_hash: &Hash, base_path: PathBuf, out: File) -> Result<bool, Error> {
+            let mut buf_writer: BufWriter<File> = BufWriter::new(out);
+            let digester = &mut expected_hash.digest_factory();
+            let mut writer = WriteHashDecorator::new(&mut buf_writer, digester);
+            io::copy(reader, &mut writer).with_context(|| format!("Error while copying artifact contents to {}", base_path.display()))?;
+            writer.flush().with_context(|| format!("Error while flushing last of artifact contents to {}", base_path.display()))?;
+            Ok(true)
         }
 
         /// Pull an artifact. The current implementation only looks in the local node's repository.
