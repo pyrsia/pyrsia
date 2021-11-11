@@ -1679,12 +1679,14 @@ dependencies = [
  "async-io",
  "futures",
  "futures-timer",
+ "if-addrs",
  "if-watch",
  "ipnet",
  "libc",
  "libp2p-core",
  "log",
  "socket2 0.4.2",
+ "tokio",
 ]
 
 [[package]]
