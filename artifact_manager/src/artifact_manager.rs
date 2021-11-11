@@ -5,6 +5,7 @@
 ///
 pub mod artifact_manager {
     use path::PathBuf;
+    use std::ffi::OsStr;
     use std::fmt::{Arguments, Display, Formatter};
     use std::fs;
     use std::fs::{File, OpenOptions};
@@ -239,40 +240,46 @@ pub mod artifact_manager {
         /// * expected_hash — The hash value that the pushed artifact is expected to have.
         /// Returns true if it created the artifact local or false if the artifact already existed.
         pub fn push_artifact(&self, reader: &mut impl Read, expected_hash: &Hash) -> Result<bool, anyhow::Error> {
-            let mut base_path = expected_hash.base_file_path(self.repository_path);
+            let mut base_path: PathBuf = expected_hash.base_file_path(self.repository_path);
             // for now all artifacts are unstructured
             base_path.set_extension("file");
+            // Write to a temporary name that won't be mistaken for a valid file. If the hash checks out, rename it to the base name; otherwise delete it.
+            let tmp_path = tmp_path_from_base(&base_path);
 
-
-            { // This block is so that the file will be closed implicitly. There is no explicit close.
-                let open_result = OpenOptions::new().write(true)
-                    .create_new(true)
-                    .open(base_path.as_path());
-                return match open_result {
-                    Ok(out) => {
-                        println!("hash is {}", expected_hash);
-                        let mut hash_buffer: [u8; 128] = [0; 128];
-                        let actual_hash = &*Self::do_push(reader, expected_hash, base_path, out, &mut hash_buffer).with_context(|| format!("Error writing contents of {}", expected_hash))?;
+            let open_result = OpenOptions::new().write(true)
+                .create_new(true)
+                .open(tmp_path.as_path());
+            return match open_result {
+                Ok(out) => {
+                    println!("hash is {}", expected_hash);
+                    let mut hash_buffer: [u8; 128] = [0; 128];
+                    // file out is implicitly closed by being borrowed by the following function call and then being dropped in the function call.
+                    let actual_hash = &*Self::do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer).with_context(|| format!("Error writing contents of {}", expected_hash))?;
+                    if actual_hash == expected_hash.bytes {
+                        fs::rename(tmp_path, base_path);
                         Ok(true)
+                    } else {
+                        fs::remove_file(tmp_path).with_context(|| format!("Attempted to remove {} because its content has the wrong hash.", tmp_path.to_str().unwrap()))?;
+                        Err(anyhow!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}", expected_hash, expected_hash.algorithm, hex::encode(actual_hash)))
                     }
-                    Err(error) => Self::file_creation_error(base_path, error)
-                };
-            }
+                }
+                Err(error) => Self::file_creation_error(&tmp_path, error)
+            };
         }
 
-        fn file_creation_error(base_path: PathBuf, error: std::io::Error) -> Result<bool, Error> {
+        fn file_creation_error(base_path: &PathBuf, error: std::io::Error) -> Result<bool, Error> {
             match error.kind() {
                 io::ErrorKind::AlreadyExists => Ok(false),
                 _ => Err(anyhow!(error))
             }.with_context(|| format!("Error creating file {}", base_path.display()))
         }
 
-        fn do_push<'b>(reader: &mut impl Read, expected_hash: &Hash, base_path: PathBuf, out: File, hash_buffer: &'b mut [u8; 128]) -> Result<&'b [u8], Error> {
+        fn do_push<'b>(reader: &mut impl Read, expected_hash: &Hash, path: &PathBuf, out: File, hash_buffer: &'b mut [u8; 128]) -> Result<&'b [u8], Error> {
             let mut buf_writer: BufWriter<File> = BufWriter::new(out);
             let mut digester = expected_hash.algorithm.digest_factory();
             let mut writer = WriteHashDecorator::new(&mut buf_writer, &mut digester);
-            io::copy(reader, &mut writer).with_context(|| format!("Error while copying artifact contents to {}", base_path.display()))?;
-            writer.flush().with_context(|| format!("Error while flushing last of artifact contents to {}", base_path.display()))?;
+            io::copy(reader, &mut writer).with_context(|| format!("Error while copying artifact contents to {}", path.display()))?;
+            writer.flush().with_context(|| format!("Error while flushing last of artifact contents to {}", path.display()))?;
 
             // Check actual hash
             let buffer_slice: & mut [u8] = &mut hash_buffer[..digester.hash_size_in_bytes()];
@@ -286,6 +293,13 @@ pub mod artifact_manager {
         pub fn pull_artifact(&self, _hash_algorithm: &str, _hash: &HashAlgorithm) -> Result<&dyn io::Read, anyhow::Error> {
             unimplemented!();
         }
+    }
+
+    fn tmp_path_from_base(base: &PathBuf) -> PathBuf {
+        let mut tmp_buf = base.clone();
+        let file_name: &OsStr = tmp_buf.file_name().unwrap();
+        tmp_buf.set_file_name(format!("X{}", file_name.to_str().unwrap()));
+        tmp_buf
     }
 
     // return true if the given repository path leads to an accessible directory.
@@ -308,6 +322,7 @@ mod tests {
     #[test]
     fn new_artifact_manager_with_valid_directory() {
         let dir_name = "tmpx";
+        fs::remove_dir_all(dir_name);
         fs::create_dir(dir_name).expect(&format!("Unable to create temp directory {}", dir_name));
         let ok: bool = match ArtifactManager::new(dir_name) {
             Ok(_) => true,
