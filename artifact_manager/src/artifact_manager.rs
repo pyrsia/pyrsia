@@ -178,10 +178,6 @@ pub mod artifact_manager {
             unimplemented!()
         }
 
-        // fn is_write_vectored(&self) -> bool {
-        //     unimplemented!()
-        // }
-
         fn flush(&mut self) -> io::Result<()> {
             return self.writer.flush();
         }
@@ -194,10 +190,6 @@ pub mod artifact_manager {
             }
             return Ok(());
         }
-
-        // fn write_all_vectored(&mut self, bufs: &mut [IoSlice<'_>]) -> io::Result<()> {
-        //     unimplemented!()
-        // }
 
         fn write_fmt(&mut self, _fmt: Arguments<'_>) -> io::Result<()> {
             unimplemented!()
@@ -251,32 +243,37 @@ pub mod artifact_manager {
             // for now all artifacts are unstructured
             base_path.set_extension("file");
 
+            let mut hash_buffer: [u8; 128] = [0; 128];
+            let mut actual_hash: &[u8] = &[0u8][..];
+
             let open_result = OpenOptions::new().write(true)
                 .create_new(true)
                 .open(base_path.as_path());
-            return match open_result {
+            match open_result {
                 Ok(out) => {
                     println!("hash is {}", expected_hash);
-                    Self::do_push(reader, expected_hash, base_path, out).with_context(|| format!("Error writing contents of {}", expected_hash))
+                    let boxed  = Self::do_push(reader, expected_hash, base_path, out, &mut hash_buffer).with_context(|| format!("Error writing contents of {}", expected_hash))?;
+                    actual_hash = &*boxed;
                 }
-                Err(error) => match error.kind() {
+                Err(error) => return match error.kind() {
                     io::ErrorKind::AlreadyExists => Ok(false),
                     _ => Err(anyhow!(error))
                 }.with_context(|| format!("Error creating file {}", base_path.display()))
             };
+            Ok(true)
         }
 
-        fn do_push(reader: &mut impl Read, expected_hash: &Hash, base_path: PathBuf, out: File) -> Result<bool, Error> {
+        fn do_push<'b>(reader: &mut impl Read, expected_hash: &Hash, base_path: PathBuf, out: File, hash_buffer: &'b mut [u8; 128]) -> Result<&'b [u8], Error> {
             let mut buf_writer: BufWriter<File> = BufWriter::new(out);
             let mut digester = expected_hash.algorithm.digest_factory();
             let mut writer = WriteHashDecorator::new(&mut buf_writer, &mut digester);
             io::copy(reader, &mut writer).with_context(|| format!("Error while copying artifact contents to {}", base_path.display()))?;
             writer.flush().with_context(|| format!("Error while flushing last of artifact contents to {}", base_path.display()))?;
-            let mut hash_buffer: [u8; 128] = [0; 128];
-            let buffer_slice: &mut [u8] = &mut hash_buffer[..digester.hash_size_in_bytes()];
-            digester.finalize_hash(buffer_slice);
 
-            Ok(true)
+            // Check actual hash
+            let buffer_slice: & mut [u8] = &mut hash_buffer[..digester.hash_size_in_bytes()];
+            digester.finalize_hash(buffer_slice);
+            Ok(buffer_slice)
         }
 
         /// Pull an artifact. The current implementation only looks in the local node's repository.
