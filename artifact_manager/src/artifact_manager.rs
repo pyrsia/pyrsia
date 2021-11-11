@@ -5,7 +5,7 @@
 ///
 pub mod artifact_manager {
     use path::PathBuf;
-    use std::fmt::Arguments;
+    use std::fmt::{Arguments, Formatter};
     use std::fs;
     use std::fs::{File, OpenOptions};
     use std::io;
@@ -22,7 +22,7 @@ pub mod artifact_manager {
 
         fn finalize_hash(&mut self, hash_buffer: &mut [u8]);
 
-        fn hash_size_in_bytes(&self) -> u32;
+        fn hash_size_in_bytes(&self) -> usize;
     }
 
     impl Digester for Sha256 {
@@ -40,7 +40,7 @@ pub mod artifact_manager {
             }
         }
 
-        fn hash_size_in_bytes(&self) -> u32 {
+        fn hash_size_in_bytes(&self) -> usize {
             return 32;
         }
     }
@@ -73,12 +73,16 @@ pub mod artifact_manager {
 
         }
 
+        fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
+            hex::encode(bytes)
+        }
+
         // The base file path (no extension on the file name) that will correspond to this hash
         fn base_file_path(&self, repo_dir: &str) -> PathBuf {
             fn build_base_path(repo_dir: &str, dir_name: &str, bytes: &[u8]) -> PathBuf {
                 let mut buffer: PathBuf = PathBuf::from(repo_dir);
                 buffer.push(dir_name);
-                buffer.push(hex::encode(bytes));
+                buffer.push(Hash::encode_bytes_as_file_name(bytes));
                 return buffer;
             }
             return match self {
@@ -95,6 +99,14 @@ pub mod artifact_manager {
         fn algorithm_directory_name(&self) -> &'static str {
             return match self {
                 Hash::SHA256(_) => Hash::SHA256_DIR
+            }
+        }
+    }
+
+    impl std::fmt::Display for Hash {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Hash::SHA256(bytes) => write!(f, "sha256({})", Hash::encode_bytes_as_file_name(bytes))
             }
         }
     }
@@ -117,7 +129,7 @@ pub mod artifact_manager {
         fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
             let result = self.writer.write(buf);
             match result { // hash just the number of bytes that were actually written. This may be less than the whole buffer.
-                Ok(bytes_written) => self.digester.update_hash(&buf[0..bytes_written]),
+                Ok(bytes_written) => self.digester.update_hash(&buf[..bytes_written]),
                 _ => {}
             }
             return result;
@@ -205,7 +217,8 @@ pub mod artifact_manager {
                 .open(base_path.as_path());
             return match open_result {
                 Ok(out) => {
-                    Self::do_push(reader, expected_hash, base_path, out)
+                    println!("hash is {}", expected_hash);
+                    Self::do_push(reader, expected_hash, base_path, out).with_context(|| format!("Error writing contents of {}", expected_hash))
                 }
                 Err(error) => match error.kind() {
                     io::ErrorKind::AlreadyExists => Ok(false),
@@ -220,6 +233,10 @@ pub mod artifact_manager {
             let mut writer = WriteHashDecorator::new(&mut buf_writer, digester);
             io::copy(reader, &mut writer).with_context(|| format!("Error while copying artifact contents to {}", base_path.display()))?;
             writer.flush().with_context(|| format!("Error while flushing last of artifact contents to {}", base_path.display()))?;
+            let mut hash_buffer: [u8;128] = [0; 128];
+            let buffer_slice: &mut[u8] = &mut hash_buffer[..digester.hash_size_in_bytes()];
+            digester.finalize_hash( buffer_slice);
+
             Ok(true)
         }
 
