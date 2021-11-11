@@ -243,24 +243,28 @@ pub mod artifact_manager {
             // for now all artifacts are unstructured
             base_path.set_extension("file");
 
-            let mut hash_buffer: [u8; 128] = [0; 128];
-            let mut actual_hash: &[u8] = &[0u8][..];
 
-            let open_result = OpenOptions::new().write(true)
-                .create_new(true)
-                .open(base_path.as_path());
-            match open_result {
-                Ok(out) => {
-                    println!("hash is {}", expected_hash);
-                    let boxed  = Self::do_push(reader, expected_hash, base_path, out, &mut hash_buffer).with_context(|| format!("Error writing contents of {}", expected_hash))?;
-                    actual_hash = &*boxed;
-                }
-                Err(error) => return match error.kind() {
-                    io::ErrorKind::AlreadyExists => Ok(false),
-                    _ => Err(anyhow!(error))
-                }.with_context(|| format!("Error creating file {}", base_path.display()))
-            };
-            Ok(true)
+            { // This block is so that the file will be closed implicitly. There is no explicit close.
+                let open_result = OpenOptions::new().write(true)
+                    .create_new(true)
+                    .open(base_path.as_path());
+                return match open_result {
+                    Ok(out) => {
+                        println!("hash is {}", expected_hash);
+                        let mut hash_buffer: [u8; 128] = [0; 128];
+                        let actual_hash = &*Self::do_push(reader, expected_hash, base_path, out, &mut hash_buffer).with_context(|| format!("Error writing contents of {}", expected_hash))?;
+                        Ok(true)
+                    }
+                    Err(error) => Self::file_creation_error(base_path, error)
+                };
+            }
+        }
+
+        fn file_creation_error(base_path: PathBuf, error: std::io::Error) -> Result<bool, Error> {
+            match error.kind() {
+                io::ErrorKind::AlreadyExists => Ok(false),
+                _ => Err(anyhow!(error))
+            }.with_context(|| format!("Error creating file {}", base_path.display()))
         }
 
         fn do_push<'b>(reader: &mut impl Read, expected_hash: &Hash, base_path: PathBuf, out: File, hash_buffer: &'b mut [u8; 128]) -> Result<&'b [u8], Error> {
@@ -303,10 +307,17 @@ mod tests {
 
     #[test]
     fn new_artifact_manager_with_valid_directory() {
-        let ok: bool = match ArtifactManager::new(".") {
+        let dir_name = "tmpx";
+        fs::create_dir(dir_name).expect(&format!("Unable to create temp directory {}", dir_name));
+        let ok: bool = match ArtifactManager::new(dir_name) {
             Ok(_) => true,
             Err(_) => false
         };
+        let meta256 = fs::metadata(format!("{}/sha256", dir_name)).expect("unable to get metadata for sha256");
+        assert!(meta256.is_dir());
+        let meta512 = fs::metadata(format!("{}/sha512", dir_name)).expect("unable to get metadata for sha512");
+        assert!(meta512.is_dir());
+        fs::remove_dir_all(dir_name).expect(&format!("unable to remove temp directory {}", dir_name));
         assert!(ok)
     }
 
