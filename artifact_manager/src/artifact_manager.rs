@@ -5,7 +5,7 @@
 ///
 pub mod artifact_manager {
     use path::PathBuf;
-    use std::fmt::{Arguments, Formatter};
+    use std::fmt::{Arguments, Display, Formatter};
     use std::fs;
     use std::fs::{File, OpenOptions};
     use std::io;
@@ -14,7 +14,9 @@ pub mod artifact_manager {
 
     use anyhow::{anyhow, Context, Error, Result};
     use crypto::digest::Digest;
-    use crypto::sha2::Sha256;
+    use crypto::sha2::{Sha256, Sha512};
+    use strum::IntoEnumIterator;
+    use strum_macros::EnumIter;
 
     // We will provide implementations of this trait for each hash algorithm that we support.
     trait Digester {
@@ -41,36 +43,90 @@ pub mod artifact_manager {
         }
 
         fn hash_size_in_bytes(&self) -> usize {
-            return 32;
+            return 256/8;
         }
     }
 
-    /// The types of hash that the artifact manager supports
-    pub enum Hash {
-        SHA256([u8; 32])
+    impl Digester for Sha512 {
+        fn update_hash(self: &mut Self, input: &[u8]) {
+            self.input(&*input);
+        }
+
+        fn finalize_hash(self: &mut Self, hash_buffer: &mut [u8]) {
+            let mut hash_array: [u8; 64] = [0; 64];
+            self.result(&mut hash_array);
+            let mut i = 0;
+            while i < 64 {
+                hash_buffer[i] = hash_array[i];
+                i += 1;
+            }
+        }
+
+        fn hash_size_in_bytes(&self) -> usize {
+            return 512/8;
+        }
     }
 
-    impl Hash {
-        ///////////////////////////////////////////////////////////////
-        // Add another constant for each new member of Hash.         //
-        // Don't forget to add the contstant to the following array. //
-        const SHA256_DIR: &'static str = "sha256";
+    /// The types of hash algorithms that the artifact manager supports
+    #[derive(EnumIter, Debug, PartialEq)]
+    pub enum HashAlgorithm {
+        SHA256,
+        SHA512,
+    }
 
-        ////////////////////////////////////////////////////////////////////////
-        // When there is a new Hash enum sure to add the directory names here //
-        ////////////////////////////////////////////////////////////////////////
-        const ALGORITHM_NAMES: [&'static str;1] = [Hash::SHA256_DIR];
+    impl HashAlgorithm {
+        fn digest_factory(&self) -> Box<dyn Digester> {
+            match self {
+                HashAlgorithm::SHA256 => Box::new(Sha256::new()),
+                HashAlgorithm::SHA512 => Box::new(Sha512::new()),
+            }
+        }
 
-        fn ensure_directories_for_hash_algorithms_exist(repository_path: &str) -> Result<(), anyhow::Error >{
+        fn algorithm_name(&self) -> &'static str {
+            return match self {
+                HashAlgorithm::SHA256 => "sha256",
+                HashAlgorithm::SHA512 => "sha512",
+            };
+        }
+
+        fn hash_length_in_bytes(&self) -> usize {
+            return match self {
+                HashAlgorithm::SHA256 => 256 / 8,
+                HashAlgorithm::SHA512 => 512 / 8,
+            };
+        }
+    }
+
+    impl std::fmt::Display for HashAlgorithm {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            f.write_str(HashAlgorithm::algorithm_name(self))
+        }
+    }
+
+    pub struct Hash<'a> {
+        algorithm: HashAlgorithm,
+        bytes: &'a [u8],
+    }
+
+    impl<'a> Hash<'a> {
+        pub fn new(algorithm: HashAlgorithm, bytes: &'a [u8]) -> Result<Self, anyhow::Error> {
+            let expected_length: usize = algorithm.hash_length_in_bytes();
+            if bytes.len() == expected_length {
+                Ok(Hash { algorithm, bytes })
+            } else {
+                Err(anyhow!(format!("The hash value does not have the correct length for the algorithm. The expected length is {} bytes, but the length of the supplied hash is {}.", expected_length, bytes.len())))
+            }
+        }
+
+        fn ensure_directories_for_hash_algorithms_exist(repository_path: &str) -> Result<(), anyhow::Error> {
             let mut path_buf = PathBuf::new();
             path_buf.push(repository_path);
-            for name in Hash::ALGORITHM_NAMES {
+            for algorithm in HashAlgorithm::iter() {
                 let mut this_buf = path_buf.clone();
-                this_buf.push(name);
-                fs::create_dir_all( this_buf.as_os_str()).with_context(|| format!("Error creating directory {}", this_buf.display()))?;
+                this_buf.push(algorithm.algorithm_name());
+                fs::create_dir_all(this_buf.as_os_str()).with_context(|| format!("Error creating directory {}", this_buf.display()))?;
             }
             Ok(())
-
         }
 
         fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
@@ -81,35 +137,16 @@ pub mod artifact_manager {
         // This separates file into different directories that correspond to hash algorithms.
         // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
         fn base_file_path(&self, repo_dir: &str) -> PathBuf {
-            fn build_base_path(repo_dir: &str, algotithm_dir_name: &str, bytes: &[u8]) -> PathBuf {
-                let mut buffer: PathBuf = PathBuf::from(repo_dir);
-                buffer.push(algotithm_dir_name);
-                buffer.push(Hash::encode_bytes_as_file_name(bytes));
-                return buffer;
-            }
-            return match self {
-                Hash::SHA256(bytes) => build_base_path(repo_dir, self.algorithm_directory_name(), bytes),
-            }
-        }
-
-        fn digest_factory(&self) -> impl Digester {
-            return match self {
-                Hash::SHA256(_) => Sha256::new(),
-            };
-        }
-
-        fn algorithm_directory_name(&self) -> &'static str {
-            return match self {
-                Hash::SHA256(_) => Hash::SHA256_DIR
-            }
+            let mut buffer: PathBuf = PathBuf::from(repo_dir);
+            buffer.push(self.algorithm.algorithm_name());
+            buffer.push(Hash::encode_bytes_as_file_name(self.bytes));
+            return buffer;
         }
     }
 
-    impl std::fmt::Display for Hash {
+    impl Display for Hash<'_> {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            match self {
-                Hash::SHA256(bytes) => write!(f, "sha256({})", Hash::encode_bytes_as_file_name(bytes))
-            }
+            f.write_str(&format!("{}:{}", self.algorithm.algorithm_name(), hex::encode(self.bytes)))
         }
     }
 
@@ -117,11 +154,11 @@ pub mod artifact_manager {
     // used to compute a hash
     struct WriteHashDecorator<'a> {
         writer: &'a mut dyn Write,
-        digester: &'a mut dyn Digester,
+        digester: &'a mut Box<dyn Digester>,
     }
 
     impl<'a> WriteHashDecorator<'a> {
-        fn new(writer: &'a mut impl Write, digester: &'a mut impl Digester) -> Self {
+        fn new(writer: &'a mut impl Write, digester: &'a mut Box<dyn Digester>) -> Self {
             return WriteHashDecorator { writer, digester };
         }
     }
@@ -231,13 +268,13 @@ pub mod artifact_manager {
 
         fn do_push(reader: &mut impl Read, expected_hash: &Hash, base_path: PathBuf, out: File) -> Result<bool, Error> {
             let mut buf_writer: BufWriter<File> = BufWriter::new(out);
-            let digester = &mut expected_hash.digest_factory();
-            let mut writer = WriteHashDecorator::new(&mut buf_writer, digester);
+            let mut digester = expected_hash.algorithm.digest_factory();
+            let mut writer = WriteHashDecorator::new(&mut buf_writer, &mut digester);
             io::copy(reader, &mut writer).with_context(|| format!("Error while copying artifact contents to {}", base_path.display()))?;
             writer.flush().with_context(|| format!("Error while flushing last of artifact contents to {}", base_path.display()))?;
-            let mut hash_buffer: [u8;128] = [0; 128];
-            let buffer_slice: &mut[u8] = &mut hash_buffer[..digester.hash_size_in_bytes()];
-            digester.finalize_hash( buffer_slice);
+            let mut hash_buffer: [u8; 128] = [0; 128];
+            let buffer_slice: &mut [u8] = &mut hash_buffer[..digester.hash_size_in_bytes()];
+            digester.finalize_hash(buffer_slice);
 
             Ok(true)
         }
@@ -245,7 +282,7 @@ pub mod artifact_manager {
         /// Pull an artifact. The current implementation only looks in the local node's repository.
         /// A future
         ///
-        pub fn pull_artifact(&self, _hash_algorithm: &str, _hash: &Hash) -> Result<&dyn io::Read, anyhow::Error> {
+        pub fn pull_artifact(&self, _hash_algorithm: &str, _hash: &HashAlgorithm) -> Result<&dyn io::Read, anyhow::Error> {
             unimplemented!();
         }
     }
@@ -277,7 +314,7 @@ mod tests {
     }
 
     const TEST_ARTIFACT_DATA: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
-    const TEST_ARTIFACT_HASH: [u8;32] = [0x2d, 0x8c, 0x2f, 0x6d, 0x97, 0x8c, 0xa2, 0x17, 0x12, 0xb5, 0xf6, 0xde, 0x36, 0xc9, 0xd3, 0x1f, 0xa8, 0xe9, 0x6a, 0x4f, 0xa5, 0xd8, 0xff, 0x8b, 0x01, 0x88, 0xdf, 0xb9, 0xe7, 0xc1, 0x71, 0xbb];
+    const TEST_ARTIFACT_HASH: [u8; 32] = [0x2d, 0x8c, 0x2f, 0x6d, 0x97, 0x8c, 0xa2, 0x17, 0x12, 0xb5, 0xf6, 0xde, 0x36, 0xc9, 0xd3, 0x1f, 0xa8, 0xe9, 0x6a, 0x4f, 0xa5, 0xd8, 0xff, 0x8b, 0x01, 0x88, 0xdf, 0xb9, 0xe7, 0xc1, 0x71, 0xbb];
 
     #[test]
     fn new_artifact_manager_with_bad_directory() {
@@ -291,7 +328,7 @@ mod tests {
     #[test]
     fn happy_push_test() -> Result<(), anyhow::Error> {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
-        let hash = Hash::SHA256(TEST_ARTIFACT_HASH);
+        let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
         let dir_name = tmp_dir_name();
         println!("tmp dir: {}", dir_name);
         fs::create_dir(dir_name.clone()).context(format!("Error creating directory {}", dir_name.clone()))?;
@@ -302,10 +339,10 @@ mod tests {
     }
 
     fn tmp_dir_name() -> String {
-        return format!("{}{}","tmp",
-            SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_millis());
+        return format!("{}{}", "tmp",
+                       SystemTime::now()
+                           .duration_since(UNIX_EPOCH)
+                           .expect("Time went backwards")
+                           .as_millis());
     }
 }
