@@ -77,11 +77,13 @@ pub mod artifact_manager {
             hex::encode(bytes)
         }
 
-        // The base file path (no extension on the file name) that will correspond to this hash
+        // The base file path (no extension on the file name) that will correspond to this hash.
+        // This separates file into different directories that correspond to hash algorithms.
+        // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
         fn base_file_path(&self, repo_dir: &str) -> PathBuf {
-            fn build_base_path(repo_dir: &str, dir_name: &str, bytes: &[u8]) -> PathBuf {
+            fn build_base_path(repo_dir: &str, algotithm_dir_name: &str, bytes: &[u8]) -> PathBuf {
                 let mut buffer: PathBuf = PathBuf::from(repo_dir);
-                buffer.push(dir_name);
+                buffer.push(algotithm_dir_name);
                 buffer.push(Hash::encode_bytes_as_file_name(bytes));
                 return buffer;
             }
