@@ -256,10 +256,11 @@ pub mod artifact_manager {
                     // file out is implicitly closed by being borrowed by the following function call and then being dropped in the function call.
                     let actual_hash = &*Self::do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer).with_context(|| format!("Error writing contents of {}", expected_hash))?;
                     if actual_hash == expected_hash.bytes {
-                        fs::rename(tmp_path, base_path);
+                        fs::rename(tmp_path.clone(), base_path.clone())
+                            .with_context(|| format!("Attempting to rename from temporary file name{} to permanent{}", tmp_path.to_str().unwrap(), base_path.to_str().unwrap()))?;
                         Ok(true)
                     } else {
-                        fs::remove_file(tmp_path).with_context(|| format!("Attempted to remove {} because its content has the wrong hash.", tmp_path.to_str().unwrap()))?;
+                        fs::remove_file(tmp_path.clone()).with_context(|| format!("Attempted to remove {} because its content has the wrong hash.", tmp_path.to_str().unwrap()))?;
                         Err(anyhow!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}", expected_hash, expected_hash.algorithm, hex::encode(actual_hash)))
                     }
                 }
@@ -297,7 +298,7 @@ pub mod artifact_manager {
 
     fn tmp_path_from_base(base: &PathBuf) -> PathBuf {
         let mut tmp_buf = base.clone();
-        let file_name: &OsStr = tmp_buf.file_name().unwrap();
+        let file_name: &OsStr = base.file_name().unwrap();
         tmp_buf.set_file_name(format!("X{}", file_name.to_str().unwrap()));
         tmp_buf
     }
@@ -316,13 +317,14 @@ mod tests {
     use super::artifact_manager::*;
     use stringreader::StringReader;
     use std::fs;
+    use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
-    use anyhow::Context;
+    use anyhow::{anyhow, Context};
 
     #[test]
     fn new_artifact_manager_with_valid_directory() {
         let dir_name = "tmpx";
-        fs::remove_dir_all(dir_name);
+        let _ignore = fs::remove_dir_all(dir_name);
         fs::create_dir(dir_name).expect(&format!("Unable to create temp directory {}", dir_name));
         let ok: bool = match ArtifactManager::new(dir_name) {
             Ok(_) => true,
@@ -338,6 +340,7 @@ mod tests {
 
     const TEST_ARTIFACT_DATA: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
     const TEST_ARTIFACT_HASH: [u8; 32] = [0x2d, 0x8c, 0x2f, 0x6d, 0x97, 0x8c, 0xa2, 0x17, 0x12, 0xb5, 0xf6, 0xde, 0x36, 0xc9, 0xd3, 0x1f, 0xa8, 0xe9, 0x6a, 0x4f, 0xa5, 0xd8, 0xff, 0x8b, 0x01, 0x88, 0xdf, 0xb9, 0xe7, 0xc1, 0x71, 0xbb];
+    const WRONG_ARTIFACT_HASH: [u8; 32] = [0x3d, 0xdc, 0x2f, 0x6d, 0x97, 0x8c, 0xa2, 0x17, 0x12, 0xb5, 0xf6, 0xde, 0x36, 0xc9, 0xd3, 0x1f, 0xa8, 0xe9, 0x6a, 0x4f, 0xa5, 0xd8, 0xff, 0x8b, 0x01, 0x88, 0xdf, 0xb9, 0xe7, 0xc1, 0x71, 0xbb];
 
     #[test]
     fn new_artifact_manager_with_bad_directory() {
@@ -352,17 +355,41 @@ mod tests {
     fn happy_push_test() -> Result<(), anyhow::Error> {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
         let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
-        let dir_name = tmp_dir_name();
+        let dir_name = tmp_dir_name("tmp");
         println!("tmp dir: {}", dir_name);
         fs::create_dir(dir_name.clone()).context(format!("Error creating directory {}", dir_name.clone()))?;
         let am = ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
         am.push_artifact(&mut string_reader, &hash).context("Error from push_artifact")?;
+
+        let mut path_buf = PathBuf::from(dir_name.clone());
+        path_buf.push("sha256");
+        path_buf.push(hex::encode(TEST_ARTIFACT_HASH));
+        path_buf.set_extension("file");
+        let content_vec = fs::read(path_buf.as_path()).context("reading pushed file")?;
+        assert!(content_vec.as_slice() == TEST_ARTIFACT_DATA.as_bytes());
+
         fs::remove_dir_all(dir_name.clone()).context(format!("Error removing directory {}", dir_name))?;
         Ok(())
     }
 
-    fn tmp_dir_name() -> String {
-        return format!("{}{}", "tmp",
+
+    #[test]
+    fn push_wrong_hash_test() -> Result<(), anyhow::Error> {
+        let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
+        let hash = Hash::new(HashAlgorithm::SHA256, &WRONG_ARTIFACT_HASH)?;
+        let dir_name = tmp_dir_name("tmpw");
+        println!("tmp dir: {}", dir_name);
+        fs::create_dir(dir_name.clone()).context(format!("Error creating directory {}", dir_name.clone()))?;
+        let am = ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
+        match am.push_artifact(&mut string_reader, &hash).context("Error from push_artifact") {
+            Ok(_) => Err(anyhow!("push_artifact should have returned an error because of the wrong hash")),
+            Err(_) => Ok(())
+        }
+
+    }
+
+        fn tmp_dir_name(prefix: &str) -> String {
+        return format!("{}{}", prefix,
                        SystemTime::now()
                            .duration_since(UNIX_EPOCH)
                            .expect("Time went backwards")
