@@ -1,6 +1,6 @@
 [package]
 name = "pyrsia-node"
-authors = ["Joeri Sykora <joeri@sertik.net>", "Elliott Frisch <elliottf@jfrog.com>"]
+authors = ["Joeri Sykora <joeri@sertik.net>", "Elliott Frisch <elliottf@jfrog.com>", "Chris Mc <christopherm@jfrog.com>"]
 version = "0.1.0"
 edition = "2021"
 
@@ -9,7 +9,6 @@ edition = "2021"
 [dependencies]
 env_logger = "0.9.0"
 futures = "0.3.17"
-async-std = {"version"="1.10.0", features=["attributes"]}
 bytes = "1.1.0"
 clap = "2.33.0"
 easy-hasher = "2.2.1"

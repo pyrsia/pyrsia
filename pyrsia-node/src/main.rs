@@ -1,4 +1,3 @@
-extern crate async_std;
 extern crate bytes;
 extern crate clap;
 extern crate easy_hasher;
@@ -20,17 +19,8 @@ use std::path::Path;
 use bytes::{Buf, Bytes};
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
-use libp2p::core::muxing::StreamMuxerBox;
-use libp2p::core::transport::Boxed;
-use libp2p::kad::record::store::MemoryStore;
-use libp2p::kad::{GetClosestPeersError, Kademlia, KademliaConfig, KademliaEvent, QueryResult};
-use libp2p::{
-    development_transport,
-    identity::Keypair,
-    swarm::{Swarm},
-    Multiaddr, PeerId,
-};
-use std::{env, str::FromStr, time::Duration};
+use libp2p::{Multiaddr, PeerId};
+use std::env;
 use easy_hasher::easy_hasher::{file_hash, Hash, raw_sha256};
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
@@ -51,7 +41,6 @@ use libp2p::{
     NetworkBehaviour,
     Transport,
 };
-use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
 
 const DEFAULT_PORT: &str = "7878";
