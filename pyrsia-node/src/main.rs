@@ -116,7 +116,7 @@ async fn main() {
         // Called when `floodsub` produces an event.
         fn inject_event(&mut self, message: FloodsubEvent) {
             if let FloodsubEvent::Message(message) = message {
-                println!(
+                info!(
                     "Received: '{:?}' from {:?}",
                     String::from_utf8_lossy(&message.data),
                     message.source
@@ -165,11 +165,11 @@ async fn main() {
     };
 
     // Reach out to another node if specified
-    if let Some(to_dial) = std::env::args().nth(1) {
-        let addr: Multiaddr = to_dial.parse().unwrap();
-        swarm.dial_addr(addr).unwrap();
-        println!("Dialed {:?}", to_dial)
-    }
+    //if let Some(to_dial) = std::env::args().nth(1) {
+    //    let addr: Multiaddr = to_dial.parse().unwrap();
+    //    swarm.dial_addr(addr).unwrap();
+    //    info!("Dialed {:?}", to_dial)
+    //}
 
     // Read full lines from stdin
     let mut stdin = io::BufReader::new(io::stdin()).lines();
@@ -178,9 +178,9 @@ async fn main() {
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap()).unwrap();
 
     let mut address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0);
-    //if let Some(p) = matches.value_of("port") {
-    //    address.set_port(p.parse::<u16>().unwrap());
-    //}
+    if let Some(p) = matches.value_of("port") {
+        address.set_port(p.parse::<u16>().unwrap());
+    }
 
 
     let empty_json = "{}";
@@ -227,7 +227,7 @@ async fn main() {
         v2_base.or(v2_manifests).or(v2_manifests_put_docker).or(v2_blobs).or(v2_blobs_post).or(v2_blobs_patch).or(v2_blobs_put)
     ).recover(custom_recover).with(warp::log("pyrsia_registry"));
     let (addr, server)  = warp::serve(routes).bind_ephemeral(address);
-    println!("Pyrsia Docker Node is now running on port {}!", addr.port());
+    info!("Pyrsia Docker Node is now running on port {}!", addr.port());
 
     tokio::task::spawn(
         server
@@ -242,7 +242,7 @@ async fn main() {
             }
             event = swarm.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {
-                    println!("Listening on {:?}", address);
+                    info!("Listening on {:?}", address);
                 }
             }
         }
