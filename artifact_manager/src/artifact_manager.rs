@@ -4,6 +4,7 @@
 /// getting artifacts from other nodes when they are not present locally.
 ///
 pub mod artifact_manager {
+    use log::{debug, error, log_enabled, info, Level, warn};
     use path::PathBuf;
     use std::ffi::OsStr;
     use std::fmt::{Arguments, Display, Formatter};
@@ -227,8 +228,10 @@ pub mod artifact_manager {
         pub fn new(repository_path: &str) -> Result<ArtifactManager, anyhow::Error> {
             if is_accessible_directory(repository_path) {
                 Hash::ensure_directories_for_hash_algorithms_exist(repository_path)?;
+                info!("Creating an ArtifactManager with a repostitory in {}", repository_path);
                 Ok(ArtifactManager { repository_path })
             } else {
+                error!("Unable to create ArtifactManager with inaccessible directory: {}", repository_path);
                 Err(anyhow!("Not an accessible directory: {}", repository_path))
             }
         }
@@ -240,9 +243,11 @@ pub mod artifact_manager {
         /// * expected_hash — The hash value that the pushed artifact is expected to have.
         /// Returns true if it created the artifact local or false if the artifact already existed.
         pub fn push_artifact(&self, reader: &mut impl Read, expected_hash: &Hash) -> Result<bool, anyhow::Error> {
+            info!("An artifact is being pushed to the artifact manager {}", expected_hash);
             let mut base_path: PathBuf = expected_hash.base_file_path(self.repository_path);
             // for now all artifacts are unstructured
             base_path.set_extension("file");
+            debug!("Pushing artifact to {}", base_path.display());
             // Write to a temporary name that won't be mistaken for a valid file. If the hash checks out, rename it to the base name; otherwise delete it.
             let tmp_path = tmp_path_from_base(&base_path);
 
@@ -250,6 +255,7 @@ pub mod artifact_manager {
                 .create_new(true)
                 .open(tmp_path.as_path());
             return match open_result {
+                Err(error) => Self::file_creation_error(&tmp_path, error),
                 Ok(out) => {
                     println!("hash is {}", expected_hash);
                     let mut hash_buffer: [u8; 128] = [0; 128];
@@ -258,13 +264,14 @@ pub mod artifact_manager {
                     if actual_hash == expected_hash.bytes {
                         fs::rename(tmp_path.clone(), base_path.clone())
                             .with_context(|| format!("Attempting to rename from temporary file name{} to permanent{}", tmp_path.to_str().unwrap(), base_path.to_str().unwrap()))?;
+                        debug!("Artifact has the expected hash and is available locally {}", expected_hash);
                         Ok(true)
                     } else {
                         fs::remove_file(tmp_path.clone()).with_context(|| format!("Attempted to remove {} because its content has the wrong hash.", tmp_path.to_str().unwrap()))?;
+                        warn!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}", expected_hash, expected_hash.algorithm, hex::encode(actual_hash));
                         Err(anyhow!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}", expected_hash, expected_hash.algorithm, hex::encode(actual_hash)))
                     }
                 }
-                Err(error) => Self::file_creation_error(&tmp_path, error)
             };
         }
 
@@ -320,6 +327,14 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
     use anyhow::{anyhow, Context};
+    use env_logger::Target;
+    use log::LevelFilter;
+
+    #[cfg(test)]
+    #[ctor::ctor]
+    fn init() {
+        let _ignore = env_logger::builder().is_test(true).target(Target::Stdout).filter(None, LevelFilter::Debug).try_init();
+    }
 
     #[test]
     fn new_artifact_manager_with_valid_directory() {
