@@ -77,6 +77,15 @@ async fn main() {
                 .multiple(false)
                 .help("Sets the port to listen to"),
         )
+        .arg(
+        Arg::with_name("peer")
+            //.short("p")
+            .long("peer")
+            .takes_value(true)
+            .required(false)
+            .multiple(false)
+            .help("Provide an explicit peerId"),
+    )
         .get_matches();
 
     let verbosity: u64 = matches.occurrences_of("verbose");
@@ -165,11 +174,11 @@ async fn main() {
     };
 
     // Reach out to another node if specified
-    //if let Some(to_dial) = std::env::args().nth(1) {
-    //    let addr: Multiaddr = to_dial.parse().unwrap();
-    //    swarm.dial_addr(addr).unwrap();
-    //    info!("Dialed {:?}", to_dial)
-    //}
+    if let Some(to_dial) = matches.value_of("peer") {
+        let addr: Multiaddr = to_dial.parse().unwrap();
+        swarm.dial_addr(addr).unwrap();
+        info!("Dialed {:?}", to_dial)
+    }
 
     // Read full lines from stdin
     let mut stdin = io::BufReader::new(io::stdin()).lines();
