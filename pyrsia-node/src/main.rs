@@ -9,7 +9,6 @@ extern crate tokio;
 extern crate uuid;
 extern crate warp;
 
-use async_std::task;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::fmt;
@@ -88,15 +87,6 @@ async fn main() {
                 .required(false)
                 .multiple(false)
                 .help("Sets the port to listen to"),
-        )
-        .arg(
-            Arg::with_name("peer")
-                //.short("p")
-                .long("peer")
-                .takes_value(true)
-                .required(false)
-                .multiple(false)
-                .help("Provide an explicit peerId"),
         )
         .get_matches();
 
@@ -198,12 +188,11 @@ async fn main() {
     // Listen on all interfaces and whatever port the OS assigns
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap()).unwrap();
 
-    let mut address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
-    if let Some(p) = matches.value_of("port") {
-        address.set_port(p.parse::<u16>().unwrap());
-    }
+    let mut address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0);
+    //if let Some(p) = matches.value_of("port") {
+    //    address.set_port(p.parse::<u16>().unwrap());
+    //}
 
-    info!("Pyrsia Docker Node is now running on port {}!", address.port());
 
     let empty_json = "{}";
     let v2_base = warp::path("v2")
@@ -248,8 +237,11 @@ async fn main() {
     let routes = warp::any().and(log_headers()).and(
         v2_base.or(v2_manifests).or(v2_manifests_put_docker).or(v2_blobs).or(v2_blobs_post).or(v2_blobs_patch).or(v2_blobs_put)
     ).recover(custom_recover).with(warp::log("pyrsia_registry"));
+    let (addr, server)  = warp::serve(routes).bind_ephemeral(address);
+    println!("Pyrsia Docker Node is now running on port {}!", addr.port());
+
     tokio::task::spawn(
-        warp::serve(routes).run(address)
+        server
     );
 
     // Kick it off
