@@ -1,7 +1,7 @@
 [workspace]
 
 members = [
-    "pyrsia-node"
+    "pyrsia-node", "artifact_manager"
 ]
 
 [profile.dev]
