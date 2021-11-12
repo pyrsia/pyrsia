@@ -305,14 +305,13 @@ pub mod artifact_manager {
         /// Pull an artifact. The current implementation only looks in the local node's repository.
         /// A future
         ///
-        pub fn pull_artifact(&self, hash: &Hash) -> Result<Box<dyn Read>, anyhow::Error> {
+        pub fn pull_artifact(&self, hash: &Hash) -> Result<File, anyhow::Error> {
             info!("An artifact is being pulled from the artifact manager {}", hash);
             let mut base_path: PathBuf = hash.base_file_path(self.repository_path);
             // for now all artifacts are unstructured
             base_path.set_extension("file");
             debug!("Pushing artifact from {}", base_path.display());
-            let file = File::open(base_path.as_path()).with_context(|| format!("{} not found.", base_path.display()))?;
-            Ok(Box::new(file))
+            File::open(base_path.as_path()).with_context(|| format!("{} not found.", base_path.display()))
         }
     }
 
@@ -337,6 +336,7 @@ mod tests {
     use super::artifact_manager::*;
     use stringreader::StringReader;
     use std::fs;
+    use std::io::Read;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
     use anyhow::{anyhow, Context};
@@ -380,7 +380,7 @@ mod tests {
     }
 
     #[test]
-    fn happy_push_test() -> Result<(), anyhow::Error> {
+    fn happy_push_pull_test() -> Result<(), anyhow::Error> {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
         let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
         let dir_name = tmp_dir_name("tmp");
@@ -394,7 +394,12 @@ mod tests {
         path_buf.push(hex::encode(TEST_ARTIFACT_HASH));
         path_buf.set_extension("file");
         let content_vec = fs::read(path_buf.as_path()).context("reading pushed file")?;
-        assert!(content_vec.as_slice() == TEST_ARTIFACT_DATA.as_bytes());
+        assert_eq!(content_vec.as_slice(), TEST_ARTIFACT_DATA.as_bytes());
+
+        let mut reader = am.pull_artifact(&hash).context("Error from pull_artifact")?;
+        let mut read_buffer = String::new();
+        reader.read_to_string(&mut read_buffer)?;
+        assert_eq!(TEST_ARTIFACT_DATA, read_buffer);
 
         fs::remove_dir_all(dir_name.clone()).context(format!("Error removing directory {}", dir_name))?;
         Ok(())
@@ -416,7 +421,20 @@ mod tests {
 
     }
 
-        fn tmp_dir_name(prefix: &str) -> String {
+    #[test]
+    fn pull_nonexistant_test() -> Result<(), anyhow::Error> {
+        let hash = Hash::new(HashAlgorithm::SHA256, &WRONG_ARTIFACT_HASH)?;
+        let dir_name = tmp_dir_name("tmpr");
+        println!("tmp dir: {}", dir_name);
+        fs::create_dir(dir_name.clone()).context(format!("Error creating directory {}", dir_name.clone()))?;
+        let am = ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
+        match am.pull_artifact(&hash).context("Error from push_artifact") {
+            Ok(_) => Err(anyhow!("pull_artifact should have failed with nonexistant hash.")),
+            Err(_) => Ok(())
+        }
+    }
+
+    fn tmp_dir_name(prefix: &str) -> String {
         return format!("{}{}", prefix,
                        SystemTime::now()
                            .duration_since(UNIX_EPOCH)
