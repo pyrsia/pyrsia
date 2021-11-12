@@ -20,7 +20,6 @@ use std::path::Path;
 
 use bytes::{Buf, Bytes};
 use clap::{App, Arg, ArgMatches};
-use easy_hasher::easy_hasher::{file_hash, raw_sha256, Hash};
 use futures::StreamExt;
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::Boxed;
@@ -32,13 +31,14 @@ use libp2p::{
     swarm::{Swarm, SwarmEvent},
     Multiaddr, PeerId,
 };
+use std::{env, str::FromStr, time::Duration};
+use easy_hasher::easy_hasher::{file_hash, Hash, raw_sha256};
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
-use std::{env, str::FromStr, time::Duration};
 use uuid::Uuid;
+use warp::{Filter, Rejection, Reply};
 use warp::http::{HeaderMap, StatusCode};
 use warp::reject::Reject;
-use warp::{Filter, Rejection, Reply};
 
 const DEFAULT_PORT: &str = "7878";
 
@@ -197,10 +197,7 @@ async fn main() {
         .and_then(handle_get_manifests);
     let v2_manifests_put_docker = warp::path!("v2" / String / "manifests" / String)
         .and(warp::put())
-        .and(warp::header::exact(
-            "Content-Type",
-            "application/vnd.docker.distribution.manifest.v2+json",
-        ))
+        .and(warp::header::exact("Content-Type", "application/vnd.docker.distribution.manifest.v2+json"))
         .and(warp::body::bytes())
         .and_then(handle_put_manifest);
 
@@ -221,19 +218,9 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(handle_put_blob);
 
-    let routes = warp::any()
-        .and(log_headers())
-        .and(
-            v2_base
-                .or(v2_manifests)
-                .or(v2_manifests_put_docker)
-                .or(v2_blobs)
-                .or(v2_blobs_post)
-                .or(v2_blobs_patch)
-                .or(v2_blobs_put),
-        )
-        .recover(custom_recover)
-        .with(warp::log("pyrsia_registry"));
+    let routes = warp::any().and(log_headers()).and(
+        v2_base.or(v2_manifests).or(v2_manifests_put_docker).or(v2_blobs).or(v2_blobs_post).or(v2_blobs_patch).or(v2_blobs_put)
+    ).recover(custom_recover).with(warp::log("pyrsia_registry"));
     warp::serve(routes).run(address).await;
 }
 
@@ -241,7 +228,7 @@ async fn main() {
 enum RegistryErrorCode {
     BlobUnknown,
     ManifestUnknown,
-    Unknown(String),
+    Unknown(String)
 }
 
 impl fmt::Display for RegistryErrorCode {
@@ -257,7 +244,7 @@ impl fmt::Display for RegistryErrorCode {
 
 #[derive(Debug)]
 struct RegistryError {
-    code: RegistryErrorCode,
+    code: RegistryErrorCode
 }
 
 impl Reject for RegistryError {}
@@ -272,9 +259,7 @@ async fn handle_get_manifests(name: String, tag: String) -> Result<impl Reply, R
         );
         let manifest_content = fs::read_to_string(manifest);
         if manifest_content.is_err() {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::ManifestUnknown,
-            }));
+            return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::ManifestUnknown}));
         }
         hash = manifest_content.unwrap();
     }
@@ -286,9 +271,7 @@ async fn handle_get_manifests(name: String, tag: String) -> Result<impl Reply, R
     );
     let blob_content = fs::read_to_string(blob);
     if blob_content.is_err() {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::ManifestUnknown,
-        }));
+        return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::ManifestUnknown}));
     }
 
     let content = blob_content.unwrap();
@@ -303,147 +286,89 @@ async fn handle_get_manifests(name: String, tag: String) -> Result<impl Reply, R
         .unwrap());
 }
 
-async fn handle_put_manifest(
-    name: String,
-    reference: String,
-    bytes: Bytes,
-) -> Result<impl Reply, Rejection> {
+async fn handle_put_manifest(name: String, reference: String, bytes: Bytes) -> Result<impl Reply, Rejection> {
     let id = Uuid::new_v4();
 
     // temporary upload of manifest
-    let blob_upload_dest_dir = format!(
-        "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
-        name, id
-    );
+    let blob_upload_dest_dir = format!("/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}", name, id);
     if let Err(e) = fs::create_dir_all(&blob_upload_dest_dir) {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
+        return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
     }
 
-    let mut blob_upload_dest = format!(
-        "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}/data",
-        name, id
-    );
+    let mut blob_upload_dest = format!("/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}/data", name, id);
     let append = append_to_blob(&mut blob_upload_dest, bytes);
     if let Err(e) = append {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
+        return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
     } else {
         // calculate sha256 checksum on manifest file
         let file256 = file_hash(raw_sha256, &blob_upload_dest);
         let digest: Hash;
         match file256 {
             Ok(hash) => digest = hash,
-            Err(e) => {
-                return Err(warp::reject::custom(RegistryError {
-                    code: RegistryErrorCode::Unknown(e.to_string()),
-                }))
-            }
+            Err(e) => return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}))
         }
 
         let hash = digest.to_hex_string();
-        debug!(
-            "Generated hash for manifest {}/{}: {}",
-            name, reference, hash
-        );
-        let mut blob_dest = format!(
-            "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}",
-            hash.get(0..2).unwrap(),
-            hash
-        );
+        debug!("Generated hash for manifest {}/{}: {}", name, reference, hash);
+        let mut blob_dest = format!("/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}", hash.get(0..2).unwrap(), hash);
         if let Err(e) = fs::create_dir_all(&blob_dest) {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(e.to_string()),
-            }));
+            return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
         }
         blob_dest.push_str("/data");
 
         // copy temporary upload to final blob location
         if let Err(e) = fs::copy(&blob_upload_dest, &blob_dest) {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(e.to_string()),
-            }));
+            return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
         }
 
         // remove temporary files
         if let Err(e) = fs::remove_dir_all(blob_upload_dest_dir) {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(e.to_string()),
-            }));
+            return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
         }
 
         // create manifest link file in revisions
-        let mut manifest_rev_dest = format!(
-            "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/revisions/sha256/{}",
-            name, hash
-        );
+        let mut manifest_rev_dest = format!("/tmp/registry/docker/registry/v2/repositories/{}/_manifests/revisions/sha256/{}", name, hash);
         if let Err(e) = fs::create_dir_all(&manifest_rev_dest) {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(e.to_string()),
-            }));
+            return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
         }
         manifest_rev_dest.push_str("/link");
         if let Err(e) = fs::write(manifest_rev_dest, format!("sha256:{}", hash)) {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(e.to_string()),
-            }));
+            return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
         }
 
         // create manifest link file in tags if reference is a tag (no colon)
         let colon = reference.find(':');
         if let None = colon {
-            let mut manifest_tag_dest = format!(
-                "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current",
-                name, reference
-            );
+            let mut manifest_tag_dest = format!("/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current", name, reference);
             if let Err(e) = fs::create_dir_all(&manifest_tag_dest) {
-                return Err(warp::reject::custom(RegistryError {
-                    code: RegistryErrorCode::Unknown(e.to_string()),
-                }));
+                return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
             }
             manifest_tag_dest.push_str("/link");
             if let Err(e) = fs::write(manifest_tag_dest, format!("sha256:{}", hash)) {
-                return Err(warp::reject::custom(RegistryError {
-                    code: RegistryErrorCode::Unknown(e.to_string()),
-                }));
+                return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
             }
         }
 
         Ok(warp::http::response::Builder::new()
-            .header(
-                "Location",
-                format!(
-                    "http://localhost:7878/v2/{}/manifests/sha256:{}",
-                    name, hash
-                ),
-            )
+            .header("Location", format!("http://localhost:7878/v2/{}/manifests/sha256:{}", name, hash))
             .header("Docker-Content-Digest", format!("sha256:{}", hash))
             .status(StatusCode::CREATED)
             .body("")
-            .unwrap())
+            .unwrap()
+        )
     }
 }
 
 async fn handle_get_blobs(_name: String, hash: String) -> Result<impl Reply, Rejection> {
-    let blob = format!(
-        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
-        hash.get(7..9).unwrap(),
-        hash.get(7..).unwrap()
-    );
+    let blob = format!("/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data", hash.get(7..9).unwrap(), hash.get(7..).unwrap());
     debug!("Getting blob: {}", blob);
-    if !Path::new(&blob).is_file() {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobUnknown,
-        }));
+    if ! Path::new(&blob).is_file() {
+        return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::BlobUnknown}));
     }
 
     let blob_content = fs::read(blob);
     if blob_content.is_err() {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobUnknown,
-        }));
+        return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::BlobUnknown}));
     }
 
     let content = blob_content.unwrap();
@@ -457,135 +382,86 @@ async fn handle_get_blobs(_name: String, hash: String) -> Result<impl Reply, Rej
 async fn handle_post_blob(name: String) -> Result<impl Reply, Rejection> {
     let id = Uuid::new_v4();
 
-    if let Err(e) = fs::create_dir_all(format!(
-        "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
-        name, id
-    )) {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
+    if let Err(e) = fs::create_dir_all(format!("/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}", name, id)) {
+        return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
     }
 
     Ok(warp::http::response::Builder::new()
-        .header(
-            "Location",
-            format!("http://localhost:7878/v2/{}/blobs/uploads/{}", name, id),
-        )
+        .header("Location", format!("http://localhost:7878/v2/{}/blobs/uploads/{}", name, id))
         .header("Range", "0-0")
         .status(StatusCode::ACCEPTED)
         .body("")
-        .unwrap())
+        .unwrap()
+    )
 }
 
-async fn handle_patch_blob(
-    name: String,
-    id: String,
-    bytes: Bytes,
-) -> Result<impl Reply, Rejection> {
-    let mut blob_upload_dest = format!(
-        "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}/data",
-        name, id
-    );
+async fn handle_patch_blob(name: String, id: String, bytes: Bytes) -> Result<impl Reply, Rejection> {
+    let mut blob_upload_dest = format!("/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}/data", name, id);
     let append = append_to_blob(&mut blob_upload_dest, bytes);
     if let Err(e) = append {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
+        return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
     } else {
         let append_result = append.ok().unwrap();
-        let range = format!(
-            "{}-{}",
-            append_result.0,
-            append_result.0 + append_result.1 - 1
-        );
+        let range = format!("{}-{}", append_result.0, append_result.0 + append_result.1 - 1);
         debug!("Patch blob range: {}", range);
         return Ok(warp::http::response::Builder::new()
-            .header(
-                "Location",
-                format!("http://localhost:7878/v2/{}/blobs/uploads/{}", name, id),
-            )
+            .header("Location", format!("http://localhost:7878/v2/{}/blobs/uploads/{}", name, id))
             .header("Range", &range)
             .status(StatusCode::ACCEPTED)
             .body("")
-            .unwrap());
+            .unwrap()
+        );
     }
 }
 
-async fn handle_put_blob(
-    name: String,
-    id: String,
-    params: HashMap<String, String>,
-    bytes: Bytes,
-) -> Result<impl Reply, Rejection> {
-    let blob_upload_dest_dir = format!(
-        "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
-        name, id
-    );
+async fn handle_put_blob(name: String, id: String, params: HashMap<String, String>, bytes: Bytes) -> Result<impl Reply, Rejection> {
+    let blob_upload_dest_dir = format!("/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}", name, id);
     let mut blob_upload_dest_data = blob_upload_dest_dir.clone();
     blob_upload_dest_data.push_str("/data");
     if let Err(e) = append_to_blob(&blob_upload_dest_data, bytes) {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
+        return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
     }
 
     let digest = match params.get("digest") {
         Some(v) => v,
-        None => {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(String::from("missing digest")),
-            }))
-        }
+        None => return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(String::from("missing digest"))}))
     };
 
-    let mut blob_dest = String::from(format!(
-        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}",
-        digest.get(7..9).unwrap(),
-        digest.get(7..).unwrap()
-    ));
+    let mut blob_dest = String::from(format!("/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}", digest.get(7..9).unwrap(), digest.get(7..).unwrap()));
     if let Err(e) = fs::create_dir_all(&blob_dest) {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
+        return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
     }
 
     blob_dest.push_str("/data");
     if let Err(e) = fs::copy(&blob_upload_dest_data, &blob_dest) {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
+        return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
     }
 
     if let Err(e) = fs::remove_dir_all(&blob_upload_dest_dir) {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
+        return Err(warp::reject::custom(RegistryError {code: RegistryErrorCode::Unknown(e.to_string())}));
     }
 
     Ok(warp::http::response::Builder::new()
-        .header(
-            "Location",
-            format!("http://localhost:7878/v2/{}/blobs/uploads/{}", name, digest),
-        )
+        .header("Location", format!("http://localhost:7878/v2/{}/blobs/uploads/{}", name, digest))
         .status(StatusCode::CREATED)
         .body("")
-        .unwrap())
+        .unwrap()
+    )
 }
 
 fn append_to_blob(blob: &str, mut bytes: Bytes) -> Result<(u64, u64), std::io::Error> {
     debug!("Patching blob: {}", blob);
-    let file = fs::OpenOptions::new().create(true).append(true).open(blob);
+    let file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(blob);
     let mut total_bytes_read: u64 = 0;
     let initial_file_length: u64;
     if let Ok(mut f) = file {
         initial_file_length = f.metadata().unwrap().len();
         while bytes.has_remaining() {
             let bytes_remaining = bytes.remaining();
-            let bytes_to_read = if bytes_remaining <= 4096 {
-                bytes_remaining
-            } else {
-                4096
-            };
+            let bytes_to_read = if bytes_remaining <= 4096 { bytes_remaining } else { 4096 };
             total_bytes_read += bytes_to_read as u64;
             let mut b = vec![0; bytes_to_read];
             bytes.copy_to_slice(&mut b);
@@ -614,22 +490,20 @@ fn log_headers() -> impl Filter<Extract = (), Error = Infallible> + Copy {
         .untuple_one()
 }
 
+
 #[derive(Debug, Deserialize, Serialize)]
 struct ErrorMessage {
     code: RegistryErrorCode,
-    message: String,
+    message: String
 }
 #[derive(Debug, Deserialize, Serialize)]
 struct ErrorMessages {
-    errors: Vec<ErrorMessage>,
+    errors: Vec<ErrorMessage>
 }
 
 async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
     let mut status_code = StatusCode::INTERNAL_SERVER_ERROR;
-    let mut error_message = ErrorMessage {
-        code: RegistryErrorCode::Unknown("".to_string()),
-        message: "".to_string(),
-    };
+    let mut error_message = ErrorMessage { code: RegistryErrorCode::Unknown("".to_string()), message: "".to_string()};
 
     debug!("Rejection: {:?}", err);
     if let Some(e) = err.find::<RegistryError>() {
@@ -637,7 +511,7 @@ async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
             RegistryErrorCode::BlobUnknown => {
                 status_code = StatusCode::NOT_FOUND;
                 error_message.code = RegistryErrorCode::BlobUnknown;
-            }
+            },
             RegistryErrorCode::ManifestUnknown => {
                 status_code = StatusCode::NOT_FOUND;
                 error_message.code = RegistryErrorCode::ManifestUnknown;
@@ -652,13 +526,7 @@ async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
     }
 
     debug!("ErrorMessage: {:?}", error_message);
-    Ok(warp::reply::with_status(
-        warp::reply::json(&ErrorMessages {
-            errors: vec![error_message],
-        }),
-        status_code,
-    )
-    .into_response())
+    Ok(warp::reply::with_status(warp::reply::json(&ErrorMessages { errors: vec![error_message] }), status_code).into_response())
 }
 
 #[cfg(test)]
