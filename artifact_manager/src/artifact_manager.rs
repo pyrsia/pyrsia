@@ -4,7 +4,7 @@
 /// getting artifacts from other nodes when they are not present locally.
 ///
 pub mod artifact_manager {
-    use log::{debug, error, log_enabled, info, Level, warn};
+    use log::{debug, error, info, warn}; //log_enabled, Level,
     use path::PathBuf;
     use std::ffi::OsStr;
     use std::fmt::{Arguments, Display, Formatter};
@@ -13,12 +13,13 @@ pub mod artifact_manager {
     use std::io;
     use std::io::{BufWriter, IoSlice, Read, Write};
     use std::path;
+    use std::str::FromStr;
 
     use anyhow::{anyhow, Context, Error, Result};
     use crypto::digest::Digest;
     use crypto::sha2::{Sha256, Sha512};
     use strum::IntoEnumIterator;
-    use strum_macros::EnumIter;
+    use strum_macros::{EnumIter, EnumString};
 
     // We will provide implementations of this trait for each hash algorithm that we support.
     trait Digester {
@@ -70,13 +71,18 @@ pub mod artifact_manager {
     }
 
     /// The types of hash algorithms that the artifact manager supports
-    #[derive(EnumIter, Debug, PartialEq)]
+    #[derive(EnumIter, Debug, PartialEq, EnumString)]
     pub enum HashAlgorithm {
         SHA256,
         SHA512,
     }
 
     impl HashAlgorithm {
+        /// Translate a string that names a hash algorithm to the enum variant.
+        pub fn str_to_hash_algorithm(algorithm_name: &str) -> Result<HashAlgorithm, anyhow::Error> {
+            HashAlgorithm:: from_str(&algorithm_name.to_uppercase()).with_context(||format!("{} is not the name of a supported HashAlgorithm.", algorithm_name))
+        }
+
         fn digest_factory(&self) -> Box<dyn Digester> {
             match self {
                 HashAlgorithm::SHA256 => Box::new(Sha256::new()),
@@ -84,10 +90,11 @@ pub mod artifact_manager {
             }
         }
 
-        fn algorithm_name(&self) -> &'static str {
+        /// Translate a HashAlgorithm to a string.
+        pub fn hash_algorithm_to_str(&self) -> &'static str {
             return match self {
-                HashAlgorithm::SHA256 => "sha256",
-                HashAlgorithm::SHA512 => "sha512",
+                HashAlgorithm::SHA256 => "SHA256",
+                HashAlgorithm::SHA512 => "SHA512",
             };
         }
 
@@ -101,7 +108,7 @@ pub mod artifact_manager {
 
     impl std::fmt::Display for HashAlgorithm {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            f.write_str(HashAlgorithm::algorithm_name(self))
+            f.write_str(HashAlgorithm::hash_algorithm_to_str(self))
         }
     }
 
@@ -125,7 +132,7 @@ pub mod artifact_manager {
             path_buf.push(repository_path);
             for algorithm in HashAlgorithm::iter() {
                 let mut this_buf = path_buf.clone();
-                this_buf.push(algorithm.algorithm_name());
+                this_buf.push(algorithm.hash_algorithm_to_str());
                 fs::create_dir_all(this_buf.as_os_str()).with_context(|| format!("Error creating directory {}", this_buf.display()))?;
             }
             Ok(())
@@ -140,7 +147,7 @@ pub mod artifact_manager {
         // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
         fn base_file_path(&self, repo_dir: &str) -> PathBuf {
             let mut buffer: PathBuf = PathBuf::from(repo_dir);
-            buffer.push(self.algorithm.algorithm_name());
+            buffer.push(self.algorithm.hash_algorithm_to_str());
             buffer.push(Hash::encode_bytes_as_file_name(self.bytes));
             return buffer;
         }
@@ -148,7 +155,7 @@ pub mod artifact_manager {
 
     impl Display for Hash<'_> {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            f.write_str(&format!("{}:{}", self.algorithm.algorithm_name(), hex::encode(self.bytes)))
+            f.write_str(&format!("{}:{}", self.algorithm.hash_algorithm_to_str(), hex::encode(self.bytes)))
         }
     }
 
@@ -377,7 +384,7 @@ mod tests {
         am.push_artifact(&mut string_reader, &hash).context("Error from push_artifact")?;
 
         let mut path_buf = PathBuf::from(dir_name.clone());
-        path_buf.push("sha256");
+        path_buf.push("SHA256");
         path_buf.push(hex::encode(TEST_ARTIFACT_HASH));
         path_buf.set_extension("file");
         let content_vec = fs::read(path_buf.as_path()).context("reading pushed file")?;
