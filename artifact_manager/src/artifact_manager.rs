@@ -305,8 +305,13 @@ pub mod artifact_manager {
         /// Pull an artifact. The current implementation only looks in the local node's repository.
         /// A future
         ///
-        pub fn pull_artifact(&self, _hash_algorithm: &str, _hash: &HashAlgorithm) -> Result<&dyn io::Read, anyhow::Error> {
-            unimplemented!();
+        pub fn pull_artifact(&self, hash: &Hash) -> Result<File, anyhow::Error> {
+            info!("An artifact is being pulled from the artifact manager {}", hash);
+            let mut base_path: PathBuf = hash.base_file_path(self.repository_path);
+            // for now all artifacts are unstructured
+            base_path.set_extension("file");
+            debug!("Pushing artifact from {}", base_path.display());
+            File::open(base_path.as_path()).with_context(|| format!("{} not found.", base_path.display()))
         }
     }
 
