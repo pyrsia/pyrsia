@@ -39,7 +39,7 @@ pub mod artifact_manager {
             let mut hash_array: [u8; 32] = [0; 32];
             self.result(&mut hash_array);
             let mut i = 0;
-            while i < 32 {
+            while i < hash_array.len() {
                 hash_buffer[i] = hash_array[i];
                 i += 1;
             }
@@ -414,11 +414,12 @@ mod tests {
         println!("tmp dir: {}", dir_name);
         fs::create_dir(dir_name.clone()).context(format!("Error creating directory {}", dir_name.clone()))?;
         let am = ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
-        match am.push_artifact(&mut string_reader, &hash).context("Error from push_artifact") {
+        let ok = match am.push_artifact(&mut string_reader, &hash).context("Error from push_artifact") {
             Ok(_) => Err(anyhow!("push_artifact should have returned an error because of the wrong hash")),
             Err(_) => Ok(())
-        }
-
+        };
+        fs::remove_dir_all(dir_name.clone()).expect(&format!("unable to remove temp directory {}", dir_name));
+        ok
     }
 
     #[test]
@@ -428,10 +429,12 @@ mod tests {
         println!("tmp dir: {}", dir_name);
         fs::create_dir(dir_name.clone()).context(format!("Error creating directory {}", dir_name.clone()))?;
         let am = ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
-        match am.pull_artifact(&hash).context("Error from push_artifact") {
+        let ok = match am.pull_artifact(&hash).context("Error from push_artifact") {
             Ok(_) => Err(anyhow!("pull_artifact should have failed with nonexistant hash.")),
             Err(_) => Ok(())
-        }
+        };
+        fs::remove_dir_all(dir_name.clone()).expect(&format!("unable to remove temp directory {}", dir_name));
+        ok
     }
 
     fn tmp_dir_name(prefix: &str) -> String {
