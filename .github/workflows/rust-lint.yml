@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - run: rustup component add rustfmt
-      - uses: LoliGothick/rustfmt-check@v0.2
+      - uses: mbrobbel/rustfmt-check@master
         with:
             token: ${{ secrets.GITHUB_TOKEN }}
 
