@@ -1,7 +1,7 @@
 [workspace]
 
 members = [
-    "pyrsia-node"
+    "pyrsia-node", "blockchain"
 ]
 
 [profile.dev]
