@@ -16,9 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - run: rustup component add rustfmt
-      - uses: mbrobbel/rustfmt-check@master
-        with:
-            token: ${{ secrets.GITHUB_TOKEN }}
+      - run: cargo fmt -- --check # Prints diff in the action logs
 
   clippy:
     runs-on: ubuntu-latest
