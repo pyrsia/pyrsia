@@ -151,7 +151,12 @@ pub mod artifact_manager {
         }
 
         // The base file path (no extension on the file name) that will correspond to this hash.
-        // This separates file into different directories that correspond to hash algorithms.
+        // The structure of the path is
+        // repo_root_dir/hash_algorithm/hash
+        // This consists of the artifact repository root directory, a directory whose name is the
+        // algorithm used to compute the hash and a file name that is the hash, encoded as hex
+        // (base64 is more compact, but hex is easier for troubleshooting). For example
+        // pyrsia-artifacts/SHA256/68efadf3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6ccbb4
         // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
         fn base_file_path(&self, repo_dir: &str) -> PathBuf {
             let mut buffer: PathBuf = PathBuf::from(repo_dir);
