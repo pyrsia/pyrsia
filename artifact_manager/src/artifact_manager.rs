@@ -132,6 +132,10 @@ pub mod artifact_manager {
             }
         }
 
+        // It is possible, though unlikely, for SHA512, SHA3_512 and BLAKE3 to generate the same
+        // hash for different content. Separating files by algorithm avoids this type of collision.
+        // This function ensures that there is a directory under the repository root for each one of
+        // the supported hash algorithms.
         fn ensure_directories_for_hash_algorithms_exist(
             repository_path: &str,
         ) -> Result<(), anyhow::Error> {
