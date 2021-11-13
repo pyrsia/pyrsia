@@ -393,6 +393,14 @@ pub mod artifact_manager {
         }
     }
 
+    // Return a temporary file name that we will use for the file until we have verified that the
+    // hash is correct. The temporary file name is guaranteed to be as unique as the hash and not
+    // to be mistaken for a file whose name is its has code.
+    //
+    // The reason for doing this is so that a file whose actual hash is not equal to the expected
+    // hash will not be found in the local repository from the time it is created and not fully
+    // written until the time its hash is verified. After that, the file is renamed to its permanent
+    // name that will match the actual hash value.
     fn tmp_path_from_base(base: &PathBuf) -> PathBuf {
         let mut tmp_buf = base.clone();
         let file_name: &OsStr = base.file_name().unwrap();
