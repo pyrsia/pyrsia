@@ -1,6 +1,6 @@
 [package]
 name = "pyrsia-node"
-authors = ["Joeri Sykora <joeri@sertik.net>", "Elliott Frisch <elliottf@jfrog.com>"]
+authors = ["Joeri Sykora <joeri@sertik.net>", "Elliott Frisch <elliottf@jfrog.com>", "Mark Grand <markgr"]
 version = "0.1.0"
 edition = "2021"
 
