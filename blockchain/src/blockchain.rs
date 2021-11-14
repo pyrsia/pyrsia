@@ -13,31 +13,35 @@ pub mod blockchain_manager {
     }
 
     pub struct X509CertificateSignature<'a> {
-        x509_certificate: X509Certificate<'a>,
-        signature: Vec<u8>
+        pub x509_certificate: X509Certificate<'a>,
+        pub signature: Vec<u8>
+    }
+
+    pub enum ExternalIdentity<'a> {
+        X509(X509Certificate<'a>)
     }
 
     /// This struct contains the information for an identity stored in the blockchain.
     pub struct Identity<'a> {
-        identity_public_key: str,
-        identity_algorithm: SignatureAlgorithm,
-        name: str,
-        description: str,
-        email: str,
-        web_url: str,
-        phone_number: str,
-        x509: &'a X509Certificate<'a>,
-        signature: Vec<u8>
+        pub identity_public_key: str,
+        pub identity_algorithm: SignatureAlgorithm,
+        pub name: str,
+        pub description: str,
+        pub email: str,
+        pub web_url: str,
+        pub phone_number: str,
+        pub external_identities: &'a Vec<ExternalIdentity<'a>>,
+        pub signature: Vec<u8>
     }
 
     /// Identities are allowed to share a trust store so others can trust the same certificate
     /// authorities
     pub struct TrustStore<'a> {
-        id: &'a str,
-        valid_after: DateTime<Utc>,
-        valid_until: DateTime<Utc>,
-        trust_store: Vec<u8>,
-        signature: Vec<u8>
+        pub id: &'a str,
+        pub valid_after: DateTime<Utc>,
+        pub valid_until: DateTime<Utc>,
+        pub trust_store: Vec<u8>,
+        pub signature: Vec<u8>
     }
 }
 
