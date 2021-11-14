@@ -142,11 +142,16 @@ pub mod artifact_manager {
             let mut path_buf = PathBuf::new();
             path_buf.push(repository_path);
             for algorithm in HashAlgorithm::iter() {
-                let mut this_buf = path_buf.clone();
-                this_buf.push(algorithm.hash_algorithm_to_str());
-                fs::create_dir_all(this_buf.as_os_str())
-                    .with_context(|| format!("Error creating directory {}", this_buf.display()))?;
+                Self::ensure_subdirectory_exists(&mut path_buf, algorithm)?;
             }
+            Ok(())
+        }
+
+        fn ensure_subdirectory_exists(path_buf: &mut PathBuf, algorithm: HashAlgorithm) -> Result<(), anyhow::Error> {
+            let mut this_buf = path_buf.clone();
+            this_buf.push(algorithm.hash_algorithm_to_str());
+            fs::create_dir_all(this_buf.as_os_str())
+                .with_context(|| format!("Error creating directory {}", this_buf.display()))?;
             Ok(())
         }
 
@@ -267,12 +272,16 @@ pub mod artifact_manager {
                 );
                 Ok(ArtifactManager { repository_path })
             } else {
-                error!(
+                Self::inaccessible_repo_directory_error(repository_path)
+            }
+        }
+
+        fn inaccessible_repo_directory_error(repository_path: &str) -> Result<ArtifactManager, Error> {
+            error!(
                     "Unable to create ArtifactManager with inaccessible directory: {}",
                     repository_path
                 );
-                Err(anyhow!("Not an accessible directory: {}", repository_path))
-            }
+            Err(anyhow!("Not an accessible directory: {}", repository_path))
         }
 
         /// Push an artifact to this node's local repository.
@@ -290,9 +299,7 @@ pub mod artifact_manager {
                 "An artifact is being pushed to the artifact manager {}",
                 expected_hash
             );
-            let mut base_path: PathBuf = expected_hash.base_file_path(self.repository_path);
-            // for now all artifacts are unstructured
-            base_path.set_extension("file");
+            let base_path = self.file_path_for_new_artifact(expected_hash);
             debug!("Pushing artifact to {}", base_path.display());
             // Write to a temporary name that won't be mistaken for a valid file. If the hash checks out, rename it to the base name; otherwise delete it.
             let tmp_path = tmp_path_from_base(&base_path);
@@ -337,6 +344,13 @@ pub mod artifact_manager {
                     }
                 }
             };
+        }
+
+        fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> PathBuf {
+            let mut base_path: PathBuf = expected_hash.base_file_path(self.repository_path);
+            // for now all artifacts are unstructured
+            base_path.set_extension("file");
+            base_path
         }
 
         fn file_creation_error(base_path: &PathBuf, error: std::io::Error) -> Result<bool, Error> {
