@@ -147,7 +147,10 @@ pub mod artifact_manager {
             Ok(())
         }
 
-        fn ensure_subdirectory_exists(path_buf: &mut PathBuf, algorithm: HashAlgorithm) -> Result<(), anyhow::Error> {
+        fn ensure_subdirectory_exists(
+            path_buf: &mut PathBuf,
+            algorithm: HashAlgorithm,
+        ) -> Result<(), anyhow::Error> {
             let mut this_buf = path_buf.clone();
             this_buf.push(algorithm.hash_algorithm_to_str());
             fs::create_dir_all(this_buf.as_os_str())
@@ -276,11 +279,13 @@ pub mod artifact_manager {
             }
         }
 
-        fn inaccessible_repo_directory_error(repository_path: &str) -> Result<ArtifactManager, Error> {
+        fn inaccessible_repo_directory_error(
+            repository_path: &str,
+        ) -> Result<ArtifactManager, Error> {
             error!(
-                    "Unable to create ArtifactManager with inaccessible directory: {}",
-                    repository_path
-                );
+                "Unable to create ArtifactManager with inaccessible directory: {}",
+                repository_path
+            );
             Err(anyhow!("Not an accessible directory: {}", repository_path))
         }
 
@@ -313,37 +318,49 @@ pub mod artifact_manager {
                 Ok(out) => {
                     println!("hash is {}", expected_hash);
                     let mut hash_buffer: [u8; 128] = [0; 128];
-                    // file out is implicitly closed by being borrowed by the following function call and then being dropped in the function call.
                     let actual_hash =
                         &*Self::do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)
                             .with_context(|| {
                                 format!("Error writing contents of {}", expected_hash)
                             })?;
                     if actual_hash == expected_hash.bytes {
-                        fs::rename(tmp_path.clone(), base_path.clone()).with_context(|| {
-                            format!(
-                                "Attempting to rename from temporary file name{} to permanent{}",
-                                tmp_path.to_str().unwrap(),
-                                base_path.to_str().unwrap()
-                            )
-                        })?;
-                        debug!(
-                            "Artifact has the expected hash and is available locally {}",
-                            expected_hash
-                        );
+                        Self::rename_to_permanent(expected_hash, base_path, &tmp_path)?;
                         Ok(true)
                     } else {
-                        fs::remove_file(tmp_path.clone()).with_context(|| {
-                            format!(
-                                "Attempted to remove {} because its content has the wrong hash.",
-                                tmp_path.to_str().unwrap()
-                            )
-                        })?;
-                        warn!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}", expected_hash, expected_hash.algorithm, hex::encode(actual_hash));
-                        Err(anyhow!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}", expected_hash, expected_hash.algorithm, hex::encode(actual_hash)))
+                        Self::handle_wrong_hash(expected_hash, tmp_path, actual_hash)
                     }
                 }
             };
+        }
+
+        fn handle_wrong_hash(expected_hash: &Hash, tmp_path: PathBuf, actual_hash: &[u8]) -> Result<bool, Error> {
+            fs::remove_file(tmp_path.clone()).with_context(|| {
+                format!(
+                    "Attempted to remove {} because its content has the wrong hash.",
+                    tmp_path.to_str().unwrap()
+                )
+            })?;
+            warn!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}", expected_hash, expected_hash.algorithm, hex::encode(actual_hash));
+            Err(anyhow!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}", expected_hash, expected_hash.algorithm, hex::encode(actual_hash)))
+        }
+
+        fn rename_to_permanent(
+            expected_hash: &Hash,
+            base_path: PathBuf,
+            tmp_path: &PathBuf,
+        ) -> Result<(), anyhow::Error> {
+            fs::rename(tmp_path.clone(), base_path.clone()).with_context(|| {
+                format!(
+                    "Attempting to rename from temporary file name{} to permanent{}",
+                    tmp_path.to_str().unwrap(),
+                    base_path.to_str().unwrap()
+                )
+            })?;
+            debug!(
+                "Artifact has the expected hash and is available locally {}",
+                expected_hash
+            );
+            Ok(())
         }
 
         fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> PathBuf {
@@ -371,6 +388,18 @@ pub mod artifact_manager {
             let mut buf_writer: BufWriter<File> = BufWriter::new(out);
             let mut digester = expected_hash.algorithm.digest_factory();
             let mut writer = WriteHashDecorator::new(&mut buf_writer, &mut digester);
+
+            Self::copy_from_reader_to_writer(reader, path, &mut writer)?;
+            Ok(Self::actual_hash(hash_buffer, & mut digester))
+        }
+
+        fn actual_hash<'b>(hash_buffer: &'b mut [u8; 128], digester: &mut Box<dyn Digester>) -> &'b mut [u8] {
+            let buffer_slice: &mut [u8] = &mut hash_buffer[..digester.hash_size_in_bytes()];
+            digester.finalize_hash(buffer_slice);
+            buffer_slice
+        }
+
+        fn copy_from_reader_to_writer(reader: &mut impl Read, path: &PathBuf, mut writer: &mut WriteHashDecorator) -> Result<(), Error> {
             io::copy(reader, &mut writer).with_context(|| {
                 format!(
                     "Error while copying artifact contents to {}",
@@ -382,12 +411,7 @@ pub mod artifact_manager {
                     "Error while flushing last of artifact contents to {}",
                     path.display()
                 )
-            })?;
-
-            // Check actual hash
-            let buffer_slice: &mut [u8] = &mut hash_buffer[..digester.hash_size_in_bytes()];
-            digester.finalize_hash(buffer_slice);
-            Ok(buffer_slice)
+            })
         }
 
         /// Pull an artifact. The current implementation only looks in the local node's repository.
