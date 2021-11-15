@@ -11,7 +11,10 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+  runs-on: ${{ matrix.os }}
+  strategy:
+    matrix:
+      os: [macos-latest, ubuntu-latest]
     defaults:
       run:
         working-directory: pyrsia-node
