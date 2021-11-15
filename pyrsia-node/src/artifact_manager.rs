@@ -258,7 +258,9 @@ impl<'a> ArtifactManager {
                 "Creating an ArtifactManager with a repository in {}",
                 absolute_path.display()
             );
-            Ok(ArtifactManager { repository_path : absolute_path })
+            Ok(ArtifactManager {
+                repository_path: absolute_path,
+            })
         } else {
             Self::inaccessible_repo_directory_error(repository_path)
         }
