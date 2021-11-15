@@ -319,13 +319,9 @@ pub mod artifact_manager {
                     println!("hash is {}", expected_hash);
                     let mut hash_buffer: [u8; 128] = [0; 128];
                     let actual_hash =
-                        &*Self::do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)
-                            .with_context(|| {
-                                format!("Error writing contents of {}", expected_hash)
-                            })?;
+                        &*Self::do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
                     if actual_hash == expected_hash.bytes {
-                        Self::rename_to_permanent(expected_hash, base_path, &tmp_path)?;
-                        Ok(true)
+                        Self::rename_to_permanent(expected_hash, base_path, &tmp_path)
                     } else {
                         Self::handle_wrong_hash(expected_hash, tmp_path, actual_hash)
                     }
@@ -348,7 +344,7 @@ pub mod artifact_manager {
             expected_hash: &Hash,
             base_path: PathBuf,
             tmp_path: &PathBuf,
-        ) -> Result<(), anyhow::Error> {
+        ) -> Result<bool, anyhow::Error> {
             fs::rename(tmp_path.clone(), base_path.clone()).with_context(|| {
                 format!(
                     "Attempting to rename from temporary file name{} to permanent{}",
@@ -360,7 +356,7 @@ pub mod artifact_manager {
                 "Artifact has the expected hash and is available locally {}",
                 expected_hash
             );
-            Ok(())
+            Ok(true)
         }
 
         fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> PathBuf {
@@ -389,7 +385,8 @@ pub mod artifact_manager {
             let mut digester = expected_hash.algorithm.digest_factory();
             let mut writer = WriteHashDecorator::new(&mut buf_writer, &mut digester);
 
-            Self::copy_from_reader_to_writer(reader, path, &mut writer)?;
+            Self::copy_from_reader_to_writer(reader, path, &mut writer)
+                .with_context(|| { format!("Error writing contents of {}", expected_hash) })?;
             Ok(Self::actual_hash(hash_buffer, & mut digester))
         }
 
