@@ -8,6 +8,11 @@ extern crate tokio;
 extern crate uuid;
 extern crate warp;
 
+use noise::AuthenticKeypair;
+use noise::X25519Spec;
+use floodsub::Topic;
+use identity::Keypair;
+use libp2p::Swarm;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::fmt;
@@ -50,8 +55,8 @@ async fn main() {
     pretty_env_logger::init();
 
     // Create a random PeerId
-    let id_keys = identity::Keypair::generate_ed25519();
-    let peer_id = PeerId::from(id_keys.public());
+    let id_keys: Keypair = identity::Keypair::generate_ed25519();
+    let peer_id: PeerId = PeerId::from(id_keys.public());
 
     let matches: ArgMatches = App::new("Pyrsia Node")
         .version("0.1.0")
@@ -94,7 +99,7 @@ async fn main() {
     }
 
     // Create a keypair for authenticated encryption of the transport.
-    let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
+    let noise_keys:AuthenticKeypair<X25519Spec> = noise::Keypair::<noise::X25519Spec>::new()
         .into_authentic(&id_keys)
         .expect("Signing libp2p-noise static DH keypair failed.");
 
@@ -108,7 +113,7 @@ async fn main() {
         .boxed();
 
     // Create a Floodsub topic
-    let floodsub_topic = floodsub::Topic::new("chat");
+    let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation");
 
     // We create a custom network behaviour that combines floodsub and mDNS.
     // The derive generates a delegating `NetworkBehaviour` impl which in turn
@@ -155,7 +160,7 @@ async fn main() {
     }
 
     // Create a Swarm to manage peers and events.
-    let mut swarm = {
+    let mut swarm: Swarm<MyBehaviour> = {
         let mdns = Mdns::new(Default::default()).await.unwrap();
         let mut behaviour = MyBehaviour {
             floodsub: Floodsub::new(peer_id.clone()),
