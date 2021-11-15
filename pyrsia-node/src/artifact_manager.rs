@@ -2,7 +2,8 @@
 /// # Artifact Manager
 /// Module for managing artifacts. It manages a local collection of artifacts and is responsible
 /// getting artifacts from other nodes when they are not present locally.
-///
+/// An artifact is a file that is identified by a hash algorithm and a hash code. To know more about
+/// an artifact, we must consult the metadata that refers to the artifact.
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
 use std::ffi::OsStr;
