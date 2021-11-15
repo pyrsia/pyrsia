@@ -12,6 +12,7 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::{BufWriter, Read, Write};
 use std::path;
+use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Error, Result};
@@ -136,7 +137,7 @@ impl<'a> Hash<'a> {
     // This function ensures that there is a directory under the repository root for each one of
     // the supported hash algorithms.
     fn ensure_directories_for_hash_algorithms_exist(
-        repository_path: &str,
+        repository_path: &PathBuf,
     ) -> Result<(), anyhow::Error> {
         let mut path_buf = PathBuf::new();
         path_buf.push(repository_path);
@@ -169,7 +170,7 @@ impl<'a> Hash<'a> {
     // (base64 is more compact, but hex is easier for troubleshooting). For example
     // pyrsia-artifacts/SHA256/68efadf3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6ccbb4
     // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
-    fn base_file_path(&self, repo_dir: &str) -> PathBuf {
+    fn base_file_path(&self, repo_dir: &PathBuf) -> PathBuf {
         let mut buffer: PathBuf = PathBuf::from(repo_dir);
         buffer.push(self.algorithm.hash_algorithm_to_str());
         buffer.push(Hash::encode_bytes_as_file_name(self.bytes));
@@ -243,20 +244,21 @@ impl<'a> Write for WriteHashDecorator<'a> {
 /// contents are the artifact having the same hash as indicated by the file name. Other extensions
 /// may be used in the future to indicate that the file has a particular internal structure that
 /// Pyrsia needs to know about.
-pub struct ArtifactManager<'a> {
-    pub repository_path: &'a str,
+pub struct ArtifactManager {
+    pub repository_path: PathBuf,
 }
 
-impl<'a> ArtifactManager<'a> {
+impl<'a> ArtifactManager {
     /// Create a new ArtifactManager that works with artifacts in the given directory
     pub fn new(repository_path: &str) -> Result<ArtifactManager, anyhow::Error> {
-        if is_accessible_directory(repository_path) {
-            Hash::ensure_directories_for_hash_algorithms_exist(repository_path)?;
+        let absolute_path = Path::new(repository_path).canonicalize()?;
+        if is_accessible_directory(&absolute_path) {
+            Hash::ensure_directories_for_hash_algorithms_exist(&absolute_path)?;
             info!(
                 "Creating an ArtifactManager with a repository in {}",
-                repository_path
+                absolute_path.display()
             );
-            Ok(ArtifactManager { repository_path })
+            Ok(ArtifactManager { repository_path : absolute_path })
         } else {
             Self::inaccessible_repo_directory_error(repository_path)
         }
@@ -348,7 +350,7 @@ impl<'a> ArtifactManager<'a> {
     }
 
     fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> PathBuf {
-        let mut base_path: PathBuf = expected_hash.base_file_path(self.repository_path);
+        let mut base_path: PathBuf = expected_hash.base_file_path(&self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension("file");
         base_path
@@ -414,7 +416,7 @@ impl<'a> ArtifactManager<'a> {
             "An artifact is being pulled from the artifact manager {}",
             hash
         );
-        let mut base_path: PathBuf = hash.base_file_path(self.repository_path);
+        let mut base_path: PathBuf = hash.base_file_path(&self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension("file");
         debug!("Pushing artifact from {}", base_path.display());
@@ -439,7 +441,7 @@ fn tmp_path_from_base(base: &PathBuf) -> PathBuf {
 }
 
 // return true if the given repository path leads to an accessible directory.
-fn is_accessible_directory(repository_path: &str) -> bool {
+fn is_accessible_directory(repository_path: &PathBuf) -> bool {
     match fs::metadata(repository_path) {
         Err(_) => false,
         Ok(metadata) => metadata.is_dir(),
