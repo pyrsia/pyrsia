@@ -97,23 +97,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 
 [[package]]
-name = "artifact_manager"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "blake3",
- "ctor",
- "digest 0.9.0",
- "env_logger 0.9.0",
- "hex",
- "log",
- "rust-crypto",
- "stringreader",
- "strum",
- "strum_macros",
-]
-
-[[package]]
 name = "asn1_der"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2430,17 +2413,25 @@ dependencies = [
 name = "pyrsia-node"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-std",
+ "blake3",
  "bytes",
  "clap",
+ "ctor",
  "easy-hasher",
  "env_logger 0.9.0",
  "futures",
+ "hex",
  "libp2p",
  "log",
  "pretty_env_logger",
+ "rust-crypto",
  "serde",
  "serde_json",
+ "stringreader",
+ "strum",
+ "strum_macros",
  "tokio",
  "uuid",
  "warp",
