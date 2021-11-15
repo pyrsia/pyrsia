@@ -6,11 +6,11 @@
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
 use std::ffi::OsStr;
-use std::fmt::{Arguments, Display, Formatter};
+use std::fmt::{Display, Formatter};
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io;
-use std::io::{BufWriter, IoSlice, Read, Write};
+use std::io::{BufWriter, Read, Write};
 use std::path;
 use std::str::FromStr;
 
@@ -212,10 +212,6 @@ impl<'a> Write for WriteHashDecorator<'a> {
         return result;
     }
 
-    fn write_vectored(&mut self, _bufs: &[IoSlice<'_>]) -> io::Result<usize> {
-        unimplemented!()
-    }
-
     fn flush(&mut self) -> io::Result<()> {
         return self.writer.flush();
     }
@@ -229,20 +225,8 @@ impl<'a> Write for WriteHashDecorator<'a> {
         }
         return Ok(());
     }
-
-    fn write_fmt(&mut self, _fmt: Arguments<'_>) -> io::Result<()> {
-        unimplemented!()
-    }
-
-    fn by_ref(&mut self) -> &mut Self
-    where
-        Self: Sized,
-    {
-        unimplemented!()
-    }
 }
 
-///
 /// Create an ArtifactManager object by passing a path for the local artifact repository to `new` \
 /// like this.
 /// `ArtifactManager::new("/var/lib/pyrsia")`
@@ -269,7 +253,7 @@ impl<'a> ArtifactManager<'a> {
         if is_accessible_directory(repository_path) {
             Hash::ensure_directories_for_hash_algorithms_exist(repository_path)?;
             info!(
-                "Creating an ArtifactManager with a repostitory in {}",
+                "Creating an ArtifactManager with a repository in {}",
                 repository_path
             );
             Ok(ArtifactManager { repository_path })
@@ -306,11 +290,7 @@ impl<'a> ArtifactManager<'a> {
         // Write to a temporary name that won't be mistaken for a valid file. If the hash checks out, rename it to the base name; otherwise delete it.
         let tmp_path = tmp_path_from_base(&base_path);
 
-        let open_result = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(tmp_path.as_path());
-        return match open_result {
+        match Self::create_artifact_file(&tmp_path) {
             Err(error) => Self::file_creation_error(&tmp_path, error),
             Ok(out) => {
                 println!("hash is {}", expected_hash);
@@ -323,7 +303,14 @@ impl<'a> ArtifactManager<'a> {
                     Self::handle_wrong_hash(expected_hash, tmp_path, actual_hash)
                 }
             }
-        };
+        }
+    }
+
+    fn create_artifact_file(tmp_path: &PathBuf) -> std::io::Result<File> {
+        OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(tmp_path.as_path())
     }
 
     fn handle_wrong_hash(
@@ -461,6 +448,7 @@ fn is_accessible_directory(repository_path: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::artifact_manager::{ArtifactManager, Hash, HashAlgorithm};
     use anyhow::{anyhow, Context};
     use env_logger::Target;
     use log::LevelFilter;
@@ -469,7 +457,6 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
     use stringreader::StringReader;
-    use crate::artifact_manager::{ArtifactManager, Hash, HashAlgorithm};
 
     #[cfg(test)]
     #[ctor::ctor]
@@ -483,7 +470,7 @@ mod tests {
 
     #[test]
     fn new_artifact_manager_with_valid_directory() {
-        let dir_name = "tmpx";
+        let dir_name = "TmpX";
         let _ignore = fs::remove_dir_all(dir_name);
         fs::create_dir(dir_name).expect(&format!("Unable to create temp directory {}", dir_name));
         let ok: bool = match ArtifactManager::new(dir_name) {
@@ -501,14 +488,14 @@ mod tests {
         assert!(ok)
     }
 
-    const TEST_ARTIFACT_DATA: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
+    const TEST_ARTIFACT_DATA: &str = "Incumbent nonsense text, sesquipedalian and obfuscatory. Exhortations to the mother lode. Dendrites for all.";
     const TEST_ARTIFACT_HASH: [u8; 32] = [
-        0x2d, 0x8c, 0x2f, 0x6d, 0x97, 0x8c, 0xa2, 0x17, 0x12, 0xb5, 0xf6, 0xde, 0x36, 0xc9, 0xd3,
-        0x1f, 0xa8, 0xe9, 0x6a, 0x4f, 0xa5, 0xd8, 0xff, 0x8b, 0x01, 0x88, 0xdf, 0xb9, 0xe7, 0xc1,
-        0x71, 0xbb,
+        0x6b, 0x29, 0xf2, 0xf1, 0xe5, 0x02, 0x4c, 0x41, 0x95, 0x06, 0xe9, 0x50, 0x3e, 0x02, 0x4b,
+        0x3d, 0x8a, 0x5a, 0x08, 0xb6, 0xf6, 0xd5, 0x5b, 0x68, 0x88, 0x66, 0x79, 0x52, 0xd1, 0x04,
+        0x15, 0x54,
     ];
     const WRONG_ARTIFACT_HASH: [u8; 32] = [
-        0x3d, 0xdc, 0x2f, 0x6d, 0x97, 0x8c, 0xa2, 0x17, 0x12, 0xb5, 0xf6, 0xde, 0x36, 0xc9, 0xd3,
+        0x2d, 0x8c, 0x2f, 0x6d, 0x97, 0x8c, 0xa2, 0x17, 0x12, 0xb5, 0xf6, 0xde, 0x36, 0xc9, 0xd3,
         0x1f, 0xa8, 0xe9, 0x6a, 0x4f, 0xa5, 0xd8, 0xff, 0x8b, 0x01, 0x88, 0xdf, 0xb9, 0xe7, 0xc1,
         0x71, 0xbb,
     ];
@@ -557,8 +544,9 @@ mod tests {
     #[test]
     fn push_wrong_hash_test() -> Result<(), anyhow::Error> {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
-        let hash = Hash::new(HashAlgorithm::SHA256, &WRONG_ARTIFACT_HASH)?;
-        let dir_name = tmp_dir_name("tmpw");
+        let hash_algorithm = HashAlgorithm::str_to_hash_algorithm("SHA256")?;
+        let hash = Hash::new(hash_algorithm, &WRONG_ARTIFACT_HASH)?;
+        let dir_name = tmp_dir_name("TmpW");
         println!("tmp dir: {}", dir_name);
         fs::create_dir(dir_name.clone())
             .context(format!("Error creating directory {}", dir_name.clone()))?;
@@ -579,9 +567,9 @@ mod tests {
     }
 
     #[test]
-    fn pull_nonexistant_test() -> Result<(), anyhow::Error> {
+    fn pull_nonexistent_test() -> Result<(), anyhow::Error> {
         let hash = Hash::new(HashAlgorithm::SHA256, &WRONG_ARTIFACT_HASH)?;
-        let dir_name = tmp_dir_name("tmpr");
+        let dir_name = tmp_dir_name("TmpR");
         println!("tmp dir: {}", dir_name);
         fs::create_dir(dir_name.clone())
             .context(format!("Error creating directory {}", dir_name.clone()))?;
@@ -589,7 +577,7 @@ mod tests {
             ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
         let ok = match am.pull_artifact(&hash).context("Error from push_artifact") {
             Ok(_) => Err(anyhow!(
-                "pull_artifact should have failed with nonexistant hash."
+                "pull_artifact should have failed with nonexistent hash."
             )),
             Err(_) => Ok(()),
         };
