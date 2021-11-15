@@ -10,7 +10,6 @@ extern crate uuid;
 extern crate warp;
 
 mod blockchain_manager;
-mod example;
 
 use async_std::task;
 use std::collections::HashMap;
