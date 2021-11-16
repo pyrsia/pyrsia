@@ -1,3 +1,5 @@
+mod artifact_manager;
+
 extern crate async_std;
 extern crate bytes;
 extern crate clap;
@@ -245,5 +247,5 @@ fn log_headers() -> impl Filter<Extract = (), Error = Infallible> + Copy {
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::*;
+    //use super::*;
 }
