@@ -1,6 +1,5 @@
 mod artifact_manager;
 
-extern crate async_std;
 extern crate bytes;
 extern crate clap;
 extern crate easy_hasher;
@@ -11,7 +10,11 @@ extern crate tokio;
 extern crate uuid;
 extern crate warp;
 
-use async_std::task;
+use noise::AuthenticKeypair;
+use noise::X25519Spec;
+use floodsub::Topic;
+use identity::Keypair;
+use libp2p::Swarm;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::fmt;
@@ -23,17 +26,8 @@ use std::path::Path;
 use bytes::{Buf, Bytes};
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
-use libp2p::core::muxing::StreamMuxerBox;
-use libp2p::core::transport::Boxed;
-use libp2p::kad::record::store::MemoryStore;
-use libp2p::kad::{GetClosestPeersError, Kademlia, KademliaConfig, KademliaEvent, QueryResult};
-use libp2p::{
-    development_transport,
-    identity::Keypair,
-    swarm::{Swarm, SwarmEvent},
-    Multiaddr, PeerId,
-};
-use std::{env, str::FromStr, time::Duration};
+use libp2p::{Multiaddr, PeerId};
+use std::env;
 use easy_hasher::easy_hasher::{file_hash, Hash, raw_sha256};
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
@@ -41,6 +35,20 @@ use uuid::Uuid;
 use warp::{Filter, Rejection, Reply};
 use warp::http::{HeaderMap, StatusCode};
 use warp::reject::Reject;
+use libp2p::{
+    core::upgrade,
+    floodsub::{self, Floodsub, FloodsubEvent},
+    identity,
+    mdns::{Mdns, MdnsEvent},
+    mplex,
+    noise,
+    swarm::{NetworkBehaviourEventProcess, SwarmBuilder, SwarmEvent},
+    // `TokioTcpConfig` is available through the `tcp-tokio` feature.
+    tcp::TokioTcpConfig,
+    NetworkBehaviour,
+    Transport,
+};
+use tokio::io::{self, AsyncBufReadExt};
 
 const DEFAULT_PORT: &str = "7878";
 
@@ -48,23 +56,9 @@ const DEFAULT_PORT: &str = "7878";
 async fn main() {
     pretty_env_logger::init();
 
-    let boot_nodes: Vec<&'static str> = vec![
-        "QmYiFu1AiWLu3Me73kVrE7z1fmcjjHVwJ7GZRZoNcTLjRF",
-        "QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
-        "QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
-        "QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
-        "QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
-        "QmTS3CRTSVsYXzD1nb1yD2N6XhWSWApZnpaxtCn8vLKHmd",
-        "QmQUZCnMVJSQkBsSQba6dvijsLnesqhvB532XeTp1GDhxa",
-    ];
-
-    // Create a random key for ourselves.
-    let local_key: Keypair = Keypair::generate_ed25519();
-    let local_peer_id: PeerId = PeerId::from(local_key.public());
-
-    // Set up a an encrypted DNS-enabled TCP Transport over the Mplex protocol
-    let transport: Boxed<(PeerId, StreamMuxerBox)> =
-        development_transport(local_key).await.unwrap();
+    // Create a random PeerId
+    let id_keys: Keypair = identity::Keypair::generate_ed25519();
+    let peer_id: PeerId = PeerId::from(id_keys.public());
 
     let matches: ArgMatches = App::new("Pyrsia Node")
         .version("0.1.0")
@@ -91,14 +85,14 @@ async fn main() {
                 .help("Sets the port to listen to"),
         )
         .arg(
-            Arg::with_name("peer")
-                //.short("p")
-                .long("peer")
-                .takes_value(true)
-                .required(false)
-                .multiple(false)
-                .help("Provide an explicit peerId"),
-        )
+        Arg::with_name("peer")
+            //.short("p")
+            .long("peer")
+            .takes_value(true)
+            .required(false)
+            .multiple(false)
+            .help("Provide an explicit peerId"),
+    )
         .get_matches();
 
     let verbosity: u64 = matches.occurrences_of("verbose");
@@ -106,79 +100,104 @@ async fn main() {
         dbg!("Verbosity Level: {}", verbosity.to_string());
     }
 
-    // Create a swarm to manage peers and events.
-    let mut swarm: Swarm<Kademlia<MemoryStore>> = {
-        // Create a Kademlia behaviour.
-        let mut cfg: KademliaConfig = KademliaConfig::default();
-        cfg.set_query_timeout(Duration::from_secs(5 * 60));
-        let store: MemoryStore = MemoryStore::new(local_peer_id);
-        let mut behaviour: Kademlia<MemoryStore> = Kademlia::with_config(local_peer_id, store, cfg);
+    // Create a keypair for authenticated encryption of the transport.
+    let noise_keys:AuthenticKeypair<X25519Spec> = noise::Keypair::<noise::X25519Spec>::new()
+        .into_authentic(&id_keys)
+        .expect("Signing libp2p-noise static DH keypair failed.");
 
-        // Add the bootnodes to the local routing table. `libp2p-dns` built
-        // into the `transport` resolves the `dnsaddr` when Kademlia tries
-        // to dial these nodes.
-        let bootaddr: Multiaddr = Multiaddr::from_str("/dnsaddr/bootstrap.libp2p.io").unwrap();
-        for peer in &boot_nodes {
-            behaviour.add_address(&PeerId::from_str(peer).unwrap(), bootaddr.clone());
-        }
+    // Create a tokio-based TCP transport use noise for authenticated
+    // encryption and Mplex for multiplexing of substreams on a TCP stream.
+    let transport = TokioTcpConfig::new()
+        .nodelay(true)
+        .upgrade(upgrade::Version::V1)
+        .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
+        .multiplex(mplex::MplexConfig::new())
+        .boxed();
 
-        Swarm::new(transport, behaviour, local_peer_id)
-    };
-    dbg!("swarm");
+    // Create a Floodsub topic
+    let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation");
 
-    let to_search: PeerId;
-    // Order Kademlia to search for a peer.
-    if matches.occurrences_of("peer") > 0 {
-        let peer_id: String = String::from(matches.value_of("peer").unwrap());
-        to_search = PeerId::from_str(&peer_id).unwrap();
-    } else {
-        to_search = Keypair::generate_ed25519().public().into();
+    // We create a custom network behaviour that combines floodsub and mDNS.
+    // The derive generates a delegating `NetworkBehaviour` impl which in turn
+    // requires the implementations of `NetworkBehaviourEventProcess` for
+    // the events of each behaviour.
+    #[derive(NetworkBehaviour)]
+    #[behaviour(event_process = true)]
+    struct MyBehaviour {
+        floodsub: Floodsub,
+        mdns: Mdns,
     }
 
-    println!("Searching for the closest peers to {:?}", to_search);
-    swarm.behaviour_mut().get_closest_peers(to_search);
-
-    // Kick it off!
-    task::block_on(async move {
-        loop {
-            let event: SwarmEvent<KademliaEvent, std::io::Error> = swarm.select_next_some().await;
-            if let SwarmEvent::Behaviour(KademliaEvent::OutboundQueryCompleted {
-                result: QueryResult::GetClosestPeers(result),
-                ..
-            }) = event
-            {
-                match result {
-                    Ok(ok) => {
-                        if !ok.peers.is_empty() {
-                            println!("Query finished with closest peers: {:#?}", ok.peers)
-                        } else {
-                            // The example is considered failed as there
-                            // should always be at least 1 reachable peer.
-                            println!("Query finished with no closest peers.")
-                        }
-                    }
-                    Err(GetClosestPeersError::Timeout { peers, .. }) => {
-                        if !peers.is_empty() {
-                            println!("Query timed out with closest peers: {:#?}", peers)
-                        } else {
-                            // The example is considered failed as there
-                            // should always be at least 1 reachable peer.
-                            println!("Query timed out with no closest peers.");
-                        }
-                    }
-                };
-
-                break;
+    impl NetworkBehaviourEventProcess<FloodsubEvent> for MyBehaviour {
+        // Called when `floodsub` produces an event.
+        fn inject_event(&mut self, message: FloodsubEvent) {
+            if let FloodsubEvent::Message(message) = message {
+                info!(
+                    "Received: '{:?}' from {:?}",
+                    String::from_utf8_lossy(&message.data),
+                    message.source
+                );
             }
         }
-    });
+    }
 
-    let mut address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+    impl NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour {
+        // Called when `mdns` produces an event.
+        fn inject_event(&mut self, event: MdnsEvent) {
+            match event {
+                MdnsEvent::Discovered(list) => {
+                    for (peer, _) in list {
+                        self.floodsub.add_node_to_partial_view(peer);
+                    }
+                }
+                MdnsEvent::Expired(list) => {
+                    for (peer, _) in list {
+                        if !self.mdns.has_node(&peer) {
+                            self.floodsub.remove_node_from_partial_view(&peer);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Create a Swarm to manage peers and events.
+    let mut swarm: Swarm<MyBehaviour> = {
+        let mdns = Mdns::new(Default::default()).await.unwrap();
+        let mut behaviour = MyBehaviour {
+            floodsub: Floodsub::new(peer_id.clone()),
+            mdns,
+        };
+
+        behaviour.floodsub.subscribe(floodsub_topic.clone());
+
+        SwarmBuilder::new(transport, behaviour, peer_id)
+            // We want the connection background tasks to be spawned
+            // onto the tokio runtime.
+            .executor(Box::new(|fut| {
+                tokio::spawn(fut);
+            }))
+            .build()
+    };
+
+    // Reach out to another node if specified
+    if let Some(to_dial) = matches.value_of("peer") {
+        let addr: Multiaddr = to_dial.parse().unwrap();
+        swarm.dial_addr(addr).unwrap();
+        info!("Dialed {:?}", to_dial)
+    }
+
+    // Read full lines from stdin
+    let mut stdin = io::BufReader::new(io::stdin()).lines();
+
+    // Listen on all interfaces and whatever port the OS assigns
+    swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap()).unwrap();
+
+    let mut address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0);
     if let Some(p) = matches.value_of("port") {
         address.set_port(p.parse::<u16>().unwrap());
     }
 
-    info!("Pyrsia Node is now running on port {}!", address.port());
 
     let empty_json = "{}";
     let v2_base = warp::path("v2")
@@ -223,7 +242,27 @@ async fn main() {
     let routes = warp::any().and(log_headers()).and(
         v2_base.or(v2_manifests).or(v2_manifests_put_docker).or(v2_blobs).or(v2_blobs_post).or(v2_blobs_patch).or(v2_blobs_put)
     ).recover(custom_recover).with(warp::log("pyrsia_registry"));
-    warp::serve(routes).run(address).await;
+    let (addr, server)  = warp::serve(routes).bind_ephemeral(address);
+    info!("Pyrsia Docker Node is now running on port {}!", addr.port());
+
+    tokio::task::spawn(
+        server
+    );
+
+    // Kick it off
+    loop {
+        tokio::select! {
+            line = stdin.next_line() => {
+                let line = line.unwrap().expect("stdin closed");
+                swarm.behaviour_mut().floodsub.publish(floodsub_topic.clone(), line.as_bytes());
+            }
+            event = swarm.select_next_some() => {
+                if let SwarmEvent::NewListenAddr { address, .. } = event {
+                    info!("Listening on {:?}", address);
+                }
+            }
+        }
+    };
 }
 
 #[derive(Debug, Deserialize, Serialize)]
