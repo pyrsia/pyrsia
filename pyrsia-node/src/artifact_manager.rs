@@ -428,9 +428,9 @@ impl<'a> ArtifactManager {
     }
 }
 
-// Return a temporary file name that we will use for the file until we have verified that the
-// hash is correct. The temporary file name is guaranteed to be as unique as the hash and not
-// to be mistaken for a file whose name is its has code.
+// Return a temporary file name to use for the file until we have verified that the hash is correct.
+// The temporary file name is guaranteed to be as unique as the hash and not to be mistaken for a
+// file whose name is its has code.
 //
 // The reason for doing this is so that a file whose actual hash is not equal to the expected
 // hash will not be found in the local repository from the time it is created and not fully
