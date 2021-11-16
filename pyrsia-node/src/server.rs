@@ -1,2 +1,2 @@
-pub mod v2;
 pub mod routes;
+pub mod v2;

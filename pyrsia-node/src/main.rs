@@ -1,4 +1,3 @@
-
 extern crate async_std;
 extern crate bytes;
 extern crate clap;
@@ -30,10 +29,10 @@ use libp2p::{
     swarm::{Swarm, SwarmEvent},
     Multiaddr, PeerId,
 };
-use std::{env, str::FromStr, time::Duration};
 use log::{debug, info};
-use warp::Filter;
+use std::{env, str::FromStr, time::Duration};
 use warp::http::HeaderMap;
+use warp::Filter;
 
 const DEFAULT_PORT: &str = "7878";
 
@@ -192,7 +191,10 @@ async fn main() {
         .and_then(server::v2::manifests::handle_get_manifests);
     let v2_manifests_put_docker = warp::path!("v2" / String / "manifests" / String)
         .and(warp::put())
-        .and(warp::header::exact("Content-Type", "application/vnd.docker.distribution.manifest.v2+json"))
+        .and(warp::header::exact(
+            "Content-Type",
+            "application/vnd.docker.distribution.manifest.v2+json",
+        ))
         .and(warp::body::bytes())
         .and_then(server::v2::manifests::handle_put_manifest);
 
@@ -213,9 +215,19 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(server::v2::blobs::handle_put_blob);
 
-    let routes = warp::any().and(log_headers()).and(
-        v2_base.or(v2_manifests).or(v2_manifests_put_docker).or(v2_blobs).or(v2_blobs_post).or(v2_blobs_patch).or(v2_blobs_put)
-    ).recover(utils::error_util::custom_recover).with(warp::log("pyrsia_registry"));
+    let routes = warp::any()
+        .and(log_headers())
+        .and(
+            v2_base
+                .or(v2_manifests)
+                .or(v2_manifests_put_docker)
+                .or(v2_blobs)
+                .or(v2_blobs_post)
+                .or(v2_blobs_patch)
+                .or(v2_blobs_put),
+        )
+        .recover(utils::error_util::custom_recover)
+        .with(warp::log("pyrsia_registry"));
     warp::serve(routes).run(address).await;
 }
 
@@ -228,7 +240,7 @@ fn log_headers() -> impl Filter<Extract = (), Error = Infallible> + Copy {
             }
         })
         .untuple_one()
-    }
+}
 
 #[cfg(test)]
 mod tests {
