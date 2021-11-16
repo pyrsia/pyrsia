@@ -1,3 +1,5 @@
+mod artifact_manager;
+
 extern crate async_std;
 extern crate bytes;
 extern crate clap;
@@ -532,5 +534,5 @@ async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::*;
+    //use super::*;
 }
