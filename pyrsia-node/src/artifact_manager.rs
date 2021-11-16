@@ -456,7 +456,7 @@ mod tests {
     use crate::artifact_manager::{ArtifactManager, Hash, HashAlgorithm};
     use anyhow::{anyhow, Context};
     use env_logger::Target;
-    use log::LevelFilter;
+    use log::{info, LevelFilter};
     use std::fs;
     use std::io::Read;
     use std::path::PathBuf;
@@ -476,20 +476,27 @@ mod tests {
     #[test]
     fn new_artifact_manager_with_valid_directory() {
         let dir_name = "TmpX";
-        let _ignore = fs::remove_dir_all(dir_name);
         fs::create_dir(dir_name).expect(&format!("Unable to create temp directory {}", dir_name));
+        info!("Created directory for valid directory test: {}", dir_name);
         let ok: bool = match ArtifactManager::new(dir_name) {
-            Ok(_) => true,
+            Ok(artifact_manager) => {
+                let repo_path = artifact_manager.repository_path.display();
+                info!(
+                    "Artifact manager created with repo directory {}",
+                    artifact_manager.repository_path.display()
+                );
+                let meta256 = fs::metadata(format!("{}/sha256", repo_path))
+                    .expect("unable to get metadata for sha256");
+                assert!(meta256.is_dir());
+                let meta512 = fs::metadata(format!("{}/sha512", repo_path))
+                    .expect("unable to get metadata for sha512");
+                assert!(meta512.is_dir());
+                fs::remove_dir_all(dir_name)
+                    .expect(&format!("unable to remove temp directory {}", repo_path));
+                true
+            }
             Err(_) => false,
         };
-        let meta256 = fs::metadata(format!("{}/sha256", dir_name))
-            .expect("unable to get metadata for sha256");
-        assert!(meta256.is_dir());
-        let meta512 = fs::metadata(format!("{}/sha512", dir_name))
-            .expect("unable to get metadata for sha512");
-        assert!(meta512.is_dir());
-        fs::remove_dir_all(dir_name)
-            .expect(&format!("unable to remove temp directory {}", dir_name));
         assert!(ok)
     }
 
