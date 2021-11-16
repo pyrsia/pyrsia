@@ -1,8 +1,8 @@
 ///
 /// This module contains structs that are used to organize data in the pyrsia blockchain and also to
 /// manage the blockchain.
-use anyhow::{anyhow, Context, Result};
-use chrono::{DateTime, Utc};
+use anyhow::{anyhow, Context, Error, Result};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use x509_parser::certificate::X509Certificate;
 use x509_parser::prelude::*;
@@ -68,6 +68,24 @@ pub struct TrustStore<'a> {
     pub valid_until: i64, //the number of non-leap seconds since January 1, 1970 0:00:00 UTC
     pub trust_store: Vec<u8>,
     pub signature: Vec<u8>,
+}
+
+impl<'a> TrustStore<'a> {
+    /// Get the valid_after time as a DateTime<Utc>
+    pub fn valid_after_as_datetime(self) -> Result<DateTime<Utc>, anyhow::Error> {
+        TrustStore::timestamp_to_datetime(self.valid_after)
+    }
+
+    pub fn valid_until_as_datetime(self) -> Result<DateTime<Utc>, anyhow::Error> {
+        TrustStore::timestamp_to_datetime(self.valid_until)
+    }
+
+    fn timestamp_to_datetime(ts: i64) -> Result<DateTime<Utc>, Error> {
+        match NaiveDateTime::from_timestamp_opt(ts, 0) {
+            Some(naive_date_time) => Ok(DateTime::from_utc(naive_date_time, Utc)),
+            None => Err(anyhow!("Timestamp value is out of range: {}", ts))
+        }
+    }
 }
 
 #[cfg(test)]
