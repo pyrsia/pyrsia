@@ -1,6 +1,6 @@
 [package]
 name = "pyrsia-node"
-authors = ["Joeri Sykora <joeri@sertik.net>", "Elliott Frisch <elliottf@jfrog.com>"]
+authors = ["Joeri Sykora <joeri@sertik.net>", "Elliott Frisch <elliottf@jfrog.com>", "Chris Mc <christopherm@jfrog.com>"]
 version = "0.1.0"
 edition = "2021"
 
@@ -11,7 +11,6 @@ anyhow = "1.0.45"
 blake3 = "1.2.0"
 env_logger = "0.9.0"
 futures = "0.3.17"
-async-std = {"version"="1.10.0", features=["attributes"]}
 bytes = "1.1.0"
 clap = "2.33.0"
 ctor = "0.1.21"
@@ -22,11 +21,11 @@ pretty_env_logger = "0.4.0"
 rust-crypto = "0.2.36"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+tokio = { version = "1", features = [ "macros", "rt-multi-thread", "io-std" ] }
 stringreader = "0.1.1"
 strum = "0.22.0"
 strum_macros = "0.22.0"
-tokio = { version = "1", features = [ "macros", "rt-multi-thread" ] }
 #libp2p = "0.40.0"
-libp2p = {git = "https://github.com/decentnetwork/rust-libp2p.git", branch = "fix-compiling-v0.40"}
+libp2p = {git = "https://github.com/decentnetwork/rust-libp2p.git", branch = "fix-compiling-v0.40", features=["tcp-tokio"]}
 uuid = { version = "0.8.2", features = [ "v4" ] }
 warp = { version = "0.3.1", default-features = false }
