@@ -116,6 +116,7 @@ mod blockchain_tests {
 
         let mut xcs = X509CertificateSignature{x509_certificate_der : der_encoded_cert, signature: vec![], x509_certificate_binary: Option::None };
         let certificate = xcs.x509_certificate()?;
+        assert_eq!("C=US, ST=Texas, L=Houston, O=SSL Corp, CN=SSL.com EV SSL Intermediate CA RSA R3", format!("{}", certificate.issuer()));
         println!("Signature algorithm: {}", certificate.signature_algorithm.algorithm.to_string());
         Ok(())
     }

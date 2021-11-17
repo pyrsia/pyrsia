@@ -492,9 +492,9 @@ async fn handle_patch_blob(
     );
     let append = append_to_blob(&mut blob_upload_dest, bytes);
     if let Err(e) = append {
-        return Err(warp::reject::custom(RegistryError {
+        Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
+        }))
     } else {
         let append_result = append.ok().unwrap();
         let range = format!(
@@ -503,7 +503,7 @@ async fn handle_patch_blob(
             append_result.0 + append_result.1 - 1
         );
         debug!("Patch blob range: {}", range);
-        return Ok(warp::http::response::Builder::new()
+        Ok(warp::http::response::Builder::new()
             .header(
                 "Location",
                 format!("http://localhost:7878/v2/{}/blobs/uploads/{}", name, id),
@@ -511,7 +511,7 @@ async fn handle_patch_blob(
             .header("Range", &range)
             .status(StatusCode::ACCEPTED)
             .body("")
-            .unwrap());
+            .unwrap())
     }
 }
 
@@ -542,11 +542,11 @@ async fn handle_put_blob(
         }
     };
 
-    let mut blob_dest = String::from(format!(
+    let mut blob_dest = format!(
         "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}",
         digest.get(7..9).unwrap(),
         digest.get(7..).unwrap()
-    ));
+    );
     if let Err(e) = fs::create_dir_all(&blob_dest) {
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(e.to_string()),

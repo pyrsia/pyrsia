@@ -98,17 +98,17 @@ impl HashAlgorithm {
 
     /// Translate a HashAlgorithm to a string.
     pub fn hash_algorithm_to_str(&self) -> &'static str {
-        return match self {
+        match self {
             HashAlgorithm::SHA256 => "SHA256",
             HashAlgorithm::SHA512 => "SHA512",
-        };
+        }
     }
 
     fn hash_length_in_bytes(&self) -> usize {
-        return match self {
+        match self {
             HashAlgorithm::SHA256 => 256 / 8,
             HashAlgorithm::SHA512 => 512 / 8,
-        };
+        }
     }
 }
 
@@ -138,7 +138,7 @@ impl<'a> Hash<'a> {
     // This function ensures that there is a directory under the repository root for each one of
     // the supported hash algorithms.
     fn ensure_directories_for_hash_algorithms_exist(
-        repository_path: &PathBuf,
+        repository_path: &Path,
     ) -> Result<(), anyhow::Error> {
         let mut path_buf = PathBuf::new();
         path_buf.push(repository_path);
@@ -198,7 +198,7 @@ struct WriteHashDecorator<'a> {
 
 impl<'a> WriteHashDecorator<'a> {
     fn new(writer: &'a mut impl Write, digester: &'a mut Box<dyn Digester>) -> Self {
-        return WriteHashDecorator { writer, digester };
+        WriteHashDecorator { writer, digester }
     }
 }
 
@@ -211,7 +211,8 @@ impl<'a> Write for WriteHashDecorator<'a> {
             Ok(bytes_written) => self.digester.update_hash(&buf[..bytes_written]),
             _ => {}
         }
-        return result;
+        result
+
     }
 
     fn flush(&mut self) -> io::Result<()> {
