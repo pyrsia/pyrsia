@@ -6,7 +6,7 @@
 /// This module contains structs that are used to organize data in the pyrsia blockchain and also to
 /// manage the blockchain.
 use anyhow::{anyhow, Context, Error, Result};
-use chrono::{DateTime, NaiveDateTime, Utc};
+//use chrono::{DateTime, NaiveDateTime, Utc};
 use openssl::x509::X509;
 use serde::{Deserialize, Serialize};
 
@@ -110,23 +110,24 @@ pub struct TrustStore<'a> {
     pub signature: Vec<u8>,
 }
 
-impl<'a> TrustStore<'a> {
-    /// Get the valid_after time as a DateTime<Utc>
-    pub fn valid_after_as_datetime(self) -> Result<DateTime<Utc>, anyhow::Error> {
-        TrustStore::timestamp_to_datetime(self.valid_after)
-    }
-
-    pub fn valid_until_as_datetime(self) -> Result<DateTime<Utc>, anyhow::Error> {
-        TrustStore::timestamp_to_datetime(self.valid_until)
-    }
-
-    fn timestamp_to_datetime(ts: i64) -> Result<DateTime<Utc>, Error> {
-        match NaiveDateTime::from_timestamp_opt(ts, 0) {
-            Some(naive_date_time) => Ok(DateTime::from_utc(naive_date_time, Utc)),
-            None => Err(anyhow!("Timestamp value is out of range: {}", ts)),
-        }
-    }
-}
+// Not needed for MVP
+// impl<'a> TrustStore<'a> {
+//     /// Get the valid_after time as a DateTime<Utc>
+//     pub fn valid_after_as_datetime(self) -> Result<DateTime<Utc>, anyhow::Error> {
+//         TrustStore::timestamp_to_datetime(self.valid_after)
+//     }
+//
+//     pub fn valid_until_as_datetime(self) -> Result<DateTime<Utc>, anyhow::Error> {
+//         TrustStore::timestamp_to_datetime(self.valid_until)
+//     }
+//
+//     fn timestamp_to_datetime(ts: i64) -> Result<DateTime<Utc>, Error> {
+//         match NaiveDateTime::from_timestamp_opt(ts, 0) {
+//             Some(naive_date_time) => Ok(DateTime::from_utc(naive_date_time, Utc)),
+//             None => Err(anyhow!("Timestamp value is out of range: {}", ts)),
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod blockchain_tests {

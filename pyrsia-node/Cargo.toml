@@ -26,6 +26,7 @@ serde_json = "1.0"
 stringreader = "0.1.1"
 strum = "0.22.0"
 strum_macros = "0.22.0"
+time = "0.3.5"
 tokio = { version = "1", features = [ "macros", "rt-multi-thread", "io-std" ] }
 #libp2p = "0.40.0"
 libp2p = {git = "https://github.com/decentnetwork/rust-libp2p.git", branch = "fix-compiling-v0.40", features=["tcp-tokio"]}
