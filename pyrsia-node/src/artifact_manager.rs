@@ -144,11 +144,11 @@ impl<'a> Hash<'a> {
     // (base64 is more compact, but hex is easier for troubleshooting). For example
     // pyrsia-artifacts/SHA256/68efadf3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6ccbb4
     // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
-    fn base_file_path(&self, repo_dir: &PathBuf) -> PathBuf {
+    fn base_file_path(&self, repo_dir: &Path) -> PathBuf {
         let mut buffer: PathBuf = PathBuf::from(repo_dir);
         buffer.push(self.algorithm.hash_algorithm_to_str());
         buffer.push(Hash::encode_bytes_as_file_name(self.bytes));
-        return buffer;
+        buffer
     }
 }
 
@@ -188,17 +188,13 @@ impl<'a> Write for WriteHashDecorator<'a> {
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        return self.writer.flush();
+        self.writer.flush()
     }
 
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         let result = self.writer.write(buf);
-        match result {
-            // hash just the number of bytes that were actually written. This may be less than the whole buffer.
-            Ok(_) => self.digester.update_hash(buf),
-            _ => {}
-        }
-        return Ok(());
+        if let Ok(_) = result { self.digester.update_hash(buf) }
+        Ok(())
     }
 }
 
@@ -284,11 +280,11 @@ impl<'a> ArtifactManager {
         }
     }
 
-    fn create_artifact_file(tmp_path: &PathBuf) -> std::io::Result<File> {
+    fn create_artifact_file(tmp_path: &Path) -> std::io::Result<File> {
         OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(tmp_path.as_path())
+            .open(tmp_path)
     }
 
     fn handle_wrong_hash(
@@ -309,7 +305,7 @@ impl<'a> ArtifactManager {
     fn rename_to_permanent(
         expected_hash: &Hash,
         base_path: PathBuf,
-        tmp_path: &PathBuf,
+        tmp_path: &Path,
     ) -> Result<bool, anyhow::Error> {
         fs::rename(tmp_path.clone(), base_path.clone()).with_context(|| {
             format!(
@@ -332,7 +328,7 @@ impl<'a> ArtifactManager {
         base_path
     }
 
-    fn file_creation_error(base_path: &PathBuf, error: std::io::Error) -> Result<bool, Error> {
+    fn file_creation_error(base_path: &Path, error: std::io::Error) -> Result<bool, Error> {
         match error.kind() {
             io::ErrorKind::AlreadyExists => Ok(false),
             _ => Err(anyhow!(error)),
@@ -367,7 +363,7 @@ impl<'a> ArtifactManager {
 
     fn copy_from_reader_to_writer(
         reader: &mut impl Read,
-        path: &PathBuf,
+        path: &Path,
         mut writer: &mut WriteHashDecorator,
     ) -> Result<(), Error> {
         io::copy(reader, &mut writer).with_context(|| {
@@ -417,7 +413,7 @@ fn tmp_path_from_base(base: &PathBuf) -> PathBuf {
 }
 
 // return true if the given repository path leads to an accessible directory.
-fn is_accessible_directory(repository_path: &PathBuf) -> bool {
+fn is_accessible_directory(repository_path: &Path) -> bool {
     match fs::metadata(repository_path) {
         Err(_) => false,
         Ok(metadata) => metadata.is_dir(),

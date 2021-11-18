@@ -69,7 +69,7 @@ impl<'a> X509CertificateSignature {
 
     /// The raw signature
     pub fn raw_signature(self) -> Vec<u8> {
-        self.signature.clone()
+        self.signature
     }
 
     //TODO Add method to use the private key associated with the certificate and the signature algorithm specified by the certificate to create a signature based on the public key of the enclosing identity using the webpki crate.
