@@ -6,6 +6,7 @@
 /// an artifact, we must consult the metadata that refers to the artifact.
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
+use std::borrow::Borrow;
 use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
 use std::fs;
@@ -17,8 +18,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Error, Result};
-use crypto::digest::Digest;
-use crypto::sha2::{Sha256, Sha512};
+use ring::digest;
 use strum::IntoEnumIterator;
 use strum_macros::{EnumIter, EnumString};
 
@@ -31,43 +31,17 @@ trait Digester {
     fn hash_size_in_bytes(&self) -> usize;
 }
 
-impl Digester for Sha256 {
-    fn update_hash(self: &mut Self, input: &[u8]) {
-        self.input(&*input);
+impl Digester for digest::Context {
+    fn update_hash(&mut self, input: &[u8]) {
+        self.update(input);
     }
 
-    fn finalize_hash(self: &mut Self, hash_buffer: &mut [u8]) {
-        let mut hash_array: [u8; 32] = [0; 32];
-        self.result(&mut hash_array);
-        let mut i = 0;
-        while i < hash_array.len() {
-            hash_buffer[i] = hash_array[i];
-            i += 1;
-        }
+    fn finalize_hash(&mut self, hash_buffer: &mut [u8]) {
+        hash_buffer.copy_from_slice(self.clone().finish().as_ref());
     }
 
     fn hash_size_in_bytes(&self) -> usize {
-        return 256 / 8;
-    }
-}
-
-impl Digester for Sha512 {
-    fn update_hash(self: &mut Self, input: &[u8]) {
-        self.input(&*input);
-    }
-
-    fn finalize_hash(self: &mut Self, hash_buffer: &mut [u8]) {
-        let mut hash_array: [u8; 64] = [0; 64];
-        self.result(&mut hash_array);
-        let mut i = 0;
-        while i < 64 {
-            hash_buffer[i] = hash_array[i];
-            i += 1;
-        }
-    }
-
-    fn hash_size_in_bytes(&self) -> usize {
-        return 512 / 8;
+        self.algorithm().output_len
     }
 }
 
@@ -91,8 +65,8 @@ impl HashAlgorithm {
 
     fn digest_factory(&self) -> Box<dyn Digester> {
         match self {
-            HashAlgorithm::SHA256 => Box::new(Sha256::new()),
-            HashAlgorithm::SHA512 => Box::new(Sha512::new()),
+            HashAlgorithm::SHA256 => Box::new(digest::Context::new(&digest::SHA256)),
+            HashAlgorithm::SHA512 => Box::new(digest::Context::new(&digest::SHA512))
         }
     }
 
