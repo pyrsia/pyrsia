@@ -31,7 +31,6 @@ use easy_hasher::easy_hasher::{file_hash, raw_sha256, Hash};
 use futures::StreamExt;
 use libp2p::{Multiaddr, PeerId};
 use std::env;
-use easy_hasher::easy_hasher::{file_hash, Hash, raw_sha256};
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
