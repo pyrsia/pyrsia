@@ -14,20 +14,16 @@ mod server;
 mod utils;
 
 use crate::utils::error_util::custom_recover;
-use noise::AuthenticKeypair;
-use noise::X25519Spec;
 use floodsub::Topic;
 use identity::Keypair;
 use libp2p::Swarm;
+use noise::AuthenticKeypair;
+use noise::X25519Spec;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
-use log::info;
-use std::env;
-use warp::Filter;
-use libp2p::{Multiaddr, PeerId};
 use libp2p::{
     core::upgrade,
     floodsub::{self, Floodsub, FloodsubEvent},
@@ -41,7 +37,11 @@ use libp2p::{
     NetworkBehaviour,
     Transport,
 };
+use libp2p::{Multiaddr, PeerId};
+use log::info;
+use std::env;
 use tokio::io::{self, AsyncBufReadExt};
+use warp::Filter;
 
 const DEFAULT_PORT: &str = "7878";
 
@@ -78,14 +78,14 @@ async fn main() {
                 .help("Sets the port to listen to"),
         )
         .arg(
-        Arg::with_name("peer")
-            //.short("p")
-            .long("peer")
-            .takes_value(true)
-            .required(false)
-            .multiple(false)
-            .help("Provide an explicit peerId"),
-    )
+            Arg::with_name("peer")
+                //.short("p")
+                .long("peer")
+                .takes_value(true)
+                .required(false)
+                .multiple(false)
+                .help("Provide an explicit peerId"),
+        )
         .get_matches();
 
     let verbosity: u64 = matches.occurrences_of("verbose");
@@ -94,7 +94,7 @@ async fn main() {
     }
 
     // Create a keypair for authenticated encryption of the transport.
-    let noise_keys:AuthenticKeypair<X25519Spec> = noise::Keypair::<noise::X25519Spec>::new()
+    let noise_keys: AuthenticKeypair<X25519Spec> = noise::Keypair::<noise::X25519Spec>::new()
         .into_authentic(&id_keys)
         .expect("Signing libp2p-noise static DH keypair failed.");
 
@@ -184,13 +184,14 @@ async fn main() {
     let mut stdin = io::BufReader::new(io::stdin()).lines();
 
     // Listen on all interfaces and whatever port the OS assigns
-    swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap()).unwrap();
+    swarm
+        .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
+        .unwrap();
 
     let mut address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0);
     if let Some(p) = matches.value_of("port") {
         address.set_port(p.parse::<u16>().unwrap());
     }
-
 
     let empty_json = "{Prsia node is alive}";
     let v2_base = warp::path("v2")
@@ -235,15 +236,23 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(server::v2::blobs::handle_put_blob);
 
-    let routes = warp::any().and(utils::log::log_headers()).and(
-        v2_base.or(v2_manifests).or(v2_manifests_put_docker).or(v2_blobs).or(v2_blobs_post).or(v2_blobs_patch).or(v2_blobs_put)
-    ).recover(custom_recover).with(warp::log("pyrsia_registry"));
-    let (addr, server)  = warp::serve(routes).bind_ephemeral(address);
+    let routes = warp::any()
+        .and(utils::log::log_headers())
+        .and(
+            v2_base
+                .or(v2_manifests)
+                .or(v2_manifests_put_docker)
+                .or(v2_blobs)
+                .or(v2_blobs_post)
+                .or(v2_blobs_patch)
+                .or(v2_blobs_put),
+        )
+        .recover(custom_recover)
+        .with(warp::log("pyrsia_registry"));
+    let (addr, server) = warp::serve(routes).bind_ephemeral(address);
     info!("Pyrsia Docker Node is now running on port {}!", addr.port());
 
-    tokio::task::spawn(
-        server
-    );
+    tokio::task::spawn(server);
 
     // Kick it off
     loop {
@@ -258,7 +267,7 @@ async fn main() {
                 }
             }
         }
-    };
+    }
 }
 
 #[cfg(test)]

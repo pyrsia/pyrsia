@@ -1,9 +1,7 @@
-use std::convert::Infallible;
 use log::debug;
-use warp::Filter;
+use std::convert::Infallible;
 use warp::http::HeaderMap;
-
-
+use warp::Filter;
 
 pub fn log_headers() -> impl Filter<Extract = (), Error = Infallible> + Copy {
     warp::header::headers_cloned()
