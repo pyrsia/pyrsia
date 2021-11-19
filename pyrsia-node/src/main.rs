@@ -11,6 +11,7 @@ extern crate uuid;
 extern crate warp;
 
 mod blockchain_manager;
+mod hash;
 
 use floodsub::Topic;
 use identity::Keypair;

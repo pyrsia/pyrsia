@@ -5,10 +5,9 @@
 ///
 /// This module contains structs that are used to organize data in the pyrsia blockchain and also to
 /// manage the blockchain.
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{anyhow, Context, Result};
 //use chrono::{DateTime, NaiveDateTime, Utc};
 use openssl::x509::X509;
-use ring::signature::Signature;
 use serde::{Deserialize, Serialize};
 
 //TODO Add delegation struct and trait.
