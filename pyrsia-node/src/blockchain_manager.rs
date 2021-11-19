@@ -96,15 +96,15 @@ pub struct Identity<'a> {
     signature: Vec<u8>,
 }
 
-impl Identity {
+impl<'a> Identity<'a> {
     pub fn new(
         public_key: Vec<u8>,
         signature_algorithm: SignatureAlgorithm,
-        name: &str,
-        description: &str,
-        external_identities: Vec<ExternalIdentity>,
+        name: &'a str,
+        description: &'a str,
+        external_identities: Vec<ExternalIdentity<'a>>,
         encoded_key_pair: Vec<u8>,
-    ) -> Identity {
+    ) -> Identity<'a> {
         let mut identity = Identity {
             public_key,
             signature_algorithm,
