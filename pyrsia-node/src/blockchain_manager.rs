@@ -8,16 +8,17 @@
 use anyhow::{anyhow, Context, Error, Result};
 //use chrono::{DateTime, NaiveDateTime, Utc};
 use openssl::x509::X509;
+use ring::signature::Signature;
 use serde::{Deserialize, Serialize};
 
 //TODO Add delegation struct and trait.
 
 /// This is an enumeration of the signature algorithms supported for pyrsia's metadata.
-/// No RSA size smaller than 4096 is supported. This is to give us plenty of time to adopt
+/// No RSA size smaller than 3072 is supported. This is to give us plenty of time to adopt
 /// quantum-resistant signature algorithms when they are available.
 #[derive(Serialize, Deserialize)]
 pub enum SignatureAlgorithm {
-    RSA4096,
+    Rsa3072Blake3,
 }
 
 /// This struct can be included an identity as evidence of the entity that the identity corresponds
@@ -77,38 +78,65 @@ impl<'a> X509CertificateSignature {
 }
 
 #[derive(Serialize, Deserialize)]
-pub enum ExternalIdentity {
+pub enum ExternalIdentity<'a> {
     //#[serde(borrow)]
     X509(X509CertificateSignature),
+    Email(&'a str),
+    WebUrl(&'a str),
 }
 
 /// This struct contains the information for an identity stored in the blockchain.
 #[derive(Serialize, Deserialize)]
 pub struct Identity<'a> {
-    identity_public_key: &'a str,
-    identity_algorithm: SignatureAlgorithm,
+    public_key: Vec<u8>,
+    signature_algorithm: SignatureAlgorithm,
     name: &'a str,
-    description: Option<&'a str>,
-    email: Option<&'a str>,
-    web_url: Option<&'a str>,
-    pub phone_number: Option<&'a str>,
-    pub external_identities: Vec<ExternalIdentity>,
-    pub signature: Vec<u8>,
+    description: &'a str,
+    external_identities: Vec<ExternalIdentity<'a>>,
+    signature: Vec<u8>,
 }
 
-// TODO complete the TrustStore porition of the blockchain interface.
+impl Identity {
+    pub fn new(
+        public_key: Vec<u8>,
+        signature_algorithm: SignatureAlgorithm,
+        name: &str,
+        description: &str,
+        external_identities: Vec<ExternalIdentity>,
+        encoded_key_pair: Vec<u8>,
+    ) -> Identity {
+        let mut identity = Identity {
+            public_key,
+            signature_algorithm,
+            name,
+            description,
+            external_identities,
+            signature: vec![]
+        };
+        identity.signature = Identity::compute_signature(encoded_key_pair);
+        identity
+    }
 
+    fn compute_signature(encoded_key_pair: Vec<u8>) -> Vec<u8> {
+        todo!("Finish This!")
+    }
+}
+
+// TODO complete the TrustStore portion of the blockchain interface.
+
+// Not needed for MVP
 /// Identities are allowed to share a trust store so others can trust the same certificate
 /// authorities
-#[derive(Serialize, Deserialize)]
-pub struct TrustStore<'a> {
-    pub id: &'a str,
-    pub identity_public_key: &'a str, // The identity that the trust store belongs to
-    pub valid_after: i64, // the number of non-leap seconds since January 1, 1970 0:00:00 UTC
-    pub valid_until: i64, //the number of non-leap seconds since January 1, 1970 0:00:00 UTC
-    pub trust_store: Vec<u8>,
-    pub signature: Vec<u8>,
-}
+// #[derive(Serialize, Deserialize)]
+// pub struct TrustStore<'a> {
+//     id: &'a str,
+//     uuid: &'a str,
+//     identity_public_key: &'a str, // The identity that the trust store belongs to
+//     valid_after: i64, // the number of non-leap seconds since January 1, 1970 0:00:00 UTC
+//     valid_until: i64, //the number of non-leap seconds since January 1, 1970 0:00:00 UTC
+//     trust_store: Vec<u8>,
+//     signature: Vec<u8>,
+// }
 
 // Not needed for MVP
 // impl<'a> TrustStore<'a> {
