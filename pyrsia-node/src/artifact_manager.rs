@@ -21,13 +21,24 @@ use ring::digest;
 use strum::IntoEnumIterator;
 use strum_macros::{EnumIter, EnumString};
 
-// We will provide implementations of this trait for each hash algorithm that we support.
+/// The digester trait is an abstraction that we use to hide the differences in the interfaces
+/// provided for different hash algorithms. Each time we want to compute a hash, we will create a
+/// struct that has an implementation of this trait.
+/// We will provide implementations of this trait for each hash algorithm that we support.
 trait Digester {
+    /// Update the hash computation in the struct with the given input data. This should be called
+    /// at least once for every hash computation.
+    /// * input — A slice of bytes to be included in the hash computation.
     fn update_hash(&mut self, input: &[u8]);
 
-    fn finalize_hash(&mut self, hash_buffer: &mut [u8]);
-
+    /// Returns the size in bytes of the hash value that will be produced by this struct. This is
+    /// useful for allocating the memory to store the hash value.
     fn hash_size_in_bytes(&self) -> usize;
+
+    /// This method is called once after all the data for the hash computation has been passed to
+    /// the `update_hash` method. This method fills the mutable slice referenced by `hash_buffer`
+    /// with the hash value.
+    fn finalize_hash(&mut self, hash_buffer: &mut [u8]);
 }
 
 impl Digester for digest::Context {
