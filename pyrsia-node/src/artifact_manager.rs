@@ -25,7 +25,7 @@ use strum_macros::{EnumIter, EnumString};
 /// provided for different hash algorithms. Each time we want to compute a hash, we will create a
 /// struct that has an implementation of this trait.
 /// We will provide implementations of this trait for each hash algorithm that we support.
-trait Digester {
+pub trait Digester {
     /// Update the hash computation in the struct with the given input data. This should be called
     /// at least once for every hash computation.
     /// * input — A slice of bytes to be included in the hash computation.
@@ -40,7 +40,6 @@ trait Digester {
     /// with the hash value.
     fn finalize_hash(&mut self, hash_buffer: &mut [u8]);
 }
-
 impl Digester for digest::Context {
     fn update_hash(&mut self, input: &[u8]) {
         self.update(input);
@@ -73,7 +72,8 @@ impl HashAlgorithm {
         })
     }
 
-    fn digest_factory(&self) -> Box<dyn Digester> {
+    /// Call this method on a variant of HashAlgorithm to get a Digester that implements the algorithm
+    pub fn digest_factory(&self) -> Box<dyn Digester> {
         match self {
             HashAlgorithm::SHA256 => Box::new(digest::Context::new(&digest::SHA256)),
             HashAlgorithm::SHA512 => Box::new(digest::Context::new(&digest::SHA512)),
@@ -102,6 +102,7 @@ impl std::fmt::Display for HashAlgorithm {
     }
 }
 
+/// This struct is used to represent a hash value
 pub struct Hash<'a> {
     algorithm: HashAlgorithm,
     bytes: &'a [u8],
@@ -115,32 +116,6 @@ impl<'a> Hash<'a> {
         } else {
             Err(anyhow!(format!("The hash value does not have the correct length for the algorithm. The expected length is {} bytes, but the length of the supplied hash is {}.", expected_length, bytes.len())))
         }
-    }
-
-    // It is possible, though unlikely, for SHA512, SHA3_512 and BLAKE3 to generate the same
-    // hash for different content. Separating files by algorithm avoids this type of collision.
-    // This function ensures that there is a directory under the repository root for each one of
-    // the supported hash algorithms.
-    fn ensure_directories_for_hash_algorithms_exist(
-        repository_path: &Path,
-    ) -> Result<(), anyhow::Error> {
-        let mut path_buf = PathBuf::new();
-        path_buf.push(repository_path);
-        for algorithm in HashAlgorithm::iter() {
-            Self::ensure_subdirectory_exists(&mut path_buf, algorithm)?;
-        }
-        Ok(())
-    }
-
-    fn ensure_subdirectory_exists(
-        path_buf: &mut PathBuf,
-        algorithm: HashAlgorithm,
-    ) -> Result<(), anyhow::Error> {
-        let mut this_buf = path_buf.clone();
-        this_buf.push(algorithm.hash_algorithm_to_str());
-        fs::create_dir_all(this_buf.as_os_str())
-            .with_context(|| format!("Error creating directory {}", this_buf.display()))?;
-        Ok(())
     }
 
     fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
@@ -171,6 +146,32 @@ impl Display for Hash<'_> {
             hex::encode(self.bytes)
         ))
     }
+}
+
+// It is possible, though unlikely, for SHA512, SHA3_512 and BLAKE3 to generate the same
+// hash for different content. Separating files by algorithm avoids this type of collision.
+// This function ensures that there is a directory under the repository root for each one of
+// the supported hash algorithms.
+fn ensure_directories_for_hash_algorithms_exist(
+    repository_path: &Path,
+) -> Result<(), anyhow::Error> {
+    let mut path_buf = PathBuf::new();
+    path_buf.push(repository_path);
+    for algorithm in HashAlgorithm::iter() {
+        ensure_subdirectory_exists(&mut path_buf, algorithm)?;
+    }
+    Ok(())
+}
+
+fn ensure_subdirectory_exists(
+    path_buf: &mut PathBuf,
+    algorithm: HashAlgorithm,
+) -> Result<(), anyhow::Error> {
+    let mut this_buf = path_buf.clone();
+    this_buf.push(algorithm.hash_algorithm_to_str());
+    fs::create_dir_all(this_buf.as_os_str())
+        .with_context(|| format!("Error creating directory {}", this_buf.display()))?;
+    Ok(())
 }
 
 // This is a decorator for the Write trait that allows the bytes written by the writer to be
@@ -236,7 +237,7 @@ impl<'a> ArtifactManager {
     pub fn new(repository_path: &str) -> Result<ArtifactManager, anyhow::Error> {
         let absolute_path = Path::new(repository_path).canonicalize()?;
         if is_accessible_directory(&absolute_path) {
-            Hash::ensure_directories_for_hash_algorithms_exist(&absolute_path)?;
+            ensure_directories_for_hash_algorithms_exist(&absolute_path)?;
             info!(
                 "Creating an ArtifactManager with a repository in {}",
                 absolute_path.display()
