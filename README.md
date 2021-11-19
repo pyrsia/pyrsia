@@ -11,6 +11,10 @@ _📢 We are looking for your feedback!_
 This project is currently in the "sandbox" 🏖️. We are actively exploring the concepts and tools that are used during development.
 The code, workflows, and ideas are subject to breaking changes at any time in this early stage of development.
 
+### Primary Focus
+
+To get off the ground the focus is on the peer-to-peer distribution of Docker images. 
+
 ## Contributing
 
 Before getting started, take a moment to review our [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md).
