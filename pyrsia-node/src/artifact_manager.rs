@@ -121,21 +121,6 @@ impl<'a> Hash<'a> {
     fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
         hex::encode(bytes)
     }
-
-    // The base file path (no extension on the file name) that will correspond to this hash.
-    // The structure of the path is
-    // repo_root_dir/hash_algorithm/hash
-    // This consists of the artifact repository root directory, a directory whose name is the
-    // algorithm used to compute the hash and a file name that is the hash, encoded as hex
-    // (base64 is more compact, but hex is easier for troubleshooting). For example
-    // pyrsia-artifacts/SHA256/68efadf3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6ccbb4
-    // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
-    fn base_file_path(&self, repo_dir: &Path) -> PathBuf {
-        let mut buffer: PathBuf = PathBuf::from(repo_dir);
-        buffer.push(self.algorithm.hash_algorithm_to_str());
-        buffer.push(Hash::encode_bytes_as_file_name(self.bytes));
-        buffer
-    }
 }
 
 impl Display for Hash<'_> {
@@ -146,6 +131,21 @@ impl Display for Hash<'_> {
             hex::encode(self.bytes)
         ))
     }
+}
+
+// The base file path (no extension on the file name) that will correspond to this hash.
+// The structure of the path is
+// repo_root_dir/hash_algorithm/hash
+// This consists of the artifact repository root directory, a directory whose name is the
+// algorithm used to compute the hash and a file name that is the hash, encoded as hex
+// (base64 is more compact, but hex is easier for troubleshooting). For example
+// pyrsia-artifacts/SHA256/68efadf3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6ccbb4
+// TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
+fn base_file_path(hash: &Hash, repo_dir: &Path) -> PathBuf {
+    let mut buffer: PathBuf = PathBuf::from(repo_dir);
+    buffer.push(hash.algorithm.hash_algorithm_to_str());
+    buffer.push(Hash::encode_bytes_as_file_name(hash.bytes));
+    buffer
 }
 
 // It is possible, though unlikely, for SHA512, SHA3_512 and BLAKE3 to generate the same
@@ -336,7 +336,7 @@ impl<'a> ArtifactManager {
     }
 
     fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> PathBuf {
-        let mut base_path: PathBuf = expected_hash.base_file_path(&self.repository_path);
+        let mut base_path: PathBuf = base_file_path(expected_hash, &self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension("file");
         base_path
@@ -402,7 +402,7 @@ impl<'a> ArtifactManager {
             "An artifact is being pulled from the artifact manager {}",
             hash
         );
-        let mut base_path: PathBuf = hash.base_file_path(&self.repository_path);
+        let mut base_path: PathBuf = base_file_path(&hash,&self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension("file");
         debug!("Pushing artifact from {}", base_path.display());
