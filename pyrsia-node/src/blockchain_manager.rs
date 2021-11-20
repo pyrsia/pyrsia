@@ -120,6 +120,11 @@ impl<'a> Identity<'a> {
         todo!("Finish This!")
     }
 
+    /// return the public key of the identity
+    pub fn public_key(&self) -> &Vec<u8> {
+        &self.public_key
+    }
+
     /// return the name of the identity
     pub fn name(&self) -> &'a str {
         self.name
