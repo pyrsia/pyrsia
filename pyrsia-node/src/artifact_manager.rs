@@ -93,10 +93,12 @@ impl<'a> Write for WriteHashDecorator<'a> {
 
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         let result = self.writer.write(buf);
-        if let Ok(_) = result {
-            self.digester.update_hash(buf)
+        if result.is_ok() {
+            self.digester.update_hash(buf);
+            Ok(())
+        } else {
+            Err(result.err().unwrap())
         }
-        Ok(())
     }
 }
 
@@ -209,7 +211,7 @@ impl<'a> ArtifactManager {
         base_path: PathBuf,
         tmp_path: &Path,
     ) -> Result<bool, anyhow::Error> {
-        fs::rename(tmp_path.clone(), base_path.clone()).with_context(|| {
+        fs::rename(tmp_path.to_path_buf(), base_path.clone()).with_context(|| {
             format!(
                 "Attempting to rename from temporary file name{} to permanent{}",
                 tmp_path.to_str().unwrap(),

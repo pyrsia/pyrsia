@@ -436,7 +436,7 @@ async fn handle_put_manifest(
 
         // create manifest link file in tags if reference is a tag (no colon)
         let colon = reference.find(':');
-        if let None = colon {
+        if colon.is_none() {
             let mut manifest_tag_dest = format!(
                 "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current",
                 name, reference
