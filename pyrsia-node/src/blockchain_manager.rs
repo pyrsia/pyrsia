@@ -110,7 +110,7 @@ impl<'a> Identity<'a> {
             name,
             description,
             external_identities,
-            signature: vec![]
+            signature: vec![],
         };
         identity.signature = Identity::compute_signature(encoded_key_pair);
         identity
@@ -118,6 +118,15 @@ impl<'a> Identity<'a> {
 
     fn compute_signature(encoded_key_pair: Vec<u8>) -> Vec<u8> {
         todo!("Finish This!")
+    }
+
+    /// return the name of the identity
+    pub fn name(&self) -> &'a str {
+        self.name
+    }
+
+    pub fn description(&self) -> &'a str {
+        self.description
     }
 }
 

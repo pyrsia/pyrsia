@@ -1,7 +1,7 @@
+use crate::hash::HashAlgorithm::{SHA256, SHA512};
 use anyhow::{anyhow, Result};
 use ring::digest;
 use std::fmt::{Display, Formatter};
-use crate::hash::HashAlgorithm::{SHA256, SHA512};
 
 /// The digester trait is an abstraction that we use to hide the differences in the interfaces
 /// provided for different hash algorithms. Each time we want to compute a hash, we will create a
@@ -44,7 +44,7 @@ pub enum HashAlgorithm {
     SHA512,
 }
 
-static HASH_ALGORITHMS: [HashAlgorithm;2] = [SHA256, SHA512];
+static HASH_ALGORITHMS: [HashAlgorithm; 2] = [SHA256, SHA512];
 
 impl HashAlgorithm {
     /// Call this method on a variant of HashAlgorithm to get a Digester that implements the algorithm
@@ -68,12 +68,12 @@ impl HashAlgorithm {
         match name.to_uppercase().as_str() {
             "SHA256" => Ok(HashAlgorithm::SHA256),
             "SHA512" => Ok(HashAlgorithm::SHA512),
-            _ => Err(anyhow!("Unknown hash algorithm {}", name))
+            _ => Err(anyhow!("Unknown hash algorithm {}", name)),
         }
     }
 
     /// Return an iterator over the HashAlgorithm variants
-    pub fn iter() -> core::slice::Iter<'static, HashAlgorithm>{
+    pub fn iter() -> core::slice::Iter<'static, HashAlgorithm> {
         HASH_ALGORITHMS.iter()
     }
 

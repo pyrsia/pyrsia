@@ -14,8 +14,8 @@ use std::io::{BufWriter, Read, Write};
 use std::path;
 use std::path::Path;
 
+use crate::hash::{Digester, Hash, HashAlgorithm};
 use anyhow::{anyhow, Context, Error, Result};
-use crate::hash::{Digester, HashAlgorithm, Hash};
 
 pub fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
     hex::encode(bytes)
@@ -290,7 +290,7 @@ impl<'a> ArtifactManager {
             "An artifact is being pulled from the artifact manager {}",
             hash
         );
-        let mut base_path: PathBuf = base_file_path(&hash,&self.repository_path);
+        let mut base_path: PathBuf = base_file_path(&hash, &self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension("file");
         debug!("Pushing artifact from {}", base_path.display());
@@ -324,6 +324,8 @@ fn is_accessible_directory(repository_path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::artifact_manager::ArtifactManager;
+    use crate::hash::{Hash, HashAlgorithm};
     use anyhow::{anyhow, Context};
     use env_logger::Target;
     use log::{info, LevelFilter};
@@ -332,8 +334,6 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
     use stringreader::StringReader;
-    use crate::artifact_manager::ArtifactManager;
-    use crate::hash::{Hash, HashAlgorithm};
 
     #[cfg(test)]
     #[ctor::ctor]
