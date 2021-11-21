@@ -10,10 +10,15 @@ extern crate tokio;
 extern crate uuid;
 extern crate warp;
 
-mod server;
+//modules imports
+mod docker;
 mod utils;
 
-use crate::utils::error_util::custom_recover;
+use docker::v2::handlers::manifests::*;
+use docker::v2::handlers::blobs::*;
+use utils::error_util::*;
+
+
 use floodsub::Topic;
 use identity::Keypair;
 use libp2p::Swarm;
@@ -209,7 +214,7 @@ async fn main() {
 
     let v2_manifests = warp::path!("v2" / String / "manifests" / String)
         .and(warp::get().or(warp::head()).unify())
-        .and_then(server::v2::manifests::handle_get_manifests);
+        .and_then(handle_get_manifests);
     let v2_manifests_put_docker = warp::path!("v2" / String / "manifests" / String)
         .and(warp::put())
         .and(warp::header::exact(
@@ -217,24 +222,24 @@ async fn main() {
             "application/vnd.docker.distribution.manifest.v2+json",
         ))
         .and(warp::body::bytes())
-        .and_then(server::v2::manifests::handle_put_manifest);
+        .and_then(handle_put_manifest);
 
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(server::v2::blobs::handle_get_blobs);
+        .and_then(handle_get_blobs);
     let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
         .and(warp::post())
-        .and_then(server::v2::blobs::handle_post_blob);
+        .and_then(handle_post_blob);
     let v2_blobs_patch = warp::path!("v2" / String / "blobs" / "uploads" / String)
         .and(warp::patch())
         .and(warp::body::bytes())
-        .and_then(server::v2::blobs::handle_patch_blob);
+        .and_then(handle_patch_blob);
     let v2_blobs_put = warp::path!("v2" / String / "blobs" / "uploads" / String)
         .and(warp::put())
         .and(warp::query::<HashMap<String, String>>())
         .and(warp::body::bytes())
-        .and_then(server::v2::blobs::handle_put_blob);
+        .and_then(handle_put_blob);
 
     let routes = warp::any()
         .and(utils::log::log_headers())

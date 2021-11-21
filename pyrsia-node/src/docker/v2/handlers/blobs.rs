@@ -9,8 +9,7 @@ use uuid::Uuid;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
 
-use crate::utils::error_util::RegistryError as registry_err;
-use crate::utils::error_util::RegistryErrorCode as registry_err_code;
+use super::{RegistryError,RegistryErrorCode};
 
 pub async fn handle_get_blobs(_name: String, hash: String) -> Result<impl Reply, Rejection> {
     let blob = format!(
@@ -20,15 +19,15 @@ pub async fn handle_get_blobs(_name: String, hash: String) -> Result<impl Reply,
     );
     debug!("Getting blob: {}", blob);
     if !Path::new(&blob).is_file() {
-        return Err(warp::reject::custom(registry_err {
-            code: registry_err_code::BlobUnknown,
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::BlobUnknown,
         }));
     }
 
     let blob_content = fs::read(blob);
     if blob_content.is_err() {
-        return Err(warp::reject::custom(registry_err {
-            code: registry_err_code::BlobUnknown,
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::BlobUnknown,
         }));
     }
 
@@ -47,8 +46,8 @@ pub async fn handle_post_blob(name: String) -> Result<impl Reply, Rejection> {
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
         name, id
     )) {
-        return Err(warp::reject::custom(registry_err {
-            code: registry_err_code::Unknown(e.to_string()),
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown(e.to_string()),
         }));
     }
 
@@ -74,8 +73,8 @@ pub async fn handle_patch_blob(
     );
     let append = append_to_blob(&mut blob_upload_dest, bytes);
     if let Err(e) = append {
-        return Err(warp::reject::custom(registry_err {
-            code: registry_err_code::Unknown(e.to_string()),
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown(e.to_string()),
         }));
     } else {
         let append_result = append.ok().unwrap();
@@ -110,16 +109,16 @@ pub async fn handle_put_blob(
     let mut blob_upload_dest_data = blob_upload_dest_dir.clone();
     blob_upload_dest_data.push_str("/data");
     if let Err(e) = append_to_blob(&blob_upload_dest_data, bytes) {
-        return Err(warp::reject::custom(registry_err {
-            code: registry_err_code::Unknown(e.to_string()),
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown(e.to_string()),
         }));
     }
 
     let digest = match params.get("digest") {
         Some(v) => v,
         None => {
-            return Err(warp::reject::custom(registry_err {
-                code: registry_err_code::Unknown(String::from("missing digest")),
+            return Err(warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::Unknown(String::from("missing digest")),
             }))
         }
     };
@@ -130,21 +129,21 @@ pub async fn handle_put_blob(
         digest.get(7..).unwrap()
     ));
     if let Err(e) = fs::create_dir_all(&blob_dest) {
-        return Err(warp::reject::custom(registry_err {
-            code: registry_err_code::Unknown(e.to_string()),
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown(e.to_string()),
         }));
     }
 
     blob_dest.push_str("/data");
     if let Err(e) = fs::copy(&blob_upload_dest_data, &blob_dest) {
-        return Err(warp::reject::custom(registry_err {
-            code: registry_err_code::Unknown(e.to_string()),
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown(e.to_string()),
         }));
     }
 
     if let Err(e) = fs::remove_dir_all(&blob_upload_dest_dir) {
-        return Err(warp::reject::custom(registry_err {
-            code: registry_err_code::Unknown(e.to_string()),
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown(e.to_string()),
         }));
     }
 

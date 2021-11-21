@@ -1,7 +1,7 @@
 //module for manifests handling
 
-use crate::utils::error_util::RegistryError as registry_err;
-use crate::utils::error_util::RegistryErrorCode as registry_err_code;
+use super::{RegistryError,RegistryErrorCode};
+
 use bytes::Bytes;
 use easy_hasher::easy_hasher::{file_hash, raw_sha256, Hash};
 use log::debug;
@@ -20,8 +20,8 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
         );
         let manifest_content = fs::read_to_string(manifest);
         if manifest_content.is_err() {
-            return Err(warp::reject::custom(registry_err {
-                code: registry_err_code::ManifestUnknown,
+            return Err(warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::ManifestUnknown,
             }));
         }
         hash = manifest_content.unwrap();
@@ -34,8 +34,8 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
     );
     let blob_content = fs::read_to_string(blob);
     if blob_content.is_err() {
-        return Err(warp::reject::custom(registry_err {
-            code: registry_err_code::ManifestUnknown,
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::ManifestUnknown,
         }));
     }
 
@@ -64,8 +64,8 @@ pub async fn handle_put_manifest(
         name, id
     );
     if let Err(e) = fs::create_dir_all(&blob_upload_dest_dir) {
-        return Err(warp::reject::custom(registry_err {
-            code: registry_err_code::Unknown(e.to_string()),
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown(e.to_string()),
         }));
     }
 
@@ -75,8 +75,8 @@ pub async fn handle_put_manifest(
     );
     let append = super::blobs::append_to_blob(&mut blob_upload_dest, bytes);
     if let Err(e) = append {
-        return Err(warp::reject::custom(registry_err {
-            code: registry_err_code::Unknown(e.to_string()),
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown(e.to_string()),
         }));
     } else {
         // calculate sha256 checksum on manifest file
@@ -85,8 +85,8 @@ pub async fn handle_put_manifest(
         match file256 {
             Ok(hash) => digest = hash,
             Err(e) => {
-                return Err(warp::reject::custom(registry_err {
-                    code: registry_err_code::Unknown(e.to_string()),
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::Unknown(e.to_string()),
                 }))
             }
         }
@@ -102,23 +102,23 @@ pub async fn handle_put_manifest(
             hash
         );
         if let Err(e) = fs::create_dir_all(&blob_dest) {
-            return Err(warp::reject::custom(registry_err {
-                code: registry_err_code::Unknown(e.to_string()),
+            return Err(warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::Unknown(e.to_string()),
             }));
         }
         blob_dest.push_str("/data");
 
         // copy temporary upload to final blob location
         if let Err(e) = fs::copy(&blob_upload_dest, &blob_dest) {
-            return Err(warp::reject::custom(registry_err {
-                code: registry_err_code::Unknown(e.to_string()),
+            return Err(warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::Unknown(e.to_string()),
             }));
         }
 
         // remove temporary files
         if let Err(e) = fs::remove_dir_all(blob_upload_dest_dir) {
-            return Err(warp::reject::custom(registry_err {
-                code: registry_err_code::Unknown(e.to_string()),
+            return Err(warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::Unknown(e.to_string()),
             }));
         }
 
@@ -128,14 +128,14 @@ pub async fn handle_put_manifest(
             name, hash
         );
         if let Err(e) = fs::create_dir_all(&manifest_rev_dest) {
-            return Err(warp::reject::custom(registry_err {
-                code: registry_err_code::Unknown(e.to_string()),
+            return Err(warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::Unknown(e.to_string()),
             }));
         }
         manifest_rev_dest.push_str("/link");
         if let Err(e) = fs::write(manifest_rev_dest, format!("sha256:{}", hash)) {
-            return Err(warp::reject::custom(registry_err {
-                code: registry_err_code::Unknown(e.to_string()),
+            return Err(warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::Unknown(e.to_string()),
             }));
         }
 
@@ -147,14 +147,14 @@ pub async fn handle_put_manifest(
                 name, reference
             );
             if let Err(e) = fs::create_dir_all(&manifest_tag_dest) {
-                return Err(warp::reject::custom(registry_err {
-                    code: registry_err_code::Unknown(e.to_string()),
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::Unknown(e.to_string()),
                 }));
             }
             manifest_tag_dest.push_str("/link");
             if let Err(e) = fs::write(manifest_tag_dest, format!("sha256:{}", hash)) {
-                return Err(warp::reject::custom(registry_err {
-                    code: registry_err_code::Unknown(e.to_string()),
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::Unknown(e.to_string()),
                 }));
             }
         }
