@@ -1,3 +1,5 @@
+//module for manifests handling
+
 use crate::utils::error_util::RegistryError as registry_err;
 use crate::utils::error_util::RegistryErrorCode as registry_err_code;
 use bytes::Bytes;

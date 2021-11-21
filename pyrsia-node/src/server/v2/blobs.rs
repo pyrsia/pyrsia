@@ -1,3 +1,4 @@
+// module for blobs handling
 use bytes::{Buf, Bytes};
 use log::{debug, error};
 use std::collections::HashMap;
