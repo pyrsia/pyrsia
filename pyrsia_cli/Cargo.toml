@@ -1,0 +1,13 @@
+[package]
+name = "pyrsia_cli"
+authors = ["Mitali Bisht <mitalib@jfrog.com"]
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "3.0.0-beta.5", features = ["yaml"] }
+anyhow = "1.0"
+
+[[bin]]
+name = "pyrsia"
+path = "src/main.rs"
