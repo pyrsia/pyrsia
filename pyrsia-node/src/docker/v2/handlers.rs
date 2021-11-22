@@ -5,4 +5,5 @@ pub mod blobs;
 pub mod manifests;
 
 // functions available from other modules
-pub use super::{RegistryErrorCode,RegistryError};
+
+pub use crate::docker::error_util::{RegistryErrorCode,RegistryError};

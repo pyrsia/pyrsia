@@ -2,6 +2,3 @@
 pub mod handlers;
 
 pub mod routes;
-
-pub use crate::utils::error_util::{RegistryErrorCode,RegistryError};
-

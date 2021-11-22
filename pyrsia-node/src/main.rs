@@ -16,7 +16,7 @@ mod utils;
 
 use docker::v2::handlers::manifests::*;
 use docker::v2::handlers::blobs::*;
-use utils::error_util::*;
+use docker::error_util::*;
 
 
 use floodsub::Topic;
@@ -198,7 +198,7 @@ async fn main() {
         address.set_port(p.parse::<u16>().unwrap());
     }
 
-    let empty_json = "{Prsia node is alive}";
+    let empty_json = "{}";
     let v2_base = warp::path("v2")
         .and(warp::get())
         .and(warp::path::end())
