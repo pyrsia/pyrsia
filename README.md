@@ -13,7 +13,7 @@ The code, workflows, and ideas are subject to breaking changes at any time in th
 
 ### Primary Focus
 
-To get off the ground the focus is on the peer-to-peer distribution of Docker images. 
+To get off the ground the focus is strictly on the peer-to-peer distribution of Docker images backed by a blockchain of identifiers.
 
 ## Contributing
 
