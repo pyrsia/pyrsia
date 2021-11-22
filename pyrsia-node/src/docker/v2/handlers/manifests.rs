@@ -1,6 +1,6 @@
 //module for manifests handling
 
-use super::{RegistryError,RegistryErrorCode};
+use super::{RegistryError, RegistryErrorCode};
 
 use bytes::Bytes;
 use easy_hasher::easy_hasher::{file_hash, raw_sha256, Hash};

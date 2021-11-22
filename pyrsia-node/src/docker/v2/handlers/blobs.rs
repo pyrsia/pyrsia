@@ -9,7 +9,7 @@ use uuid::Uuid;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
 
-use super::{RegistryError,RegistryErrorCode};
+use super::{RegistryError, RegistryErrorCode};
 
 pub async fn handle_get_blobs(_name: String, hash: String) -> Result<impl Reply, Rejection> {
     let blob = format!(

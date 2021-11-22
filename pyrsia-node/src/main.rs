@@ -14,10 +14,9 @@ extern crate warp;
 mod docker;
 mod utils;
 
-use docker::v2::handlers::manifests::*;
-use docker::v2::handlers::blobs::*;
 use docker::error_util::*;
-
+use docker::v2::handlers::blobs::*;
+use docker::v2::handlers::manifests::*;
 
 use floodsub::Topic;
 use identity::Keypair;
