@@ -486,17 +486,21 @@ mod tests {
                 );
                 let mut sha256_path = artifact_manager.repository_path.clone();
                 sha256_path.push(HashAlgorithm::SHA256.hash_algorithm_to_str());
-                let meta256 = fs::metadata(sha256_path.as_path())
-                    .expect(format!("unable to get metadata for {}", sha256_path.display()).as_str());
+                let meta256 = fs::metadata(sha256_path.as_path()).expect(
+                    format!("unable to get metadata for {}", sha256_path.display()).as_str(),
+                );
                 assert!(meta256.is_dir());
 
                 let mut sha512_path = artifact_manager.repository_path.clone();
                 sha512_path.push(HashAlgorithm::SHA512.hash_algorithm_to_str());
-                let meta512 = fs::metadata(sha512_path.as_path())
-                    .expect(format!("unable to get metadata for {}", sha512_path.display()).as_str());
+                let meta512 = fs::metadata(sha512_path.as_path()).expect(
+                    format!("unable to get metadata for {}", sha512_path.display()).as_str(),
+                );
                 assert!(meta512.is_dir());
-                fs::remove_dir_all(artifact_manager.repository_path.as_path())
-                    .expect(&format!("unable to remove temp directory {}", artifact_manager.repository_path.display()));
+                fs::remove_dir_all(artifact_manager.repository_path.as_path()).expect(&format!(
+                    "unable to remove temp directory {}",
+                    artifact_manager.repository_path.display()
+                ));
                 true
             }
             Err(_) => false,
