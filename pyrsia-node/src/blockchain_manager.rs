@@ -48,7 +48,7 @@ impl<'a> X509CertificateSignature {
 
     /// Parse the X.509 certificate from the binary DER
     pub fn x509_certificate(mut self) -> Result<X509, anyhow::Error> {
-        if let Some(certificate) = self.x509_certificate_binary  {
+        if let Some(certificate) = self.x509_certificate_binary {
             return Ok(certificate);
         }
         match X509::from_der(self.x509_certificate_der.as_slice())

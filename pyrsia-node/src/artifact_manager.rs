@@ -93,9 +93,11 @@ impl<'a> Write for WriteHashDecorator<'a> {
 
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         match self.writer.write(buf) {
-            Ok(_) => {self.digester.update_hash(buf);
-                Ok(())},
-            Err(error) => Err(error)
+            Ok(_) => {
+                self.digester.update_hash(buf);
+                Ok(())
+            }
+            Err(error) => Err(error),
         }
     }
 }

@@ -12,8 +12,8 @@ extern crate warp;
 
 //modules imports
 mod blockchain_manager;
-mod hash;
 mod docker;
+mod hash;
 mod utils;
 
 use docker::error_util::*;
