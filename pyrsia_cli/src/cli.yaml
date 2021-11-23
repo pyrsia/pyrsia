@@ -1,7 +1,7 @@
 name: pyrsia
 version: "0.1.0"
 author: Mitali B. <mitalib@jfrog.com>
-about: Zero-Trust Universal Decentralized Binary Network
+about: Zero-Trust Decentralized Package Network
 args:
     - verbose:
         short: v
