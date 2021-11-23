@@ -17,7 +17,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Error, Result};
-use sha2::{Sha256, Sha512, Digest};
+use sha2::{Digest, Sha256, Sha512};
 use strum::IntoEnumIterator;
 use strum_macros::{EnumIter, EnumString};
 
