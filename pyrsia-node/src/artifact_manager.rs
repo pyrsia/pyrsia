@@ -7,59 +7,173 @@
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
 use std::ffi::OsStr;
+use std::fmt::{Display, Formatter};
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::{BufWriter, Read, Write};
 use std::path;
 use std::path::Path;
+use std::str::FromStr;
 
-use crate::hash::{Digester, Hash, HashAlgorithm};
 use anyhow::{anyhow, Context, Error, Result};
+use sha2::{Digest, Sha256, Sha512};
+use strum::IntoEnumIterator;
+use strum_macros::{EnumIter, EnumString};
 
-pub fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
-    hex::encode(bytes)
+// We will provide implementations of this trait for each hash algorithm that we support.
+trait Digester {
+    fn update_hash(&mut self, input: &[u8]);
+
+    fn finalize_hash(&mut self, hash_buffer: &mut [u8]);
+
+    fn hash_size_in_bytes(&self) -> usize;
 }
 
-// The base file path (no extension on the file name) that will correspond to this hash.
-// The structure of the path is
-// repo_root_dir/hash_algorithm/hash
-// This consists of the artifact repository root directory, a directory whose name is the
-// algorithm used to compute the hash and a file name that is the hash, encoded as hex
-// (base64 is more compact, but hex is easier for troubleshooting). For example
-// pyrsia-artifacts/SHA256/68efadf3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6ccbb4
-// TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
-fn base_file_path(hash: &Hash, repo_dir: &Path) -> PathBuf {
-    let mut buffer: PathBuf = PathBuf::from(repo_dir);
-    buffer.push(hash.algorithm.to_str());
-    buffer.push(encode_bytes_as_file_name(hash.bytes));
-    buffer
-}
-
-// It is possible, though unlikely, for SHA512, SHA3_512 and BLAKE3 to generate the same
-// hash for different content. Separating files by algorithm avoids this type of collision.
-// This function ensures that there is a directory under the repository root for each one of
-// the supported hash algorithms.
-fn ensure_directories_for_hash_algorithms_exist(
-    repository_path: &Path,
-) -> Result<(), anyhow::Error> {
-    let mut path_buf = PathBuf::new();
-    path_buf.push(repository_path);
-    for algorithm in HashAlgorithm::iter() {
-        ensure_subdirectory_exists(&mut path_buf, algorithm)?;
+impl Digester for Sha256 {
+    fn update_hash(self: &mut Self, input: &[u8]) {
+        self.update(input);
     }
-    Ok(())
+
+    fn finalize_hash(self: &mut Self, hash_buffer: &mut [u8]) {
+        hash_buffer.clone_from_slice(self.clone().finalize().as_slice());
+    }
+
+    fn hash_size_in_bytes(&self) -> usize {
+        return 256 / 8;
+    }
 }
 
-fn ensure_subdirectory_exists(
-    path_buf: &mut PathBuf,
-    algorithm: &HashAlgorithm,
-) -> Result<(), anyhow::Error> {
-    let mut this_buf = path_buf.clone();
-    this_buf.push(algorithm.to_str());
-    fs::create_dir_all(this_buf.as_os_str())
-        .with_context(|| format!("Error creating directory {}", this_buf.display()))?;
-    Ok(())
+impl Digester for Sha512 {
+    fn update_hash(self: &mut Self, input: &[u8]) {
+        self.update(input);
+    }
+
+    fn finalize_hash(self: &mut Self, hash_buffer: &mut [u8]) {
+        hash_buffer.clone_from_slice(self.clone().finalize().as_slice());
+    }
+
+    fn hash_size_in_bytes(&self) -> usize {
+        return 512 / 8;
+    }
+}
+
+/// The types of hash algorithms that the artifact manager supports
+#[derive(EnumIter, Debug, PartialEq, EnumString)]
+pub enum HashAlgorithm {
+    SHA256,
+    SHA512,
+}
+
+impl HashAlgorithm {
+    /// Translate a string that names a hash algorithm to the enum variant.
+    pub fn str_to_hash_algorithm(algorithm_name: &str) -> Result<HashAlgorithm, anyhow::Error> {
+        HashAlgorithm::from_str(&algorithm_name.to_uppercase()).with_context(|| {
+            format!(
+                "{} is not the name of a supported HashAlgorithm.",
+                algorithm_name
+            )
+        })
+    }
+
+    fn digest_factory(&self) -> Box<dyn Digester> {
+        match self {
+            HashAlgorithm::SHA256 => Box::new(Sha256::new()),
+            HashAlgorithm::SHA512 => Box::new(Sha512::new()),
+        }
+    }
+
+    /// Translate a HashAlgorithm to a string.
+    pub fn hash_algorithm_to_str(&self) -> &'static str {
+        return match self {
+            HashAlgorithm::SHA256 => "SHA256",
+            HashAlgorithm::SHA512 => "SHA512",
+        };
+    }
+
+    fn hash_length_in_bytes(&self) -> usize {
+        return match self {
+            HashAlgorithm::SHA256 => 256 / 8,
+            HashAlgorithm::SHA512 => 512 / 8,
+        };
+    }
+}
+
+impl std::fmt::Display for HashAlgorithm {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(HashAlgorithm::hash_algorithm_to_str(self))
+    }
+}
+
+pub struct Hash<'a> {
+    algorithm: HashAlgorithm,
+    bytes: &'a [u8],
+}
+
+impl<'a> Hash<'a> {
+    pub fn new(algorithm: HashAlgorithm, bytes: &'a [u8]) -> Result<Self, anyhow::Error> {
+        let expected_length: usize = algorithm.hash_length_in_bytes();
+        if bytes.len() == expected_length {
+            Ok(Hash { algorithm, bytes })
+        } else {
+            Err(anyhow!(format!("The hash value does not have the correct length for the algorithm. The expected length is {} bytes, but the length of the supplied hash is {}.", expected_length, bytes.len())))
+        }
+    }
+
+    // It is possible, though unlikely, for SHA512, SHA3_512 and BLAKE3 to generate the same
+    // hash for different content. Separating files by algorithm avoids this type of collision.
+    // This function ensures that there is a directory under the repository root for each one of
+    // the supported hash algorithms.
+    fn ensure_directories_for_hash_algorithms_exist(
+        repository_path: &PathBuf,
+    ) -> Result<(), anyhow::Error> {
+        let mut path_buf = PathBuf::new();
+        path_buf.push(repository_path);
+        for algorithm in HashAlgorithm::iter() {
+            Self::ensure_subdirectory_exists(&mut path_buf, algorithm)?;
+        }
+        Ok(())
+    }
+
+    fn ensure_subdirectory_exists(
+        path_buf: &mut PathBuf,
+        algorithm: HashAlgorithm,
+    ) -> Result<(), anyhow::Error> {
+        let mut this_buf = path_buf.clone();
+        this_buf.push(algorithm.hash_algorithm_to_str());
+        fs::create_dir_all(this_buf.as_os_str())
+            .with_context(|| format!("Error creating directory {}", this_buf.display()))?;
+        Ok(())
+    }
+
+    fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
+        hex::encode(bytes)
+    }
+
+    // The base file path (no extension on the file name) that will correspond to this hash.
+    // The structure of the path is
+    // repo_root_dir/hash_algorithm/hash
+    // This consists of the artifact repository root directory, a directory whose name is the
+    // algorithm used to compute the hash and a file name that is the hash, encoded as hex
+    // (base64 is more compact, but hex is easier for troubleshooting). For example
+    // pyrsia-artifacts/SHA256/68efadf3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6ccbb4
+    // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
+    fn base_file_path(&self, repo_dir: &PathBuf) -> PathBuf {
+        let mut buffer: PathBuf = PathBuf::from(repo_dir);
+        buffer.push(self.algorithm.hash_algorithm_to_str());
+        buffer.push(Hash::encode_bytes_as_file_name(self.bytes));
+        return buffer;
+    }
+}
+
+impl Display for Hash<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!(
+            "{}:{}",
+            self.algorithm.hash_algorithm_to_str(),
+            hex::encode(self.bytes)
+        ))
+    }
 }
 
 // This is a decorator for the Write trait that allows the bytes written by the writer to be
@@ -71,7 +185,7 @@ struct WriteHashDecorator<'a> {
 
 impl<'a> WriteHashDecorator<'a> {
     fn new(writer: &'a mut impl Write, digester: &'a mut Box<dyn Digester>) -> Self {
-        WriteHashDecorator { writer, digester }
+        return WriteHashDecorator { writer, digester };
     }
 }
 
@@ -84,21 +198,21 @@ impl<'a> Write for WriteHashDecorator<'a> {
             Ok(bytes_written) => self.digester.update_hash(&buf[..bytes_written]),
             _ => {}
         }
-        result
+        return result;
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.writer.flush()
+        return self.writer.flush();
     }
 
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        match self.writer.write(buf) {
-            Ok(_) => {
-                self.digester.update_hash(buf);
-                Ok(())
-            }
-            Err(error) => Err(error),
+        let result = self.writer.write(buf);
+        match result {
+            // hash just the number of bytes that were actually written. This may be less than the whole buffer.
+            Ok(_) => self.digester.update_hash(buf),
+            _ => {}
         }
+        return Ok(());
     }
 }
 
@@ -127,7 +241,7 @@ impl<'a> ArtifactManager {
     pub fn new(repository_path: &str) -> Result<ArtifactManager, anyhow::Error> {
         let absolute_path = Path::new(repository_path).canonicalize()?;
         if is_accessible_directory(&absolute_path) {
-            ensure_directories_for_hash_algorithms_exist(&absolute_path)?;
+            Hash::ensure_directories_for_hash_algorithms_exist(&absolute_path)?;
             info!(
                 "Creating an ArtifactManager with a repository in {}",
                 absolute_path.display()
@@ -184,11 +298,11 @@ impl<'a> ArtifactManager {
         }
     }
 
-    fn create_artifact_file(tmp_path: &Path) -> std::io::Result<File> {
+    fn create_artifact_file(tmp_path: &PathBuf) -> std::io::Result<File> {
         OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(tmp_path)
+            .open(tmp_path.as_path())
     }
 
     fn handle_wrong_hash(
@@ -209,9 +323,9 @@ impl<'a> ArtifactManager {
     fn rename_to_permanent(
         expected_hash: &Hash,
         base_path: PathBuf,
-        tmp_path: &Path,
+        tmp_path: &PathBuf,
     ) -> Result<bool, anyhow::Error> {
-        fs::rename(tmp_path.to_path_buf(), base_path.clone()).with_context(|| {
+        fs::rename(tmp_path.clone(), base_path.clone()).with_context(|| {
             format!(
                 "Attempting to rename from temporary file name{} to permanent{}",
                 tmp_path.to_str().unwrap(),
@@ -226,13 +340,13 @@ impl<'a> ArtifactManager {
     }
 
     fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> PathBuf {
-        let mut base_path: PathBuf = base_file_path(expected_hash, &self.repository_path);
+        let mut base_path: PathBuf = expected_hash.base_file_path(&self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension("file");
         base_path
     }
 
-    fn file_creation_error(base_path: &Path, error: std::io::Error) -> Result<bool, Error> {
+    fn file_creation_error(base_path: &PathBuf, error: std::io::Error) -> Result<bool, Error> {
         match error.kind() {
             io::ErrorKind::AlreadyExists => Ok(false),
             _ => Err(anyhow!(error)),
@@ -267,7 +381,7 @@ impl<'a> ArtifactManager {
 
     fn copy_from_reader_to_writer(
         reader: &mut impl Read,
-        path: &Path,
+        path: &PathBuf,
         mut writer: &mut WriteHashDecorator,
     ) -> Result<(), Error> {
         io::copy(reader, &mut writer).with_context(|| {
@@ -292,7 +406,7 @@ impl<'a> ArtifactManager {
             "An artifact is being pulled from the artifact manager {}",
             hash
         );
-        let mut base_path: PathBuf = base_file_path(&hash, &self.repository_path);
+        let mut base_path: PathBuf = hash.base_file_path(&self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension("file");
         debug!("Pushing artifact from {}", base_path.display());
@@ -317,7 +431,7 @@ fn tmp_path_from_base(base: &PathBuf) -> PathBuf {
 }
 
 // return true if the given repository path leads to an accessible directory.
-fn is_accessible_directory(repository_path: &Path) -> bool {
+fn is_accessible_directory(repository_path: &PathBuf) -> bool {
     match fs::metadata(repository_path) {
         Err(_) => false,
         Ok(metadata) => metadata.is_dir(),
@@ -326,8 +440,7 @@ fn is_accessible_directory(repository_path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::artifact_manager::ArtifactManager;
-    use crate::hash::{Hash, HashAlgorithm};
+    use crate::artifact_manager::{ArtifactManager, Hash, HashAlgorithm};
     use anyhow::{anyhow, Context};
     use env_logger::Target;
     use log::{info, LevelFilter};
@@ -359,14 +472,14 @@ mod tests {
                     artifact_manager.repository_path.display()
                 );
                 let mut sha256_path = artifact_manager.repository_path.clone();
-                sha256_path.push(HashAlgorithm::SHA256.to_str());
+                sha256_path.push(HashAlgorithm::SHA256.hash_algorithm_to_str());
                 let meta256 = fs::metadata(sha256_path.as_path()).expect(
                     format!("unable to get metadata for {}", sha256_path.display()).as_str(),
                 );
                 assert!(meta256.is_dir());
 
                 let mut sha512_path = artifact_manager.repository_path.clone();
-                sha512_path.push(HashAlgorithm::SHA512.to_str());
+                sha512_path.push(HashAlgorithm::SHA512.hash_algorithm_to_str());
                 let meta512 = fs::metadata(sha512_path.as_path()).expect(
                     format!("unable to get metadata for {}", sha512_path.display()).as_str(),
                 );
@@ -438,7 +551,7 @@ mod tests {
     #[test]
     fn push_wrong_hash_test() -> Result<(), anyhow::Error> {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
-        let hash_algorithm = HashAlgorithm::from_str("SHA256")?;
+        let hash_algorithm = HashAlgorithm::str_to_hash_algorithm("SHA256")?;
         let hash = Hash::new(hash_algorithm, &WRONG_ARTIFACT_HASH)?;
         let dir_name = tmp_dir_name("TmpW");
         println!("tmp dir: {}", dir_name);
