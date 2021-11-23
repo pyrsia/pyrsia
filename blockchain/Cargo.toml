@@ -12,4 +12,5 @@ path = "../pyrsia-node/src/blockchain_manager.rs"
 
 [dependencies]
 chrono = "0.4.19"
+openssl = "0.10.38"
 x509-parser = "0.12.0"

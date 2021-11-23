@@ -1,7 +1,8 @@
 [workspace]
 
 members = [
-    "pyrsia-node"
+    "pyrsia-node",
+    "signed-struct"
 ]
 
 [profile.dev]
