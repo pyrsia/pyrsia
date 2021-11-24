@@ -17,14 +17,22 @@ pub async fn handle_get_blobs(_name: String, hash: String) -> Result<impl Reply,
         hash.get(7..9).unwrap(),
         hash.get(7..).unwrap()
     );
-    debug!("Getting blob: {}", blob);
-    if !Path::new(&blob).is_file() {
+    debug!("Searching for blob: {}", blob);
+    let blob_path = Path::new(&blob);
+    if !blob_path.exists() {
         return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobUnknown,
+            code: RegistryErrorCode::BlobDoesNotExist,
         }));
     }
 
-    let blob_content = fs::read(blob);
+    if !blob_path.is_file() {
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown("IS_NOT_A_FILE".to_string()),
+        }));
+    }
+
+    debug!("Reading blob: {}", blob);
+    let blob_content = fs::read(blob_path);
     if blob_content.is_err() {
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::BlobUnknown,
