@@ -2,7 +2,7 @@
 
 members = [
     "pyrsia-node",
-    "signed-struct"
+    "pyrsia-client-lib"
 ]
 
 [profile.dev]
