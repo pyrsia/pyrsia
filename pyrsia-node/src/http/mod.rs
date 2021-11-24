@@ -46,9 +46,9 @@ mod tests {
     fn test_get() {
         use std::fs::File;
         use std::io::BufReader;
+        
         let file_name: String = String::from("/tmp/great_expectations.txt");
-
-        let uri: String = "https://www.gutenberg.org/files/1400/1400-0.txt".to_string();
+        let uri: String = String::from("https://www.gutenberg.org/files/1400/1400-0.txt");
         let result = get(File::create(file_name.clone()).unwrap(), uri);
         match futures::executor::block_on(result) {
             Err(_) => println!("Caught an error"),
