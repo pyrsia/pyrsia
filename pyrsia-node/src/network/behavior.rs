@@ -39,18 +39,15 @@ impl MyBehaviour {
         return &mut self.floodsub;
     }
 
-    pub fn lookup_blob(&mut self) -> QueryId {
-        self.kademlia.get_record(
-            &Key::new(b"maybeashagoeshere"),
-            Quorum::N(std::num::NonZeroUsize::new(2).unwrap()),
-        )
+    pub fn lookup_blob(&mut self, hash: String) -> Result<QueryId, Error> {
+        let num = std::num::NonZeroUsize::new(2).ok_or(Error::ValueTooLarge)?;
+        Ok(self.kademlia.get_record(&Key::new(&hash), Quorum::N(num)))
     }
 
-    pub fn advertise_blob(&mut self) -> Result<QueryId, Error> {
-        self.kademlia.put_record(
-            Record::new(Key::new(b"anotherfunkyhash"), vec![1, 2, 3]),
-            Quorum::N(std::num::NonZeroUsize::new(2).unwrap()),
-        )
+    pub fn advertise_blob(&mut self, hash: String, value: Vec<u8>) -> Result<QueryId, Error> {
+        let num = std::num::NonZeroUsize::new(2).ok_or(Error::ValueTooLarge)?;
+        self.kademlia
+            .put_record(Record::new(Key::new(&hash), value), Quorum::N(num))
     }
 }
 
