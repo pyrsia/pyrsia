@@ -1,5 +1,13 @@
 use libp2p::{
     floodsub::{Floodsub, FloodsubEvent},
+    kad::{
+        record::{
+            store::{Error, MemoryStore},
+            Key,
+        },
+        AddProviderOk, Kademlia, KademliaEvent, PeerRecord, PutRecordOk, QueryId, QueryResult,
+        Quorum, Record,
+    },
     mdns::{Mdns, MdnsEvent},
     swarm::NetworkBehaviourEventProcess,
     NetworkBehaviour,
@@ -14,16 +22,35 @@ use log::info;
 #[behaviour(event_process = true)]
 pub struct MyBehaviour {
     floodsub: Floodsub,
+    kademlia: Kademlia<MemoryStore>,
     mdns: Mdns,
 }
 
 impl MyBehaviour {
-    pub fn new(floodsub: Floodsub, mdns: Mdns) -> Self {
-        MyBehaviour { floodsub, mdns }
+    pub fn new(floodsub: Floodsub, kademlia: Kademlia<MemoryStore>, mdns: Mdns) -> Self {
+        MyBehaviour {
+            floodsub,
+            kademlia,
+            mdns,
+        }
     }
 
     pub fn floodsub(&mut self) -> &mut Floodsub {
         return &mut self.floodsub;
+    }
+
+    pub fn lookup_blob(&mut self) -> QueryId {
+        self.kademlia.get_record(
+            &Key::new(b"maybeashagoeshere"),
+            Quorum::N(std::num::NonZeroUsize::new(2).unwrap()),
+        )
+    }
+
+    pub fn advertise_blob(&mut self) -> Result<QueryId, Error> {
+        self.kademlia.put_record(
+            Record::new(Key::new(b"anotherfunkyhash"), vec![1, 2, 3]),
+            Quorum::N(std::num::NonZeroUsize::new(2).unwrap()),
+        )
     }
 }
 
@@ -45,17 +72,77 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour {
     fn inject_event(&mut self, event: MdnsEvent) {
         match event {
             MdnsEvent::Discovered(list) => {
-                for (peer, _) in list {
+                for (peer, multiaddr) in list {
                     self.floodsub.add_node_to_partial_view(peer);
+                    self.kademlia.add_address(&peer, multiaddr);
                 }
             }
             MdnsEvent::Expired(list) => {
-                for (peer, _) in list {
+                for (peer, multiaddr) in list {
                     if !self.mdns.has_node(&peer) {
                         self.floodsub.remove_node_from_partial_view(&peer);
+                        self.kademlia.remove_address(&peer, &multiaddr);
                     }
                 }
             }
+        }
+    }
+}
+
+impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
+    // Called when `kademlia` produces an event.
+    fn inject_event(&mut self, message: KademliaEvent) {
+        match message {
+            KademliaEvent::OutboundQueryCompleted { result, .. } => match result {
+                QueryResult::GetProviders(Ok(ok)) => {
+                    for peer in ok.providers {
+                        println!(
+                            "Peer {:?} provides key {:?}",
+                            peer,
+                            std::str::from_utf8(ok.key.as_ref()).unwrap()
+                        );
+                    }
+                }
+                QueryResult::GetProviders(Err(err)) => {
+                    eprintln!("Failed to get providers: {:?}", err);
+                }
+                QueryResult::GetRecord(Ok(ok)) => {
+                    for PeerRecord {
+                        record: Record { key, value, .. },
+                        ..
+                    } in ok.records
+                    {
+                        println!(
+                            "Got record {:?} {:?}",
+                            std::str::from_utf8(key.as_ref()).unwrap(),
+                            std::str::from_utf8(&value).unwrap(),
+                        );
+                    }
+                }
+                QueryResult::GetRecord(Err(err)) => {
+                    eprintln!("Failed to get record: {:?}", err);
+                }
+                QueryResult::PutRecord(Ok(PutRecordOk { key })) => {
+                    println!(
+                        "Successfully put record {:?}",
+                        std::str::from_utf8(key.as_ref()).unwrap()
+                    );
+                }
+                QueryResult::PutRecord(Err(err)) => {
+                    eprintln!("Failed to put record: {:?}", err);
+                }
+                QueryResult::StartProviding(Ok(AddProviderOk { key })) => {
+                    println!(
+                        "Successfully put provider record {:?}",
+                        std::str::from_utf8(key.as_ref()).unwrap()
+                    );
+                }
+                QueryResult::StartProviding(Err(err)) => {
+                    eprintln!("Failed to put provider record: {:?}", err);
+                }
+                _ => {}
+            },
+            _ => {}
         }
     }
 }
