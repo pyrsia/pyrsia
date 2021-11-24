@@ -20,7 +20,6 @@ use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
-use std::collections::HashSet;
 use std::path::Path;
 use warp::Rejection;
 use warp::Reply;
@@ -134,28 +133,26 @@ async fn main() {
 
     let pending_get_providers: Vec<libp2p::kad::QueryId> = Default::default();
 
-    let handle_get_blobs_with_fallback = |
-        name: String,
-        hash: String,
-    | -> Result<impl Reply, Rejection> {
-        let blob = format!(
-            "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
-            hash.get(7..9).unwrap(),
-            hash.get(7..).unwrap()
-        );
+    let handle_get_blobs_with_fallback =
+        |name: String, hash: String| -> Result<impl Reply, Rejection> {
+            let blob = format!(
+                "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
+                hash.get(7..9).unwrap(),
+                hash.get(7..).unwrap()
+            );
 
-        debug!("Searching for blob: {}", blob);
-        let blob_path = Path::new(&blob);
-        if !blob_path.exists() {
-            let query: libp2p::kad::QueryId =
-                swarm.behaviour_mut().lookup_blob(hash.to_string()).unwrap();
-            pending_get_providers.push(query);
-        }
+            debug!("Searching for blob: {}", blob);
+            let blob_path = Path::new(&blob);
+            if !blob_path.exists() {
+                let query: libp2p::kad::QueryId =
+                    swarm.behaviour_mut().lookup_blob(hash.to_string()).unwrap();
+                pending_get_providers.push(query);
+            }
 
-        Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobDoesNotExist(hash),
-        }))
-    };
+            Err(warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::BlobDoesNotExist(hash),
+            }))
+        };
 
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
