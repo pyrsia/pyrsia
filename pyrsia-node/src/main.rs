@@ -20,6 +20,10 @@ use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
+use std::collections::HashSet;
+use std::path::Path;
+use warp::Rejection;
+use warp::Reply;
 
 use identity::Keypair;
 use std::collections::HashMap;
@@ -33,7 +37,7 @@ use libp2p::{
     swarm::SwarmEvent,
     Multiaddr, PeerId,
 };
-use log::info;
+use log::{debug, info};
 use std::env;
 use tokio::io::{self, AsyncBufReadExt};
 use warp::Filter;
@@ -128,10 +132,35 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(handle_put_manifest);
 
+    let pending_get_providers: Vec<libp2p::kad::QueryId> = Default::default();
+
+    let handle_get_blobs_with_fallback = |
+        name: String,
+        hash: String,
+    | -> Result<impl Reply, Rejection> {
+        let blob = format!(
+            "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
+            hash.get(7..9).unwrap(),
+            hash.get(7..).unwrap()
+        );
+
+        debug!("Searching for blob: {}", blob);
+        let blob_path = Path::new(&blob);
+        if !blob_path.exists() {
+            let query: libp2p::kad::QueryId =
+                swarm.behaviour_mut().lookup_blob(hash.to_string()).unwrap();
+            pending_get_providers.push(query);
+        }
+
+        Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::BlobDoesNotExist(hash),
+        }))
+    };
+
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(handle_get_blobs);
+        .and_then(handle_get_blobs_with_fallback);
     let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
         .and(warp::post())
         .and_then(handle_post_blob);
@@ -170,9 +199,24 @@ async fn main() {
                 let line = line.unwrap().expect("stdin closed");
                 swarm.behaviour_mut().floodsub().publish(floodsub_topic.clone(), line.as_bytes());
             }
-            event = swarm.select_next_some() => {
+            event = swarm.select_next_some().await => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {
                     info!("Listening on {:?}", address);
+                }
+
+                match event {
+                    SwarmEvent::Behaviour(
+                        libp2p::kad::KademliaEvent::OutboundQueryCompleted {
+                            id,
+                            result: libp2p::kad::QueryResult::GetProviders(Ok(libp2p::kad::GetProvidersOk { providers, .. })),
+                            ..
+                        },
+                    ) => {
+                        // let _ = pending_get_providers
+                        //     .remove(&id)
+                        //     .expect("Completed query to be previously pending.");
+                        println!("Obtained providers");
+                    }
                 }
             }
         }
