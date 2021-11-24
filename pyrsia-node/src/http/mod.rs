@@ -7,6 +7,7 @@ use std::io;
 use std::io::prelude::*;
 use std::io::BufRead;
 
+// performs an HTTP GET of `url` and writes the body to `out`
 pub async fn get<W>(mut out: W, url: String) -> Result<u64, std::io::Error>
 where
     W: Write,
@@ -31,6 +32,7 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
+    // Reads the first line from a BufRead
     fn first_line<R>(mut rdr: R) -> String
     where
         R: BufRead,
