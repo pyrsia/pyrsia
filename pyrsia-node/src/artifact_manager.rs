@@ -17,8 +17,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Error, Result};
-use crypto::digest::Digest;
-use crypto::sha2::{Sha256, Sha512};
+use sha2::{Digest, Sha256, Sha512};
 use strum::IntoEnumIterator;
 use strum_macros::{EnumIter, EnumString};
 
@@ -33,17 +32,11 @@ trait Digester {
 
 impl Digester for Sha256 {
     fn update_hash(self: &mut Self, input: &[u8]) {
-        self.input(&*input);
+        self.update(input);
     }
 
     fn finalize_hash(self: &mut Self, hash_buffer: &mut [u8]) {
-        let mut hash_array: [u8; 32] = [0; 32];
-        self.result(&mut hash_array);
-        let mut i = 0;
-        while i < hash_array.len() {
-            hash_buffer[i] = hash_array[i];
-            i += 1;
-        }
+        hash_buffer.clone_from_slice(self.clone().finalize().as_slice());
     }
 
     fn hash_size_in_bytes(&self) -> usize {
@@ -53,17 +46,11 @@ impl Digester for Sha256 {
 
 impl Digester for Sha512 {
     fn update_hash(self: &mut Self, input: &[u8]) {
-        self.input(&*input);
+        self.update(input);
     }
 
     fn finalize_hash(self: &mut Self, hash_buffer: &mut [u8]) {
-        let mut hash_array: [u8; 64] = [0; 64];
-        self.result(&mut hash_array);
-        let mut i = 0;
-        while i < 64 {
-            hash_buffer[i] = hash_array[i];
-            i += 1;
-        }
+        hash_buffer.clone_from_slice(self.clone().finalize().as_slice());
     }
 
     fn hash_size_in_bytes(&self) -> usize {
@@ -486,17 +473,21 @@ mod tests {
                 );
                 let mut sha256_path = artifact_manager.repository_path.clone();
                 sha256_path.push(HashAlgorithm::SHA256.hash_algorithm_to_str());
-                let meta256 = fs::metadata(sha256_path.as_path())
-                    .expect(format!("unable to get metadata for {}", sha256_path.display()).as_str());
+                let meta256 = fs::metadata(sha256_path.as_path()).expect(
+                    format!("unable to get metadata for {}", sha256_path.display()).as_str(),
+                );
                 assert!(meta256.is_dir());
 
                 let mut sha512_path = artifact_manager.repository_path.clone();
                 sha512_path.push(HashAlgorithm::SHA512.hash_algorithm_to_str());
-                let meta512 = fs::metadata(sha512_path.as_path())
-                    .expect(format!("unable to get metadata for {}", sha512_path.display()).as_str());
+                let meta512 = fs::metadata(sha512_path.as_path()).expect(
+                    format!("unable to get metadata for {}", sha512_path.display()).as_str(),
+                );
                 assert!(meta512.is_dir());
-                fs::remove_dir_all(artifact_manager.repository_path.as_path())
-                    .expect(&format!("unable to remove temp directory {}", artifact_manager.repository_path.display()));
+                fs::remove_dir_all(artifact_manager.repository_path.as_path()).expect(&format!(
+                    "unable to remove temp directory {}",
+                    artifact_manager.repository_path.display()
+                ));
                 true
             }
             Err(_) => false,

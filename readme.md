@@ -1,7 +1,19 @@
-# Pyrsia Sandbox
+# Pyrsia
 
-This is a sandbox for the Pyrsia project to become explore the concepts and tools that are used during development.
+[logo (broken link since we are private)](https://raw.githubusercontent.com/pyrsia/.github/main/images/logo-color.svg)
+
+> Zero-Trust Decentralized Package Network
+
+## Current Development Phase
+
+_📢 We are looking for your feedback!_
+
+This project is currently in the "sandbox" 🏖️. We are actively exploring the concepts and tools that are used during development.
 The code, workflows, and ideas are subject to breaking changes at any time in this early stage of development.
+
+### Primary Focus
+
+To get off the ground the focus is strictly on the peer-to-peer distribution of Docker images backed by a blockchain of identifiers.
 
 ## Contributing
 
@@ -9,13 +21,13 @@ Before getting started, take a moment to review our [contributing guidelines](ht
 
 ## Pyrsia Node
 
-### Getting started
+### Getting Started
 
-1. setup rust on your local machine as described in the [Rust getting started guide](https://www.rust-lang.org/learn/get-started)
+1. Setup rust on your local machine as described in [Rust's getting started guide](https://www.rust-lang.org/learn/get-started)
 2. `cd pyrsia-node`
 3. `cargo run`
 
-### Setting up Visual Studio Code Debugger
+### Setting Up Visual Studio Code Debugger
 
 [How to Debug Rust with Visual Studio Code](https://www.forrestthewoods.com/blog/how-to-debug-rust-with-visual-studio-code/)
 
@@ -26,6 +38,6 @@ Before getting started, take a moment to review our [contributing guidelines](ht
    * pull the alpine docker image from docker hub: `docker pull alpine`
    * tag it to prepare for push to pyrsia node: `docker tag alpine localhost:7878/alpine`
    * push it to pyrsia node: `docker push localhost:7878/alpine`
-   * remove all local alpine images: `docker rmi alpine and docker rmi localhost:7878/alpine`s
+   * remove all local alpine images: `docker rmi alpine and docker rmi localhost:7878/alpine`
    * pull the image again, this time from pyrsia node: `docker pull localhost:7878/alpine`
    * verify it works: `docker run -it localhost:7878/alpine cat /etc/issue`

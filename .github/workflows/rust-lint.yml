@@ -6,7 +6,9 @@ jobs:
   security_audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions-rs/audit-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -14,14 +16,20 @@ jobs:
   rustfmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - run: rustup component add rustfmt
       - run: cargo fmt -- --check # Prints diff in the action logs
+      - if: failure()
+        run: echo "::error ::You need to run `rustfmt` loaclly, commit the changes, and push"
 
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - run: rustup component add clippy
       - uses: actions-rs/clippy-check@v1
         with:
