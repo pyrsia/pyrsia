@@ -53,15 +53,6 @@ async fn main() {
         .author(clap::crate_authors!(", "))
         .about("Application to connect to and participate in the Pyrsia network")
         .arg(
-            Arg::with_name("verbose")
-                .short("v")
-                .long("verbose")
-                .takes_value(false)
-                .required(false)
-                .multiple(true)
-                .help("Enables verbose output"),
-        )
-        .arg(
             Arg::with_name("port")
                 .short("p")
                 .long("port")
@@ -82,11 +73,6 @@ async fn main() {
                 .help("Provide an explicit peerId"),
         )
         .get_matches();
-
-    let verbosity: u64 = matches.occurrences_of("verbose");
-    if verbosity > 0 {
-        dbg!("Verbosity Level: {}", verbosity.to_string());
-    }
 
     let transport: TcpTokioTransport = new_tokio_tcp_transport(&id_keys); // Create a tokio-based TCP transport using noise for authenticated
     let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
