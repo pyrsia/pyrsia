@@ -2,7 +2,7 @@ extern crate reqwest;
 extern crate tokio;
 
 use reqwest::blocking;
-use reqwest::blocking::Response;
+use reqwest::blocking::*;
 use std::io;
 use std::io::prelude::*;
 use std::io::BufRead;
@@ -11,9 +11,19 @@ pub async fn get<W>(mut out: W, url: String) -> Result<u64, std::io::Error>
 where
     W: Write,
 {
-    let mut resp: Response = blocking::get(url).unwrap();
-    assert!(resp.status().is_success());
-    io::copy(&mut resp, &mut out)
+    use reqwest::blocking::Client;
+    use std::io::Error;
+    use std::io::ErrorKind::Other;
+
+    let client = Client::new();
+    let mut resp: Result<Response, reqwest::Error> = client.get(url.clone()).send();
+    match resp {
+        Ok(_) => io::copy(&mut resp.unwrap(), &mut out),
+        Err(_) => Err(Error::new(
+            Other,
+            format!("Http Client Failed to Get {}", url),
+        )),
+    }
 }
 
 #[cfg(test)]
@@ -55,6 +65,20 @@ mod tests {
         match std::fs::remove_file(file_name.clone()) {
             Err(e) => println!("Caught error removing temp file {}", e),
             Ok(_) => println!("Removed temp file"),
+        }
+    }
+
+    #[test]
+    fn test_bad_site() {
+        use std::fs::File;
+        use std::io::BufReader;
+
+        let uri: String = String::from("https://nosuchsite.fake/");
+        let file_name: String = String::from("/tmp/err.txt");
+        let result = get(File::create(file_name.clone()).unwrap(), uri);
+        match futures::executor::block_on(result) {
+            Err(_) => assert!(true, "This request should fail"),
+            Ok(_) => assert!(false, "This request should have failed"),
         }
     }
 }
