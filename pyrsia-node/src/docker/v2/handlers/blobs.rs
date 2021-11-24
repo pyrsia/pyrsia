@@ -21,13 +21,13 @@ pub async fn handle_get_blobs(_name: String, hash: String) -> Result<impl Reply,
     let blob_path = Path::new(&blob);
     if !blob_path.exists() {
         return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobDoesNotExist,
+            code: RegistryErrorCode::BlobDoesNotExist(hash),
         }));
     }
 
     if !blob_path.is_file() {
         return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown("IS_NOT_A_FILE".to_string()),
+            code: RegistryErrorCode::Unknown("ITS_NOT_A_FILE".to_string()),
         }));
     }
 
