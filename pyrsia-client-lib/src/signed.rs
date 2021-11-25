@@ -1,6 +1,7 @@
 extern crate anyhow;
 extern crate ring;
 extern crate serde;
+extern crate serde_jcs;
 extern crate serde_json;
 
 use std::option::Option;
@@ -37,7 +38,7 @@ use serde::{Deserialize, Serialize};
 ///   foo: &'a str,
 ///   bar: u32,
 ///   #[serde(skip)]
-///   __json: Option<&'a str>
+///   __json: Option<String>
 /// }
 /// ```
 pub trait Signed<'a>: Deserialize<'a> + Serialize {
@@ -74,10 +75,20 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
         _signature_algorithm: SignatureAlgorithms,
         _key_pair: &RsaKeyPair,
     ) -> Result((), anyhow::Error) {
+        let _unsigned_json: String = serde_jcs::to_string(self)?;
         todo!()
     }
 
     // TODO Add a way to add an expiration time, role and other attributes to signatures.
+
+    /// Verify the signature(s) of this struct's associated JSON.
+    ///
+    /// Return an error if any of the signatures are not valid.
+    fn verify_signature(&self) -> Result<(), anyhow::Error> {
+        todo!()
+    }
+
+    // TODO add a method to get the details of the signatures in this struct's associated JSON.
 }
 
 /// An enumeration of the supported signature algorithms
@@ -91,8 +102,10 @@ mod tests {
 
     #[derive(Serialize, Deserialize)]
     struct Foo<'a> {
+        foo: &'a str,
+        bar: u32,
         #[serde(skip)]
-        __json: Option<&'a str>,
+        __json: Option<String>,
     }
 
     #[test]
