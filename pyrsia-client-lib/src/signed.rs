@@ -9,7 +9,6 @@ use anyhow::Result;
 use ring::signature::RsaKeyPair;
 use serde::{Deserialize, Serialize};
 
-
 /// This trait should be implemented by all structs that contain signed data. Structs that implement
 /// this trait should be annotated with
 /// `#[derive(Serialize, Deserialize)]`
@@ -24,14 +23,13 @@ use serde::{Deserialize, Serialize};
 /// signatures, when we deserialize JSON to a struct, to be considered signed, the struct must
 /// contain a reference to the JSON it was deserialized from, so we can still verify the signature.
 ///
-/// If we modify the contents of a signed struct, we should discard the JSON since it no longer
-/// matches the struct. When the struct is in an unsigned state, it should not be allowed to
-/// serialize it.
+/// Methods that modify the contents of a signed struct should discard its associated JSON by
+/// calling the clear_json method, since the JSON no longer matches that struct.
 ///
 /// Given the above description of the purposes of the `Signed` trait, the descriptions of its
 /// methods should be understood in this context.
 ///
-/// It is recommended for consistency that structs that implement this trait have a field declared
+/// It is recommended for consistency that structs that implement this trait are declared
 /// like this with a field named `__json` to refer to the struct's json string:
 /// ```
 /// #[derive(Serialize, Deserialize, Debug)]
@@ -43,26 +41,46 @@ use serde::{Deserialize, Serialize};
 /// }
 /// ```
 pub trait Signed<'a>: Deserialize<'a> + Serialize {
-    /// Return as a string the JSON associated with this struct.
+    /// Return as a string the signed JSON associated with this struct. Returns None if there no
+    /// signed JSON is currently associated with the struct.
     fn json(&self) -> Option<String>;
 
     /// Remove the JSON string from the struct. This should be called by setter methods that modify
     /// the contents of the struct.
-    fn clear_json(&mut self) ;
+    fn clear_json(&mut self);
 
-    fn from_json_string<T>(json: &str) -> Result<T, anyhow::Error> where T: Signed<'a> {
+    /// Set the JSON string associated with this struct.
+    ///
+    /// This method should be private. It should only be called from the other methods of this
+    /// trait.
+    fn set_json(&mut self, _json: &str);
+
+    /// Create a struct of type `T` from the contents of the given JSON string.
+    ///
+    /// Return the created struct if there is an error.
+    fn from_json_string<T>(_json: &str) -> Result<T, anyhow::Error>
+    where
+        T: Signed<'a>,
+    {
         todo!()
     }
 
-    fn sign(&mut self, algorithm: SignatureAlgorithms, key_pair: &RsaKeyPair) {
+    /// If this struct does not have an associated JSON representation then create it and pass it to
+    /// the `set_json` method.
+    ///
+    /// Add a signature to the JSON using the contents of the given key pair.
+    fn sign(
+        &mut self,
+        _signature_algorithm: SignatureAlgorithms,
+        _key_pair: &RsaKeyPair,
+    ) -> Result((), anyhow::Error) {
         todo!()
     }
-
 }
 
 /// An enumeration of the supported signature algorithms
 pub enum SignatureAlgorithms {
-    RsaPkcs1Sha512
+    RsaPkcs1Sha512,
 }
 
 #[cfg(test)]
