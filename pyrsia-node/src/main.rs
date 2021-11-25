@@ -200,21 +200,6 @@ async fn main() {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {
                     info!("Listening on {:?}", address);
                 }
-
-                match event {
-                    SwarmEvent::Behaviour(
-                        libp2p::kad::KademliaEvent::OutboundQueryCompleted {
-                            id,
-                            result: libp2p::kad::QueryResult::GetProviders(Ok(libp2p::kad::GetProvidersOk { providers, .. })),
-                            ..
-                        },
-                    ) => {
-                        // let _ = pending_get_providers
-                        //     .remove(&id)
-                        //     .expect("Completed query to be previously pending.");
-                        println!("Obtained providers");
-                    }
-                }
             }
         }
     }
