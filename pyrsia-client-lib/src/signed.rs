@@ -76,6 +76,8 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     ) -> Result((), anyhow::Error) {
         todo!()
     }
+
+    // TODO Add a way to add an expiration time, role and other attributes to signatures.
 }
 
 /// An enumeration of the supported signature algorithms
