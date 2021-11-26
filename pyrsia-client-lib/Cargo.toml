@@ -10,7 +10,9 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.48"
-ring = "0.16.20"
+base64 = "0.13.0"
+detached-jws = "0.2.1"
+openssl = "0.10.38"
 serde = { version = "1.0", features = ["derive"] }
 serde_jcs = "0.1.0"
 serde_json = "1.0"

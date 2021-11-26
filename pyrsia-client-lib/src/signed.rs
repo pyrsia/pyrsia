@@ -1,14 +1,30 @@
 extern crate anyhow;
-extern crate ring;
+extern crate detached_jws;
+extern crate openssl;
 extern crate serde;
 extern crate serde_jcs;
 extern crate serde_json;
 
 use std::option::Option;
 
-use anyhow::Result;
-use ring::signature::RsaKeyPair;
+use anyhow::{Context, Result};
+use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
+use openssl::{
+    hash::MessageDigest,
+    pkey::PKeyRef,
+    rsa::{Rsa, Padding},
+    sign::{Signer, Verifier},
+};
+use openssl::pkey::{PKey, Private, Public};
 use serde::{Deserialize, Serialize};
+
+// pub fn create_key_pair(signarature_algorithm: SignatureAlgorithms) -> (&[u8], &[u8]) {
+//     match signature_algorithm {
+//         SignatureAlgorithms::RsaPkcs1Sha3_512 => Rsa::generate(),
+//         SignatureAlgorithms::RsaPkcs1Sha512 =>
+//     }
+//
+// }
 
 /// This trait should be implemented by all structs that contain signed data. Structs that implement
 /// this trait should be annotated with
@@ -70,13 +86,17 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     /// the `set_json` method.
     ///
     /// Add a signature to the JSON using the contents of the given key pair.
+    /// * signature_algorithm — The signature algorithm to use for signing. Must be compatible with the private key.
+    /// * private_key — The der encoded private key to use for signing.
     fn sign(
         &mut self,
-        _signature_algorithm: SignatureAlgorithms,
-        _key_pair: &RsaKeyPair,
-    ) -> Result((), anyhow::Error) {
+        signature_algorithm: SignatureAlgorithms,
+        private_key: &Vec<u8>,
+    ) -> Result<(), anyhow::Error> {
         let _unsigned_json: String = serde_jcs::to_string(self)?;
-        todo!()
+        with_signer(signature_algorithm, private_key, |signer| {
+            todo!()
+        })
     }
 
     // TODO Add a way to add an expiration time, role and other attributes to signatures.
@@ -91,9 +111,21 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     // TODO add a method to get the details of the signatures in this struct's associated JSON.
 }
 
+fn with_signer<'a>(signature_algorithm: SignatureAlgorithms, der_private_key: &[u8], signing_function: fn(Signer) -> Result<(), anyhow::Error> ) -> Result<(), anyhow::Error> {
+    let private_key: Rsa<Private> = Rsa::private_key_from_der(der_private_key)?;
+    let kp: PKey<Private> = PKey::from_rsa(private_key)?;
+    let mut signer = match signature_algorithm {
+        SignatureAlgorithms::RsaPkcs1Sha512 => Signer::new(MessageDigest::sha512(), &kp).context("Problem using key pair"),
+        SignatureAlgorithms::RsaPkcs1Sha3_512 => Signer::new(MessageDigest::sha3_512(), &kp).context("Problem using key pair"),
+    }?;
+    signer.set_rsa_padding(Padding::PKCS1_PSS)?;
+    signing_function(signer)
+}
+
 /// An enumeration of the supported signature algorithms
 pub enum SignatureAlgorithms {
     RsaPkcs1Sha512,
+    RsaPkcs1Sha3_512
 }
 
 #[cfg(test)]

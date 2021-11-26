@@ -610,6 +610,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ee2393c4a91429dffb4bedf19f4d6abf27d8a732c8ce4980305d782e5426d57"
 
 [[package]]
+name = "detached-jws"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f44c9ea49c400d93071f8180cbd64d13e3783d38944f267f895e58475d69e918"
+dependencies = [
+ "anyhow",
+ "base64",
+ "openssl",
+ "serde_json",
+]
+
+[[package]]
 name = "digest"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2854,7 +2866,9 @@ name = "signed-struct"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ring",
+ "base64",
+ "detached-jws",
+ "openssl",
  "serde",
  "serde_jcs",
  "serde_json",
