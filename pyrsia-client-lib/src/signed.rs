@@ -9,7 +9,7 @@ use std::option::Option;
 
 use anyhow::{Context, Result};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
-use openssl::pkey::{PKey, Private, Public};
+use openssl::pkey::{PKey, Private};
 use openssl::{
     hash::MessageDigest,
     pkey::PKeyRef,
@@ -18,27 +18,34 @@ use openssl::{
 };
 use serde::{Deserialize, Serialize};
 
+/// An enumeration of the supported signature algorithms
+#[derive(Deserialize, Serialize)]
+pub enum SignatureAlgorithms {
+    RsaPkcs1Sha512,
+    RsaPkcs1Sha3_512,
+}
+
 // The default size for RSA keys
 const DEFAULT_RSA_KEY_SIZE: u32 = 4096;
 
 /// An instance of this struct is created to hold a key pair
 #[derive(Deserialize, Serialize)]
-pub struct SignatureKeyPair<'a> {
+pub struct SignatureKeyPair {
     pub signature_algorithm: SignatureAlgorithms,
-    pub private_key: &'a [u8],
-    pub public_key: &'a [u8],
+    pub private_key: Vec<u8>,
+    pub public_key: Vec<u8>,
 }
 
 pub fn create_key_pair(
-    signarature_algorithm: SignatureAlgorithms,
+    signature_algorithm: SignatureAlgorithms,
 ) -> Result<SignatureKeyPair, anyhow::Error> {
     match signature_algorithm {
         SignatureAlgorithms::RsaPkcs1Sha3_512 | SignatureAlgorithms::RsaPkcs1Sha512 => {
             let rsa_private: Rsa<Private> = Rsa::generate(4096)?;
             Ok(SignatureKeyPair {
-                signature_algorithm: signarature_algorithm,
-                private_key: rsa_private.private_key_to_der()?.as_slice(),
-                public_key: rsa_private.public_key_to_der()?.as_slice(),
+                signature_algorithm: signature_algorithm,
+                private_key: rsa_private.private_key_to_der()?,
+                public_key: rsa_private.public_key_to_der()?,
             })
         }
     }
@@ -146,15 +153,9 @@ fn with_signer<'a>(
     signing_function(signer)
 }
 
-/// An enumeration of the supported signature algorithms
-pub enum SignatureAlgorithms {
-    RsaPkcs1Sha512,
-    RsaPkcs1Sha3_512,
-}
-
 #[cfg(test)]
 mod tests {
-    use serde::{Deserialize, Serialize};
+    use super::*;
 
     #[derive(Serialize, Deserialize)]
     struct Foo<'a> {
@@ -165,8 +166,12 @@ mod tests {
     }
 
     #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
+    fn happy_path_for_signing() -> Result<(), anyhow::Error>{
+        let key_pair: SignatureKeyPair = crate::signed::create_key_pair(SignatureAlgorithms::RsaPkcs1Sha3_512)?;
+
+        // create a key pair for other signing types to see that they succeed
+        super::create_key_pair(SignatureAlgorithms::RsaPkcs1Sha512)?;
+
+        Ok(())
     }
 }
