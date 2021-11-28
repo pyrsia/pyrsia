@@ -154,9 +154,60 @@ fn with_signer<'a>(
     signing_function(signer)
 }
 
+/// Lightweight JSON parser to identify the portion of a slice before and after a value, so that the
+/// value can easily be replaced.
+mod json_parser {
+    use anyhow::anyhow;
+
+    pub enum JsonPathElement<'a> {
+        Field(&'a str),
+        Index(usize)
+    }
+
+    // Given a string slice that contains JSON and the path of a value, this returns three smaller
+    // slices that are the characters before a specified value, the characters that comprise the value
+    // and the characters after the value.
+    pub fn parse<'a>(json: &'a str, path: &Vec<JsonPathElement>) -> Result<(&'a str, &'a str, &'a str), anyhow::Error> {
+        let start_of_target: usize = 0;
+        let end_of_target: usize = 0;
+        //parse_value(&start_of_target, &end_of_target, path, &json)?;
+        if end_of_target <= start_of_target {
+            return Err(anyhow!(format!("Did not find {}", path_to_str(path))))
+        }
+        Ok((&json[..(start_of_target-1)], &json[start_of_target..end_of_target], &json[end_of_target+1 ..]))
+    }
+
+    pub fn path_to_str(path: &Vec<JsonPathElement>) -> String {
+        let mut s = String::from("path[");
+        if !path.is_empty() {
+            path_element_to_str(&mut s, &path[0]);
+            for path_element in path[1..].iter() {
+                s.push_str("\",");
+                path_element_to_str(&mut s, path_element);
+            }
+        }
+        s.push_str("]");
+        s
+    }
+
+    fn path_element_to_str(s: &mut String, path_element: &JsonPathElement) {
+        match path_element {
+            JsonPathElement::Field(field_name) => {
+                s.push_str("field:\"");
+                s.push_str(field_name);
+            }
+            JsonPathElement::Index(index) => {
+                s.push_str(index.to_string().as_str());
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
     use super::*;
+    use json_parser::*;
 
     //noinspection NonAsciiCharacters
     #[derive(Serialize, Deserialize)]
@@ -165,6 +216,37 @@ mod tests {
         bar: u32,
         #[serde(skip)]
         π_json: Option<String>,
+    }
+
+    #[test]
+    fn path_to_string_test() {
+        let path = vec![JsonPathElement::Field("__signature"), JsonPathElement::Index(4)];
+        assert_eq!("path[field:\"__signature\",4]", path_to_str(&path))
+    }
+
+    #[test]
+    fn parse_failures() -> Result<(), anyhow::Error> {
+        let object_path = vec![JsonPathElement::Field("__signature")];
+        let object_json = r#"{"a":"x","b":"y"}"# ;
+        let index_json = "[1,3,7]";
+        match parse(object_json, &object_path) {
+            Ok(_) => return Err(anyhow!("Not-found field did not produce an error")),
+            Err(_) => {}
+        };
+        match parse(index_json, &object_path) {
+            Ok(_) => return Err(anyhow!("Not-found field did not produce an error")),
+            Err(_) => {}
+        };
+        let index_path = vec![JsonPathElement::Index(4)];
+        match parse(object_json, &index_path) {
+            Ok(_) => return Err(anyhow!("Not-found index did not produce an error")),
+            Err(_) => {}
+        };
+        match parse(index_json, &index_path) {
+            Ok(_) => return Err(anyhow!("Not-found index did not produce an error")),
+            Err(_) => {}
+        };
+        Ok(())
     }
 
     #[test]
