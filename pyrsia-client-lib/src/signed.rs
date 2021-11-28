@@ -41,7 +41,7 @@ pub fn create_key_pair(
 ) -> Result<SignatureKeyPair, anyhow::Error> {
     match signature_algorithm {
         SignatureAlgorithms::RsaPkcs1Sha3_512 | SignatureAlgorithms::RsaPkcs1Sha512 => {
-            let rsa_private: Rsa<Private> = Rsa::generate(4096)?;
+            let rsa_private: Rsa<Private> = Rsa::generate(DEFAULT_RSA_KEY_SIZE)?;
             Ok(SignatureKeyPair {
                 signature_algorithm: signature_algorithm,
                 private_key: rsa_private.private_key_to_der()?,
@@ -74,12 +74,13 @@ pub fn create_key_pair(
 /// It is recommended for consistency that structs that implement this trait are declared
 /// like this with a field named `__json` to refer to the struct's json string:
 /// ```
+/// //noinspection NonAsciiCharacters
 /// #[derive(Serialize, Deserialize, Debug)]
 /// struct Foo<'a> {
 ///   foo: &'a str,
 ///   bar: u32,
 ///   #[serde(skip)]
-///   __json: Option<String>
+///   π_json: Option<String>
 /// }
 /// ```
 pub trait Signed<'a>: Deserialize<'a> + Serialize {
@@ -157,17 +158,19 @@ fn with_signer<'a>(
 mod tests {
     use super::*;
 
+    //noinspection NonAsciiCharacters
     #[derive(Serialize, Deserialize)]
     struct Foo<'a> {
         foo: &'a str,
         bar: u32,
         #[serde(skip)]
-        __json: Option<String>,
+        π_json: Option<String>,
     }
 
     #[test]
-    fn happy_path_for_signing() -> Result<(), anyhow::Error>{
-        let key_pair: SignatureKeyPair = crate::signed::create_key_pair(SignatureAlgorithms::RsaPkcs1Sha3_512)?;
+    fn happy_path_for_signing() -> Result<(), anyhow::Error> {
+        let key_pair: SignatureKeyPair =
+            crate::signed::create_key_pair(SignatureAlgorithms::RsaPkcs1Sha3_512)?;
 
         // create a key pair for other signing types to see that they succeed
         super::create_key_pair(SignatureAlgorithms::RsaPkcs1Sha512)?;
