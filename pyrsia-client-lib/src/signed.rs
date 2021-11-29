@@ -219,7 +219,7 @@ mod json_parser {
 
         fn skip_char(&mut self, c: char) {
             skip_whitespace(self);
-            if self.this_char_equals(',') {
+            if self.this_char_equals(c) {
                 self.next();
             }
 
@@ -337,10 +337,10 @@ mod json_parser {
         target_index: Option<usize>,
     ) -> Result<(), anyhow::Error> {
         skip_whitespace(json_cursor);
-        let start_position = json_cursor.position;
         json_cursor.expect_char('[')?;
         let mut this_index: usize = 0;
         loop {
+            let start_position = json_cursor.position;
             skip_whitespace(json_cursor);
             if json_cursor.at_end() {
                 return Err(anyhow!(format!(
@@ -383,9 +383,9 @@ mod json_parser {
         target_field: Option<&str>,
     ) -> Result<(), anyhow::Error> {
         skip_whitespace(json_cursor);
-        let start_position = json_cursor.position;
         json_cursor.expect_char('{')?;
         loop {
+            let start_position = json_cursor.position;
             skip_whitespace(json_cursor);
             if json_cursor.at_end() {
                 return Err(anyhow!(format!(
