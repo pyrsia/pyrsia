@@ -15,7 +15,7 @@ pub async fn new(
     peer_id: PeerId,
 ) -> Result<MyBehaviourSwarm, ()> {
     let mdns = Mdns::new(Default::default()).await.unwrap();
-    let mut behaviour = MyBehaviour::new(Floodsub::new(peer_id.clone()), mdns);
+    let mut behaviour = MyBehaviour::new(Floodsub::new(peer_id), mdns);
     behaviour.floodsub_mut().subscribe(topic.clone());
 
     let swarm = SwarmBuilder::new(transport, behaviour, peer_id)
