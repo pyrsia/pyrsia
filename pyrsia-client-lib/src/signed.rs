@@ -161,22 +161,22 @@ mod json_parser {
     use serde_json::json;
     use std::str::Chars;
 
-    struct JsonCursor<'a> {
+    pub struct JsonCursor<'a> {
         position: usize,
         iterator: Chars<'a>,
         this_char: Option<char>,
-        json_str: &'a str
+        json_str: &'a str,
     }
 
     impl<'a> JsonCursor<'a> {
-        fn new(json: &str) -> JsonCursor {
+        pub fn new(json: &str) -> JsonCursor {
             let mut iterator = json.chars();
             let this_char = iterator.next();
             JsonCursor {
                 position: 0,
                 iterator,
                 this_char,
-                json_str: json
+                json_str: json,
             }
         }
 
@@ -204,15 +204,17 @@ mod json_parser {
                 }
                 Err(anyhow!(format!(
                     "Expected '{}' but found '{}' at position {}.",
-                    next_char,
-                    found_char,
-                    self.position
+                    next_char, found_char, self.position
                 )))
             }
         }
 
         fn char_predicate(&self, predicate: fn(char) -> bool) -> bool {
             self.this_char.is_some() && predicate(self.this_char.unwrap())
+        }
+
+        fn at_end(&self) -> bool {
+            self.this_char.is_none()
         }
     }
 
@@ -268,39 +270,55 @@ mod json_parser {
         end_of_target: &mut usize,
         path: &mut core::slice::Iter<JsonPathElement>,
         json_cursor: &mut JsonCursor,
-        target_field: Option<&str>
+        target_field: Option<&str>,
     ) -> Result<(), anyhow::Error> {
         skip_whitespace(json_cursor);
+        let start_position = json_cursor.position;
         json_cursor.expect_char('{')?;
-        let field_name = parse_string(json_cursor)?;
-        todo!();
-        json_cursor.expect_char('}')?;
+        while true {
+            skip_whitespace(json_cursor);
+            if json_cursor.at_end() {
+                return Err(anyhow!(format!(
+                    "Unterminated object started at position {}",
+                    start_position
+                )));
+            }
+            if json_cursor.this_char_equals('}') {
+                json_cursor.next();
+                return Ok(());
+            };
+            let field_name = parse_string(json_cursor)?;
+            skip_whitespace(json_cursor);
+            json_cursor.expect_char(':')?;
+            todo!();
+        }
         Ok(())
     }
 
-    fn parse_string<'a>(json_cursor: &'a mut JsonCursor) -> Result<&'a str, anyhow::Error> {
+    pub fn parse_string<'a>(json_cursor: &'a mut JsonCursor) -> Result<&'a str, anyhow::Error> {
         skip_whitespace(json_cursor);
         json_cursor.expect_char('"')?;
         let string_start = json_cursor.position;
         while true {
-           if json_cursor.this_char.is_none() {
-               return Err(anyhow!(format!("JSON contains an unterminated string that starts at position {}.", string_start)))
-           }
+            if json_cursor.at_end() {
+                return Err(anyhow!(format!(
+                    "JSON contains an unterminated string that starts at position {}.",
+                    string_start
+                )));
+            }
             if json_cursor.this_char_equals('\\') {
                 json_cursor.next(); // Ignore the next character because it is escaped.
-            }
-            if json_cursor.this_char_equals('"') {
-                let string_end = json_cursor.position-1;
-                return Ok(&json_cursor.json_str[string_start..string_end])
+            } else if json_cursor.this_char_equals('"') {
+                return Ok(&json_cursor.json_str[string_start..json_cursor.position]);
             }
             json_cursor.next();
-        };
+        }
         panic!("We feel out of a loop we should have returned from")
     }
 
     fn skip_whitespace(json_cursor: &mut JsonCursor) {
         while json_cursor.char_predicate(|c| c.is_whitespace()) {
-            json_cursor.this_char = json_cursor.iterator.next()
+            json_cursor.next()
         }
     }
 
@@ -377,6 +395,33 @@ mod tests {
             Err(_) => {}
         };
         Ok(())
+    }
+
+    #[test]
+    fn parse_string_happy_test() -> Result<(), anyhow::Error> {
+        let mut cursor = JsonCursor::new("  \"The quick Brown fox.\" ");
+        let parsed_string = parse_string(&mut cursor)?;
+        assert_eq!("The quick Brown fox.", parsed_string);
+        Ok(())
+    }
+
+    #[test]
+    fn parse_string_escape() -> Result<(), anyhow::Error> {
+        let mut cursor = JsonCursor::new("  \"The quick \\\"Brown\\\" fox.\" ");
+        let parsed_string = parse_string(&mut cursor)?;
+        assert_eq!("The quick \\\"Brown\\\" fox.", parsed_string);
+        Ok(())
+    }
+
+    #[test]
+    fn parse_string_unterminated() -> Result<(), anyhow::Error> {
+        let mut cursor = JsonCursor::new("  \"The quick \\\"Brown\\\" fox. ");
+        match parse_string(&mut cursor) {
+            Ok(_) => Err(anyhow!(
+                "Parsing an unterminated string did not cause an error return!"
+            )),
+            Err(_) => Ok(()),
+        }
     }
 
     #[test]
