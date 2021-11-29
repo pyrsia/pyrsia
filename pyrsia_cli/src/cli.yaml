@@ -1,0 +1,44 @@
+name: pyrsia
+version: "0.1.0"
+author: Mitali B. <mitalib@jfrog.com>
+about: Zero-Trust Decentralized Package Network
+args:
+    - verbose:
+        short: v
+        multiple_occurrences: true
+        about: Sets the level of verbosity
+subcommands:
+  - config:
+        about: pyrsia config node
+        version: "0.1.0"
+        author: Mitali B. <mitalib@jfrog.com>
+        args:
+            - add:
+                short: add
+                long: add
+                value_name: NODE
+                about: Adds a node configuration
+                takes_value: true
+            - edit:
+                short: edit
+                long: edit 
+                value_name: NODE
+                about: Edits the node configuration
+                takes_value: true
+            - remove:
+                short: remove
+                long: remove 
+                about: Removes the stored node configuration
+            - show:
+                short: show
+                long: show 
+                about: Shows the stored node configuration
+  - node:
+        about: pyrsia node api calls
+        version: "0.1.0"
+        author: Mitali B. <mitalib@jfrog.com>
+        args:
+            - ping:
+                short: p
+                long: ping node
+                about: Ping configured pyrsia node
