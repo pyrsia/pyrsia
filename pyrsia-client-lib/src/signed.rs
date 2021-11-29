@@ -159,7 +159,6 @@ fn with_signer<'a>(
 mod json_parser {
     use anyhow::anyhow;
     use serde_json::json;
-    use std::slice::Iter;
     use std::str::Chars;
 
     pub struct JsonCursor<'a> {
@@ -224,8 +223,6 @@ mod json_parser {
         Index(usize),
     }
 
-    static EMPTY_PATH: Iter<JsonPathElement> = Vec::new().iter();
-
     // Given a string slice that contains JSON and the path of a value, this returns three smaller
     // slices that are the characters before a specified value, the characters that comprise the value
     // and the characters after the value.
@@ -268,24 +265,46 @@ mod json_parser {
                 json_cursor,
                 Some(field_name),
             ),
-            Some(JsonPathElement::Index(index)) => parse_array(start_of_target, end_of_target, path, json_cursor, Some(*index)),
+            Some(JsonPathElement::Index(index)) => parse_array(
+                start_of_target,
+                end_of_target,
+                path,
+                json_cursor,
+                Some(*index),
+            ),
             None => parse_unconstrained_value(start_of_target, end_of_target, json_cursor),
         }
-        Ok(())
     }
 
-    fn parse_unconstrained_value(start_of_target: &mut usize,
-                                 end_of_target: &mut usize,
-                                 json_cursor: &mut JsonCursor,) -> Result<(), anyhow::Error> {
+    fn parse_unconstrained_value(
+        start_of_target: &mut usize,
+        end_of_target: &mut usize,
+        json_cursor: &mut JsonCursor,
+    ) -> Result<(), anyhow::Error> {
         skip_whitespace(json_cursor);
         if json_cursor.this_char_equals('{') {
-            parse_object(start_of_target, end_of_target, &mut EMPTY_PATH.clone(), json_cursor, None)
+            parse_object(
+                start_of_target,
+                end_of_target,
+                &mut Vec::new().iter(),
+                json_cursor,
+                None,
+            )
         } else if json_cursor.this_char_equals('[') {
-            parse_array(start_of_target, end_of_target, &mut EMPTY_PATH.clone(), json_cursor, None)
+            parse_array(
+                start_of_target,
+                end_of_target,
+                &mut Vec::new().iter(),
+                json_cursor,
+                None,
+            )
         } else if json_cursor.char_predicate(|c| is_signed_alphanumeric(c)) {
             parse_number_or_id(json_cursor)
         } else {
-            err(anyhow!(format!("Unexpected character at position {}", json_cursor.position)))
+            Err(anyhow!(format!(
+                "Unexpected character at position {}",
+                json_cursor.position
+            )))
         }
     }
 
@@ -295,23 +314,25 @@ mod json_parser {
 
     // Parse a number or an word like "null", "true" or "false". Since we are just scanning to find
     // the end of something, we don't need to care about the distinctions.
-    fn parse_number_or_id(json_cursor: &mut JsonCursor,) -> Result<(), anyhow::Error> {
-        while (json_cursor.char_predicate(|c| is_signed_alphanumeric(c))) {
+    fn parse_number_or_id(json_cursor: &mut JsonCursor) -> Result<(), anyhow::Error> {
+        while json_cursor.char_predicate(|c| is_signed_alphanumeric(c)) {
             json_cursor.next()
         }
         Ok(())
     }
 
-    fn parse_array(start_of_target: &mut usize,
-                   end_of_target: &mut usize,
-                   path: &mut core::slice::Iter<JsonPathElement>,
-                   json_cursor: &mut JsonCursor,
-                   target_index: Option<usize>,) -> Result<(), anyhow::Error> {
+    fn parse_array(
+        start_of_target: &mut usize,
+        end_of_target: &mut usize,
+        path: &mut core::slice::Iter<JsonPathElement>,
+        json_cursor: &mut JsonCursor,
+        target_index: Option<usize>,
+    ) -> Result<(), anyhow::Error> {
         skip_whitespace(json_cursor);
         let start_position = json_cursor.position;
         json_cursor.expect_char('[');
         let mut this_index: usize = 0;
-        while true {
+        loop {
             skip_whitespace(json_cursor);
             if json_cursor.at_end() {
                 return Err(anyhow!(format!(
@@ -321,19 +342,24 @@ mod json_parser {
             }
             if json_cursor.this_char_equals(']') {
                 json_cursor.next();
-                return Ok(())
+                return Ok(());
             }
-            if target_index.unwrap_or(-1) == target_index {
-                let is_empty_path = path.is_empty();
+            if target_index.unwrap_or(usize::MAX) == this_index {
+                let is_empty_path = path.clone().next().is_none();
                 parse_value(start_of_target, end_of_target, path, json_cursor)?;
-                if (is_empty_path) {
+                if is_empty_path {
                     // This is the JSON array index identified by the path
                     *start_of_target = start_position;
                     *end_of_target = json_cursor.position;
                 }
-                return Ok(())
+                return Ok(());
             } else {
-                parse_value(start_of_target, end_of_target, &mut EMPTY_PATH.clone(), json_cursor)?;
+                parse_value(
+                    start_of_target,
+                    end_of_target,
+                    &mut Vec::new().iter(),
+                    json_cursor,
+                )?;
             }
             skip_whitespace(json_cursor);
             if json_cursor.this_char_equals(',') {
@@ -341,7 +367,6 @@ mod json_parser {
             }
             this_index += 1
         }
-        panic!("We feel out of a loop we should have returned from")
     }
 
     fn parse_object(
@@ -354,7 +379,7 @@ mod json_parser {
         skip_whitespace(json_cursor);
         let start_position = json_cursor.position;
         json_cursor.expect_char('{')?;
-        while true {
+        loop {
             skip_whitespace(json_cursor);
             if json_cursor.at_end() {
                 return Err(anyhow!(format!(
@@ -367,10 +392,11 @@ mod json_parser {
                 return Ok(());
             };
             let field_name = parse_string(json_cursor)?;
+            let field_name2 = String::from(field_name);
             skip_whitespace(json_cursor);
             json_cursor.expect_char(':')?;
-            if target_field.unwrap_or_default() == field_name {
-                let is_empty_path = path.is_empty();
+            if target_field.unwrap_or_default() == field_name2 {
+                let is_empty_path = path.clone().next().is_none();
                 parse_value(start_of_target, end_of_target, path, json_cursor);
                 if is_empty_path {
                     // This is the JSON field identified by the path
@@ -383,22 +409,21 @@ mod json_parser {
                 parse_value(
                     start_of_target,
                     end_of_target,
-                    &mut EMPTY_PATH.clone(),
+                    &mut Vec::new().iter(),
                     json_cursor,
-                )
+                )?;
             }
             if json_cursor.this_char_equals(',') {
                 json_cursor.next();
             }
         }
-        panic!("We feel out of a loop we should have returned from")
     }
 
     pub fn parse_string<'a>(json_cursor: &'a mut JsonCursor) -> Result<&'a str, anyhow::Error> {
         skip_whitespace(json_cursor);
         json_cursor.expect_char('"')?;
         let string_start = json_cursor.position;
-        while true {
+        loop {
             if json_cursor.at_end() {
                 return Err(anyhow!(format!(
                     "JSON contains an unterminated string that starts at position {}.",
@@ -412,7 +437,6 @@ mod json_parser {
             }
             json_cursor.next();
         }
-        panic!("We feel out of a loop we should have returned from")
     }
 
     fn skip_whitespace(json_cursor: &mut JsonCursor) {
