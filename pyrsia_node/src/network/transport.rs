@@ -21,10 +21,10 @@ pub fn new_tokio_tcp_transport(id_keys: &libp2p::identity::Keypair) -> TcpTokioT
         .into_authentic(id_keys)
         .expect("Signing libp2p-noise static DH keypair failed.");
 
-    return TokioTcpConfig::new()
+    TokioTcpConfig::new()
         .nodelay(true)
         .upgrade(upgrade::Version::V1)
         .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
         .multiplex(mplex::MplexConfig::new())
-        .boxed();
+        .boxed()
 }

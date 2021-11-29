@@ -169,7 +169,7 @@ async fn main() {
         tokio::select! {
             line = stdin.next_line() => {
                 let line = line.unwrap().expect("stdin closed");
-                swarm.behaviour_mut().floodsub().publish(floodsub_topic.clone(), line.as_bytes());
+                swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), line.as_bytes());
             }
             event = swarm.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {

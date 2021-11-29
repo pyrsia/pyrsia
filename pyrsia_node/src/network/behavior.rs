@@ -22,8 +22,8 @@ impl MyBehaviour {
         MyBehaviour { floodsub, mdns }
     }
 
-    pub fn floodsub(&mut self) -> &mut Floodsub {
-        return &mut self.floodsub;
+    pub fn floodsub_mut(&mut self) -> &mut Floodsub {
+        &mut self.floodsub
     }
 }
 

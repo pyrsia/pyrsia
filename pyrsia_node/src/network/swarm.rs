@@ -16,7 +16,7 @@ pub async fn new(
 ) -> Result<MyBehaviourSwarm, ()> {
     let mdns = Mdns::new(Default::default()).await.unwrap();
     let mut behaviour = MyBehaviour::new(Floodsub::new(peer_id.clone()), mdns);
-    behaviour.floodsub().subscribe(topic.clone());
+    behaviour.floodsub_mut().subscribe(topic.clone());
 
     let swarm = SwarmBuilder::new(transport, behaviour, peer_id)
         // We want the connection background tasks to be spawned
@@ -42,7 +42,7 @@ pub async fn new(
 //     ) -> Result<MyBehaviourSwarm, ()> {
 //         let mdns = Mdns::new(Default::default()).await.unwrap();
 //         let mut behaviour = MyBehaviour::new(Floodsub::new(peer_id.clone()), mdns);
-//         behaviour.floodsub().subscribe(topic.clone());
+//         behaviour.floodsub_mut().subscribe(topic.clone());
 //         let swarm = SwarmBuilder::new(transport, behaviour, peer_id)
 //             // We want the connection background tasks to be spawned
 //             // onto the tokio runtime.
