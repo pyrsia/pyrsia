@@ -22,6 +22,7 @@ use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 
 use identity::Keypair;
+
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
