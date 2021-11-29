@@ -2,7 +2,6 @@ extern crate reqwest;
 extern crate tokio;
 
 use reqwest::blocking;
-use reqwest::blocking::*;
 use std::io;
 use std::io::prelude::*;
 use std::io::BufRead;
@@ -13,16 +12,16 @@ where
     W: Write,
 {
     use reqwest::blocking::Client;
-    use std::io::Error;
+    use reqwest::blocking::Response;
     use std::io::ErrorKind::Other;
 
     let client = Client::new();
-    let mut resp: Result<Response, reqwest::Error> = client.get(url.clone()).send();
+    let resp: Result<Response, reqwest::Error> = client.get(url.clone()).send();
     match resp {
         Ok(_) => io::copy(&mut resp.unwrap(), &mut out),
-        Err(_) => Err(Error::new(
+        Err(error) => Err(std::io::Error::new(
             Other,
-            format!("Http Client Failed to Get {}", url),
+            format!("Http Client Failed to Get {} with {}", url, error),
         )),
     }
 }
@@ -46,7 +45,7 @@ mod tests {
     fn test_get() {
         use std::fs::File;
         use std::io::BufReader;
-        
+
         let file_name: String = String::from("/tmp/great_expectations.txt");
         let uri: String = String::from("https://www.gutenberg.org/files/1400/1400-0.txt");
         let result = get(File::create(file_name.clone()).unwrap(), uri);
@@ -73,10 +72,10 @@ mod tests {
     #[test]
     fn test_bad_site() {
         use std::fs::File;
-        use std::io::BufReader;
 
-        let uri: String = String::from("https://nosuchsite.fake/");
+        // let uri: String = String::from("https://nosuchsite.fake/");
         let file_name: String = String::from("/tmp/err.txt");
+        let uri: String = String::from("https://nosuchsite.fake/");
         let result = get(File::create(file_name.clone()).unwrap(), uri);
         match futures::executor::block_on(result) {
             Err(_) => assert!(true, "This request should fail"),
