@@ -216,6 +216,14 @@ mod json_parser {
         fn at_end(&self) -> bool {
             self.this_char.is_none()
         }
+
+        fn skip_char(&mut self, c: char) {
+            skip_whitespace(self);
+            if self.this_char_equals(',') {
+                self.next();
+            }
+
+        }
     }
 
     pub enum JsonPathElement<'a> {
@@ -330,7 +338,7 @@ mod json_parser {
     ) -> Result<(), anyhow::Error> {
         skip_whitespace(json_cursor);
         let start_position = json_cursor.position;
-        json_cursor.expect_char('[');
+        json_cursor.expect_char('[')?;
         let mut this_index: usize = 0;
         loop {
             skip_whitespace(json_cursor);
@@ -347,6 +355,7 @@ mod json_parser {
             if target_index.unwrap_or(usize::MAX) == this_index {
                 let is_empty_path = path.clone().next().is_none();
                 parse_value(start_of_target, end_of_target, path, json_cursor)?;
+                json_cursor.skip_char(',');
                 if is_empty_path {
                     // This is the JSON array index identified by the path
                     *start_of_target = start_position;
@@ -360,10 +369,7 @@ mod json_parser {
                     &mut Vec::new().iter(),
                     json_cursor,
                 )?;
-            }
-            skip_whitespace(json_cursor);
-            if json_cursor.this_char_equals(',') {
-                json_cursor.next();
+                json_cursor.skip_char(',');
             }
             this_index += 1
         }
@@ -397,8 +403,9 @@ mod json_parser {
             json_cursor.expect_char(':')?;
             if target_field.unwrap_or_default() == field_name2 {
                 let is_empty_path = path.clone().next().is_none();
-                parse_value(start_of_target, end_of_target, path, json_cursor);
+                parse_value(start_of_target, end_of_target, path, json_cursor)?;
                 if is_empty_path {
+                    json_cursor.skip_char(',');
                     // This is the JSON field identified by the path
                     *start_of_target = start_position;
                     *end_of_target = json_cursor.position;
@@ -412,9 +419,7 @@ mod json_parser {
                     &mut Vec::new().iter(),
                     json_cursor,
                 )?;
-            }
-            if json_cursor.this_char_equals(',') {
-                json_cursor.next();
+                json_cursor.skip_char(',')
             }
         }
     }
@@ -433,7 +438,9 @@ mod json_parser {
             if json_cursor.this_char_equals('\\') {
                 json_cursor.next(); // Ignore the next character because it is escaped.
             } else if json_cursor.this_char_equals('"') {
-                return Ok(&json_cursor.json_str[string_start..json_cursor.position]);
+                let content = &json_cursor.json_str[string_start..json_cursor.position];
+                json_cursor.next();
+                return Ok(content);
             }
             json_cursor.next();
         }
@@ -521,6 +528,14 @@ mod tests {
     }
 
     #[test]
+    fn parse_json() -> Result<(), anyhow::Error> {
+        let json = r#"{"boo":true,"number":234,"nul":null, "ob":{"a":123,"b":"str"}, "arr":[3, true, {"sig":"mund", "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#;
+        let (before, middle, after) = parse(json, &vec!(JsonPathElement::Field("boo")))?;
+        assert_eq!(r#""boo":true,"#, middle);
+        Ok(())
+    }
+
+    #[test]
     fn parse_string_happy_test() -> Result<(), anyhow::Error> {
         let mut cursor = JsonCursor::new("  \"The quick Brown fox.\" ");
         let parsed_string = parse_string(&mut cursor)?;
@@ -546,6 +561,8 @@ mod tests {
             Err(_) => Ok(()),
         }
     }
+
+
 
     #[test]
     fn happy_path_for_signing() -> Result<(), anyhow::Error> {
