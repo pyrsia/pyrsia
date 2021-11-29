@@ -158,23 +158,150 @@ fn with_signer<'a>(
 /// value can easily be replaced.
 mod json_parser {
     use anyhow::anyhow;
+    use serde_json::json;
+    use std::str::Chars;
+
+    struct JsonCursor<'a> {
+        position: usize,
+        iterator: Chars<'a>,
+        this_char: Option<char>,
+        json_str: &'a str
+    }
+
+    impl<'a> JsonCursor<'a> {
+        fn new(json: &str) -> JsonCursor {
+            let mut iterator = json.chars();
+            let this_char = iterator.next();
+            JsonCursor {
+                position: 0,
+                iterator,
+                this_char,
+                json_str: json
+            }
+        }
+
+        fn next(&mut self) {
+            if self.this_char.is_some() {
+                self.position += 1;
+            }
+            self.this_char = self.iterator.next();
+        }
+
+        fn this_char_equals(&self, c: char) -> bool {
+            self.this_char.is_some() && self.this_char.unwrap() == c
+        }
+
+        fn expect_char(&mut self, next_char: char) -> Result<(), anyhow::Error> {
+            if self.this_char.is_some() && self.this_char.unwrap() == next_char {
+                self.next();
+                Ok(())
+            } else {
+                let mut found_char = String::new();
+                if self.this_char.is_some() {
+                    found_char.push(self.this_char.unwrap())
+                } else {
+                    found_char.push_str("None")
+                }
+                Err(anyhow!(format!(
+                    "Expected '{}' but found '{}' at position {}.",
+                    next_char,
+                    found_char,
+                    self.position
+                )))
+            }
+        }
+
+        fn char_predicate(&self, predicate: fn(char) -> bool) -> bool {
+            self.this_char.is_some() && predicate(self.this_char.unwrap())
+        }
+    }
 
     pub enum JsonPathElement<'a> {
         Field(&'a str),
-        Index(usize)
+        Index(usize),
     }
 
     // Given a string slice that contains JSON and the path of a value, this returns three smaller
     // slices that are the characters before a specified value, the characters that comprise the value
     // and the characters after the value.
-    pub fn parse<'a>(json: &'a str, path: &Vec<JsonPathElement>) -> Result<(&'a str, &'a str, &'a str), anyhow::Error> {
-        let start_of_target: usize = 0;
-        let end_of_target: usize = 0;
-        //parse_value(&start_of_target, &end_of_target, path, &json)?;
-        if end_of_target <= start_of_target {
-            return Err(anyhow!(format!("Did not find {}", path_to_str(path))))
+    pub fn parse<'a>(
+        json: &'a str,
+        path: &Vec<JsonPathElement>,
+    ) -> Result<(&'a str, &'a str, &'a str), anyhow::Error> {
+        if path.is_empty() {
+            return Err(anyhow!("Empty path; nothing to find"));
         }
-        Ok((&json[..(start_of_target-1)], &json[start_of_target..end_of_target], &json[end_of_target+1 ..]))
+        let mut start_of_target: usize = 0;
+        let mut end_of_target: usize = 0;
+        parse_value(
+            &mut start_of_target,
+            &mut end_of_target,
+            &mut path.iter(),
+            &mut JsonCursor::new(json),
+        )?;
+        if end_of_target <= start_of_target {
+            return Err(anyhow!(format!("Did not find {}", path_to_str(path))));
+        }
+        Ok((
+            &json[..(start_of_target - 1)],
+            &json[start_of_target..end_of_target],
+            &json[end_of_target + 1..],
+        ))
+    }
+
+    fn parse_value(
+        start_of_target: &mut usize,
+        end_of_target: &mut usize,
+        path: &mut core::slice::Iter<JsonPathElement>,
+        json_cursor: &mut JsonCursor,
+    ) -> Result<(), anyhow::Error> {
+        match path.next() {
+            Some(JsonPathElement::Field(field_name)) => todo!(),
+            Some(JsonPathElement::Index(index)) => todo!(),
+            None => todo!(),
+        }
+        Ok(())
+    }
+
+    fn parse_object(
+        start_of_target: &mut usize,
+        end_of_target: &mut usize,
+        path: &mut core::slice::Iter<JsonPathElement>,
+        json_cursor: &mut JsonCursor,
+        target_field: Option<&str>
+    ) -> Result<(), anyhow::Error> {
+        skip_whitespace(json_cursor);
+        json_cursor.expect_char('{')?;
+        let field_name = parse_string(json_cursor)?;
+        todo!();
+        json_cursor.expect_char('}')?;
+        Ok(())
+    }
+
+    fn parse_string<'a>(json_cursor: &'a mut JsonCursor) -> Result<&'a str, anyhow::Error> {
+        skip_whitespace(json_cursor);
+        json_cursor.expect_char('"')?;
+        let string_start = json_cursor.position;
+        while true {
+           if json_cursor.this_char.is_none() {
+               return Err(anyhow!(format!("JSON contains an unterminated string that starts at position {}.", string_start)))
+           }
+            if json_cursor.this_char_equals('\\') {
+                json_cursor.next(); // Ignore the next character because it is escaped.
+            }
+            if json_cursor.this_char_equals('"') {
+                let string_end = json_cursor.position-1;
+                return Ok(&json_cursor.json_str[string_start..string_end])
+            }
+            json_cursor.next();
+        };
+        panic!("We feel out of a loop we should have returned from")
+    }
+
+    fn skip_whitespace(json_cursor: &mut JsonCursor) {
+        while json_cursor.char_predicate(|c| c.is_whitespace()) {
+            json_cursor.this_char = json_cursor.iterator.next()
+        }
     }
 
     pub fn path_to_str(path: &Vec<JsonPathElement>) -> String {
@@ -205,8 +332,8 @@ mod json_parser {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::anyhow;
     use super::*;
+    use anyhow::anyhow;
     use json_parser::*;
 
     //noinspection NonAsciiCharacters
@@ -220,14 +347,17 @@ mod tests {
 
     #[test]
     fn path_to_string_test() {
-        let path = vec![JsonPathElement::Field("__signature"), JsonPathElement::Index(4)];
+        let path = vec![
+            JsonPathElement::Field("__signature"),
+            JsonPathElement::Index(4),
+        ];
         assert_eq!("path[field:\"__signature\",4]", path_to_str(&path))
     }
 
     #[test]
     fn parse_failures() -> Result<(), anyhow::Error> {
         let object_path = vec![JsonPathElement::Field("__signature")];
-        let object_json = r#"{"a":"x","b":"y"}"# ;
+        let object_json = r#"{"a":"x","b":"y"}"#;
         let index_json = "[1,3,7]";
         match parse(object_json, &object_path) {
             Ok(_) => return Err(anyhow!("Not-found field did not produce an error")),
