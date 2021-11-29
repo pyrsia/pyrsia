@@ -1,10 +1,9 @@
 extern crate unqlite;
 
 // use unqlite::{UnQLite, Config, KV, Cursor};
-use unqlite::{UnQLite, KV};
 use std::collections::HashMap;
 use std::str;
-
+use unqlite::{UnQLite, KV};
 
 pub struct UnQLiteDB {
     database_map: HashMap<String, UnQLite>,
@@ -15,7 +14,7 @@ pub struct UnQLiteDB {
 pub struct Index {
     name: String,
     itype: String,
-    order:bool,
+    order: bool,
 }
 
 pub struct Key {
@@ -38,35 +37,39 @@ impl Key {
     pub fn new() -> Key {
         // let x = rand::random::<u64>();
         // let y = rand::random::<u64>();
-        let mut v : Vec<u8> = Vec::new();
+        let mut v: Vec<u8> = Vec::new();
         for i in [0..7] {
-           let rr = rand::random::<u8>();
-           v.push(rr);
+            let rr = rand::random::<u8>();
+            v.push(rr);
         }
 
         Key {
             // low: x,
             // high: y,
-            elements: v
+            elements: v,
         }
     }
 }
 
 impl AsRef<[u8]> for Key {
     fn as_ref(&self) -> &[u8] {
-		&self.elements
+        &self.elements
     }
 }
 
-pub fn split_key_value(source:&str) -> (&str, &str) {
+pub fn split_key_value(source: &str) -> (&str, &str) {
     let keyvalue: Vec<&str> = source.split(':').collect();
-    let key = keyvalue[0].get(1..keyvalue[0].len()-1).unwrap();
-    let value = keyvalue[1].get(1..keyvalue[1].len()-1).unwrap();
+    let key = keyvalue[0].get(1..keyvalue[0].len() - 1).unwrap();
+    let value = keyvalue[1].get(1..keyvalue[1].len() - 1).unwrap();
     (key, value)
 }
 
-pub fn get_value_for_key(source:&str, searchkey:&str) -> String {
-    let entries: Vec<&str> = source.get(1..source.len()-1).unwrap().split(',').collect();
+pub fn get_value_for_key(source: &str, searchkey: &str) -> String {
+    let entries: Vec<&str> = source
+        .get(1..source.len() - 1)
+        .unwrap()
+        .split(',')
+        .collect();
     for entry in entries {
         let (key, value) = split_key_value(entry);
         println!("GVFK, key = {} and searchKey = {}", key, searchkey);
@@ -84,7 +87,7 @@ impl UnQLiteDB {
         UnQLiteDB {
             database_map: HashMap::new(),
             field_database_map: HashMap::new(),
-            database_index: HashMap::new()
+            database_index: HashMap::new(),
         }
     }
 
@@ -110,7 +113,7 @@ impl UnQLiteDB {
     pub fn store(&mut self, name: &str, data: &str) {
         let x = Key::new();
         if let Some(_db) = self.database_map.get(name) {
-            let res =_db.kv_store(&x, data);
+            let res = _db.kv_store(&x, data);
             println!("Stored entry!");
         } else {
             println!("DONT Store entry!");
@@ -125,7 +128,7 @@ impl UnQLiteDB {
                 println!("this belongs to db {}", idxname);
                 if let Some(_fdb) = self.field_database_map.get(&idxname) {
                     let value = get_value_for_key(data, &ix.name);
-println!("store value {}", value);
+                    println!("store value {}", value);
                     let res = _fdb.kv_store(value.to_string(), &x).unwrap();
                     // let res = _fdb.kv_store(value, &x).unwrap();
                 }
@@ -135,11 +138,10 @@ println!("store value {}", value);
         }
     }
 
-
     pub fn fetch(&mut self, name: &str, filter: &str) -> String {
         let _db = self.database_map.get(name).unwrap();
         let flen = filter.len();
-        let json = filter.get(1..flen-1).unwrap();
+        let json = filter.get(1..flen - 1).unwrap();
         // split filter in a number of conditions
         let conditions: Vec<&str> = json.split(',').collect();
         for subcond in &conditions {
@@ -158,7 +160,7 @@ println!("store value {}", value);
                     println!("Exists!");
                     let key = exists.unwrap();
                     println!("key = {:?}", key);
-                    let answer_bytes =_db.kv_fetch(key).unwrap();
+                    let answer_bytes = _db.kv_fetch(key).unwrap();
                     println!("answer = {:?}", answer_bytes);
                     let answer = String::from_utf8(answer_bytes).unwrap();
                     return answer;

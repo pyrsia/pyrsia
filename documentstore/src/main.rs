@@ -1,7 +1,7 @@
 mod unqlitedb;
 
-use unqlitedb::UnQLiteDB;
 use unqlitedb::Index;
+use unqlitedb::UnQLiteDB;
 
 fn main() {
     println!("Hello, world!");
@@ -24,11 +24,11 @@ mod tests {
     use super::*;
     #[test]
     fn dummy() {
-        assert_eq!(2+2, 4);
+        assert_eq!(2 + 2, 4);
     }
 
-// Create a database, which requires a name and a list of indices
-// Create a database with a name and an empty index list
+    // Create a database, which requires a name and a list of indices
+    // Create a database with a name and an empty index list
     #[test]
     fn test_create_db() {
         let mut unqlitedb = UnQLiteDB::new();
@@ -37,7 +37,7 @@ mod tests {
         unqlitedb.create_db(name, idx);
     }
 
-// Create a database with a name and an index list with 2 elements
+    // Create a database with a name and an index list with 2 elements
     #[test]
     fn test_create_db_with_index() {
         let mut unqlitedb = UnQLiteDB::new();
@@ -84,7 +84,6 @@ mod tests {
         unqlitedb.store(name, doc);
         let flt: &str = "{'mostSignificantField':'msf1','leastSignificantField':'12'}";
         let res: String = unqlitedb.fetch(name, flt);
-        println!("Got result: {}",res);
+        println!("Got result: {}", res);
     }
-
 }
