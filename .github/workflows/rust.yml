@@ -3,7 +3,7 @@ name: Rust
 on:
   push:
     branches: [ main ]
-  pull_request_target: # This is a security risk and we need to remove thus being going public!
+  pull_request_target: # This is a security risk and we need to remove this being going public!
 
 env:
   CARGO_TERM_COLOR: always
