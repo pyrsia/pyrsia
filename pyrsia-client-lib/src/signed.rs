@@ -222,7 +222,6 @@ mod json_parser {
             if self.this_char_equals(c) {
                 self.next();
             }
-
         }
     }
 
@@ -306,12 +305,17 @@ mod json_parser {
                 json_cursor,
                 None,
             )
+        } else if json_cursor.this_char_equals('"'){
+            parse_string(json_cursor)?;
+            Ok(())
         } else if json_cursor.char_predicate(|c| is_signed_alphanumeric(c)) {
             parse_number_or_id(json_cursor)
         } else {
             Err(anyhow!(format!(
-                "Unexpected character at position {}",
-                json_cursor.position
+                "Unexpected character '{}' at position {} in json: {}",
+                json_cursor.this_char.unwrap_or_default(),
+                json_cursor.position,
+                json_cursor.json_str
             )))
         }
     }
@@ -530,8 +534,41 @@ mod tests {
     #[test]
     fn parse_json() -> Result<(), anyhow::Error> {
         let json = r#"{"boo":true,"number":234,"nul":null, "ob":{"a":123,"b":"str"}, "arr":[3, true, {"sig":"mund", "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#;
-        let (before, middle, after) = parse(json, &vec!(JsonPathElement::Field("boo")))?;
-        assert_eq!(r#""boo":true,"#, middle);
+        let test = |expected_before: &str,
+                    expected_middle: &str,
+                    expected_after: &str,
+                    path: Vec<JsonPathElement>|
+         -> Result<(), anyhow::Error> {
+            let (actual_before, actual_middle, actual_after) = parse(json, &path)?;
+            assert_eq!(expected_before, actual_before);
+            assert_eq!(expected_middle, actual_middle);
+            assert_eq!(expected_after, actual_after);
+            Ok(())
+        };
+        test(
+            "{",
+            r#""boo":true,"#,
+            r#""number":234,"nul":null, "ob":{"a":123,"b":"str"}, "arr":[3, true, {"sig":"mund", "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#,
+            vec![JsonPathElement::Field("boo")],
+        )?;
+        test(
+            r#"{"boo":true,"#,
+            r#""number":234,"#,
+            r#""nul":null, "ob":{"a":123,"b":"str"}, "arr":[3, true, {"sig":"mund", "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#,
+            vec![JsonPathElement::Field("number")],
+        )?;
+        test(
+            r#"{"boo":true,"number":234,"#,
+            r#""nul":null,"#,
+            r#" "ob":{"a":123,"b":"str"}, "arr":[3, true, {"sig":"mund", "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#,
+            vec![JsonPathElement::Field("nul")],
+        )?;
+        test(
+            r#"{"boo":true,"number":234,"nul":null,"#,
+            r#" "ob":{"a":123,"b":"str"},"#,
+            r#" "arr":[3, true, {"sig":"mund", "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#,
+            vec![JsonPathElement::Field("ob")],
+        )?;
         Ok(())
     }
 
@@ -561,8 +598,6 @@ mod tests {
             Err(_) => Ok(()),
         }
     }
-
-
 
     #[test]
     fn happy_path_for_signing() -> Result<(), anyhow::Error> {
