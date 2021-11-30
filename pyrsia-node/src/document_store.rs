@@ -18,9 +18,7 @@ pub struct Index {
 
 #[derive(Debug)]
 pub struct Key {
-    // low: u64,
-    // high: u64,
-    elements: [u8; 4],
+    elements: Vec<u8>,
 }
 
 impl Index {
@@ -35,20 +33,13 @@ impl Index {
 
 impl Key {
     pub fn new() -> Key {
-        // let x = rand::random::<u64>();
-        // let y = rand::random::<u64>();
         let mut v: Vec<u8> = Vec::new();
-        let a: [u8; 4] = [rand::random::<u8>(), rand::random::<u8>(), rand::random::<u8>(), rand::random::<u8>()];
         for _i in [0..7] {
             let rr = rand::random::<u8>();
             v.push(rr);
         }
 
-        Key {
-            // low: x,
-            // high: y,
-            elements: a,
-        }
+        Key { elements: v }
     }
 }
 
@@ -243,7 +234,8 @@ mod tests {
         let i2 = Index::new(n2, t2, false);
         let idx = vec![i1, i2];
         doc_store.create_db(name, idx);
-        let doc: &str = "{\"foo\":\"bar\",\"mostSignificantField\":\"msf1\",\"leastSignificantField\":\"12\"}";
+        let doc: &str =
+            "{\"foo\":\"bar\",\"mostSignificantField\":\"msf1\",\"leastSignificantField\":\"12\"}";
         doc_store.store(name, doc).expect("empty value");
         let flt: &str = "{\"mostSignificantField\":\"msf1\",\"leastSignificantField\":\"12\"}";
         let res: String = doc_store.fetch(name, flt).expect("Should have been found!");
@@ -263,7 +255,8 @@ mod tests {
         let i2 = Index::new(n2, t2, false);
         let idx = vec![i1, i2];
         doc_store.create_db(name, idx);
-        let doc: &str = "{\"foo\":\"bar\",\"mostSignificantField\":\"msf1\",\"leastSignificantField\":\"12\"}";
+        let doc: &str =
+            "{\"foo\":\"bar\",\"mostSignificantField\":\"msf1\",\"leastSignificantField\":\"12\"}";
         doc_store.store(name, doc).expect("empty value");
         let flt: &str = "{\"mostSignificantField\":\"msf2\",\"leastSignificantField\":\"12\"}";
         let res = doc_store.fetch(name, flt);
