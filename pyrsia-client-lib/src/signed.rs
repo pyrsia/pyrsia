@@ -9,7 +9,7 @@ use std::option::Option;
 
 use anyhow::{Context, Result};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
-use openssl::pkey::{PKey, Private};
+use openssl::pkey::{PKey, Private, Public};
 use openssl::{
     hash::MessageDigest,
     pkey::PKeyRef,
@@ -120,13 +120,13 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
         signature_algorithm: SignatureAlgorithms,
         private_key: &Vec<u8>,
     ) -> Result<(), anyhow::Error> {
-        let _unsigned_json: String = serde_jcs::to_string(self)?;
-        with_signer(signature_algorithm, private_key, |signer| todo!())
+        let target_json: String = serde_jcs::to_string(self)?;
+        with_signer(signature_algorithm, private_key, |signer: Signer, der_public_key: &Vec<u8> | add_signature(signer, der_public_key, target_json))
     }
 
     // TODO Add a way to add an expiration time, role and other attributes to signatures.
 
-    /// Verify the signature(s) of this struct's associated JSON.
+    /// Verify the signature(s) of this struct's associated JSON.kp
     ///
     /// Return an error if any of the signatures are not valid.
     fn verify_signature(&self) -> Result<(), anyhow::Error> {
@@ -141,7 +141,7 @@ const SIGNATURE_FIELD_NAME: &str = "__signature";
 fn with_signer<'a>(
     signature_algorithm: SignatureAlgorithms,
     der_private_key: &[u8],
-    signing_function: fn(Signer) -> Result<(), anyhow::Error>,
+    signing_function: fn(Signer, &Vec<u8>) -> Result<(), anyhow::Error>,
 ) -> Result<(), anyhow::Error> {
     let private_key: Rsa<Private> = Rsa::private_key_from_der(der_private_key)?;
     let kp: PKey<Private> = PKey::from_rsa(private_key)?;
@@ -154,7 +154,7 @@ fn with_signer<'a>(
         }
     }?;
     signer.set_rsa_padding(Padding::PKCS1_PSS)?;
-    signing_function(signer)
+    signing_function(signer, &kp.public_key_to_der()?)
 }
 
 /// Lightweight JSON parser to identify the portion of a slice before and after a value, so that the
