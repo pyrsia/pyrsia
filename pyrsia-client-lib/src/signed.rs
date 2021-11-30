@@ -257,7 +257,7 @@ mod json_parser {
             &mut path.iter(),
             &mut JsonCursor::new(json),
         )?;
-        if end_of_target <= start_of_target {
+        if end_of_target == 0 && end_of_target <= start_of_target || end_of_target < start_of_target{
             return Err(anyhow!(format!("Did not find {}", path_to_str(path))));
         }
         Ok((
@@ -400,6 +400,7 @@ mod json_parser {
         json_cursor: &mut JsonCursor,
         target_field: Option<&str>,
     ) -> Result<(), anyhow::Error> {
+        let is_empty_path = path.clone().next().is_none();
         skip_whitespace(json_cursor);
         json_cursor.expect_char('{')?;
         loop {
@@ -425,7 +426,6 @@ mod json_parser {
             skip_whitespace(json_cursor);
             json_cursor.expect_char(':')?;
             if target_field.unwrap_or_default() == field_name2 {
-                let is_empty_path = path.clone().next().is_none();
                 parse_value(start_of_target, end_of_target, path, json_cursor)?;
                 if is_empty_path {
                     json_cursor.skip_char(',');
@@ -526,31 +526,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_failures() -> Result<(), anyhow::Error> {
-        let object_path = vec![JsonPathElement::Field("__signature")];
-        let object_json = r#"{"a":"x","b":"y"}"#;
-        let index_json = "[1,3,7]";
-        match parse(object_json, &object_path) {
-            Ok(_) => return Err(anyhow!("Not-found field did not produce an error")),
-            Err(_) => {}
-        };
-        match parse(index_json, &object_path) {
-            Ok(_) => return Err(anyhow!("Not-found field did not produce an error")),
-            Err(_) => {}
-        };
-        let index_path = vec![JsonPathElement::Index(4)];
-        match parse(object_json, &index_path) {
-            Ok(_) => return Err(anyhow!("Not-found index did not produce an error")),
-            Err(_) => {}
-        };
-        match parse(index_json, &index_path) {
-            Ok(_) => return Err(anyhow!("Not-found index did not produce an error")),
-            Err(_) => {}
-        };
-        Ok(())
-    }
-
-    #[test]
     fn parse_json() -> Result<(), anyhow::Error> {
         let json = r#"{"boo":true,"number":234,"nul":null, "ob":{"a":123,"b":"str"}, "arr":[3, true, {"sig":"mund", "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#;
         let test = |expected_before: &str,
@@ -605,6 +580,12 @@ mod tests {
             r#""sig":"mund","#,
             r#" "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#,
             vec![JsonPathElement::Field("arr"), JsonPathElement::Index(2), JsonPathElement::Field("sig")],
+        )?;
+        test(
+            r#"{"boo":true,"number":234,"nul":null, "ob":{"a":123,"b":"str"}, "arr":[3, true, {"sig":"mund", "om":"ega""#,
+            r#""#,
+            r#"}, "asfd"] , "extra":"qwoeiru"}"#,
+            vec![JsonPathElement::Field("arr"), JsonPathElement::Index(2), JsonPathElement::Field("Zog")],
         )?;
         Ok(())
     }
