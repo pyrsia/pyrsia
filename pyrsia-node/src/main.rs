@@ -138,7 +138,9 @@ async fn main() {
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(move |name, hash| handle_get_blobs_with_fallback(swarm_state.clone(), name, hash));
+        .and_then(move |name, hash| {
+            handle_get_blobs_with_fallback(swarm_state.clone(), name, hash)
+        });
     let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
         .and(warp::post())
         .and_then(handle_post_blob);
@@ -201,8 +203,12 @@ async fn handle_get_blobs_with_fallback(
     debug!("Searching for blob: {}", blob);
     let blob_path = Path::new(&blob);
     if !blob_path.exists() {
-        let query: libp2p::kad::QueryId =
-            swarm.lock().unwrap().behaviour_mut().lookup_blob(hash.to_string()).unwrap();
+        let query: libp2p::kad::QueryId = swarm
+            .lock()
+            .unwrap()
+            .behaviour_mut()
+            .lookup_blob(hash.to_string())
+            .unwrap();
     }
 
     let content: std::vec::Vec<u8> = vec![];
