@@ -131,8 +131,6 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(handle_put_manifest);
 
-    let pending_get_providers: Vec<libp2p::kad::QueryId> = Default::default();
-
     let handle_get_blobs_with_fallback =
         |name: String, hash: String| -> Result<impl Reply, Rejection> {
             let blob = format!(
@@ -146,11 +144,10 @@ async fn main() {
             if !blob_path.exists() {
                 let query: libp2p::kad::QueryId =
                     swarm.behaviour_mut().lookup_blob(hash.to_string()).unwrap();
-                pending_get_providers.push(query);
             }
 
             Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::BlobDoesNotExist(hash),
+                code: docker::error_util::RegistryErrorCode::BlobDoesNotExist(hash),
             }))
         };
 
@@ -196,7 +193,7 @@ async fn main() {
                 let line = line.unwrap().expect("stdin closed");
                 swarm.behaviour_mut().floodsub().publish(floodsub_topic.clone(), line.as_bytes());
             }
-            event = swarm.select_next_some().await => {
+            event = swarm.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {
                     info!("Listening on {:?}", address);
                 }
