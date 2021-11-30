@@ -35,12 +35,14 @@ use libp2p::{
     swarm::SwarmEvent,
     Multiaddr, PeerId,
 };
-use log::{debug, info};
+use log::{debug, error, info};
 use std::env;
 use tokio::io::{self, AsyncBufReadExt};
 use warp::http::StatusCode;
 use warp::Filter;
 use warp::{Rejection, Reply};
+
+use std::sync::TryLockError;
 
 const DEFAULT_PORT: &str = "7878";
 
@@ -82,14 +84,15 @@ async fn main() {
     let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
 
     // Create a Swarm to manage peers and events.
-    let mut swarm: MyBehaviourSwarm = new_swarm(floodsub_topic.clone(), transport, peer_id)
-        .await
-        .unwrap();
+    let mut swarm_instance: MyBehaviourSwarm =
+        new_swarm(floodsub_topic.clone(), transport, peer_id)
+            .await
+            .unwrap();
 
     // Reach out to another node if specified
     if let Some(to_dial) = matches.value_of("peer") {
         let addr: Multiaddr = to_dial.parse().unwrap();
-        swarm.dial_addr(addr).unwrap();
+        swarm_instance.dial_addr(addr).unwrap();
         info!("Dialed {:?}", to_dial)
     }
 
@@ -97,11 +100,11 @@ async fn main() {
     let mut stdin = io::BufReader::new(io::stdin()).lines();
 
     // Listen on all interfaces and whatever port the OS assigns
-    swarm
+    swarm_instance
         .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
         .unwrap();
 
-    let swarm_state = Arc::new(Mutex::new(swarm));
+    let swarm_state = Arc::new(Mutex::new(swarm_instance));
     let swarm = swarm_state.clone();
 
     let mut address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0);
@@ -174,16 +177,27 @@ async fn main() {
 
     // Kick it off
     loop {
-        let mut swarm = swarm.lock().unwrap();
         tokio::select! {
             line = stdin.next_line() => {
                 let line = line.unwrap().expect("stdin closed");
+                let mut swarm = swarm.lock().unwrap();
                 swarm.behaviour_mut().floodsub().publish(floodsub_topic.clone(), line.as_bytes());
             }
-            event = swarm.select_next_some() => {
-                if let SwarmEvent::NewListenAddr { address, .. } = event {
+
+        }
+        let mut lock = swarm.try_lock();
+        match lock {
+            Ok(ref mut guard) => {
+                let event = guard.select_next_some();
+                if let SwarmEvent::NewListenAddr { address, .. } = event.await {
                     info!("Listening on {:?}", address);
                 }
+            }
+            Err(TryLockError::Poisoned(_err)) => {
+                error!("try_lock failed");
+            }
+            Err(TryLockError::WouldBlock) => {
+                error!("try_lock blocked");
             }
         }
     }
@@ -191,7 +205,7 @@ async fn main() {
 
 async fn handle_get_blobs_with_fallback(
     swarm: Arc<Mutex<MyBehaviourSwarm>>,
-    name: String,
+    _name: String,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
     let blob = format!(
@@ -203,12 +217,18 @@ async fn handle_get_blobs_with_fallback(
     debug!("Searching for blob: {}", blob);
     let blob_path = Path::new(&blob);
     if !blob_path.exists() {
-        let query: libp2p::kad::QueryId = swarm
-            .lock()
-            .unwrap()
-            .behaviour_mut()
-            .lookup_blob(hash.to_string())
-            .unwrap();
+        let mut lock = swarm.try_lock();
+        match lock {
+            Ok(ref mut guard) => {
+                let query: libp2p::kad::QueryId = guard.behaviour_mut().lookup_blob(hash).unwrap();
+            }
+            Err(TryLockError::Poisoned(_err)) => {
+                error!("try_lock failed");
+            }
+            Err(TryLockError::WouldBlock) => {
+                error!("try_lock blocked");
+            }
+        }
     }
 
     let content: std::vec::Vec<u8> = vec![];
