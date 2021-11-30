@@ -121,7 +121,9 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
         private_key: &Vec<u8>,
     ) -> Result<(), anyhow::Error> {
         let target_json: String = serde_jcs::to_string(self)?;
-        with_signer(signature_algorithm, private_key, |signer: Signer, der_public_key: &Vec<u8> | add_signature(signer, der_public_key, target_json))
+        let signed_json = with_signer(signature_algorithm, private_key, &target_json, add_signature)?;
+        self.set_json(signed_json);
+        Ok(())
     }
 
     // TODO Add a way to add an expiration time, role and other attributes to signatures.
@@ -138,11 +140,13 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
 
 const SIGNATURE_FIELD_NAME: &str = "__signature";
 
+// construct a signer, pass it to the given signing function and then return the signed json returned from the signing function.
 fn with_signer<'a>(
     signature_algorithm: SignatureAlgorithms,
     der_private_key: &[u8],
-    signing_function: fn(Signer, &Vec<u8>) -> Result<(), anyhow::Error>,
-) -> Result<(), anyhow::Error> {
+    target_json: &'a str,
+    signing_function: fn(Signer, &Vec<u8>, &'a str) -> Result<&'a str, anyhow::Error>,
+) -> Result<&'a str, anyhow::Error> {
     let private_key: Rsa<Private> = Rsa::private_key_from_der(der_private_key)?;
     let kp: PKey<Private> = PKey::from_rsa(private_key)?;
     let mut signer = match signature_algorithm {
@@ -154,8 +158,13 @@ fn with_signer<'a>(
         }
     }?;
     signer.set_rsa_padding(Padding::PKCS1_PSS)?;
-    signing_function(signer, &kp.public_key_to_der()?)
+    signing_function(signer, &kp.public_key_to_der()?, target_json)
 }
+
+fn add_signature<'a>(signer: Signer, der_public_key: &Vec<u8>, target_json: &'a str) -> Result<&'a str, anyhow::Error> {
+    todo!()
+}
+
 
 /// Lightweight JSON parser to identify the portion of a slice before and after a value, so that the
 /// value can easily be replaced.
