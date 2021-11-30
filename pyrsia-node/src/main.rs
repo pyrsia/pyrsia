@@ -1,17 +1,7 @@
-mod artifact_manager;
-
-extern crate bytes;
-extern crate clap;
-extern crate easy_hasher;
-extern crate log;
-extern crate pretty_env_logger;
-extern crate serde;
-extern crate tokio;
-extern crate uuid;
-extern crate warp;
-
 //modules imports
+mod artifact_manager;
 mod docker;
+mod document_store;
 mod utils;
 
 use docker::error_util::*;

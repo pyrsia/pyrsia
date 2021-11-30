@@ -688,14 +688,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "documentstore"
-version = "0.1.0"
-dependencies = [
- "rand 0.8.4",
- "unqlite",
-]
-
-[[package]]
 name = "dtoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2506,6 +2498,7 @@ dependencies = [
  "libp2p",
  "log",
  "pretty_env_logger",
+ "rand 0.8.4",
  "serde",
  "serde_json",
  "sha2 0.9.8",
@@ -2513,6 +2506,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "tokio",
+ "unqlite",
  "uuid",
  "warp",
 ]
