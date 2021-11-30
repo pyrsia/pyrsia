@@ -36,6 +36,7 @@ pub struct SignatureKeyPair {
     pub public_key: Vec<u8>,
 }
 
+/// Create and return a key pair using the specified signature algorithm.
 pub fn create_key_pair(
     signature_algorithm: SignatureAlgorithms,
 ) -> Result<SignatureKeyPair, anyhow::Error> {
@@ -135,6 +136,8 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     // TODO add a method to get the details of the signatures in this struct's associated JSON.
 }
 
+const SIGNATURE_FIELD_NAME: &str = "__signature";
+
 fn with_signer<'a>(
     signature_algorithm: SignatureAlgorithms,
     der_private_key: &[u8],
@@ -230,9 +233,15 @@ mod json_parser {
         Index(usize),
     }
 
-    // Given a string slice that contains JSON and the path of a value, this returns three smaller
-    // slices that are the characters before a specified value, the characters that comprise the value
-    // and the characters after the value.
+    /// Given a string slice that contains JSON and the path of a value, this returns three smaller
+    /// slices that are the characters before a specified value, the characters that comprise the value
+    /// and the characters after the value.
+    ///
+    /// If the path has more than one element and an element of the path other than the last is not
+    /// found, that is treated as an error.
+    ///
+    /// If the last element of the path is not found, then the result have an empty middle slice,
+    /// positioned where such an element could be inserted.
     pub fn parse<'a>(
         json: &'a str,
         path: &Vec<JsonPathElement>,
