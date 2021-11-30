@@ -43,7 +43,7 @@ pub fn create_key_pair(
         SignatureAlgorithms::RsaPkcs1Sha3_512 | SignatureAlgorithms::RsaPkcs1Sha512 => {
             let rsa_private: Rsa<Private> = Rsa::generate(DEFAULT_RSA_KEY_SIZE)?;
             Ok(SignatureKeyPair {
-                signature_algorithm: signature_algorithm,
+                signature_algorithm,
                 private_key: rsa_private.private_key_to_der()?,
                 public_key: rsa_private.public_key_to_der()?,
             })
