@@ -131,13 +131,10 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(handle_put_manifest);
 
-    let blobs_fallback_handle = move
-        |name: String, hash: String| handle_get_blobs_with_fallback(swarm, name, hash);
-
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(blobs_fallback_handle);
+        .and_then(move |name: String, hash: String| handle_get_blobs_with_fallback(swarm, name, hash));
     let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
         .and(warp::post())
         .and_then(handle_post_blob);
@@ -186,7 +183,7 @@ async fn main() {
 }
 
 async fn handle_get_blobs_with_fallback(
-    mut swarm: MyBehaviourSwarm,
+    swarm: &mut MyBehaviourSwarm,
     name: String,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
