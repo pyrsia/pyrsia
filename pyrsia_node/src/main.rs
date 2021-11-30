@@ -11,7 +11,6 @@ extern crate warp;
 //modules imports
 mod artifact_manager;
 mod docker;
-mod http;
 mod utils;
 
 use docker::error_util::*;
