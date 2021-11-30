@@ -25,6 +25,7 @@ use std::path::Path;
 use identity::Keypair;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::sync::{Arc, Mutex};
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
@@ -100,6 +101,9 @@ async fn main() {
         .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
         .unwrap();
 
+    let swarm_state = Arc::new(Mutex::new(swarm));
+    let swarm = swarm_state.clone();
+
     let mut address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0);
     if let Some(p) = matches.value_of("port") {
         address.set_port(p.parse::<u16>().unwrap());
@@ -134,7 +138,7 @@ async fn main() {
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(move |name: String, hash: String| handle_get_blobs_with_fallback(swarm, name, hash));
+        .and_then(move |name, hash| handle_get_blobs_with_fallback(swarm_state.clone(), name, hash));
     let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
         .and(warp::post())
         .and_then(handle_post_blob);
@@ -168,6 +172,7 @@ async fn main() {
 
     // Kick it off
     loop {
+        let mut swarm = swarm.lock().unwrap();
         tokio::select! {
             line = stdin.next_line() => {
                 let line = line.unwrap().expect("stdin closed");
@@ -183,7 +188,7 @@ async fn main() {
 }
 
 async fn handle_get_blobs_with_fallback(
-    swarm: &mut MyBehaviourSwarm,
+    swarm: Arc<Mutex<MyBehaviourSwarm>>,
     name: String,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
@@ -197,7 +202,7 @@ async fn handle_get_blobs_with_fallback(
     let blob_path = Path::new(&blob);
     if !blob_path.exists() {
         let query: libp2p::kad::QueryId =
-            swarm.behaviour_mut().lookup_blob(hash.to_string()).unwrap();
+            swarm.lock().unwrap().behaviour_mut().lookup_blob(hash.to_string()).unwrap();
     }
 
     let content: std::vec::Vec<u8> = vec![];
