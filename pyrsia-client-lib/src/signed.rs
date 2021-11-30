@@ -569,6 +569,24 @@ mod tests {
             r#" "arr":[3, true, {"sig":"mund", "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#,
             vec![JsonPathElement::Field("ob")],
         )?;
+        test(
+            r#"{"boo":true,"number":234,"nul":null, "ob":{"a":123,"b":"str"},"#,
+            r#" "arr":[3, true, {"sig":"mund", "om":"ega"}, "asfd"] ,"#,
+            r#" "extra":"qwoeiru"}"#,
+            vec![JsonPathElement::Field("arr")],
+        )?;
+        test(
+            r#"{"boo":true,"number":234,"nul":null, "ob":{"a":123,"b":"str"}, "arr":[3, true,"#,
+            r#" {"sig":"mund", "om":"ega"},"#,
+            r#" "asfd"] , "extra":"qwoeiru"}"#,
+            vec![JsonPathElement::Field("arr"), JsonPathElement::Index(2)],
+        )?;
+        test(
+            r#"{"boo":true,"number":234,"nul":null, "ob":{"a":123,"b":"str"}, "arr":[3, true, {"#,
+            r#""sig":"mund","#,
+            r#" "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#,
+            vec![JsonPathElement::Field("arr"), JsonPathElement::Index(2), JsonPathElement::Field("sig")],
+        )?;
         Ok(())
     }
 
