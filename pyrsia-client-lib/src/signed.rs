@@ -352,6 +352,7 @@ mod json_parser {
         skip_whitespace(json_cursor);
         json_cursor.expect_char('[')?;
         let mut this_index: usize = 0;
+        let is_empty_path = path.clone().next().is_none();
         loop {
             let start_position = json_cursor.position;
             skip_whitespace(json_cursor);
@@ -362,11 +363,15 @@ mod json_parser {
                 )));
             }
             if json_cursor.this_char_equals(']') {
+                if target_index.is_some() && is_empty_path {
+                    // path target not found. Pretend we found it at the end of the array as an empty string
+                    *start_of_target = start_position;
+                    *end_of_target = json_cursor.position;
+                }
                 json_cursor.next();
                 return Ok(());
             }
             if target_index.unwrap_or(usize::MAX) == this_index {
-                let is_empty_path = path.clone().next().is_none();
                 parse_value(start_of_target, end_of_target, path, json_cursor)?;
                 json_cursor.skip_char(',');
                 if is_empty_path {
@@ -407,6 +412,11 @@ mod json_parser {
                 )));
             }
             if json_cursor.this_char_equals('}') {
+                if target_field.is_some() && is_empty_path {
+                    // path target not found. Pretend we found it at the end of the object as an empty string
+                    *start_of_target = start_position;
+                    *end_of_target = json_cursor.position;
+                }
                 json_cursor.next();
                 return Ok(());
             };
