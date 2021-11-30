@@ -1,28 +1,23 @@
+extern crate anyhow;
 extern crate reqwest;
 extern crate tokio;
 
-use reqwest::blocking;
 use std::io;
 use std::io::prelude::*;
-use std::io::BufRead;
 
 // performs an HTTP GET of `url` and writes the body to `out`
-pub async fn get<W>(mut out: W, url: String) -> Result<u64, std::io::Error>
+pub async fn get<W>(mut out: W, url: String) -> anyhow::Result<u64>
 where
     W: Write,
 {
     use reqwest::blocking::Client;
     use reqwest::blocking::Response;
-    use std::io::ErrorKind::Other;
 
-    let client = Client::new();
+    let client: Client = Client::new();
     let resp: Result<Response, reqwest::Error> = client.get(url.clone()).send();
     match resp {
-        Ok(_) => io::copy(&mut resp.unwrap(), &mut out),
-        Err(error) => Err(std::io::Error::new(
-            Other,
-            format!("Http Client Failed to Get {} with {}", url, error),
-        )),
+        Ok(_) => Ok(io::copy(&mut resp.unwrap(), &mut out)?),
+        Err(error) => Err(anyhow::anyhow!("Caught error {} on url {}", error, url)),
     }
 }
 
@@ -73,7 +68,6 @@ mod tests {
     fn test_bad_site() {
         use std::fs::File;
 
-        // let uri: String = String::from("https://nosuchsite.fake/");
         let file_name: String = String::from("/tmp/err.txt");
         let uri: String = String::from("https://nosuchsite.fake/");
         let result = get(File::create(file_name.clone()).unwrap(), uri);
