@@ -21,8 +21,6 @@ use docker::v2::handlers::manifests::*;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 use std::path::Path;
-use warp::Rejection;
-use warp::Reply;
 
 use identity::Keypair;
 use std::collections::HashMap;
@@ -39,7 +37,9 @@ use libp2p::{
 use log::{debug, info};
 use std::env;
 use tokio::io::{self, AsyncBufReadExt};
+use warp::http::StatusCode;
 use warp::Filter;
+use warp::{Rejection, Reply};
 
 const DEFAULT_PORT: &str = "7878";
 
@@ -131,30 +131,13 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(handle_put_manifest);
 
-    let handle_get_blobs_with_fallback =
-        |name: String, hash: String| -> Result<impl Reply, Rejection> {
-            let blob = format!(
-                "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
-                hash.get(7..9).unwrap(),
-                hash.get(7..).unwrap()
-            );
-
-            debug!("Searching for blob: {}", blob);
-            let blob_path = Path::new(&blob);
-            if !blob_path.exists() {
-                let query: libp2p::kad::QueryId =
-                    swarm.behaviour_mut().lookup_blob(hash.to_string()).unwrap();
-            }
-
-            Err(warp::reject::custom(RegistryError {
-                code: docker::error_util::RegistryErrorCode::BlobDoesNotExist(hash),
-            }))
-        };
+    let blobs_fallback_handle = move
+        |name: String, hash: String| handle_get_blobs_with_fallback(swarm, name, hash);
 
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(handle_get_blobs_with_fallback);
+        .and_then(blobs_fallback_handle);
     let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
         .and(warp::post())
         .and_then(handle_post_blob);
@@ -200,6 +183,32 @@ async fn main() {
             }
         }
     }
+}
+
+async fn handle_get_blobs_with_fallback(
+    mut swarm: MyBehaviourSwarm,
+    name: String,
+    hash: String,
+) -> Result<impl Reply, Rejection> {
+    let blob = format!(
+        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
+        hash.get(7..9).unwrap(),
+        hash.get(7..).unwrap()
+    );
+
+    debug!("Searching for blob: {}", blob);
+    let blob_path = Path::new(&blob);
+    if !blob_path.exists() {
+        let query: libp2p::kad::QueryId =
+            swarm.behaviour_mut().lookup_blob(hash.to_string()).unwrap();
+    }
+
+    let content: std::vec::Vec<u8> = vec![];
+    Ok(warp::http::response::Builder::new()
+        .header("Content-Type", "application/octet-stream")
+        .status(StatusCode::OK)
+        .body(content)
+        .unwrap())
 }
 
 #[cfg(test)]
