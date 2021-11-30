@@ -31,7 +31,7 @@ Before getting started, take a moment to review our [contributing guidelines](ht
 
 [How to Debug Rust with Visual Studio Code](https://www.forrestthewoods.com/blog/how-to-debug-rust-with-visual-studio-code/)
 
-### Running the docker integraion:
+### Running the docker integration:
 
 1. open a terminal and start a pyrsia node with: `RUST_LOG=pyrsia cargo run -q`
 2. open a second terminal:

@@ -16,3 +16,6 @@ futures = { version = "0.3.*"}
 [[bin]]
 name = "pyrsia"
 path = "src/main.rs"
+
+[dev-dependencies]
+expectest = "0.10.0"
