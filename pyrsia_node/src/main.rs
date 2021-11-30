@@ -62,15 +62,6 @@ async fn main() {
         .author(clap::crate_authors!(", "))
         .about("Application to connect to and participate in the Pyrsia network")
         .arg(
-            Arg::with_name("verbose")
-                .short("v")
-                .long("verbose")
-                .takes_value(false)
-                .required(false)
-                .multiple(true)
-                .help("Enables verbose output"),
-        )
-        .arg(
             Arg::with_name("port")
                 .short("p")
                 .long("port")
@@ -91,11 +82,6 @@ async fn main() {
                 .help("Provide an explicit peerId"),
         )
         .get_matches();
-
-    let verbosity: u64 = matches.occurrences_of("verbose");
-    if verbosity > 0 {
-        dbg!("Verbosity Level: {}", verbosity.to_string());
-    }
 
     // Create a keypair for authenticated encryption of the transport.
     let noise_keys: AuthenticKeypair<X25519Spec> = noise::Keypair::<noise::X25519Spec>::new()
