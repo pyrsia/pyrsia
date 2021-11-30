@@ -11,7 +11,6 @@ extern crate warp;
 //local module imports
 mod artifact_manager;
 mod docker;
-mod http;
 mod network;
 mod utils;
 
