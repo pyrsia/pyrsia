@@ -2534,7 +2534,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "pyrsia-node"
+name = "pyrsia_cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 3.0.0-beta.5",
+ "futures",
+ "reqwest",
+ "tokio",
+]
+
+[[package]]
+name = "pyrsia_node"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2546,9 +2557,12 @@ dependencies = [
  "env_logger 0.9.0",
  "futures",
  "hex",
+ "hyper",
+ "hyper-tls",
  "libp2p",
  "log",
  "pretty_env_logger",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2 0.9.8",

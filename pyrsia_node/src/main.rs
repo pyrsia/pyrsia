@@ -1,5 +1,3 @@
-mod artifact_manager;
-
 extern crate bytes;
 extern crate clap;
 extern crate easy_hasher;
@@ -11,7 +9,9 @@ extern crate uuid;
 extern crate warp;
 
 //local module imports
+mod artifact_manager;
 mod docker;
+mod http;
 mod network;
 mod utils;
 

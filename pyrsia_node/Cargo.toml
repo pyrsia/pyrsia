@@ -1,5 +1,5 @@
 [package]
-name = "pyrsia-node"
+name = "pyrsia_node"
 authors = ["Joeri Sykora <joeri@sertik.net>", "Elliott Frisch <elliottf@jfrog.com>", "Chris Mc <christopherm@jfrog.com>"]
 version = "0.1.0"
 edition = "2021"
@@ -16,8 +16,11 @@ clap = "2.33.0"
 ctor = "0.1.21"
 easy-hasher = "2.2.1"
 hex = "0.4.3"
+hyper = { version = "0.14", features = ["full"] }
+hyper-tls = "0.5.0" 
 log = "0.4.14"
 pretty_env_logger = "0.4.0"
+reqwest = { version = "0.11.6", features = ["blocking", "json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = [ "macros", "rt-multi-thread", "io-std" ] }
