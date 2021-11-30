@@ -177,17 +177,26 @@ async fn main() {
 
     // Kick it off
     loop {
-        tokio::select! {
-            line = stdin.next_line() => {
-                let line = line.unwrap().expect("stdin closed");
-                let mut swarm = swarm.lock().unwrap();
-                swarm.behaviour_mut().floodsub().publish(floodsub_topic.clone(), line.as_bytes());
-            }
+        debug!("looping!");
 
-        }
+        // TODO:
+        // This is causing the code to deadlock? std::Mutex is not "async aware" might be my problem?
+
+        // tokio::select! {
+        //     line = stdin.next_line() => {
+        //         let line = line.unwrap().expect("stdin closed");
+        //         debug!("next line!");
+        //         let mut swarm_instance = swarm.lock().unwrap();
+        //         swarm_instance.behaviour_mut().floodsub().publish(floodsub_topic.clone(), line.as_bytes());
+        //     }
+
+        // }
+
+        debug!("trying!");
         let mut lock = swarm.try_lock();
         match lock {
             Ok(ref mut guard) => {
+                debug!("async event!");
                 let event = guard.select_next_some();
                 if let SwarmEvent::NewListenAddr { address, .. } = event.await {
                     info!("Listening on {:?}", address);
