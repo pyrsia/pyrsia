@@ -8,6 +8,8 @@ use docker::error_util::*;
 use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
 
+use document_store::document_store::DocumentStore;
+
 use floodsub::Topic;
 use identity::Keypair;
 use libp2p::Swarm;
@@ -43,6 +45,9 @@ const DEFAULT_PORT: &str = "7878";
 async fn main() {
     pretty_env_logger::init();
 
+    // create the connection to the documentStore.
+    let _doc_store = DocumentStore::new();
+    _doc_store.ping();
     // Create a random PeerId
     let id_keys: Keypair = identity::Keypair::generate_ed25519();
     let peer_id: PeerId = PeerId::from(id_keys.public());
