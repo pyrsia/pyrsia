@@ -141,7 +141,7 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
             &target_json,
             add_signature,
         )?;
-        self.set_json(signed_json);
+        self.set_json(signed_json.as_str());
         Ok(())
     }
 
@@ -169,8 +169,8 @@ fn with_signer<'a>(
         Signer,
         &Vec<u8>,
         &'a str,
-    ) -> Result<&'a str, anyhow::Error>,
-) -> Result<&'a str, anyhow::Error> {
+    ) -> Result<String, anyhow::Error>,
+) -> Result<String, anyhow::Error> {
     let private_key: Rsa<Private> = Rsa::private_key_from_der(der_private_key)?;
     let kp: PKey<Private> = PKey::from_rsa(private_key)?;
     let mut signer = match signature_algorithm {
@@ -195,7 +195,7 @@ fn add_signature<'a>(
     mut signer: Signer,
     der_public_key: &Vec<u8>,
     target_json: &'a str,
-) -> Result<&'a str, anyhow::Error> {
+) -> Result<String, anyhow::Error> {
     let (before, middle, after) = json_parser::parse(
         target_json,
         &vec![json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)],
@@ -205,16 +205,21 @@ fn add_signature<'a>(
         // No existing signatures
         let mut writer =
             SerializeJwsWriter::new(Vec::new(), signature_algorithm.to_string(), header, signer)?;
-        writer.write_all(before.as_bytes());
-        writer.write_all(after.as_bytes());
+        writer.write_all(before.as_bytes())?;
+        writer.write_all(after.as_bytes())?;
         let jws = writer.finish()?;
         let jws_string = String::from_utf8(jws)?;
-        todo!()
+        let mut signed_json_buffer = String::from(before);
+        signed_json_buffer.push_str(",\"");
+        signed_json_buffer.push_str(SIGNATURE_FIELD_NAME);
+        signed_json_buffer.push_str(r#"":[""#);
+        signed_json_buffer.push_str(jws_string.as_str());
+        signed_json_buffer.push_str("\"]");
+        Ok(String::from(signed_json_buffer))
     } else {
         // add to existing signatures.
         todo!()
     }
-    todo!()
 }
 
 fn create_jsw_header(public_key: &Vec<u8>) -> Map<String, Value> {
