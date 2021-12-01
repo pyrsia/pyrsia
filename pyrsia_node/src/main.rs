@@ -46,8 +46,8 @@ async fn main() {
     pretty_env_logger::init();
 
     // create the connection to the documentStore.
-    let _doc_store = DocumentStore::new();
-    _doc_store.ping();
+    let doc_store = DocumentStore::new();
+    doc_store.ping();
     // Create a random PeerId
     let id_keys: Keypair = identity::Keypair::generate_ed25519();
     let peer_id: PeerId = PeerId::from(id_keys.public());

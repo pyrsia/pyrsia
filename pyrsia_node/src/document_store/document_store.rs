@@ -1,7 +1,6 @@
 // module for the document store
 
-use log::debug;
-use log::info;
+use log::{debug, info};
 use std::collections::HashMap;
 use std::str;
 use unqlite::{Error, UnQLite, KV};
@@ -72,7 +71,7 @@ fn get_value_for_key(source: &str, searchkey: &str) -> String {
             return value.to_string();
         }
     }
-    return "ok".to_string();
+    "ok".to_string()
 }
 
 impl DocumentStore {
@@ -135,7 +134,7 @@ impl DocumentStore {
                 if let Some(field_db) = self.fields.get(&index_name) {
                     let value = get_value_for_key(document, &index.name);
                     debug!("store value {} with key {:?}", value, &key);
-                    return field_db.kv_store(value.to_string(), &key);
+                    return field_db.kv_store(value, &key);
                 }
             }
         } else {
@@ -162,7 +161,7 @@ impl DocumentStore {
             debug!("key = {}, value = {}", key, value);
             let mut index_name = String::from(db_name);
             index_name.push('_');
-            index_name.push_str(&key);
+            index_name.push_str(key);
             debug!("this belongs to index db {}", index_name);
             if let Some(field_db) = self.fields.get(&index_name) {
                 if let Ok(key) = field_db.kv_fetch(value.to_string()) {
@@ -176,7 +175,7 @@ impl DocumentStore {
                 }
             }
         }
-        return None;
+        None
     }
 }
 
