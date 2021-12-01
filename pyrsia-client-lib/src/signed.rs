@@ -196,7 +196,7 @@ fn with_signer<'a>(
 
 fn add_signature<'a>(
     signature_algorithm: JwsSignatureAlgorithms,
-    mut signer: Signer,
+    signer: Signer,
     der_public_key: &[u8],
     target_json: &'a str,
 ) -> Result<String, anyhow::Error> {
