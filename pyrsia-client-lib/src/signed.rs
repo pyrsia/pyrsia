@@ -7,6 +7,7 @@ extern crate serde;
 extern crate serde_jcs;
 extern crate serde_json;
 
+use core::panicking::panic_str;
 use std::io::Write;
 use std::option::Option;
 
@@ -218,7 +219,7 @@ fn add_signature<'a>(
         Ok(String::from(signed_json_buffer))
     } else {
         // add to existing signatures.
-        todo!()
+        panic_str("Adding additional signatures is not yes supported");//todo!()
     }
 }
 
