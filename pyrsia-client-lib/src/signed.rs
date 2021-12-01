@@ -1,13 +1,17 @@
 extern crate anyhow;
+extern crate base64;
+extern crate chrono;
 extern crate detached_jws;
 extern crate openssl;
 extern crate serde;
 extern crate serde_jcs;
 extern crate serde_json;
 
+use std::io::Write;
 use std::option::Option;
 
 use anyhow::{Context, Result};
+use chrono::prelude::*;
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
 use openssl::pkey::{PKey, Private, Public};
 use openssl::{
@@ -17,12 +21,22 @@ use openssl::{
     sign::{Signer, Verifier},
 };
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Map, Value};
 
 /// An enumeration of the supported signature algorithms
 #[derive(Deserialize, Serialize)]
-pub enum SignatureAlgorithms {
-    RsaPkcs1Sha512,
-    RsaPkcs1Sha3_512,
+pub enum JwsSignatureAlgorithms {
+    RS512,
+    RS384,
+}
+
+impl JwsSignatureAlgorithms {
+    pub fn to_string(&self) -> String {
+        String::from(match self {
+            JwsSignatureAlgorithms::RS512 => "RS512",
+            JwsSignatureAlgorithms::RS384 => "RS384",
+        })
+    }
 }
 
 // The default size for RSA keys
@@ -31,17 +45,17 @@ const DEFAULT_RSA_KEY_SIZE: u32 = 4096;
 /// An instance of this struct is created to hold a key pair
 #[derive(Deserialize, Serialize)]
 pub struct SignatureKeyPair {
-    pub signature_algorithm: SignatureAlgorithms,
+    pub signature_algorithm: JwsSignatureAlgorithms,
     pub private_key: Vec<u8>,
     pub public_key: Vec<u8>,
 }
 
 /// Create and return a key pair using the specified signature algorithm.
 pub fn create_key_pair(
-    signature_algorithm: SignatureAlgorithms,
+    signature_algorithm: JwsSignatureAlgorithms,
 ) -> Result<SignatureKeyPair, anyhow::Error> {
     match signature_algorithm {
-        SignatureAlgorithms::RsaPkcs1Sha3_512 | SignatureAlgorithms::RsaPkcs1Sha512 => {
+        JwsSignatureAlgorithms::RS512 | JwsSignatureAlgorithms::RS384 => {
             let rsa_private: Rsa<Private> = Rsa::generate(DEFAULT_RSA_KEY_SIZE)?;
             Ok(SignatureKeyPair {
                 signature_algorithm,
@@ -117,11 +131,16 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     /// * private_key — The der encoded private key to use for signing.
     fn sign(
         &mut self,
-        signature_algorithm: SignatureAlgorithms,
+        signature_algorithm: JwsSignatureAlgorithms,
         private_key: &Vec<u8>,
     ) -> Result<(), anyhow::Error> {
         let target_json: String = serde_jcs::to_string(self)?;
-        let signed_json = with_signer(signature_algorithm, private_key, &target_json, add_signature)?;
+        let signed_json = with_signer(
+            signature_algorithm,
+            private_key,
+            &target_json,
+            add_signature,
+        )?;
         self.set_json(signed_json);
         Ok(())
     }
@@ -142,29 +161,71 @@ const SIGNATURE_FIELD_NAME: &str = "__signature";
 
 // construct a signer, pass it to the given signing function and then return the signed json returned from the signing function.
 fn with_signer<'a>(
-    signature_algorithm: SignatureAlgorithms,
+    signature_algorithm: JwsSignatureAlgorithms,
     der_private_key: &[u8],
     target_json: &'a str,
-    signing_function: fn(Signer, &Vec<u8>, &'a str) -> Result<&'a str, anyhow::Error>,
+    signing_function: fn(
+        JwsSignatureAlgorithms,
+        Signer,
+        &Vec<u8>,
+        &'a str,
+    ) -> Result<&'a str, anyhow::Error>,
 ) -> Result<&'a str, anyhow::Error> {
     let private_key: Rsa<Private> = Rsa::private_key_from_der(der_private_key)?;
     let kp: PKey<Private> = PKey::from_rsa(private_key)?;
     let mut signer = match signature_algorithm {
-        SignatureAlgorithms::RsaPkcs1Sha512 => {
+        JwsSignatureAlgorithms::RS512 => {
             Signer::new(MessageDigest::sha512(), &kp).context("Problem using key pair")
         }
-        SignatureAlgorithms::RsaPkcs1Sha3_512 => {
-            Signer::new(MessageDigest::sha3_512(), &kp).context("Problem using key pair")
+        JwsSignatureAlgorithms::RS384 => {
+            Signer::new(MessageDigest::sha384(), &kp).context("Problem using key pair")
         }
     }?;
     signer.set_rsa_padding(Padding::PKCS1_PSS)?;
-    signing_function(signer, &kp.public_key_to_der()?, target_json)
+    signing_function(
+        signature_algorithm,
+        signer,
+        &kp.public_key_to_der()?,
+        target_json,
+    )
 }
 
-fn add_signature<'a>(signer: Signer, der_public_key: &Vec<u8>, target_json: &'a str) -> Result<&'a str, anyhow::Error> {
+fn add_signature<'a>(
+    signature_algorithm: JwsSignatureAlgorithms,
+    mut signer: Signer,
+    der_public_key: &Vec<u8>,
+    target_json: &'a str,
+) -> Result<&'a str, anyhow::Error> {
+    let (before, middle, after) = json_parser::parse(
+        target_json,
+        &vec![json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)],
+    )?;
+    let header = create_jsw_header(der_public_key);
+    if middle.is_empty() {
+        // No existing signatures
+        let mut writer =
+            SerializeJwsWriter::new(Vec::new(), signature_algorithm.to_string(), header, signer)?;
+        writer.write_all(before.as_bytes());
+        writer.write_all(after.as_bytes());
+        let jws = writer.finish()?;
+        let jws_string = String::from_utf8(jws)?;
+        todo!()
+    } else {
+        // add to existing signatures.
+        todo!()
+    }
     todo!()
 }
 
+fn create_jsw_header(public_key: &Vec<u8>) -> Map<String, Value> {
+    let mut header = Map::new();
+    header.insert(
+        "signer".to_owned(),
+        json!(base64::encode_config(public_key, base64::STANDARD_NO_PAD)),
+    );
+    header.insert("timestamp".to_owned(), json!(format!("{:?}", Utc::now())));
+    header
+}
 
 /// Lightweight JSON parser to identify the portion of a slice before and after a value, so that the
 /// value can easily be replaced.
@@ -266,7 +327,8 @@ mod json_parser {
             &mut path.iter(),
             &mut JsonCursor::new(json),
         )?;
-        if end_of_target == 0 && end_of_target <= start_of_target || end_of_target < start_of_target{
+        if end_of_target == 0 && end_of_target <= start_of_target || end_of_target < start_of_target
+        {
             return Err(anyhow!(format!("Did not find {}", path_to_str(path))));
         }
         Ok((
@@ -323,7 +385,7 @@ mod json_parser {
                 json_cursor,
                 None,
             )
-        } else if json_cursor.this_char_equals('"'){
+        } else if json_cursor.this_char_equals('"') {
             parse_string(json_cursor)?;
             Ok(())
         } else if json_cursor.char_predicate(|c| is_signed_alphanumeric(c)) {
@@ -588,13 +650,21 @@ mod tests {
             r#"{"boo":true,"number":234,"nul":null, "ob":{"a":123,"b":"str"}, "arr":[3, true, {"#,
             r#""sig":"mund","#,
             r#" "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#,
-            vec![JsonPathElement::Field("arr"), JsonPathElement::Index(2), JsonPathElement::Field("sig")],
+            vec![
+                JsonPathElement::Field("arr"),
+                JsonPathElement::Index(2),
+                JsonPathElement::Field("sig"),
+            ],
         )?;
         test(
             r#"{"boo":true,"number":234,"nul":null, "ob":{"a":123,"b":"str"}, "arr":[3, true, {"sig":"mund", "om":"ega""#,
             r#""#,
             r#"}, "asfd"] , "extra":"qwoeiru"}"#,
-            vec![JsonPathElement::Field("arr"), JsonPathElement::Index(2), JsonPathElement::Field("Zog")],
+            vec![
+                JsonPathElement::Field("arr"),
+                JsonPathElement::Index(2),
+                JsonPathElement::Field("Zog"),
+            ],
         )?;
         Ok(())
     }
@@ -629,10 +699,10 @@ mod tests {
     #[test]
     fn happy_path_for_signing() -> Result<(), anyhow::Error> {
         let key_pair: SignatureKeyPair =
-            crate::signed::create_key_pair(SignatureAlgorithms::RsaPkcs1Sha3_512)?;
+            crate::signed::create_key_pair(JwsSignatureAlgorithms::RS512)?;
 
         // create a key pair for other signing types to see that they succeed
-        super::create_key_pair(SignatureAlgorithms::RsaPkcs1Sha512)?;
+        super::create_key_pair(JwsSignatureAlgorithms::RS512)?;
 
         Ok(())
     }

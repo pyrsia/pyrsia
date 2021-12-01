@@ -11,6 +11,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.48"
 base64 = "0.13.0"
+chrono = "0.4.19"
 detached-jws = "0.2.1"
 openssl = "0.10.38"
 serde = { version = "1.0", features = ["derive"] }
