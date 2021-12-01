@@ -7,7 +7,6 @@ extern crate serde;
 extern crate serde_jcs;
 extern crate serde_json;
 
-use core::panicking::panic_str;
 use std::io::Write;
 use std::option::Option;
 
@@ -134,11 +133,13 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
         &mut self,
         signature_algorithm: JwsSignatureAlgorithms,
         private_key: &Vec<u8>,
+        public_key: &Vec<u8>,
     ) -> Result<(), anyhow::Error> {
         let target_json: String = serde_jcs::to_string(self)?;
         let signed_json = with_signer(
             signature_algorithm,
             private_key,
+            public_key,
             &target_json,
             add_signature,
         )?;
@@ -164,14 +165,16 @@ const SIGNATURE_FIELD_NAME: &str = "__signature";
 fn with_signer<'a>(
     signature_algorithm: JwsSignatureAlgorithms,
     der_private_key: &[u8],
+    der_public_key: &[u8],
     target_json: &'a str,
     signing_function: fn(
         JwsSignatureAlgorithms,
         Signer,
-        &Vec<u8>,
-        &'a str,
+        &[u8],
+        &str,
     ) -> Result<String, anyhow::Error>,
 ) -> Result<String, anyhow::Error> {
+    // This is RSA specific. This should be generalized to support other types of signatures.
     let private_key: Rsa<Private> = Rsa::private_key_from_der(der_private_key)?;
     let kp: PKey<Private> = PKey::from_rsa(private_key)?;
     let mut signer = match signature_algorithm {
@@ -186,7 +189,7 @@ fn with_signer<'a>(
     signing_function(
         signature_algorithm,
         signer,
-        &kp.public_key_to_der()?,
+        der_public_key,
         target_json,
     )
 }
@@ -194,7 +197,7 @@ fn with_signer<'a>(
 fn add_signature<'a>(
     signature_algorithm: JwsSignatureAlgorithms,
     mut signer: Signer,
-    der_public_key: &Vec<u8>,
+    der_public_key: &[u8],
     target_json: &'a str,
 ) -> Result<String, anyhow::Error> {
     let (before, middle, after) = json_parser::parse(
@@ -219,11 +222,11 @@ fn add_signature<'a>(
         Ok(String::from(signed_json_buffer))
     } else {
         // add to existing signatures.
-        panic_str("Adding additional signatures is not yes supported");//todo!()
+        panic!("Adding additional signatures is not yes supported");//todo!()
     }
 }
 
-fn create_jsw_header(public_key: &Vec<u8>) -> Map<String, Value> {
+fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
     let mut header = Map::new();
     header.insert(
         "signer".to_owned(),
@@ -589,8 +592,23 @@ mod tests {
     struct Foo<'a> {
         foo: &'a str,
         bar: u32,
+        zot: &'a str,
         #[serde(skip)]
         π_json: Option<String>,
+    }
+
+    impl<'a> Signed<'a> for Foo<'a> {
+        fn json(&self) -> Option<String> {
+            self.π_json.to_owned()
+        }
+
+        fn clear_json(&mut self) {
+            self.π_json = None;
+        }
+
+        fn set_json(&mut self, json: &str) {
+            self.π_json = Option::Some(json.to_string())
+        }
     }
 
     #[test]
@@ -708,8 +726,11 @@ mod tests {
             crate::signed::create_key_pair(JwsSignatureAlgorithms::RS512)?;
 
         // create a key pair for other signing types to see that they succeed
-        super::create_key_pair(JwsSignatureAlgorithms::RS512)?;
+        let key_pair = super::create_key_pair(JwsSignatureAlgorithms::RS512)?;
 
+        let mut foo = Foo { foo: "π is 16 bit unicode", bar: 23894, zot: "🦽is 32 bit unicode", π_json: None};
+        foo.sign(JwsSignatureAlgorithms::RS512, &key_pair.private_key, &key_pair.public_key).context("Error signing struct")?;
+        println!("Signed json from foo {}", foo.json().unwrap());
         Ok(())
     }
 }
