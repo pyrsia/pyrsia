@@ -1,41 +1,40 @@
-//modules imports
+extern crate bytes;
+extern crate clap;
+extern crate easy_hasher;
+extern crate log;
+extern crate pretty_env_logger;
+extern crate serde;
+extern crate tokio;
+extern crate uuid;
+extern crate warp;
+
+//local module imports
 mod artifact_manager;
 mod docker;
 mod document_store;
+mod network;
 mod utils;
 
 use docker::error_util::*;
 use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
-
 use document_store::document_store::DocumentStore;
-
-use floodsub::Topic;
-use identity::Keypair;
-use libp2p::Swarm;
-use noise::AuthenticKeypair;
-use noise::X25519Spec;
-use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use network::swarm::{new as new_swarm, MyBehaviourSwarm};
+use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
+use identity::Keypair;
 use libp2p::{
-    core::upgrade,
-    floodsub::{self, Floodsub, FloodsubEvent},
+    floodsub::{self, Topic},
     identity,
-    mdns::{Mdns, MdnsEvent},
-    mplex,
-    noise,
-    swarm::{NetworkBehaviourEventProcess, SwarmBuilder, SwarmEvent},
-    // `TokioTcpConfig` is available through the `tcp-tokio` feature.
-    tcp::TokioTcpConfig,
-    NetworkBehaviour,
-    Transport,
+    swarm::SwarmEvent,
+    Multiaddr, PeerId,
 };
-use libp2p::{Multiaddr, PeerId};
 use log::info;
+use std::collections::HashMap;
 use std::env;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tokio::io::{self, AsyncBufReadExt};
 use warp::Filter;
 
@@ -78,85 +77,13 @@ async fn main() {
         )
         .get_matches();
 
-    // Create a keypair for authenticated encryption of the transport.
-    let noise_keys: AuthenticKeypair<X25519Spec> = noise::Keypair::<noise::X25519Spec>::new()
-        .into_authentic(&id_keys)
-        .expect("Signing libp2p-noise static DH keypair failed.");
-
-    // Create a tokio-based TCP transport use noise for authenticated
-    // encryption and Mplex for multiplexing of substreams on a TCP stream.
-    let transport = TokioTcpConfig::new()
-        .nodelay(true)
-        .upgrade(upgrade::Version::V1)
-        .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
-        .multiplex(mplex::MplexConfig::new())
-        .boxed();
-
-    // Create a Floodsub topic
-    let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation");
-
-    // We create a custom network behaviour that combines floodsub and mDNS.
-    // The derive generates a delegating `NetworkBehaviour` impl which in turn
-    // requires the implementations of `NetworkBehaviourEventProcess` for
-    // the events of each behaviour.
-    #[derive(NetworkBehaviour)]
-    #[behaviour(event_process = true)]
-    struct MyBehaviour {
-        floodsub: Floodsub,
-        mdns: Mdns,
-    }
-
-    impl NetworkBehaviourEventProcess<FloodsubEvent> for MyBehaviour {
-        // Called when `floodsub` produces an event.
-        fn inject_event(&mut self, message: FloodsubEvent) {
-            if let FloodsubEvent::Message(message) = message {
-                info!(
-                    "Received: '{:?}' from {:?}",
-                    String::from_utf8_lossy(&message.data),
-                    message.source
-                );
-            }
-        }
-    }
-
-    impl NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour {
-        // Called when `mdns` produces an event.
-        fn inject_event(&mut self, event: MdnsEvent) {
-            match event {
-                MdnsEvent::Discovered(list) => {
-                    for (peer, _) in list {
-                        self.floodsub.add_node_to_partial_view(peer);
-                    }
-                }
-                MdnsEvent::Expired(list) => {
-                    for (peer, _) in list {
-                        if !self.mdns.has_node(&peer) {
-                            self.floodsub.remove_node_from_partial_view(&peer);
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let transport: TcpTokioTransport = new_tokio_tcp_transport(&id_keys); // Create a tokio-based TCP transport using noise for authenticated
+    let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
 
     // Create a Swarm to manage peers and events.
-    let mut swarm: Swarm<MyBehaviour> = {
-        let mdns = Mdns::new(Default::default()).await.unwrap();
-        let mut behaviour = MyBehaviour {
-            floodsub: Floodsub::new(peer_id.clone()),
-            mdns,
-        };
-
-        behaviour.floodsub.subscribe(floodsub_topic.clone());
-
-        SwarmBuilder::new(transport, behaviour, peer_id)
-            // We want the connection background tasks to be spawned
-            // onto the tokio runtime.
-            .executor(Box::new(|fut| {
-                tokio::spawn(fut);
-            }))
-            .build()
-    };
+    let mut swarm: MyBehaviourSwarm = new_swarm(floodsub_topic.clone(), transport, peer_id)
+        .await
+        .unwrap();
 
     // Reach out to another node if specified
     if let Some(to_dial) = matches.value_of("peer") {
@@ -244,7 +171,7 @@ async fn main() {
         tokio::select! {
             line = stdin.next_line() => {
                 let line = line.unwrap().expect("stdin closed");
-                swarm.behaviour_mut().floodsub.publish(floodsub_topic.clone(), line.as_bytes());
+                swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), line.as_bytes());
             }
             event = swarm.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {
