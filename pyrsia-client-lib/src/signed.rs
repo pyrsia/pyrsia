@@ -215,14 +215,15 @@ fn add_signature<'a>(
         signed_json_buffer.push_str(r#"":[""#);
         signed_json_buffer.push_str(jws_string.as_str());
         signed_json_buffer.push_str("\"]");
-        Ok(String::from(signed_json_buffer))
     } else {
         signed_json_buffer.push_str(middle);
-        //signed_json_buffer.pop().map_or_else()
-        // add to existing signatures.
-
-        panic!("Adding additional signatures is not yes supported");//todo!()
+        signed_json_buffer.pop(); // drop the closing ']' of the signature array
+        signed_json_buffer.push_str(",\"");
+        signed_json_buffer.push_str(jws_string.as_str());
+        signed_json_buffer.push_str("\"]");
     }
+    signed_json_buffer.push_str(after);
+    Ok(String::from(signed_json_buffer))
 }
 
 fn create_jws(signature_algorithm: JwsSignatureAlgorithms, signer: Signer, before: &str, after: &str, header: Map<String, Value>) -> Result<Vec<u8>,anyhow::Error> {
