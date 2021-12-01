@@ -205,15 +205,11 @@ fn add_signature<'a>(
         &vec![json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)],
     )?;
     let header = create_jsw_header(der_public_key);
+    let jws = create_jws(signature_algorithm, signer, before, after, header)?;
+    let jws_string = String::from_utf8(jws)?;
+    let mut signed_json_buffer = String::from(before);
     if middle.is_empty() {
         // No existing signatures
-        let mut writer =
-            SerializeJwsWriter::new(Vec::new(), signature_algorithm.to_string(), header, signer)?;
-        writer.write_all(before.as_bytes())?;
-        writer.write_all(after.as_bytes())?;
-        let jws = writer.finish()?;
-        let jws_string = String::from_utf8(jws)?;
-        let mut signed_json_buffer = String::from(before);
         signed_json_buffer.push_str(",\"");
         signed_json_buffer.push_str(SIGNATURE_FIELD_NAME);
         signed_json_buffer.push_str(r#"":[""#);
@@ -221,9 +217,21 @@ fn add_signature<'a>(
         signed_json_buffer.push_str("\"]");
         Ok(String::from(signed_json_buffer))
     } else {
+        signed_json_buffer.push_str(middle);
+        //signed_json_buffer.pop().map_or_else()
         // add to existing signatures.
+
         panic!("Adding additional signatures is not yes supported");//todo!()
     }
+}
+
+fn create_jws(signature_algorithm: JwsSignatureAlgorithms, signer: Signer, before: &str, after: &str, header: Map<String, Value>) -> Result<Vec<u8>,anyhow::Error> {
+    let mut writer =
+        SerializeJwsWriter::new(Vec::new(), signature_algorithm.to_string(), header, signer)?;
+    writer.write_all(before.as_bytes())?;
+    writer.write_all(after.as_bytes())?;
+    let jws = writer.finish()?;
+    Ok(jws)
 }
 
 fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
