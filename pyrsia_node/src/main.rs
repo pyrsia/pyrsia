@@ -12,6 +12,7 @@ extern crate warp;
 
 //modules imports
 mod docker;
+mod node_manager;
 mod utils;
 
 use docker::error_util::*;
