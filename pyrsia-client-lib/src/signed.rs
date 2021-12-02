@@ -7,6 +7,7 @@ extern crate serde;
 extern crate serde_jcs;
 extern crate serde_json;
 
+use std::char::REPLACEMENT_CHARACTER;
 use std::io::Write;
 use std::option::Option;
 
@@ -135,7 +136,7 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
         private_key: &Vec<u8>,
         public_key: &Vec<u8>,
     ) -> Result<(), anyhow::Error> {
-        let target_json: String = serde_jcs::to_string(self)?;
+        let target_json = string_to_unicode_32(&serde_jcs::to_string(self)?);
         let signed_json = with_signer(
             signature_algorithm,
             private_key,
@@ -159,6 +160,15 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     // TODO add a method to get the details of the signatures in this struct's associated JSON.
 }
 
+// preprocess a json string to a Vec<32> whose elements each contain exactly one unicode character.
+fn string_to_unicode_32(raw: &str) -> Vec<u32> {
+    let mut v = Vec::with_capacity(raw.len());
+    raw.chars().for_each(|c| {
+        v.push(u32::from(c));
+    });
+    v
+}
+
 const SIGNATURE_FIELD_NAME: &str = "__signature";
 
 // construct a signer, pass it to the given signing function and then return the signed json returned from the signing function.
@@ -166,12 +176,12 @@ fn with_signer<'a>(
     signature_algorithm: JwsSignatureAlgorithms,
     der_private_key: &[u8],
     der_public_key: &[u8],
-    target_json: &'a str,
+    target_json: &[u32],
     signing_function: fn(
         JwsSignatureAlgorithms,
         Signer,
         &[u8],
-        &str,
+        &[u32],
     ) -> Result<String, anyhow::Error>,
 ) -> Result<String, anyhow::Error> {
     // This is RSA specific. This should be generalized to support other types of signatures.
@@ -186,28 +196,31 @@ fn with_signer<'a>(
         }
     }?;
     signer.set_rsa_padding(Padding::PKCS1_PSS)?;
-    signing_function(
-        signature_algorithm,
-        signer,
-        der_public_key,
-        target_json,
-    )
+    signing_function(signature_algorithm, signer, der_public_key, target_json)
 }
 
 fn add_signature<'a>(
     signature_algorithm: JwsSignatureAlgorithms,
     signer: Signer,
     der_public_key: &[u8],
-    target_json: &'a str,
+    target_json: &[u32],
 ) -> Result<String, anyhow::Error> {
     let (before, middle, after) = json_parser::parse(
         target_json,
         &vec![json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)],
     )?;
     let header = create_jsw_header(der_public_key);
-    let jws = create_jws(signature_algorithm, signer, before, after, header)?;
+    let before_string = unicode_32_bit_to_string(before);
+    let after_string = unicode_32_bit_to_string(after);
+    let jws = create_jws(
+        signature_algorithm,
+        signer,
+        &before_string,
+        &after_string,
+        header,
+    )?;
     let jws_string = String::from_utf8(jws)?;
-    let mut signed_json_buffer = String::from(before);
+    let mut signed_json_buffer = String::from(before_string);
     if middle.is_empty() {
         // No existing signatures
         signed_json_buffer.push_str(",\"");
@@ -216,23 +229,35 @@ fn add_signature<'a>(
         signed_json_buffer.push_str(jws_string.as_str());
         signed_json_buffer.push_str("\"]");
     } else {
-        signed_json_buffer.push_str(middle);
-        signed_json_buffer.pop(); // drop the closing ']' of the signature array
+        signed_json_buffer.push_str(unicode_32_bit_to_string(&middle[..middle.len() - 1]).as_str()); // append signature array without closing ']'
         signed_json_buffer.push_str(",\"");
         signed_json_buffer.push_str(jws_string.as_str());
         signed_json_buffer.push_str("\"]");
     }
-    signed_json_buffer.push_str(after);
+    signed_json_buffer.push_str(&after_string);
     Ok(String::from(signed_json_buffer))
 }
 
-fn create_jws(signature_algorithm: JwsSignatureAlgorithms, signer: Signer, before: &str, after: &str, header: Map<String, Value>) -> Result<Vec<u8>,anyhow::Error> {
+fn create_jws(
+    signature_algorithm: JwsSignatureAlgorithms,
+    signer: Signer,
+    before: &str,
+    after: &str,
+    header: Map<String, Value>,
+) -> Result<Vec<u8>, anyhow::Error> {
     let mut writer =
         SerializeJwsWriter::new(Vec::new(), signature_algorithm.to_string(), header, signer)?;
     writer.write_all(before.as_bytes())?;
     writer.write_all(after.as_bytes())?;
     let jws = writer.finish()?;
     Ok(jws)
+}
+
+fn unicode_32_bit_to_string(u: &[u32]) -> String {
+    let mut s = String::with_capacity(u.len() * 4);
+    u.iter()
+        .for_each(|u32| s.push(char::from_u32(*u32).unwrap_or(REPLACEMENT_CHARACTER)));
+    s
 }
 
 fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
@@ -248,20 +273,24 @@ fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
 /// Lightweight JSON parser to identify the portion of a slice before and after a value, so that the
 /// value can easily be replaced.
 mod json_parser {
+    use super::string_to_unicode_32;
+    use crate::signed::unicode_32_bit_to_string;
     use anyhow::anyhow;
     use serde_json::json;
+    use std::char::REPLACEMENT_CHARACTER;
+    use std::slice::Iter;
     use std::str::Chars;
 
     pub struct JsonCursor<'a> {
         position: usize,
-        iterator: Chars<'a>,
-        this_char: Option<char>,
-        json_str: &'a str,
+        iterator: Iter<'a, u32>,
+        this_char: Option<&'a u32>,
+        json_str: &'a [u32],
     }
 
     impl<'a> JsonCursor<'a> {
-        pub fn new(json: &str) -> JsonCursor {
-            let mut iterator = json.chars();
+        pub fn new(json: &[u32]) -> JsonCursor {
+            let mut iterator = json.iter();
             let this_char = iterator.next();
             JsonCursor {
                 position: 0,
@@ -278,18 +307,20 @@ mod json_parser {
             self.this_char = self.iterator.next();
         }
 
-        fn this_char_equals(&self, c: char) -> bool {
-            self.this_char.is_some() && self.this_char.unwrap() == c
+        fn this_char_equals(&self, c: u32) -> bool {
+            self.this_char.is_some() && *self.this_char.unwrap() == c
         }
 
-        fn expect_char(&mut self, next_char: char) -> Result<(), anyhow::Error> {
-            if self.this_char.is_some() && self.this_char.unwrap() == next_char {
+        fn expect_char(&mut self, next_char: u32) -> Result<(), anyhow::Error> {
+            if self.this_char.is_some() && *self.this_char.unwrap() == next_char {
                 self.next();
                 Ok(())
             } else {
                 let mut found_char = String::new();
                 if self.this_char.is_some() {
-                    found_char.push(self.this_char.unwrap())
+                    found_char.push(
+                        char::from_u32(*self.this_char.unwrap()).unwrap_or(REPLACEMENT_CHARACTER),
+                    )
                 } else {
                     found_char.push_str("None")
                 }
@@ -300,15 +331,15 @@ mod json_parser {
             }
         }
 
-        fn char_predicate(&self, predicate: fn(char) -> bool) -> bool {
-            self.this_char.is_some() && predicate(self.this_char.unwrap())
+        fn char_predicate(&self, predicate: fn(u32) -> bool) -> bool {
+            self.this_char.map_or(false, |c| predicate(*c))
         }
 
         fn at_end(&self) -> bool {
             self.this_char.is_none()
         }
 
-        fn skip_char(&mut self, c: char) {
+        fn skip_char(&mut self, c: u32) {
             skip_whitespace(self);
             if self.this_char_equals(c) {
                 self.next();
@@ -331,9 +362,9 @@ mod json_parser {
     /// If the last element of the path is not found, then the result have an empty middle slice,
     /// positioned where such an element could be inserted.
     pub fn parse<'a>(
-        json: &'a str,
+        json: &'a [u32],
         path: &Vec<JsonPathElement>,
-    ) -> Result<(&'a str, &'a str, &'a str), anyhow::Error> {
+    ) -> Result<(&'a [u32], &'a [u32], &'a [u32]), anyhow::Error> {
         if path.is_empty() {
             return Err(anyhow!("Empty path; nothing to find"));
         }
@@ -368,7 +399,7 @@ mod json_parser {
                 end_of_target,
                 path,
                 json_cursor,
-                Some(field_name),
+                Some(&string_to_unicode_32(field_name)),
             ),
             Some(JsonPathElement::Index(index)) => parse_array(
                 start_of_target,
@@ -387,7 +418,7 @@ mod json_parser {
         json_cursor: &mut JsonCursor,
     ) -> Result<(), anyhow::Error> {
         skip_whitespace(json_cursor);
-        if json_cursor.this_char_equals('{') {
+        if json_cursor.this_char_equals(u32::from('{')) {
             parse_object(
                 start_of_target,
                 end_of_target,
@@ -395,7 +426,7 @@ mod json_parser {
                 json_cursor,
                 None,
             )
-        } else if json_cursor.this_char_equals('[') {
+        } else if json_cursor.this_char_equals(u32::from('[')) {
             parse_array(
                 start_of_target,
                 end_of_target,
@@ -403,7 +434,7 @@ mod json_parser {
                 json_cursor,
                 None,
             )
-        } else if json_cursor.this_char_equals('"') {
+        } else if json_cursor.this_char_equals(u32::from('"')) {
             parse_string(json_cursor)?;
             Ok(())
         } else if json_cursor.char_predicate(|c| is_signed_alphanumeric(c)) {
@@ -411,15 +442,17 @@ mod json_parser {
         } else {
             Err(anyhow!(format!(
                 "Unexpected character '{}' at position {} in json: {}",
-                json_cursor.this_char.unwrap_or_default(),
+                &json_cursor.this_char.map_or(String::from("None"), |c| String::from(
+                    char::from_u32(*c).unwrap_or(REPLACEMENT_CHARACTER)
+                )),
                 json_cursor.position,
-                json_cursor.json_str
+                unicode_32_bit_to_string(json_cursor.json_str)
             )))
         }
     }
 
-    fn is_signed_alphanumeric(c: char) -> bool {
-        c.is_alphanumeric() || c == '-' || c == '+'
+    fn is_signed_alphanumeric(u: u32) -> bool {
+        char::from_u32(u).map_or(false, |c| c.is_alphanumeric() || c == '-' || c == '+')
     }
 
     // Parse a number or an word like "null", "true" or "false". Since we are just scanning to find
@@ -439,7 +472,7 @@ mod json_parser {
         target_index: Option<usize>,
     ) -> Result<(), anyhow::Error> {
         skip_whitespace(json_cursor);
-        json_cursor.expect_char('[')?;
+        json_cursor.expect_char(u32::from('['))?;
         let mut this_index: usize = 0;
         let is_empty_path = path.clone().next().is_none();
         loop {
@@ -451,7 +484,7 @@ mod json_parser {
                     start_position
                 )));
             }
-            if json_cursor.this_char_equals(']') {
+            if json_cursor.this_char_equals(u32::from(']')) {
                 if target_index.is_some() && is_empty_path {
                     // path target not found. Pretend we found it at the end of the array as an empty string
                     *start_of_target = start_position;
@@ -462,7 +495,7 @@ mod json_parser {
             }
             if target_index.unwrap_or(usize::MAX) == this_index {
                 parse_value(start_of_target, end_of_target, path, json_cursor)?;
-                json_cursor.skip_char(',');
+                json_cursor.skip_char(u32::from(','));
                 if is_empty_path {
                     // This is the JSON array index identified by the path
                     *start_of_target = start_position;
@@ -476,7 +509,7 @@ mod json_parser {
                     &mut Vec::new().iter(),
                     json_cursor,
                 )?;
-                json_cursor.skip_char(',');
+                json_cursor.skip_char(u32::from(','));
             }
             this_index += 1
         }
@@ -487,11 +520,11 @@ mod json_parser {
         end_of_target: &mut usize,
         path: &mut core::slice::Iter<JsonPathElement>,
         json_cursor: &mut JsonCursor,
-        target_field: Option<&str>,
+        target_field: Option<&[u32]>,
     ) -> Result<(), anyhow::Error> {
         let is_empty_path = path.clone().next().is_none();
         skip_whitespace(json_cursor);
-        json_cursor.expect_char('{')?;
+        json_cursor.expect_char(u32::from('{'))?;
         loop {
             let start_position = json_cursor.position;
             skip_whitespace(json_cursor);
@@ -501,7 +534,7 @@ mod json_parser {
                     start_position
                 )));
             }
-            if json_cursor.this_char_equals('}') {
+            if json_cursor.this_char_equals(u32::from('}')) {
                 if target_field.is_some() && is_empty_path {
                     // path target not found. Pretend we found it at the end of the object as an empty string
                     *start_of_target = start_position;
@@ -511,13 +544,12 @@ mod json_parser {
                 return Ok(());
             };
             let field_name = parse_string(json_cursor)?;
-            let field_name2 = String::from(field_name);
             skip_whitespace(json_cursor);
-            json_cursor.expect_char(':')?;
-            if target_field.unwrap_or_default() == field_name2 {
+            json_cursor.expect_char(u32::from(':'))?;
+            if target_field.unwrap_or_default() == field_name {
                 parse_value(start_of_target, end_of_target, path, json_cursor)?;
                 if is_empty_path {
-                    json_cursor.skip_char(',');
+                    json_cursor.skip_char(u32::from(','));
                     // This is the JSON field identified by the path
                     *start_of_target = start_position;
                     *end_of_target = json_cursor.position;
@@ -531,14 +563,14 @@ mod json_parser {
                     &mut Vec::new().iter(),
                     json_cursor,
                 )?;
-                json_cursor.skip_char(',')
+                json_cursor.skip_char(u32::from(','))
             }
         }
     }
 
-    pub fn parse_string<'a>(json_cursor: &'a mut JsonCursor) -> Result<&'a str, anyhow::Error> {
+    pub fn parse_string<'a>(json_cursor: & mut JsonCursor) -> Result<Vec<u32>, anyhow::Error> {
         skip_whitespace(json_cursor);
-        json_cursor.expect_char('"')?;
+        json_cursor.expect_char(u32::from('"'))?;
         let string_start = json_cursor.position;
         loop {
             if json_cursor.at_end() {
@@ -547,21 +579,27 @@ mod json_parser {
                     string_start
                 )));
             }
-            if json_cursor.this_char_equals('\\') {
+            if json_cursor.this_char_equals(u32::from('\\')) {
                 json_cursor.next(); // Ignore the next character because it is escaped.
-            } else if json_cursor.this_char_equals('"') {
+            } else if json_cursor.this_char_equals(u32::from('"')) {
                 let content = &json_cursor.json_str[string_start..json_cursor.position];
                 json_cursor.next();
-                return Ok(content);
+                return Ok(Vec::from(content));
             }
             json_cursor.next();
         }
     }
 
     fn skip_whitespace(json_cursor: &mut JsonCursor) {
-        while json_cursor.char_predicate(|c| c.is_whitespace()) {
+        while json_cursor.char_predicate(|c| is_whitespace(c)) {
             json_cursor.next()
         }
+    }
+
+    fn is_whitespace(u: u32) -> bool {
+        u == 0x09 || u == 0x0a || u == 0x0d || u == 0x20 || u == 0x00a0 || u == 0x1680
+            || u == 0x180e || (u >= 0x2000  && u <= 0x200b) || u == 0x202f || u == 0x205f
+            || u == 0x3000 || u==0xfeff
     }
 
     pub fn path_to_str(path: &Vec<JsonPathElement>) -> String {
@@ -632,15 +670,18 @@ mod tests {
     #[test]
     fn parse_json() -> Result<(), anyhow::Error> {
         let json = r#"{"boo":true,"number":234,"nul":null, "ob":{"a":123,"b":"str"}, "arr":[3, true, {"sig":"mund", "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#;
+        let json32 = string_to_unicode_32(json);
         let test = |expected_before: &str,
                     expected_middle: &str,
                     expected_after: &str,
                     path: Vec<JsonPathElement>|
          -> Result<(), anyhow::Error> {
-            let (actual_before, actual_middle, actual_after) = parse(json, &path)?;
-            assert_eq!(expected_before, actual_before);
-            assert_eq!(expected_middle, actual_middle);
-            assert_eq!(expected_after, actual_after);
+            let (actual_before, actual_middle, actual_after) =
+                parse(&json32, &path)?;
+
+            assert_eq!(expected_before, unicode_32_bit_to_string(actual_before));
+            assert_eq!(expected_middle, unicode_32_bit_to_string(actual_middle));
+            assert_eq!(expected_after, unicode_32_bit_to_string(actual_after));
             Ok(())
         };
         test(
@@ -704,23 +745,28 @@ mod tests {
 
     #[test]
     fn parse_string_happy_test() -> Result<(), anyhow::Error> {
-        let mut cursor = JsonCursor::new("  \"The quick Brown fox.\" ");
+        let test32 = string_to_unicode_32("  \"The quick Brown fox.\" ");
+        let mut cursor = JsonCursor::new(&test32);
         let parsed_string = parse_string(&mut cursor)?;
-        assert_eq!("The quick Brown fox.", parsed_string);
+        let expected = string_to_unicode_32("The quick Brown fox.");
+        assert_eq!(expected, parsed_string);
         Ok(())
     }
 
     #[test]
     fn parse_string_escape() -> Result<(), anyhow::Error> {
-        let mut cursor = JsonCursor::new("  \"The quick \\\"Brown\\\" fox.\" ");
+        let test32 = string_to_unicode_32("  \"The quick \\\"Brown\\\" fox.\" ");
+        let mut cursor = JsonCursor::new(&test32);
         let parsed_string = parse_string(&mut cursor)?;
-        assert_eq!("The quick \\\"Brown\\\" fox.", parsed_string);
+        let expected = string_to_unicode_32(r#"The quick \"Brown\" fox."#);
+        assert_eq!(expected, parsed_string);
         Ok(())
     }
 
     #[test]
     fn parse_string_unterminated() -> Result<(), anyhow::Error> {
-        let mut cursor = JsonCursor::new("  \"The quick \\\"Brown\\\" fox. ");
+        let test32 = string_to_unicode_32("  \"The quick \\\"Brown\\\" fox. ");
+        let mut cursor = JsonCursor::new(&test32);
         match parse_string(&mut cursor) {
             Ok(_) => Err(anyhow!(
                 "Parsing an unterminated string did not cause an error return!"
@@ -737,8 +783,18 @@ mod tests {
         // create a key pair for other signing types to see that they succeed
         let key_pair = super::create_key_pair(JwsSignatureAlgorithms::RS512)?;
 
-        let mut foo = Foo { foo: "π is 16 bit unicode", bar: 23894, zot: "🦽is 32 bit unicode", π_json: None};
-        foo.sign(JwsSignatureAlgorithms::RS512, &key_pair.private_key, &key_pair.public_key).context("Error signing struct")?;
+        let mut foo = Foo {
+            foo: "π is 16 bit unicode",
+            bar: 23894,
+            zot: "🦽is 32 bit unicode",
+            π_json: None,
+        };
+        foo.sign(
+            JwsSignatureAlgorithms::RS512,
+            &key_pair.private_key,
+            &key_pair.public_key,
+        )
+        .context("Error signing struct")?;
         println!("Signed json from foo {}", foo.json().unwrap());
         Ok(())
     }
