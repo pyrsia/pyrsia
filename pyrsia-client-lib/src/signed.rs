@@ -11,7 +11,7 @@ use std::char::REPLACEMENT_CHARACTER;
 use std::io::Write;
 use std::option::Option;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use chrono::prelude::*;
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
 use openssl::pkey::{PKey, Private, Public};
@@ -23,6 +23,7 @@ use openssl::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use crate::signed::json_parser::{JsonPathElement, parse};
 
 /// An enumeration of the supported signature algorithms
 #[derive(Deserialize, Serialize)]
@@ -154,10 +155,28 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     ///
     /// Return an error if any of the signatures are not valid.
     fn verify_signature(&self) -> Result<(), anyhow::Error> {
-        todo!()
+        self.json().map_or(Err(anyhow!(NOT_SIGNED)), |json| verify_json_signature(&json))
     }
 
     // TODO add a method to get the details of the signatures in this struct's associated JSON.
+}
+
+fn verify_json_signature(json: &str) -> Result<(), anyhow::Error> {
+    let mut signature_count = 0;
+    let json32 = string_to_unicode_32(json);
+    loop {
+        let mut this_path = SIGNATURE_PATH.clone();
+        this_path.push(JsonPathElement::Index(signature_count));
+        let parse_result = parse(&json32, &this_path);
+        if parse_result.is_err() {
+            break;
+        }
+        signature_count += 1;
+    }
+    if signature_count == 0 {
+        Err(anyhow!("JSON is not signed!"))
+    }
+    todo!()
 }
 
 // preprocess a json string to a Vec<32> whose elements each contain exactly one unicode character.
@@ -170,6 +189,11 @@ fn string_to_unicode_32(raw: &str) -> Vec<u32> {
 }
 
 const SIGNATURE_FIELD_NAME: &str = "__signature";
+
+static SIGNATURE_PATH: Vec<JsonPathElement> = vec![json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)];
+
+// Error Strings
+const NOT_SIGNED: &str = "Not signed!";
 
 // construct a signer, pass it to the given signing function and then return the signed json returned from the signing function.
 fn with_signer<'a>(
@@ -279,7 +303,6 @@ mod json_parser {
     use serde_json::json;
     use std::char::REPLACEMENT_CHARACTER;
     use std::slice::Iter;
-    use std::str::Chars;
 
     pub struct JsonCursor<'a> {
         position: usize,
