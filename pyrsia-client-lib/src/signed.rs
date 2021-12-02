@@ -164,8 +164,9 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
 fn verify_json_signature(json: &str) -> Result<(), anyhow::Error> {
     let mut signature_count = 0;
     let json32 = string_to_unicode_32(json);
+    let base_path : Vec<JsonPathElement> = Vec::from([json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)]);
     loop {
-        let mut this_path = SIGNATURE_PATH.clone();
+        let mut this_path = base_path.clone();
         this_path.push(JsonPathElement::Index(signature_count));
         let parse_result = parse(&json32, &this_path);
         if parse_result.is_err() {
@@ -191,8 +192,6 @@ fn string_to_unicode_32(raw: &str) -> Vec<u32> {
 }
 
 const SIGNATURE_FIELD_NAME: &str = "__signature";
-
-static SIGNATURE_PATH: Vec<JsonPathElement> = Vec::from(json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME));
 
 // Error Strings
 const NOT_SIGNED: &str = "Not signed!";
