@@ -171,12 +171,14 @@ fn verify_json_signature(json: &str) -> Result<(), anyhow::Error> {
         if parse_result.is_err() {
             break;
         }
+        todo!();
         signature_count += 1;
     }
     if signature_count == 0 {
-        Err(anyhow!("JSON is not signed!"))
+        return Err(anyhow!("JSON is not signed!"))
     }
-    todo!()
+    todo!();
+    Ok(())
 }
 
 // preprocess a json string to a Vec<32> whose elements each contain exactly one unicode character.
@@ -190,7 +192,7 @@ fn string_to_unicode_32(raw: &str) -> Vec<u32> {
 
 const SIGNATURE_FIELD_NAME: &str = "__signature";
 
-static SIGNATURE_PATH: Vec<JsonPathElement> = vec![json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)];
+static SIGNATURE_PATH: Vec<JsonPathElement> = Vec::from(json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME));
 
 // Error Strings
 const NOT_SIGNED: &str = "Not signed!";
@@ -370,6 +372,7 @@ mod json_parser {
         }
     }
 
+    #[derive(Clone)]
     pub enum JsonPathElement<'a> {
         Field(&'a str),
         Index(usize),
