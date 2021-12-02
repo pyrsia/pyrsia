@@ -142,9 +142,7 @@ async fn main() {
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(move |name, hash| {
-            handle_get_blobs_with_fallback(swarm1.clone(), name, hash)
-        });
+        .and_then(move |name, hash| handle_get_blobs_with_fallback(swarm1.clone(), name, hash));
     let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
         .and(warp::post())
         .and_then(handle_post_blob);
@@ -174,10 +172,10 @@ async fn main() {
     let (addr, server) = warp::serve(routes).bind_ephemeral(address);
     info!("Pyrsia Docker Node is now running on port {}!", addr.port());
 
-    tokio::task::spawn(server);
+    let server_handle = tokio::spawn(server);
 
     let swarm2 = swarm_state.clone();
-    tokio::spawn(async move {
+    let stdin_handle = tokio::spawn(async move {
         loop {
             tokio::select! {
                 line = stdin.next_line() => {
@@ -191,19 +189,18 @@ async fn main() {
     });
 
     // Kick it off
-    let swarm3 = swarm_state.clone();
-    loop {
+    let mut handle: Option<tokio::task::JoinHandle<_>> = None;
+    {
         debug!("looping!");
-        let mut lock = swarm3.try_lock();
+        let mut lock = swarm_state.try_lock();
         match lock {
             Ok(ref mut guard) => {
-                tokio::select! {
-                    event = guard.select_next_some() => {
-                        if let SwarmEvent::NewListenAddr { address, .. } = event {
-                            info!("Listening on {:?}", address);
-                        }
+                let event = guard.select_next_some();
+                handle.insert(tokio::spawn(async move {
+                    if let SwarmEvent::NewListenAddr { address, .. } = event.await {
+                        info!("Listening on {:?}", address);
                     }
-                }
+                }));
             }
             Err(TryLockError::Poisoned(_err)) => {
                 error!("try_lock failed");
@@ -212,6 +209,12 @@ async fn main() {
                 error!("try_lock blocked");
             }
         }
+    }
+
+    tokio::select! {
+        _ = server_handle => {}
+        _ = stdin_handle => {}
+        _ = handle.unwrap() => {}
     }
 }
 
@@ -235,10 +238,10 @@ async fn handle_get_blobs_with_fallback(
                 let query: libp2p::kad::QueryId = guard.behaviour_mut().lookup_blob(hash).unwrap();
             }
             Err(TryLockError::Poisoned(_err)) => {
-                error!("try_lock failed");
+                error!("try_lock -- docker -- failed");
             }
             Err(TryLockError::WouldBlock) => {
-                error!("try_lock blocked");
+                error!("try_lock -- docker -- blocked");
             }
         }
     }
