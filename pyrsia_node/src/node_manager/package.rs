@@ -1,12 +1,16 @@
 use super::model::package::{PackageVersion, Package};
 
-//
-pub fn get_package() -> Result<Package, anyhow::Error> {
-
+//TO BE IMPLEMENETD
+//get_package: provided id and package_version it returns all the metadata for that package version
+pub fn get_package(pkg_name:String) -> Result<Package, anyhow::Error> {
+    let pkg = Package{ ..Default::default() };
+    Ok(pkg)
 
 }
 
-pub fn get_package_version(package_name: String) -> Result<PackageVersion, anyhow::Error> {
-let pkg_ver_out = PackageVersion{};
-return(PackageVersion{})
+//TO BE IMPLEMENETD
+//get_package_version: provided id and package_version it returns all the metadata for that package version
+pub fn get_package_version(id:String, pkg_ver: String) -> Result<PackageVersion, anyhow::Error> {
+    let pkg_ver = PackageVersion{ ..Default::default() };
+    Ok(pkg_ver)
 }

@@ -2,7 +2,7 @@ extern crate serde_json;
 use serde_json::{Map, Value};
 use strum_macros::{EnumIter, EnumString};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Package {
     package_name: String,
     package_type:String,
@@ -12,13 +12,13 @@ pub struct Package {
     administrator: String,
     description: String,
     namespace_path: Vec<u8>,
-    metadata: Optional<Map<String, Value>>,
+    metadata: Map<String, Value>,
     project_url: String,
     project_name: String,
     versions:Vec<u8>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PackageVersion {
     id: String,
     package_version: String,
@@ -35,7 +35,11 @@ pub struct PackageVersion {
 
 #[derive(EnumIter, Debug, PartialEq, EnumString)]
 pub enum LicenseTextMimeType {
-    HTML,
     TEXT,
+    HTML,
     XML
+}
+
+impl Default for LicenseTextMimeType {
+    fn default() -> Self { LicenseTextMimeType::TEXT }
 }
