@@ -467,10 +467,10 @@ version = "0.35.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e00af0691cd8fa62ae8c37fa023a802c4ce98a5cf6257322cf122bf21eef18c3"
 dependencies = [
- "ansi_term 0.12.1",
+ "ansi_term",
  "cargo_metadata",
  "ci_info",
- "clap 2.33.3",
+ "clap 2.34.0",
  "colored",
  "dirs-next",
  "duckscript",
@@ -588,7 +588,7 @@ version = "2.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0610544180c38b88101fecf2dd634b174a62eef6946f84dfc6a7127512b381c"
 dependencies = [
- "ansi_term 0.11.0",
+ "ansi_term",
  "atty",
  "bitflags",
  "strsim 0.8.0",
@@ -2611,24 +2611,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "num-traits"
-version = "0.1.43"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92e5113e9fd4cc14ded8e499429f396a20f98c772a47cc8622a736e1ec843c31"
-dependencies = [
- "num-traits 0.2.14",
-]
-
-[[package]]
-name = "num-traits"
-version = "0.2.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
-dependencies = [
- "autocfg",
-]
-
-[[package]]
 name = "num_cpus"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3010,6 +2992,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap 3.0.0-beta.5",
+ "expectest",
  "futures",
  "reqwest",
  "tokio",
@@ -3023,7 +3006,7 @@ dependencies = [
  "blake3",
  "bytes",
  "cargo-make",
- "clap 2.33.3",
+ "clap 2.34.0",
  "ctor",
  "easy-hasher",
  "env_logger 0.9.0",
@@ -3044,18 +3027,6 @@ dependencies = [
  "tokio",
  "uuid",
  "warp",
-]
-
-[[package]]
-name = "pyrsia_cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap 3.0.0-beta.5",
- "expectest",
- "futures",
- "reqwest",
- "tokio",
 ]
 
 [[package]]
@@ -3234,41 +3205,6 @@ name = "reqwest"
 version = "0.11.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66d2927ca2f685faf0fc620ac4834690d29e7abb153add10f5812eef20b5e280"
-dependencies = [
- "base64",
- "bytes",
- "encoding_rs",
- "futures-core",
- "futures-util",
- "http",
- "http-body",
- "hyper",
- "hyper-tls",
- "ipnet",
- "js-sys",
- "lazy_static 1.4.0",
- "log",
- "mime",
- "native-tls",
- "percent-encoding",
- "pin-project-lite 0.2.7",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "tokio",
- "tokio-native-tls",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "winreg 0.7.0",
-]
-
-[[package]]
-name = "reqwest"
-version = "0.11.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07bea77bc708afa10e59905c3d4af7c8fd43c9214251673095ff8b14345fcbc5"
 dependencies = [
  "base64",
  "bytes",
@@ -4464,15 +4400,6 @@ name = "winreg"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2986deb581c4fe11b621998a5e53361efe6b48a151178d0cd9eeffa4dc6acc9"
-dependencies = [
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "winreg"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0120db82e8a1e0b9fb3345a539c478767c0048d842860994d96113d5b667bd69"
 dependencies = [
  "winapi 0.3.9",
 ]
