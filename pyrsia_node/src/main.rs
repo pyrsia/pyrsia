@@ -11,12 +11,14 @@ extern crate warp;
 //local module imports
 mod artifact_manager;
 mod docker;
+mod document_store;
 mod network;
 mod utils;
 
 use docker::error_util::*;
 use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
+use document_store::document_store::DocumentStore;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 
@@ -42,6 +44,9 @@ const DEFAULT_PORT: &str = "7878";
 async fn main() {
     pretty_env_logger::init();
 
+    // create the connection to the documentStore.
+    let doc_store = DocumentStore::new();
+    doc_store.ping();
     // Create a random PeerId
     let id_keys: Keypair = identity::Keypair::generate_ed25519();
     let peer_id: PeerId = PeerId::from(id_keys.public());
