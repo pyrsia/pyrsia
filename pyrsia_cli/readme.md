@@ -1,11 +1,11 @@
 # Pyrsia CLI
 
-Parse command line commands, subcommands, communnicates to a [Node](../pyrsia_node) to perform some actions.
+Parses command lines and subcommands, then communicates the parsed requests to a Pyrsia node.
 
 ## Building
 
 1. Follow our [Getting Started](../readme.md#getting-started) section
-2. Run build release command for package `pyrsia_cli` which will generate executable in `./target/release/pyrsia`
+2. Run the build release command for package `pyrsia_cli` which generates an executable in `./target/release/pyrsia`
 
 ```sh
 cargo build -p pyrsia_cli --release
@@ -13,11 +13,11 @@ cargo build -p pyrsia_cli --release
 
 ## Installing
 
-Copy-paste above generated executable in some folder and put that in your `PATH`
+Copy-paste the above generated executable in some folder and add to folder to your `PATH`
 
 OR
 
-run install command which will install the CLI in `~/.cargo/bin`, make sure that is included in your `PATH`
+Run the install command which installs the CLI in `~/.cargo/bin`. Make sure `~/.cargo/bin` is included in your `PATH`
 
 ```sh
 cargo install --path .
