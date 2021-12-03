@@ -17,7 +17,12 @@ To get off the ground the focus is strictly on the peer-to-peer distribution of 
 
 Before getting started, take a moment to review our [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md).
 
-## Pyrsia Node
+## Node and CLI
+
+There are two componenets of this project
+
+- **CLI**: A basic interface which communicates with a node.
+- **Node**: A instance of the Pyrsia daemon which can participate in the network with other nodes.
 
 ### Getting Started
 
@@ -28,14 +33,3 @@ Before getting started, take a moment to review our [contributing guidelines](ht
 ### Setting Up Visual Studio Code Debugger
 
 [How to Debug Rust with Visual Studio Code](https://www.forrestthewoods.com/blog/how-to-debug-rust-with-visual-studio-code/)
-
-### Running the docker integraion:
-
-1. open a terminal and start a pyrsia node with: `RUST_LOG=pyrsia cargo run -q`
-2. open a second terminal:
-   * pull the alpine docker image from docker hub: `docker pull alpine`
-   * tag it to prepare for push to pyrsia node: `docker tag alpine localhost:7878/alpine`
-   * push it to pyrsia node: `docker push localhost:7878/alpine`
-   * remove all local alpine images: `docker rmi alpine and docker rmi localhost:7878/alpine`
-   * pull the image again, this time from pyrsia node: `docker pull localhost:7878/alpine`
-   * verify it works: `docker run -it localhost:7878/alpine cat /etc/issue`
