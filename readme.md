@@ -1,6 +1,4 @@
-# Pyrsia
-
-[logo (broken link since we are private)](https://raw.githubusercontent.com/pyrsia/.github/main/images/logo-color.svg)
+![logo](https://raw.githubusercontent.com/pyrsia/.github/main/images/logo-color.svg)
 
 > Zero-Trust Decentralized Package Network
 
@@ -24,7 +22,7 @@ Before getting started, take a moment to review our [contributing guidelines](ht
 ### Getting Started
 
 1. Setup rust on your local machine as described in [Rust's getting started guide](https://www.rust-lang.org/learn/get-started)
-2. `cd pyrsia-node`
+2. `cd pyrsia_node`
 3. `cargo run`
 
 ### Setting Up Visual Studio Code Debugger
