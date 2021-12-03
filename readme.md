@@ -6,7 +6,7 @@
 
 _📢 We are looking for your feedback!_
 
-This project is currently in the "sandbox" 🏖️. We are actively exploring the concepts and tools that are used during development.
+This project is currently in the "sandbox" 🏖️. We are actively exploring new concepts and tools.
 The code, workflows, and ideas are subject to breaking changes at any time in this early stage of development.
 
 ### Primary Focus
@@ -21,8 +21,8 @@ Before getting started, take a moment to review our [contributing guidelines](ht
 
 There are two componenets of this project
 
-- **CLI**: A basic interface which communicates with a node.
-- **Node**: A instance of the Pyrsia daemon which can participate in the network with other nodes.
+- **[CLI](pyrsia_cli/)**: A basic interface which communicates with a node.
+- **[Node](pyrsia_node/)**: An instance of the Pyrsia daemon which can participate in the network with other nodes.
 
 ### Getting Started
 
