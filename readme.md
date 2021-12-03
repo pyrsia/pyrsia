@@ -28,9 +28,8 @@ Before getting started, take a moment to review our [contributing guidelines](ht
 3. `cargo run`
 
 ### Generating Test Coverage Report
-1. `cd pyrsia-node`
-2. `docker build -t code_coverage:1.0 .`
-3. `docker run --security-opt seccomp=unconfined -it code_coverage:1.0 cargo tarpaulin -v`
+1. `cd pyrsia-sandbox`
+2. `sh ./test_code_coverage.sh`
 
 
 ### Setting Up Visual Studio Code Debugger
