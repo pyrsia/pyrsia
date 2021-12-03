@@ -37,7 +37,6 @@ use libp2p::{
 };
 use log::{debug, error, info};
 use tokio::io::{self, AsyncBufReadExt};
-// use tokio::sync::mpsc;
 use warp::http::StatusCode;
 use warp::Filter;
 use warp::{Rejection, Reply};
@@ -65,7 +64,7 @@ async fn main() {
                 .takes_value(true)
                 .required(false)
                 .multiple(false)
-                .help("Sets the port to listen to"),
+                .help("Sets the port to listen to for the Docker API"),
         )
         .arg(
             Arg::with_name("peer")
@@ -74,7 +73,7 @@ async fn main() {
                 .takes_value(true)
                 .required(false)
                 .multiple(false)
-                .help("Provide an explicit peerId"),
+                .help("Provide an explicit peerId to connect with"),
         )
         .get_matches();
 
@@ -138,7 +137,6 @@ async fn main() {
     let (tx, mut rx) = tokio::sync::mpsc::channel(32);
     let tx1 = tx.clone();
 
-    // let swarm1 = swarm_state.clone();
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
@@ -173,7 +171,6 @@ async fn main() {
     info!("Pyrsia Docker Node is now running on port {}!", addr.port());
 
     tokio::spawn(server);
-
     let tx2 = tx.clone();
 
     // Kick it off
