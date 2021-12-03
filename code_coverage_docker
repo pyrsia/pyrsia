@@ -1,5 +1,6 @@
 FROM rust:buster
 
+RUN apt-get update && apt-get -y install clang llvm libclang-dev
 RUN rustup --version; \
     cargo --version; \
     rustc --version; \
