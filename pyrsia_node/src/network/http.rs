@@ -48,11 +48,8 @@ mod tests {
         }
 
         let f: File = File::open(file_name.clone()).unwrap();
-        let first: String = String::from(
-            first_line(BufReader::new(f)),
-        );
-        let right: String =
-            String::from("# Pyrsia");
+        let first: String = String::from(first_line(BufReader::new(f)));
+        let right: String = String::from("# Pyrsia");
         assert_eq!(first.trim(), right);
         println!("\u{2705} test passed.");
         match std::fs::remove_file(file_name.clone()) {
