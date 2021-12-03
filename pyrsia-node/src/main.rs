@@ -98,8 +98,6 @@ async fn main() {
         .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
         .unwrap();
 
-    // let swarm_state = Arc::new(Mutex::new(swarm_instance));
-
     let mut address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0);
     if let Some(p) = matches.value_of("port") {
         address.set_port(p.parse::<u16>().unwrap());
