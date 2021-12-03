@@ -26,7 +26,6 @@ use std::collections::HashMap;
 use std::env;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::Path;
-use std::sync::{Arc, Mutex, TryLockError};
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
@@ -183,7 +182,10 @@ async fn main() {
             line = stdin.next_line() => {
                 let line = line.unwrap().expect("stdin closed");
                 debug!("next line!");
-                tx2.send(line).await;
+                match tx2.send(line).await {
+                    Ok(_) => debug!("line sent"),
+                    Err(_) => error!("failed to send stdin input")
+                }
             }
             event = swarm_instance.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {
@@ -213,7 +215,10 @@ async fn handle_get_blobs_with_fallback(
     debug!("Searching for blob: {}", blob);
     let blob_path = Path::new(&blob);
     if !blob_path.exists() {
-        tx.send(hash).await;
+        match tx.send(hash).await {
+            Ok(_) => debug!("hash sent"),
+            Err(_) => error!("failed to send stdin input")
+        }
     }
 
     let content: std::vec::Vec<u8> = vec![];
@@ -222,10 +227,4 @@ async fn handle_get_blobs_with_fallback(
         .status(StatusCode::OK)
         .body(content)
         .unwrap())
-}
-
-#[cfg(test)]
-mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
-    //use super::*;
 }
