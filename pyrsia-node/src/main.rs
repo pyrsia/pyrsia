@@ -20,12 +20,13 @@ use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
-use std::path::Path;
 
 use identity::Keypair;
 use std::collections::HashMap;
+use std::env;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::{Arc, Mutex};
+use std::path::Path;
+use std::sync::{Arc, Mutex, TryLockError};
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
@@ -36,14 +37,11 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 use log::{debug, error, info};
-use std::env;
 use tokio::io::{self, AsyncBufReadExt};
 // use tokio::sync::mpsc;
 use warp::http::StatusCode;
 use warp::Filter;
 use warp::{Rejection, Reply};
-
-use std::sync::TryLockError;
 
 const DEFAULT_PORT: &str = "7878";
 
@@ -105,7 +103,7 @@ async fn main() {
         .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
         .unwrap();
 
-    let swarm_state = Arc::new(Mutex::new(swarm_instance));
+    // let swarm_state = Arc::new(Mutex::new(swarm_instance));
 
     let mut address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0);
     if let Some(p) = matches.value_of("port") {
@@ -138,11 +136,14 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(handle_put_manifest);
 
-    let swarm1 = swarm_state.clone();
+    let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+    let tx1 = tx.clone();
+
+    // let swarm1 = swarm_state.clone();
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(move |name, hash| handle_get_blobs_with_fallback(swarm1.clone(), name, hash));
+        .and_then(move |name, hash| handle_get_blobs_with_fallback(tx1.clone(), name, hash));
     let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
         .and(warp::post())
         .and_then(handle_post_blob);
@@ -172,54 +173,62 @@ async fn main() {
     let (addr, server) = warp::serve(routes).bind_ephemeral(address);
     info!("Pyrsia Docker Node is now running on port {}!", addr.port());
 
-    let server_handle = tokio::spawn(server);
+    /*let server_handle = */tokio::spawn(server);
 
-    let swarm2 = swarm_state.clone();
-    let stdin_handle = tokio::spawn(async move {
+
+    // let swarm2 = swarm_state.clone();
+    let tx2 = tx.clone();
+    /*let stdin_handle = */tokio::spawn(async move {
         loop {
             tokio::select! {
                 line = stdin.next_line() => {
                     let line = line.unwrap().expect("stdin closed");
                     debug!("next line!");
-                    let mut swarm_instance = swarm2.lock().unwrap();
-                    swarm_instance.behaviour_mut().floodsub().publish(floodsub_topic.clone(), line.as_bytes());
+                    tx2.send(line).await;
+                    // let mut swarm_instance = swarm2.lock().unwrap();
+                    // swarm_instance.behaviour_mut().floodsub().publish(floodsub_topic.clone(), line.as_bytes());
                 }
             }
         }
     });
 
     // Kick it off
-    let mut handle: Option<tokio::task::JoinHandle<_>> = None;
-    {
-        debug!("looping!");
-        let mut lock = swarm_state.try_lock();
-        match lock {
-            Ok(ref mut guard) => {
-                let event = guard.select_next_some();
-                handle.insert(tokio::spawn(async move {
-                    if let SwarmEvent::NewListenAddr { address, .. } = event.await {
-                        info!("Listening on {:?}", address);
-                    }
-                }));
+    loop {
+        tokio::select! {
+            // _ = server_handle => {}
+            // _ = stdin_handle => {}
+            event = swarm_instance.select_next_some() => {
+                if let SwarmEvent::NewListenAddr { address, .. } = event {
+                    info!("Listening on {:?}", address);
+                }
             }
-            Err(TryLockError::Poisoned(_err)) => {
-                error!("try_lock failed");
-            }
-            Err(TryLockError::WouldBlock) => {
-                error!("try_lock blocked");
+            Some(message) = rx.recv() => {
+                info!("New message {}", message);
+                swarm_instance.behaviour_mut().floodsub().publish(floodsub_topic.clone(), message.as_bytes());
+                swarm_instance.behaviour_mut().lookup_blob(message).unwrap();
             }
         }
     }
-
-    tokio::select! {
-        _ = server_handle => {}
-        _ = stdin_handle => {}
-        _ = handle.unwrap() => {}
-    }
 }
 
+// fn poll_next_swarm_event<'a>(
+//     swarm: Arc<Mutex<MyBehaviourSwarm>>,
+// ) -> futures::stream::SelectNextSome<'a, MyBehaviourSwarm> {
+//     let mut lock = swarm.try_lock();
+//     match lock {
+//         Ok(ref mut guard) => guard.select_next_some(),
+//         Err(TryLockError::Poisoned(_err)) => {
+//             error!("try_lock failed");
+//         }
+//         Err(TryLockError::WouldBlock) => {
+//             error!("try_lock blocked");
+//             return None;
+//         }
+//     }
+// }
+
 async fn handle_get_blobs_with_fallback(
-    swarm: Arc<Mutex<MyBehaviourSwarm>>,
+    sender: tokio::sync::mpsc::Sender<String>,
     _name: String,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
@@ -232,18 +241,7 @@ async fn handle_get_blobs_with_fallback(
     debug!("Searching for blob: {}", blob);
     let blob_path = Path::new(&blob);
     if !blob_path.exists() {
-        let mut lock = swarm.try_lock();
-        match lock {
-            Ok(ref mut guard) => {
-                let query: libp2p::kad::QueryId = guard.behaviour_mut().lookup_blob(hash).unwrap();
-            }
-            Err(TryLockError::Poisoned(_err)) => {
-                error!("try_lock -- docker -- failed");
-            }
-            Err(TryLockError::WouldBlock) => {
-                error!("try_lock -- docker -- blocked");
-            }
-        }
+        sender.send(hash).await;
     }
 
     let content: std::vec::Vec<u8> = vec![];
