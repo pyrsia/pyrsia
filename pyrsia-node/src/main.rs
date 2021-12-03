@@ -173,37 +173,25 @@ async fn main() {
     let (addr, server) = warp::serve(routes).bind_ephemeral(address);
     info!("Pyrsia Docker Node is now running on port {}!", addr.port());
 
-    /*let server_handle = */tokio::spawn(server);
+    tokio::spawn(server);
 
-
-    // let swarm2 = swarm_state.clone();
     let tx2 = tx.clone();
-    /*let stdin_handle = */tokio::spawn(async move {
-        loop {
-            tokio::select! {
-                line = stdin.next_line() => {
-                    let line = line.unwrap().expect("stdin closed");
-                    debug!("next line!");
-                    tx2.send(line).await;
-                    // let mut swarm_instance = swarm2.lock().unwrap();
-                    // swarm_instance.behaviour_mut().floodsub().publish(floodsub_topic.clone(), line.as_bytes());
-                }
-            }
-        }
-    });
 
     // Kick it off
     loop {
         tokio::select! {
-            // _ = server_handle => {}
-            // _ = stdin_handle => {}
+            line = stdin.next_line() => {
+                let line = line.unwrap().expect("stdin closed");
+                debug!("next line!");
+                tx2.send(line).await;
+            }
             event = swarm_instance.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {
                     info!("Listening on {:?}", address);
                 }
             }
             Some(message) = rx.recv() => {
-                info!("New message {}", message);
+                info!("New message: {}", message);
                 swarm_instance.behaviour_mut().floodsub().publish(floodsub_topic.clone(), message.as_bytes());
                 swarm_instance.behaviour_mut().lookup_blob(message).unwrap();
             }
@@ -211,24 +199,8 @@ async fn main() {
     }
 }
 
-// fn poll_next_swarm_event<'a>(
-//     swarm: Arc<Mutex<MyBehaviourSwarm>>,
-// ) -> futures::stream::SelectNextSome<'a, MyBehaviourSwarm> {
-//     let mut lock = swarm.try_lock();
-//     match lock {
-//         Ok(ref mut guard) => guard.select_next_some(),
-//         Err(TryLockError::Poisoned(_err)) => {
-//             error!("try_lock failed");
-//         }
-//         Err(TryLockError::WouldBlock) => {
-//             error!("try_lock blocked");
-//             return None;
-//         }
-//     }
-// }
-
 async fn handle_get_blobs_with_fallback(
-    sender: tokio::sync::mpsc::Sender<String>,
+    tx: tokio::sync::mpsc::Sender<String>,
     _name: String,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
@@ -241,7 +213,7 @@ async fn handle_get_blobs_with_fallback(
     debug!("Searching for blob: {}", blob);
     let blob_path = Path::new(&blob);
     if !blob_path.exists() {
-        sender.send(hash).await;
+        tx.send(hash).await;
     }
 
     let content: std::vec::Vec<u8> = vec![];
