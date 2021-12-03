@@ -13,7 +13,9 @@ use super::{RegistryError, RegistryErrorCode};
 
 pub async fn handle_get_blobs(
     tx: tokio::sync::mpsc::Sender<String>,
-    _name: String, hash: String) -> Result<impl Reply, Rejection> {
+    _name: String,
+    hash: String,
+) -> Result<impl Reply, Rejection> {
     let blob = format!(
         "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
         hash.get(7..9).unwrap(),
@@ -24,7 +26,7 @@ pub async fn handle_get_blobs(
     if !blob_path.exists() {
         match tx.send(hash.clone()).await {
             Ok(_) => debug!("hash sent"),
-            Err(_) => error!("failed to send stdin input")
+            Err(_) => error!("failed to send stdin input"),
         }
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::BlobDoesNotExist(hash),
