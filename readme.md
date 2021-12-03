@@ -2,7 +2,7 @@
 
 > Zero-Trust Decentralized Package Network
 
-## Current Development Phase
+## Current Development Phase 🔧
 
 _📢 We are looking for your feedback!_
 
@@ -19,7 +19,7 @@ Before getting started, take a moment to review our [contributing guidelines](ht
 
 ## Node and CLI
 
-There are two componenets of this project
+There are two components of this project
 
 - **[CLI](pyrsia_cli/)**: A basic interface which communicates with a node.
 - **[Node](pyrsia_node/)**: An instance of the Pyrsia daemon which can participate in the network with other nodes.
