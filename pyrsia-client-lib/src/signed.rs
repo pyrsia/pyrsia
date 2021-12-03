@@ -9,8 +9,11 @@ extern crate serde_json;
 
 use std::char::REPLACEMENT_CHARACTER;
 use std::io::Write;
+use std::ops::Index;
 use std::option::Option;
+use std::time::SystemTime;
 
+use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
 use chrono::prelude::*;
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
@@ -23,7 +26,6 @@ use openssl::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use crate::signed::json_parser::{JsonPathElement, parse};
 
 /// An enumeration of the supported signature algorithms
 #[derive(Deserialize, Serialize)]
@@ -42,7 +44,36 @@ impl JwsSignatureAlgorithms {
 }
 
 // The default size for RSA keys
-const DEFAULT_RSA_KEY_SIZE: u32 = 4096;
+const DEFAULT_RSA_KEY_SIZE: u32 = 8192;
+
+/// This contains the information from an individual verified signature of a struct or JSON.
+pub struct Attestation {
+    public_key: Vec<u8>,
+    timestamp: DateTime<Utc>,
+    expiration_time: Option<Utc>,
+    signature_is_valid: bool,
+}
+
+impl Attestation {
+    /// The public key of the signer
+    pub fn public_key(&self) -> &[u8] {
+        &self.public_key
+    }
+
+    /// The timestamp of the signature
+    pub fn timestamp(&self) -> &DateTime<Utc> {
+        &self.timestamp
+    }
+
+    /// The optional expiration time of the signature
+    pub fn expiration_time(&self) -> &Option<Utc> {
+        &self.expiration_time
+    }
+
+    pub fn signature_is_valid(&self) -> bool {
+        self.signature_is_valid
+    }
+}
 
 /// An instance of this struct is created to hold a key pair
 #[derive(Deserialize, Serialize)]
@@ -151,35 +182,81 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
 
     // TODO Add a way to add an expiration time, role and other attributes to signatures.
 
-    /// Verify the signature(s) of this struct's associated JSON.kp
+    /// Verify the signature(s) of this struct's associated JSON.
     ///
-    /// Return an error if any of the signatures are not valid.
-    fn verify_signature(&self) -> Result<(), anyhow::Error> {
-        self.json().map_or(Err(anyhow!(NOT_SIGNED)), |json| verify_json_signature(&json))
+    /// Returns information about the signatures, including whether each one is verifiec.
+    fn verify_signature(&self) -> Result<Vec<Attestation>, anyhow::Error> {
+        self.json().map_or(Err(anyhow!(NOT_SIGNED)), |json| {
+            verify_json_signature(&json)
+        })
     }
 
     // TODO add a method to get the details of the signatures in this struct's associated JSON.
 }
 
-fn verify_json_signature(json: &str) -> Result<(), anyhow::Error> {
+fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> {
     let mut signature_count = 0;
     let json32 = string_to_unicode_32(json);
-    let base_path : Vec<JsonPathElement> = Vec::from([json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)]);
+    let (before_signatures, signatures, after_signatures) = parse_signatures(&json32)?;
+    let mut attestations: Vec<Attestation> = Vec::new();
     loop {
-        let mut this_path = base_path.clone();
+        let mut this_path = Vec::new();
         this_path.push(JsonPathElement::Index(signature_count));
-        let parse_result = parse(&json32, &this_path);
-        if parse_result.is_err() {
-            break;
+        match parse(&signatures, &this_path) {
+            Ok((_, this_signature, _)) => attestations.push(verify_one_signature(
+                before_signatures,
+                this_signature,
+                after_signatures,
+            )),
+            Err(_) => break, // no more signatures
         }
-        todo!();
         signature_count += 1;
     }
     if signature_count == 0 {
-        return Err(anyhow!("JSON is not signed!"))
+        return Err(anyhow!(NOT_SIGNED));
     }
+    Ok((attestations))
+}
+
+fn parse_signatures<'a>(json32: &[u32]) -> Result<(&[u32], &[u32], &[u32]), anyhow::Error> {
+    let signature_path: Vec<JsonPathElement> =
+        Vec::from([json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)]);
+    let (before_signatures, signatures, after_signatures) = parse(&json32, &signature_path)?;
+    Ok((before_signatures, signatures, after_signatures))
+}
+
+// Verify one signature in
+fn verify_one_signature(
+    before_signatures: &[u32],
+    this_signature: &[u32],
+    after_signatures: &[u32],
+) -> Attestation {
+    // this_signature is a json string that contains a JWS. We will ignore the enclosing quotes and get the content as a string that is a JWS.
+    let jws = unicode_32_bit_to_string(&this_signature[1..this_signature.len() - 1]);
+    let public_key = public_key_from_jws(&jws);
     todo!();
-    Ok(())
+    Attestation {
+        signature_is_valid: false,
+        timestamp: DateTime::from(SystemTime::now()),
+        public_key: Vec::new(),
+        expiration_time: None,
+    }
+}
+
+fn public_key_from_jws(jws: &str) -> Option<Vec<u8>> {
+    let first_dot_index = match jws.find('.') {
+        Some(i) => i,
+        None => return None
+    };
+    // if decode fails treat it as a missing signature. Because this is security, we don't want to be helpful if the JWS is not correctly formatted.
+    match base64::decode_config( &jws[..first_dot_index], base64::STANDARD_NO_PAD) {
+        Ok(vec) => {
+            // let pk_path =
+            // (_, field, _) = parse()
+            Some(Vec::new())
+        },
+        Err(_) => None
+    }
 }
 
 // preprocess a json string to a Vec<32> whose elements each contain exactly one unicode character.
@@ -235,7 +312,8 @@ fn add_signature<'a>(
         &vec![json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)],
     )?;
     let header = create_jsw_header(der_public_key);
-    let before_string = unicode_32_bit_to_string(before);
+    let mut before_string = unicode_32_bit_to_string(before);
+    before_string.push(',');
     let after_string = unicode_32_bit_to_string(after);
     let jws = create_jws(
         signature_algorithm,
@@ -248,7 +326,7 @@ fn add_signature<'a>(
     let mut signed_json_buffer = String::from(before_string);
     if middle.is_empty() {
         // No existing signatures
-        signed_json_buffer.push_str(",\"");
+        signed_json_buffer.push('"');
         signed_json_buffer.push_str(SIGNATURE_FIELD_NAME);
         signed_json_buffer.push_str(r#"":[""#);
         signed_json_buffer.push_str(jws_string.as_str());
@@ -467,9 +545,11 @@ mod json_parser {
         } else {
             Err(anyhow!(format!(
                 "Unexpected character '{}' at position {} in json: {}",
-                &json_cursor.this_char.map_or(String::from("None"), |c| String::from(
-                    char::from_u32(*c).unwrap_or(REPLACEMENT_CHARACTER)
-                )),
+                &json_cursor
+                    .this_char
+                    .map_or(String::from("None"), |c| String::from(
+                        char::from_u32(*c).unwrap_or(REPLACEMENT_CHARACTER)
+                    )),
                 json_cursor.position,
                 unicode_32_bit_to_string(json_cursor.json_str)
             )))
@@ -593,7 +673,7 @@ mod json_parser {
         }
     }
 
-    pub fn parse_string<'a>(json_cursor: & mut JsonCursor) -> Result<Vec<u32>, anyhow::Error> {
+    pub fn parse_string<'a>(json_cursor: &mut JsonCursor) -> Result<Vec<u32>, anyhow::Error> {
         skip_whitespace(json_cursor);
         json_cursor.expect_char(u32::from('"'))?;
         let string_start = json_cursor.position;
@@ -622,9 +702,18 @@ mod json_parser {
     }
 
     fn is_whitespace(u: u32) -> bool {
-        u == 0x09 || u == 0x0a || u == 0x0d || u == 0x20 || u == 0x00a0 || u == 0x1680
-            || u == 0x180e || (u >= 0x2000  && u <= 0x200b) || u == 0x202f || u == 0x205f
-            || u == 0x3000 || u==0xfeff
+        u == 0x09
+            || u == 0x0a
+            || u == 0x0d
+            || u == 0x20
+            || u == 0x00a0
+            || u == 0x1680
+            || u == 0x180e
+            || (u >= 0x2000 && u <= 0x200b)
+            || u == 0x202f
+            || u == 0x205f
+            || u == 0x3000
+            || u == 0xfeff
     }
 
     pub fn path_to_str(path: &Vec<JsonPathElement>) -> String {
@@ -701,8 +790,7 @@ mod tests {
                     expected_after: &str,
                     path: Vec<JsonPathElement>|
          -> Result<(), anyhow::Error> {
-            let (actual_before, actual_middle, actual_after) =
-                parse(&json32, &path)?;
+            let (actual_before, actual_middle, actual_after) = parse(&json32, &path)?;
 
             assert_eq!(expected_before, unicode_32_bit_to_string(actual_before));
             assert_eq!(expected_middle, unicode_32_bit_to_string(actual_middle));
