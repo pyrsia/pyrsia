@@ -27,11 +27,6 @@ Before getting started, take a moment to review our [contributing guidelines](ht
 2. `cd pyrsia-node`
 3. `cargo run`
 
-### Generating Test Coverage Report
-1. `cd pyrsia-sandbox`
-2. `sh ./test_code_coverage.sh`
-
-
 ### Setting Up Visual Studio Code Debugger
 
 [How to Debug Rust with Visual Studio Code](https://www.forrestthewoods.com/blog/how-to-debug-rust-with-visual-studio-code/)
