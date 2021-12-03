@@ -39,8 +39,8 @@ mod tests {
 
     #[test]
     fn test_get() {
-        let file_name: String = String::from("/tmp/great_expectations.txt");
-        let uri: String = String::from("https://raw.githubusercontent.com/pyrsia/pyrsia-sandbox/main/readme.md?token=AEAWA47GTNHXLNYIKA3TVNLBWIY3M");
+        let file_name: String = String::from("/tmp/apache_license.txt");
+        let uri: String = String::from("https://raw.githubusercontent.com/pyrsia/.github/main/LICENSE");
         let result = get(File::create(file_name.clone()).unwrap(), uri);
         match futures::executor::block_on(result) {
             Err(_) => println!("Caught an error"),
@@ -49,7 +49,7 @@ mod tests {
 
         let f: File = File::open(file_name.clone()).unwrap();
         let first: String = String::from(first_line(BufReader::new(f)));
-        let right: String = String::from("# Pyrsia");
+        let right: String = String::from("Apache License");
         assert_eq!(first.trim(), right);
         println!("\u{2705} test passed.");
         match std::fs::remove_file(file_name.clone()) {
