@@ -40,7 +40,8 @@ mod tests {
     #[test]
     fn test_get() {
         let file_name: String = String::from("/tmp/apache_license.txt");
-        let uri: String = String::from("https://raw.githubusercontent.com/pyrsia/.github/main/LICENSE");
+        let uri: String =
+            String::from("https://raw.githubusercontent.com/pyrsia/.github/main/LICENSE");
         let result = get(File::create(file_name.clone()).unwrap(), uri);
         match futures::executor::block_on(result) {
             Err(_) => println!("Caught an error"),
