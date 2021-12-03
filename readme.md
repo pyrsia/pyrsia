@@ -2,7 +2,7 @@
 
 > Zero-Trust Decentralized Package Network
 
-## Current Development Phase 🔧
+## Current Development Phase
 
 _📢 We are looking for your feedback!_
 
