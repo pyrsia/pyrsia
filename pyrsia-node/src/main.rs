@@ -25,7 +25,6 @@ use identity::Keypair;
 use std::collections::HashMap;
 use std::env;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::path::Path;
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
@@ -37,9 +36,7 @@ use libp2p::{
 };
 use log::{debug, error, info};
 use tokio::io::{self, AsyncBufReadExt};
-use warp::http::StatusCode;
 use warp::Filter;
-use warp::{Rejection, Reply};
 
 const DEFAULT_PORT: &str = "7878";
 
@@ -140,7 +137,7 @@ async fn main() {
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(move |name, hash| handle_get_blobs_with_fallback(tx1.clone(), name, hash));
+        .and_then(move |name, hash| handle_get_blobs(tx1.clone(), name, hash));
     let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
         .and(warp::post())
         .and_then(handle_post_blob);
@@ -196,32 +193,4 @@ async fn main() {
             }
         }
     }
-}
-
-async fn handle_get_blobs_with_fallback(
-    tx: tokio::sync::mpsc::Sender<String>,
-    _name: String,
-    hash: String,
-) -> Result<impl Reply, Rejection> {
-    let blob = format!(
-        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
-        hash.get(7..9).unwrap(),
-        hash.get(7..).unwrap()
-    );
-
-    debug!("Searching for blob: {}", blob);
-    let blob_path = Path::new(&blob);
-    if !blob_path.exists() {
-        match tx.send(hash).await {
-            Ok(_) => debug!("hash sent"),
-            Err(_) => error!("failed to send stdin input")
-        }
-    }
-
-    let content: std::vec::Vec<u8> = vec![];
-    Ok(warp::http::response::Builder::new()
-        .header("Content-Type", "application/octet-stream")
-        .status(StatusCode::OK)
-        .body(content)
-        .unwrap())
 }
