@@ -2,6 +2,7 @@ extern crate anyhow;
 extern crate base64;
 extern crate chrono;
 extern crate detached_jws;
+extern crate log;
 extern crate openssl;
 extern crate serde;
 extern crate serde_jcs;
@@ -272,6 +273,7 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
 }
 
 fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> {
+
     let mut signature_count = 0;
     let json32 = string_to_unicode_32(json);
     let (before_signatures, signatures, after_signatures) = parse_signatures(&json32)?;
