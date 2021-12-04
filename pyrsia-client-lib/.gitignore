@@ -1,2 +1,2 @@
-# Because this is a library, we don't want to commit the Corgo.lock
+# Because this is a library, we don't want to commit the Cargo.lock
 Cargo.lock
