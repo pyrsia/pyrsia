@@ -9,9 +9,7 @@ extern crate serde_json;
 
 use std::char::REPLACEMENT_CHARACTER;
 use std::io::Write;
-use std::ops::Index;
 use std::option::Option;
-use std::time::SystemTime;
 
 use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
@@ -1027,9 +1025,6 @@ mod tests {
 
     #[test]
     fn happy_path_for_signing() -> Result<(), anyhow::Error> {
-        let key_pair: SignatureKeyPair =
-            crate::signed::create_key_pair(JwsSignatureAlgorithms::RS512)?;
-
         // create a key pair for other signing types to see that they succeed
         let key_pair = super::create_key_pair(JwsSignatureAlgorithms::RS512)?;
         println!("Created key pair");
