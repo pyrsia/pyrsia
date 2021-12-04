@@ -263,14 +263,14 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
 
     /// Verify the signature(s) of this struct's associated JSON.
     ///
-    /// Returns information about the signatures, including whether each one is verified.
+    /// Returns an Attestation struct for each signature. These contain information about the
+    /// signatures, including whether each one is verified.
+    /// If there are no valid signatures an error is returned.
     fn verify_signature(&self) -> Result<Vec<Attestation>, anyhow::Error> {
         self.json().map_or(Err(anyhow!(NOT_SIGNED)), |json| {
             verify_json_signature(&json)
         })
     }
-
-    // TODO add a method to get the details of the signatures in this struct's associated JSON.
 }
 
 fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> {
@@ -1047,6 +1047,9 @@ mod tests {
         )
         .context("Error signing struct")?;
         println!("Signed json from foo {}", foo.json().unwrap());
+        let attestations = foo.verify_signature()?;
+        assert_eq!(1, attestations.len());
+        assert!(attestations[0].signature_is_valid);
         Ok(())
     }
 }
