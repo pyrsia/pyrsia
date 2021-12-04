@@ -263,7 +263,7 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
 
     /// Verify the signature(s) of this struct's associated JSON.
     ///
-    /// Returns information about the signatures, including whether each one is verifiec.
+    /// Returns information about the signatures, including whether each one is verified.
     fn verify_signature(&self) -> Result<Vec<Attestation>, anyhow::Error> {
         self.json().map_or(Err(anyhow!(NOT_SIGNED)), |json| {
             verify_json_signature(&json)
@@ -383,9 +383,9 @@ fn header_from_jws(jws: &str) -> Option<String> {
     match base64::decode_config(&jws[..first_dot_index], base64::STANDARD_NO_PAD) {
         Ok(decoded_json) => {
             match String::from_utf8(decoded_json) {
-                Ok(string) => return Some(string),
+                Ok(string) => Some(string),
                 Err(_) => return None,
-            };
+            }
         }
         Err(_) => None,
     }
