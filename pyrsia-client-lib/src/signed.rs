@@ -35,11 +35,32 @@ pub enum JwsSignatureAlgorithms {
 }
 
 impl JwsSignatureAlgorithms {
-    pub fn to_string(&self) -> String {
+    /// Return a string that contains the JWS name of this.
+    pub fn to_jws_name(&self) -> String {
         String::from(match self {
             JwsSignatureAlgorithms::RS512 => "RS512",
             JwsSignatureAlgorithms::RS384 => "RS384",
         })
+    }
+
+    /// Return a MessageDigest appropriate for the algorithm.
+    fn to_message_digest(&self) -> MessageDigest {
+        match self {
+            JwsSignatureAlgorithms::RS512 => MessageDigest::sha512(),
+            JwsSignatureAlgorithms::RS384 => MessageDigest::sha384(),
+        }
+    }
+
+    /// Return the supported algorithm that corresponds to the given JWS name.
+    pub fn from_jws_name(jws_name: &str) -> Option<JwsSignatureAlgorithms> {
+        let name = jws_name.to_uppercase();
+        if "RS512" == name {
+            Some(JwsSignatureAlgorithms::RS512)
+        } else if "RS384" == name {
+            Some(JwsSignatureAlgorithms::RS384)
+        } else {
+            None
+        }
     }
 }
 
@@ -48,30 +69,88 @@ const DEFAULT_RSA_KEY_SIZE: u32 = 8192;
 
 /// This contains the information from an individual verified signature of a struct or JSON.
 pub struct Attestation {
-    public_key: Vec<u8>,
-    timestamp: DateTime<Utc>,
-    expiration_time: Option<Utc>,
+    public_key: Option<Vec<u8>>,
+    signature_algorithm: Option<JwsSignatureAlgorithms>,
+    timestamp: Option<DateTime<Utc>>,
+    expiration_time: Option<DateTime<Utc>>,
     signature_is_valid: bool,
 }
 
 impl Attestation {
     /// The public key of the signer
-    pub fn public_key(&self) -> &[u8] {
+    pub fn public_key(&self) -> &Option<Vec<u8>> {
         &self.public_key
     }
 
+    /// The signature algorithm
+    pub fn signature_algorithm(&self) -> &Option<JwsSignatureAlgorithms> {
+        &self.signature_algorithm
+    }
+
     /// The timestamp of the signature
-    pub fn timestamp(&self) -> &DateTime<Utc> {
+    pub fn timestamp(&self) -> &Option<DateTime<Utc>> {
         &self.timestamp
     }
 
     /// The optional expiration time of the signature
-    pub fn expiration_time(&self) -> &Option<Utc> {
+    pub fn expiration_time(&self) -> &Option<DateTime<Utc>> {
         &self.expiration_time
     }
 
+    /// True if signature verification determined that the signature is valid.
     pub fn signature_is_valid(&self) -> bool {
         self.signature_is_valid
+    }
+
+    fn set_is_valid(&mut self, v: bool) {
+        self.signature_is_valid = v
+    }
+
+    // create an attestation with all the information from the JWS header.
+    // The is_valid field is set to false. It is the responsibility of the caller to change it if valid.
+    pub fn from_json(jws_header: &str) -> Attestation {
+        let mut attestation = Attestation {
+            signature_is_valid: false,
+            signature_algorithm: None,
+            expiration_time: None,
+            timestamp: None,
+            public_key: None,
+        };
+        let json_header: Value = match serde_json::from_str(jws_header) {
+            Ok(json) => json,
+            Err(_) => return attestation,
+        };
+        attestation.signature_algorithm = match &json_header[ALG_FIELD_NAME] {
+            Value::String(alg_string) => JwsSignatureAlgorithms::from_jws_name(alg_string),
+            _ => None,
+        };
+        attestation.expiration_time =
+            Self::date_time_from_json(&json_header, EXPIRATION_FIELD_NAME);
+        attestation.timestamp = Self::date_time_from_json(&json_header, TIMESTAMP_FIELD_NAME);
+        attestation.public_key = Self::public_key_from_json(&json_header);
+        attestation
+    }
+
+    fn date_time_from_json(json_header: &Value, field_name: &str) -> Option<DateTime<Utc>> {
+        match &json_header[field_name] {
+            Value::String(time_string) => match time_string.parse::<DateTime<Utc>>() {
+                Ok(date_time) => Some(date_time),
+                Err(_) => None,
+            },
+            _ => None,
+        }
+    }
+
+    fn public_key_from_json(json_header: &Value) -> Option<Vec<u8>> {
+        match &json_header[SIGNATURE_FIELD_NAME] {
+            Value::String(key_string) => {
+                match base64::decode_config(key_string, base64::STANDARD_NO_PAD) {
+                    Ok(key) => Some(key),
+                    Err(_) => None,
+                }
+            }
+            _ => None,
+        }
     }
 }
 
@@ -233,12 +312,19 @@ fn verify_one_signature(
 ) -> Attestation {
     // this_signature is a json string that contains a JWS. We will ignore the enclosing quotes and get the content as a string that is a JWS.
     let jws = unicode_32_bit_to_string(&this_signature[1..this_signature.len() - 1]);
-    let public_key = public_key_from_jws(&jws);
+    let public_key_der = public_key_from_jws(&jws);
+    // This is RSA specific. This should be generalized to support other types of signatures.
+    // let public_key = sa::public_key_from_der(public_key_der)
+    // let kp: PKey<Public> = PKey::from_rsa(Rsa::public_key_from_der(public_key_der))?;
+    // let mut signer = Signer::new(signature_algorithm.to_message_digest(), &kp).context("Problem using key pair")?;
+    // signer.set_rsa_padding(Padding::PKCS1_PSS)?;
+
     todo!();
     Attestation {
+        signature_algorithm: None,
         signature_is_valid: false,
-        timestamp: DateTime::from(SystemTime::now()),
-        public_key: Vec::new(),
+        timestamp: None,
+        public_key: None,
         expiration_time: None,
     }
 }
@@ -246,17 +332,47 @@ fn verify_one_signature(
 fn public_key_from_jws(jws: &str) -> Option<Vec<u8>> {
     let first_dot_index = match jws.find('.') {
         Some(i) => i,
-        None => return None
+        None => return None,
     };
     // if decode fails treat it as a missing signature. Because this is security, we don't want to be helpful if the JWS is not correctly formatted.
-    match base64::decode_config( &jws[..first_dot_index], base64::STANDARD_NO_PAD) {
-        Ok(vec) => {
-            // let pk_path =
-            // (_, field, _) = parse()
-            Some(Vec::new())
-        },
-        Err(_) => None
+    match base64::decode_config(&jws[..first_dot_index], base64::STANDARD_NO_PAD) {
+        Ok(decoded_json) => {
+            let header_json = match String::from_utf8(decoded_json) {
+                Ok(string) => string,
+                Err(_) => return None,
+            };
+            let header32 = string_to_unicode_32(&header_json);
+            let signer_path = vec![JsonPathElement::Field(SIGNER_FIELD_NAME)];
+            let signer_field = match parse(&header32, &signer_path) {
+                Ok((_, signer_field, _)) => signer_field,
+                Err(_) => return None,
+            };
+            let colon_index = match slice_find(signer_field, u32::from(':')) {
+                Some(i) => i,
+                None => return None,
+            };
+            if colon_index + 3 > signer_field.len() {
+                return None;
+            }
+            match base64::decode_config(
+                unicode_32_bit_to_string(&signer_field[colon_index + 2..signer_field.len() - 1]),
+                base64::STANDARD_NO_PAD,
+            ) {
+                Ok(public_key) => Some(public_key),
+                Err(_) => return None,
+            }
+        }
+        Err(_) => None,
     }
+}
+
+fn slice_find<T: std::cmp::PartialEq>(u: &[T], target: T) -> Option<usize> {
+    for i in 0..u.len() {
+        if u[i] == target {
+            return Some(i);
+        }
+    }
+    None
 }
 
 // preprocess a json string to a Vec<32> whose elements each contain exactly one unicode character.
@@ -269,6 +385,10 @@ fn string_to_unicode_32(raw: &str) -> Vec<u32> {
 }
 
 const SIGNATURE_FIELD_NAME: &str = "__signature";
+const SIGNER_FIELD_NAME: &'static str = "signer";
+const ALG_FIELD_NAME: &str = "alg";
+const TIMESTAMP_FIELD_NAME: &str = "timestamp";
+const EXPIRATION_FIELD_NAME: &str = "ext";
 
 // Error Strings
 const NOT_SIGNED: &str = "Not signed!";
@@ -289,14 +409,8 @@ fn with_signer<'a>(
     // This is RSA specific. This should be generalized to support other types of signatures.
     let private_key: Rsa<Private> = Rsa::private_key_from_der(der_private_key)?;
     let kp: PKey<Private> = PKey::from_rsa(private_key)?;
-    let mut signer = match signature_algorithm {
-        JwsSignatureAlgorithms::RS512 => {
-            Signer::new(MessageDigest::sha512(), &kp).context("Problem using key pair")
-        }
-        JwsSignatureAlgorithms::RS384 => {
-            Signer::new(MessageDigest::sha384(), &kp).context("Problem using key pair")
-        }
-    }?;
+    let mut signer = Signer::new(signature_algorithm.to_message_digest(), &kp)
+        .context("Problem using key pair")?;
     signer.set_rsa_padding(Padding::PKCS1_PSS)?;
     signing_function(signature_algorithm, signer, der_public_key, target_json)
 }
@@ -348,8 +462,12 @@ fn create_jws(
     after: &str,
     header: Map<String, Value>,
 ) -> Result<Vec<u8>, anyhow::Error> {
-    let mut writer =
-        SerializeJwsWriter::new(Vec::new(), signature_algorithm.to_string(), header, signer)?;
+    let mut writer = SerializeJwsWriter::new(
+        Vec::new(),
+        signature_algorithm.to_jws_name(),
+        header,
+        signer,
+    )?;
     writer.write_all(before.as_bytes())?;
     writer.write_all(after.as_bytes())?;
     let jws = writer.finish()?;
@@ -366,10 +484,13 @@ fn unicode_32_bit_to_string(u: &[u32]) -> String {
 fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
     let mut header = Map::new();
     header.insert(
-        "signer".to_owned(),
+        SIGNER_FIELD_NAME.to_owned(),
         json!(base64::encode_config(public_key, base64::STANDARD_NO_PAD)),
     );
-    header.insert("timestamp".to_owned(), json!(format!("{:?}", Utc::now())));
+    header.insert(
+        TIMESTAMP_FIELD_NAME.to_owned(),
+        json!(format!("{:?}", Utc::now())),
+    );
     header
 }
 
@@ -895,6 +1016,7 @@ mod tests {
 
         // create a key pair for other signing types to see that they succeed
         let key_pair = super::create_key_pair(JwsSignatureAlgorithms::RS512)?;
+        println!("Created key pair");
 
         let mut foo = Foo {
             foo: "π is 16 bit unicode",
