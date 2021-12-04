@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
 /// An enumeration of the supported signature algorithms
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Copy, Clone)]
 pub enum JwsSignatureAlgorithms {
     RS512,
     RS384,
@@ -304,32 +304,77 @@ fn parse_signatures<'a>(json32: &[u32]) -> Result<(&[u32], &[u32], &[u32]), anyh
     Ok((before_signatures, signatures, after_signatures))
 }
 
+const EMPTY_ATTESTATION: Attestation = Attestation {
+    signature_algorithm: None,
+    signature_is_valid: false,
+    timestamp: None,
+    public_key: None,
+    expiration_time: None,
+};
+
 // Verify one signature in
 fn verify_one_signature(
     before_signatures: &[u32],
-    this_signature: &[u32],
+    this_jws: &[u32],
     after_signatures: &[u32],
 ) -> Attestation {
     // this_signature is a json string that contains a JWS. We will ignore the enclosing quotes and get the content as a string that is a JWS.
-    let jws = unicode_32_bit_to_string(&this_signature[1..this_signature.len() - 1]);
-    let public_key_der = public_key_from_jws(&jws);
-    // This is RSA specific. This should be generalized to support other types of signatures.
-    // let public_key = sa::public_key_from_der(public_key_der)
-    // let kp: PKey<Public> = PKey::from_rsa(Rsa::public_key_from_der(public_key_der))?;
-    // let mut signer = Signer::new(signature_algorithm.to_message_digest(), &kp).context("Problem using key pair")?;
-    // signer.set_rsa_padding(Padding::PKCS1_PSS)?;
-
-    todo!();
-    Attestation {
-        signature_algorithm: None,
-        signature_is_valid: false,
-        timestamp: None,
-        public_key: None,
-        expiration_time: None,
-    }
+    let jws = unicode_32_bit_to_string(&this_jws[1..this_jws.len() - 1]);
+    let jws_header = match header_from_jws(&jws) {
+        Some(string) => string,
+        None => return EMPTY_ATTESTATION,
+    };
+    let mut attestation = Attestation::from_json(&jws_header);
+    attestation.signature_is_valid = attestation.public_key.as_ref().map_or(false, |public_key| {
+        attestation
+            .signature_algorithm
+            // This is RSA specific. This should be generalized to support other types of signatures.
+            .map_or(false, |alg| {
+                Rsa::public_key_from_der(&public_key).map_or(false, |rsa_key| {
+                    PKey::from_rsa(rsa_key).map_or(false, |pkey| {
+                        Verifier::new(alg.to_message_digest(), &pkey).map_or(
+                            false,
+                            |mut verifier| {
+                                verifier
+                                    .set_rsa_padding(Padding::PKCS1_PSS)
+                                    .map_or(false, |_| {
+                                        DeserializeJwsWriter::new(&jws, |h| Some(verifier)).map_or(
+                                            false,
+                                            |mut writer| {
+                                                writer
+                                                    .write(
+                                                        &unicode_32_bit_to_string(
+                                                            before_signatures,
+                                                        )
+                                                        .as_bytes(),
+                                                    )
+                                                    .map_or(false, |_| {
+                                                        writer
+                                                            .write(
+                                                                &unicode_32_bit_to_string(
+                                                                    after_signatures,
+                                                                )
+                                                                .as_bytes(),
+                                                            )
+                                                            .map_or(false, |_| {
+                                                                writer
+                                                                    .finish()
+                                                                    .map_or(false, |_| true)
+                                                            })
+                                                    })
+                                            },
+                                        )
+                                    })
+                            },
+                        )
+                    })
+                })
+            })
+    });
+    attestation
 }
 
-fn public_key_from_jws(jws: &str) -> Option<Vec<u8>> {
+fn header_from_jws(jws: &str) -> Option<String> {
     let first_dot_index = match jws.find('.') {
         Some(i) => i,
         None => return None,
@@ -337,42 +382,13 @@ fn public_key_from_jws(jws: &str) -> Option<Vec<u8>> {
     // if decode fails treat it as a missing signature. Because this is security, we don't want to be helpful if the JWS is not correctly formatted.
     match base64::decode_config(&jws[..first_dot_index], base64::STANDARD_NO_PAD) {
         Ok(decoded_json) => {
-            let header_json = match String::from_utf8(decoded_json) {
-                Ok(string) => string,
+            match String::from_utf8(decoded_json) {
+                Ok(string) => return Some(string),
                 Err(_) => return None,
             };
-            let header32 = string_to_unicode_32(&header_json);
-            let signer_path = vec![JsonPathElement::Field(SIGNER_FIELD_NAME)];
-            let signer_field = match parse(&header32, &signer_path) {
-                Ok((_, signer_field, _)) => signer_field,
-                Err(_) => return None,
-            };
-            let colon_index = match slice_find(signer_field, u32::from(':')) {
-                Some(i) => i,
-                None => return None,
-            };
-            if colon_index + 3 > signer_field.len() {
-                return None;
-            }
-            match base64::decode_config(
-                unicode_32_bit_to_string(&signer_field[colon_index + 2..signer_field.len() - 1]),
-                base64::STANDARD_NO_PAD,
-            ) {
-                Ok(public_key) => Some(public_key),
-                Err(_) => return None,
-            }
         }
         Err(_) => None,
     }
-}
-
-fn slice_find<T: std::cmp::PartialEq>(u: &[T], target: T) -> Option<usize> {
-    for i in 0..u.len() {
-        if u[i] == target {
-            return Some(i);
-        }
-    }
-    None
 }
 
 // preprocess a json string to a Vec<32> whose elements each contain exactly one unicode character.
