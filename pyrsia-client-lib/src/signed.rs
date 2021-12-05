@@ -1,6 +1,5 @@
 extern crate anyhow;
 extern crate base64;
-extern crate chrono;
 extern crate detached_jws;
 extern crate log;
 extern crate openssl;
@@ -15,7 +14,6 @@ use std::option::Option;
 
 use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
-use chrono::prelude::*;
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
 use log::{debug, info, trace};
 use openssl::pkey::{PKey, Private};
@@ -26,6 +24,8 @@ use openssl::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use time::{format_description, OffsetDateTime};
+use time::format_description::FormatItem;
 
 /// An enumeration of the supported signature algorithms
 #[derive(Deserialize, Serialize, Copy, Clone)]
@@ -67,12 +67,14 @@ impl JwsSignatureAlgorithms {
 // The default size for RSA keys
 const DEFAULT_RSA_KEY_SIZE: u32 = 8192;
 
+const ISO8601_FORMAT: &str = "[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:3]Z";
+
 /// This contains the information from an individual verified signature of a struct or JSON.
 pub struct Attestation {
     public_key: Option<Vec<u8>>,
     signature_algorithm: Option<JwsSignatureAlgorithms>,
-    timestamp: Option<DateTime<Utc>>,
-    expiration_time: Option<DateTime<Utc>>,
+    timestamp: Option<OffsetDateTime>,
+    expiration_time: Option<OffsetDateTime>,
     signature_is_valid: bool,
 }
 
@@ -88,12 +90,12 @@ impl Attestation {
     }
 
     /// The timestamp of the signature
-    pub fn timestamp(&self) -> &Option<DateTime<Utc>> {
+    pub fn timestamp(&self) -> &Option<OffsetDateTime> {
         &self.timestamp
     }
 
     /// The optional expiration time of the signature
-    pub fn expiration_time(&self) -> &Option<DateTime<Utc>> {
+    pub fn expiration_time(&self) -> &Option<OffsetDateTime> {
         &self.expiration_time
     }
 
@@ -127,9 +129,9 @@ impl Attestation {
         attestation
     }
 
-    fn date_time_from_json(json_header: &Value, field_name: &str) -> Option<DateTime<Utc>> {
+    fn date_time_from_json(json_header: &Value, field_name: &str) -> Option<OffsetDateTime> {
         match &json_header[field_name] {
-            Value::String(time_string) => match time_string.parse::<DateTime<Utc>>() {
+            Value::String(time_string) => match OffsetDateTime::parse(time_string, &iso8601_format_spec()) {
                 Ok(date_time) => Some(date_time),
                 Err(_) => None,
             },
@@ -525,15 +527,25 @@ fn unicode_32_bit_to_string(u: &[u32]) -> String {
     s
 }
 
+fn iso8601_format_spec() -> Vec<FormatItem<'static>> {
+    format_description::parse(&ISO8601_FORMAT).unwrap() // Call unwrap because this format spec is tested and should never fail. If it does, there is nothing to do but panic.
+}
+
+fn now_as_iso8601_string() -> String {
+    OffsetDateTime::now_utc().format(&iso8601_format_spec()).unwrap() // If the formatting fails there is no reasonable action but panic.
+}
+
 fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
     let mut header = Map::new();
     header.insert(
         SIGNER_FIELD_NAME.to_owned(),
         json!(base64::encode_config(public_key, base64::STANDARD_NO_PAD)),
     );
+    let now_string = now_as_iso8601_string();
+    trace!("Timestamping signature at {}", now_string);
     header.insert(
         TIMESTAMP_FIELD_NAME.to_owned(),
-        json!(format!("{:?}", Utc::now())),
+        json!(format!("{:?}", now_string)),
     );
     header
 }
