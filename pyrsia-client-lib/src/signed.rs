@@ -288,6 +288,9 @@ fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> 
         this_path.push(JsonPathElement::Index(signature_count));
         match parse(signatures, &this_path) {
             Ok((_, this_signature, _)) => {
+                if this_signature.is_empty() {
+                    break;
+                }
                 trace!("verify_json_signature: this_signature={}", unicode_32_bit_to_string(this_signature));
                 attestations.push(verify_one_signature(
                 before_signatures,
@@ -364,7 +367,7 @@ fn verify_one_signature(
                                 verifier
                                     .set_rsa_padding(Padding::PKCS1_PSS)
                                     .map_or(false, |_| {
-                                        DeserializeJwsWriter::new(&jws, |h| Some(verifier)).map_or(
+                                        DeserializeJwsWriter::new(&jws, |_| Some(verifier)).map_or(
                                             false,
                                             |mut writer| {
                                                 writer
