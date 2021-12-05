@@ -3184,6 +3184,7 @@ dependencies = [
  "base64",
  "chrono",
  "detached-jws",
+ "env_logger 0.9.0",
  "log",
  "openssl",
  "serde",

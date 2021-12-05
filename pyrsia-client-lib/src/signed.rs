@@ -16,10 +16,10 @@ use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
 use chrono::prelude::*;
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
+use log::{debug, info, trace};
 use openssl::pkey::{PKey, Private, Public};
 use openssl::{
     hash::MessageDigest,
-    pkey::PKeyRef,
     rsa::{Padding, Rsa},
     sign::{Signer, Verifier},
 };
@@ -107,7 +107,7 @@ impl Attestation {
 
     // create an attestation with all the information from the JWS header.
     // The is_valid field is set to false. It is the responsibility of the caller to change it if valid.
-    pub fn from_json(jws_header: &str) -> Attestation {
+    fn from_json(jws_header: &str) -> Attestation {
         let mut attestation = Attestation {
             signature_is_valid: false,
             signature_algorithm: None,
@@ -141,7 +141,7 @@ impl Attestation {
     }
 
     fn public_key_from_json(json_header: &Value) -> Option<Vec<u8>> {
-        match &json_header[SIGNATURE_FIELD_NAME] {
+        match &json_header[SIGNER_FIELD_NAME] {
             Value::String(key_string) => {
                 match base64::decode_config(key_string, base64::STANDARD_NO_PAD) {
                     Ok(key) => Some(key),
@@ -273,28 +273,48 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
 }
 
 fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> {
-
+    debug!("Verifying signatures: {}", json);
     let mut signature_count = 0;
     let json32 = string_to_unicode_32(json);
-    let (before_signatures, signatures, after_signatures) = parse_signatures(&json32)?;
+    let (before_signatures, signatures_field, after_signatures) = parse_signatures(&json32)?;
+    let colon_index = match slice_find(signatures_field, u32::from(':')) {
+        Some(i) => i,
+        None => return Err(anyhow!("Corrupt jws")),
+    };
+    let signatures = &signatures_field[colon_index + 1..];
     let mut attestations: Vec<Attestation> = Vec::new();
     loop {
         let mut this_path = Vec::new();
         this_path.push(JsonPathElement::Index(signature_count));
-        match parse(&signatures, &this_path) {
-            Ok((_, this_signature, _)) => attestations.push(verify_one_signature(
+        match parse(signatures, &this_path) {
+            Ok((_, this_signature, _)) => {
+                trace!("verify_json_signature: this_signature={}", unicode_32_bit_to_string(this_signature));
+                attestations.push(verify_one_signature(
                 before_signatures,
                 this_signature,
                 after_signatures,
-            )),
-            Err(_) => break, // no more signatures
+            ))},
+            Err(_) => {
+                trace!("No more signatures");
+                break;
+            }
         }
         signature_count += 1;
     }
+    trace!("signature_count={}", signature_count);
     if signature_count == 0 {
         return Err(anyhow!(NOT_SIGNED));
     }
-    Ok((attestations))
+    Ok(attestations)
+}
+
+fn slice_find<T: PartialEq>(slice: &[T], x: T) -> Option<usize> {
+    for i in 0..slice.len() {
+        if slice[i] == x {
+            return Some(i);
+        }
+    }
+    None
 }
 
 fn parse_signatures<'a>(json32: &[u32]) -> Result<(&[u32], &[u32], &[u32]), anyhow::Error> {
@@ -318,6 +338,12 @@ fn verify_one_signature(
     this_jws: &[u32],
     after_signatures: &[u32],
 ) -> Attestation {
+    trace!(
+        "verify_one_signature: before=\"{}\"; after=\"{}\"; jws=\"{}\"",
+        unicode_32_bit_to_string(before_signatures),
+        unicode_32_bit_to_string(after_signatures),
+        unicode_32_bit_to_string(this_jws)
+    );
     // this_signature is a json string that contains a JWS. We will ignore the enclosing quotes and get the content as a string that is a JWS.
     let jws = unicode_32_bit_to_string(&this_jws[1..this_jws.len() - 1]);
     let jws_header = match header_from_jws(&jws) {
@@ -381,12 +407,10 @@ fn header_from_jws(jws: &str) -> Option<String> {
     };
     // if decode fails treat it as a missing signature. Because this is security, we don't want to be helpful if the JWS is not correctly formatted.
     match base64::decode_config(&jws[..first_dot_index], base64::STANDARD_NO_PAD) {
-        Ok(decoded_json) => {
-            match String::from_utf8(decoded_json) {
-                Ok(string) => Some(string),
-                Err(_) => return None,
-            }
-        }
+        Ok(decoded_json) => match String::from_utf8(decoded_json) {
+            Ok(string) => Some(string),
+            Err(_) => return None,
+        },
         Err(_) => None,
     }
 }
@@ -516,6 +540,7 @@ mod json_parser {
     use super::string_to_unicode_32;
     use crate::signed::unicode_32_bit_to_string;
     use anyhow::anyhow;
+    use log::{debug, trace};
     use serde_json::json;
     use std::char::REPLACEMENT_CHARACTER;
     use std::slice::Iter;
@@ -606,8 +631,10 @@ mod json_parser {
         path: &Vec<JsonPathElement>,
     ) -> Result<(&'a [u32], &'a [u32], &'a [u32]), anyhow::Error> {
         if path.is_empty() {
+            debug!("parse: Empty path; nothing to find");
             return Err(anyhow!("Empty path; nothing to find"));
         }
+        trace!("parse: parsing {}", unicode_32_bit_to_string(json));
         let mut start_of_target: usize = 0;
         let mut end_of_target: usize = 0;
         parse_value(
@@ -618,6 +645,7 @@ mod json_parser {
         )?;
         if end_of_target == 0 && end_of_target <= start_of_target || end_of_target < start_of_target
         {
+            debug!("parse: Did not find {}", path_to_str(path));
             return Err(anyhow!(format!("Did not find {}", path_to_str(path))));
         }
         Ok((
@@ -911,6 +939,7 @@ mod tests {
 
     #[test]
     fn path_to_string_test() {
+        env_logger::try_init().unwrap_or_default();
         let path = vec![
             JsonPathElement::Field("__signature"),
             JsonPathElement::Index(4),
@@ -920,6 +949,7 @@ mod tests {
 
     #[test]
     fn parse_json() -> Result<(), anyhow::Error> {
+        env_logger::try_init().unwrap_or_default();
         let json = r#"{"boo":true,"number":234,"nul":null, "ob":{"a":123,"b":"str"}, "arr":[3, true, {"sig":"mund", "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#;
         let json32 = string_to_unicode_32(json);
         let test = |expected_before: &str,
@@ -995,6 +1025,7 @@ mod tests {
 
     #[test]
     fn parse_string_happy_test() -> Result<(), anyhow::Error> {
+        env_logger::try_init().unwrap_or_default();
         let test32 = string_to_unicode_32("  \"The quick Brown fox.\" ");
         let mut cursor = JsonCursor::new(&test32);
         let parsed_string = parse_string(&mut cursor)?;
@@ -1005,6 +1036,7 @@ mod tests {
 
     #[test]
     fn parse_string_escape() -> Result<(), anyhow::Error> {
+        env_logger::try_init().unwrap_or_default();
         let test32 = string_to_unicode_32("  \"The quick \\\"Brown\\\" fox.\" ");
         let mut cursor = JsonCursor::new(&test32);
         let parsed_string = parse_string(&mut cursor)?;
@@ -1015,6 +1047,7 @@ mod tests {
 
     #[test]
     fn parse_string_unterminated() -> Result<(), anyhow::Error> {
+        env_logger::try_init().unwrap_or_default();
         let test32 = string_to_unicode_32("  \"The quick \\\"Brown\\\" fox. ");
         let mut cursor = JsonCursor::new(&test32);
         match parse_string(&mut cursor) {
@@ -1027,9 +1060,10 @@ mod tests {
 
     #[test]
     fn happy_path_for_signing() -> Result<(), anyhow::Error> {
+        env_logger::try_init().unwrap_or_default();
         // create a key pair for other signing types to see that they succeed
         let key_pair = super::create_key_pair(JwsSignatureAlgorithms::RS512)?;
-        println!("Created key pair");
+        info!("Created key pair");
 
         let mut foo = Foo {
             foo: "π is 16 bit unicode",
@@ -1043,7 +1077,7 @@ mod tests {
             &key_pair.public_key,
         )
         .context("Error signing struct")?;
-        println!("Signed json from foo {}", foo.json().unwrap());
+        info!("Signed json from foo {}", foo.json().unwrap());
         let attestations = foo.verify_signature()?;
         assert_eq!(1, attestations.len());
         assert!(attestations[0].signature_is_valid);
