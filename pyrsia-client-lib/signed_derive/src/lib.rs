@@ -1,5 +1,4 @@
 // This defines the SignedStruct macro. See the documentation for the Signed trait for documentation.
-#![allow(mixed_script_confusables)] // This is to allow structs created by a derive macro to have private fields that begin with the grek letter π
 
 extern crate proc_macro;
 
@@ -14,15 +13,15 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
     let output = quote! {
     impl<'a> Signed<'a> for #ident<'a> {
             fn json(&self) -> Option<String> {
-                self.π_json.to_owned()
+                self._json.to_owned()
             }
 
             fn clear_json(&mut self) {
-                self.π_json = None;
+                self._json = None;
             }
 
             fn set_json(&mut self, json: &str) {
-                self.π_json = Option::Some(json.to_string())
+                self._json = Option::Some(json.to_string())
             }
         }
         };

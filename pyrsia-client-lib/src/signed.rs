@@ -208,7 +208,7 @@ pub fn create_key_pair(
 ///   foo: &'a str,
 ///   bar: u32,
 ///   #[serde(skip)]
-///   π_json: Option<String>
+///   _json: Option<String>
 /// }
 /// ```
 pub trait Signed<'a>: Deserialize<'a> + Serialize {
@@ -940,20 +940,20 @@ mod tests {
         bar: u32,
         zot: &'a str,
         #[serde(skip)]
-        π_json: Option<String>,
+        _json: Option<String>,
     }
 
     impl<'a> Signed<'a> for Foo<'a> {
         fn json(&self) -> Option<String> {
-            self.π_json.to_owned()
+            self._json.to_owned()
         }
 
         fn clear_json(&mut self) {
-            self.π_json = None;
+            self._json = None;
         }
 
         fn set_json(&mut self, json: &str) {
-            self.π_json = Option::Some(json.to_string())
+            self._json = Option::Some(json.to_string())
         }
     }
 
@@ -1089,7 +1089,7 @@ mod tests {
             foo: "π is 16 bit unicode",
             bar: 23894,
             zot: "🦽is 32 bit unicode",
-            π_json: None,
+            _json: None,
         };
         assert!(foo.json().is_none());
         foo.sign(
