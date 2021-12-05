@@ -287,12 +287,16 @@ fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> 
                 if this_signature.is_empty() {
                     break;
                 }
-                trace!("verify_json_signature: this_signature={}", unicode_32_bit_to_string(this_signature));
+                trace!(
+                    "verify_json_signature: this_signature={}",
+                    unicode_32_bit_to_string(this_signature)
+                );
                 attestations.push(verify_one_signature(
-                before_signatures,
-                this_signature,
-                after_signatures,
-            ))},
+                    before_signatures,
+                    this_signature,
+                    after_signatures,
+                ))
+            }
             Err(_) => {
                 trace!("No more signatures");
                 break;
