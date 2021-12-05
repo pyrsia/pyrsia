@@ -19,3 +19,4 @@ openssl = "0.10.38"
 serde = { version = "1.0", features = ["derive"] }
 serde_jcs = "0.1.0"
 serde_json = "1.0"
+time = "0.3.5"

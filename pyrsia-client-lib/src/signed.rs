@@ -7,6 +7,7 @@ extern crate openssl;
 extern crate serde;
 extern crate serde_jcs;
 extern crate serde_json;
+extern crate time;
 
 use std::char::REPLACEMENT_CHARACTER;
 use std::io::Write;
