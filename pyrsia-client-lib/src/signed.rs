@@ -24,8 +24,8 @@ use openssl::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use time::{format_description, OffsetDateTime};
 use time::format_description::FormatItem;
+use time::{format_description, OffsetDateTime};
 
 /// An enumeration of the supported signature algorithms
 #[derive(Deserialize, Serialize, Copy, Clone)]
@@ -131,10 +131,12 @@ impl Attestation {
 
     fn date_time_from_json(json_header: &Value, field_name: &str) -> Option<OffsetDateTime> {
         match &json_header[field_name] {
-            Value::String(time_string) => match OffsetDateTime::parse(time_string, &iso8601_format_spec()) {
-                Ok(date_time) => Some(date_time),
-                Err(_) => None,
-            },
+            Value::String(time_string) => {
+                match OffsetDateTime::parse(time_string, &iso8601_format_spec()) {
+                    Ok(date_time) => Some(date_time),
+                    Err(_) => None,
+                }
+            }
             _ => None,
         }
     }
@@ -226,11 +228,10 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     /// Create a struct of type `T` from the contents of the given JSON string.
     ///
     /// Return the created struct if there is an error.
-    fn from_json_string<T>(_json: &str) -> Result<T, anyhow::Error>
-    where
-        T: Signed<'a>,
-    {
-        todo!()
+    fn from_json_string<T: Signed<'a>>(json: &'a str) -> serde_json::error::Result<T> {
+        let mut signed_struct: T = serde_json::from_str(json)?;
+        signed_struct.set_json(json);
+        Ok(signed_struct)
     }
 
     /// If this struct does not have an associated JSON representation then create it and pass it to
@@ -532,7 +533,9 @@ fn iso8601_format_spec() -> Vec<FormatItem<'static>> {
 }
 
 fn now_as_iso8601_string() -> String {
-    OffsetDateTime::now_utc().format(&iso8601_format_spec()).unwrap() // If the formatting fails there is no reasonable action but panic.
+    OffsetDateTime::now_utc()
+        .format(&iso8601_format_spec())
+        .unwrap() // If the formatting fails there is no reasonable action but panic.
 }
 
 fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
@@ -929,7 +932,7 @@ mod tests {
     use json_parser::*;
 
     //noinspection NonAsciiCharacters
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, PartialEq, Debug)]
     struct Foo<'a> {
         foo: &'a str,
         bar: u32,
@@ -1086,6 +1089,7 @@ mod tests {
             zot: "🦽is 32 bit unicode",
             π_json: None,
         };
+        assert!(foo.json().is_none());
         foo.sign(
             JwsSignatureAlgorithms::RS512,
             &key_pair.private_key,
@@ -1096,6 +1100,12 @@ mod tests {
         let attestations = foo.verify_signature()?;
         assert_eq!(1, attestations.len());
         assert!(attestations[0].signature_is_valid);
+        let json = foo.json();
+        assert!(json.is_some());
+        let json_string = json.unwrap();
+        let foo2: Foo = Foo::from_json_string(&json_string).unwrap();
+        assert_eq!(foo, foo2);
+        foo2.verify_signature()?;
         Ok(())
     }
 }
