@@ -17,7 +17,7 @@ use anyhow::{anyhow, Context, Result};
 use chrono::prelude::*;
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
 use log::{debug, info, trace};
-use openssl::pkey::{PKey, Private, Public};
+use openssl::pkey::{PKey, Private};
 use openssl::{
     hash::MessageDigest,
     rsa::{Padding, Rsa},
@@ -99,10 +99,6 @@ impl Attestation {
     /// True if signature verification determined that the signature is valid.
     pub fn signature_is_valid(&self) -> bool {
         self.signature_is_valid
-    }
-
-    fn set_is_valid(&mut self, v: bool) {
-        self.signature_is_valid = v
     }
 
     // create an attestation with all the information from the JWS header.
@@ -544,7 +540,6 @@ mod json_parser {
     use crate::signed::unicode_32_bit_to_string;
     use anyhow::anyhow;
     use log::{debug, trace};
-    use serde_json::json;
     use std::char::REPLACEMENT_CHARACTER;
     use std::slice::Iter;
 
