@@ -15,7 +15,7 @@ use std::option::Option;
 use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
-use log::{debug, info, trace};
+use log::{debug, trace};
 use openssl::pkey::{PKey, Private};
 use openssl::{
     hash::MessageDigest,
@@ -201,6 +201,7 @@ pub fn create_key_pair(
 /// It is recommended for consistency that structs that implement this trait are declared
 /// like this with a field named `__json` to refer to the struct's json string:
 /// ```
+/// use serde::{Deserialize, Serialize};
 /// //noinspection NonAsciiCharacters
 /// #[derive(Serialize, Deserialize, Debug)]
 /// struct Foo<'a> {
@@ -930,6 +931,7 @@ mod tests {
     use super::*;
     use anyhow::anyhow;
     use json_parser::*;
+    use log::info;
 
     //noinspection NonAsciiCharacters
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
