@@ -3157,6 +3157,7 @@ dependencies = [
  "serde",
  "serde_jcs",
  "serde_json",
+ "syn",
  "time",
 ]
 
