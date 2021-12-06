@@ -1,3 +1,4 @@
+use defaults::Defaults;
 ///
 /// # Artifact Manager
 /// Module for managing artifacts. It manages a local collection of artifacts and is responsible
@@ -15,7 +16,6 @@ use std::io::{BufWriter, Read, Write};
 use std::path;
 use std::path::Path;
 use std::str::FromStr;
-use defaults::Defaults;
 
 use anyhow::{anyhow, Context, Error, Result};
 use sha2::{Digest, Sha256, Sha512};
