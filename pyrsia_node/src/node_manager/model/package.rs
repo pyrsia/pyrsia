@@ -38,4 +38,3 @@ pub enum LicenseTextMimeType {
     HTML,
     XML,
 }
-
