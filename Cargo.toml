@@ -4,7 +4,7 @@ members = [
     "pyrsia_node",
     "pyrsia_cli",
     "pyrsia-client-lib",
-    "pyrsia-client-lib/signed_derive"
+    "pyrsia-client-lib/signed_struct"
 ]
 
 [profile.dev]

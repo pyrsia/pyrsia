@@ -1,5 +1,5 @@
 [package]
-name = "signed_derive"
+name = "signed_struct"
 version = "0.1.0"
 edition = "2021"
 
