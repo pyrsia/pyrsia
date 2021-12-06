@@ -2634,6 +2634,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pyrsia_client_lib"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "detached-jws",
+ "env_logger 0.9.0",
+ "log",
+ "openssl",
+ "serde",
+ "serde_jcs",
+ "serde_json",
+ "syn",
+ "time",
+]
+
+[[package]]
 name = "pyrsia_node"
 version = "0.1.0"
 dependencies = [
@@ -3145,24 +3162,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02658e48d89f2bec991f9a78e69cfa4c316f8d6a6c4ec12fae1aeb263d486788"
 
 [[package]]
-name = "signed-struct"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64",
- "detached-jws",
- "env_logger 0.9.0",
- "log",
- "openssl",
- "serde",
- "serde_jcs",
- "serde_json",
- "syn",
- "time",
-]
-
-[[package]]
-name = "signed_derive"
+name = "signed_struct"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
