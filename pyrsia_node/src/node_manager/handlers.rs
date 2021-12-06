@@ -23,14 +23,11 @@ lazy_static! {
 
 //get_artifact: given artifact_hash(artifactName) pulls artifact for  artifact_manager and
 //              returns read object to read the bytes of artifact
-pub fn get_artifact<'a>(artifact_hash: &'a [u8]) -> Result<File, anyhow::Error> {
-    let hash = Hash::new(HashAlgorithm::SHA256, &artifact_hash)?;
-    //let art_mgr = artifact_manager_instance()?;
-
-    let reader = ART_MGR
-        .pull_artifact(&hash)
-        .context("Error from get_artifact")?;
-    Ok(reader)
+pub fn get_artifact<'a>(art_hash: &'a [u8], art_algorithm: HashAlgorithm) -> Result<File, anyhow::Error> {
+    let hash = Hash::new(art_algorithm, &art_hash)?;
+    ART_MGR.pull_artifact(&hash)
+        .context("Error from get_artifact")
+    
 }
 
 //put_artifact: given artifact_hash(artifactName) & artifact_path push artifact to artifact_manager
@@ -44,39 +41,11 @@ pub fn put_artifact<'a>(
         File::open(artifact_path).with_context(|| format!("{} not found.", artifact_path))?;
     let mut buf_reader = BufReader::new(file);
 
-    //let art_mgr = artifact_manager_instance()?;
-
-    let result = ART_MGR
+    ART_MGR
         .push_artifact(&mut buf_reader, &hash)
-        .context("Error from put_artifact")?;
-    Ok(result)
+        .context("Error from put_artifact")
 }
 
-// returns metadata of an artifact_hash i.e. blobs etc
-pub fn get_artifact_metadata<'a>(art_hash: Vec<u8>) -> Result<Artifact<'a>, anyhow::Error> {
-    let art = Artifact {
-        ..Default::default()
-    };
-    Ok(art)
-}
-
-//TO BE IMPLEMENETD
-//get_package: provided package_name it returns all the metadata for that package version
-pub fn get_package(pkg_name: String) -> Result<Package, anyhow::Error> {
-    let pkg = Package {
-        ..Default::default()
-    };
-    Ok(pkg)
-}
-
-//TO BE IMPLEMENETD
-//get_package_version: provided id and package_version it returns all the metadata for that package version
-pub fn get_package_version(id: String, pkg_ver: String) -> Result<PackageVersion, anyhow::Error> {
-    let pkg_ver = PackageVersion {
-        ..Default::default()
-    };
-    Ok(pkg_ver)
-}
 
 #[cfg(test)]
 
@@ -122,7 +91,7 @@ mod tests {
         assert_eq!(content_vec.as_slice(), actual_content_vec.as_slice());
 
         // pull artiafct
-        let file = get_artifact(&GOOD_ART_HASH).context("Error from get_artifact")?;
+        let file = get_artifact(&GOOD_ART_HASH, HashAlgorithm::SHA256).context("Error from get_artifact")?;
 
         //validate pulled artifact with the actual data
         let mut buf_reader = BufReader::new(file);
