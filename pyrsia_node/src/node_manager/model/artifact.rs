@@ -4,8 +4,8 @@ use serde_json::{Map, Value};
 
 #[derive(Debug, Default)]
 pub struct Artifact<'a> {
-    pub artifact_hash: &'a [u8],
-    pub artifact_algorithm: HashAlgorithm,
+    pub hash: &'a [u8],
+    pub algorithm: HashAlgorithm,
     pub artifact_name: String,
     pub creation_time: String,
     pub url: String,

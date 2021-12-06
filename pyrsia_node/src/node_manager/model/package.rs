@@ -4,8 +4,8 @@ use strum_macros::{EnumIter, EnumString};
 
 #[derive(Debug, Default)]
 pub struct Package {
-    pub package_name: String,
-    pub package_type: String,
+    pub name: String,
+    pub r#type: String,
     pub namespace_id: String,
     pub creation_time: String,
     pub modified_time: String,
@@ -21,7 +21,7 @@ pub struct Package {
 #[derive(Debug, Default)]
 pub struct PackageVersion {
     pub id: String,
-    pub package_version: String,
+    pub version: String,
     pub license_text: String,
     pub license_text_mimetype: LicenseTextMimeType,
     pub license_url: String,
