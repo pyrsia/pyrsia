@@ -15,6 +15,7 @@ use std::io::{BufWriter, Read, Write};
 use std::path;
 use std::path::Path;
 use std::str::FromStr;
+use defaults::Defaults;
 
 use anyhow::{anyhow, Context, Error, Result};
 use sha2::{Digest, Sha256, Sha512};
@@ -59,7 +60,9 @@ impl Digester for Sha512 {
 }
 
 /// The types of hash algorithms that the artifact manager supports
-#[derive(EnumIter, Debug, PartialEq, EnumString)]
+
+#[derive(EnumIter, Debug, PartialEq, EnumString, Defaults)]
+#[def = "SHA256"]
 pub enum HashAlgorithm {
     SHA256,
     SHA512,
