@@ -4,42 +4,43 @@ use strum_macros::{EnumIter, EnumString};
 
 #[derive(Debug, Default)]
 pub struct Package {
-    package_name: String,
-    package_type:String,
-    namespace_id: String,
-    creation_time: String,
-    modified_time: String,
-    administrator: String,
-    description: String,
-    namespace_path: Vec<u8>,
-    metadata: Map<String, Value>,
-    project_url: String,
-    project_name: String,
-    versions:Vec<u8>
+    pub package_name: String,
+    pub package_type: String,
+    pub namespace_id: String,
+    pub creation_time: String,
+    pub modified_time: String,
+    pub administrator: String,
+    pub description: String,
+    pub namespace_path: Vec<u8>,
+    pub metadata: Map<String, Value>,
+    pub project_url: String,
+    pub project_name: String,
+    pub versions: Vec<u8>,
 }
 
 #[derive(Debug, Default)]
 pub struct PackageVersion {
-    id: String,
-    package_version: String,
-    license_text: String,
-    license_text_mimetype: LicenseTextMimeType,
-    license_url: String,
-    creation_time: String,
-    metadata: Map<String, Value>,
-    tags: String,
-    description: String,
-    is_release: bool
-
+    pub id: String,
+    pub package_version: String,
+    pub license_text: String,
+    pub license_text_mimetype: LicenseTextMimeType,
+    pub license_url: String,
+    pub creation_time: String,
+    pub metadata: Map<String, Value>,
+    pub tags: String,
+    pub description: String,
+    pub is_release: bool,
 }
 
 #[derive(EnumIter, Debug, PartialEq, EnumString)]
 pub enum LicenseTextMimeType {
     TEXT,
     HTML,
-    XML
+    XML,
 }
 
 impl Default for LicenseTextMimeType {
-    fn default() -> Self { LicenseTextMimeType::TEXT }
+    fn default() -> Self {
+        LicenseTextMimeType::TEXT
+    }
 }

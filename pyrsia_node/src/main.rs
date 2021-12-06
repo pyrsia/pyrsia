@@ -9,7 +9,8 @@ extern crate serde;
 extern crate tokio;
 extern crate uuid;
 extern crate warp;
-
+#[macro_use]
+extern crate lazy_static;
 //modules imports
 mod docker;
 mod node_manager;

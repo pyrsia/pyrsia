@@ -2,16 +2,16 @@ extern crate serde_json;
 use super::HashAlgorithm;
 use serde_json::{Map, Value};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Artifact<'a> {
-    artifact_hash: &'a [u8],
-    artifact_algorithm: HashAlgorithm,
-    artifact_name: String,
-    creation_time: String,
-    url: String,
-    artifact_size: u32,
-    mime_type: String,
-    metadata: Map<String, Value>,
-    source_url: String,
-    artifact_type: String,
+    pub artifact_hash: &'a [u8],
+    pub artifact_algorithm: HashAlgorithm,
+    pub artifact_name: String,
+    pub creation_time: String,
+    pub url: String,
+    pub artifact_size: u32,
+    pub mime_type: String,
+    pub metadata: Map<String, Value>,
+    pub source_url: String,
+    pub artifact_type: String,
 }

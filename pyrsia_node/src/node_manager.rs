@@ -1,6 +1,4 @@
-pub mod artifact;
+pub mod handlers;
 pub mod model;
-
-pub mod package;
 
 pub use crate::artifact_manager::*;
