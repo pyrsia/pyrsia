@@ -9,7 +9,7 @@ The daemon running everything.
 
 ### Generating Test Coverage Report
 
-1. `cd pyrsia-sandbox`
+1. `cd pyrsia`
 2. `sh ./test_code_coverage.sh`
 
 ## Running the docker integration:
