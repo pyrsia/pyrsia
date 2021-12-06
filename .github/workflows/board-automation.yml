@@ -1,0 +1,16 @@
+name: Project Board Automation - Pyrsia Develop
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  label-blocked:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'labeled' && github.event.label.name == 'blocked'
+    steps:
+      - uses: alex-page/github-project-automation-plus@v0.8.1
+        with:
+          project: Pyrsia Develop
+          column: Blocked
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
