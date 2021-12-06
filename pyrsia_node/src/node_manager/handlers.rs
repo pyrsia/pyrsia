@@ -23,11 +23,14 @@ lazy_static! {
 
 //get_artifact: given artifact_hash(artifactName) pulls artifact for  artifact_manager and
 //              returns read object to read the bytes of artifact
-pub fn get_artifact<'a>(art_hash: &'a [u8], art_algorithm: HashAlgorithm) -> Result<File, anyhow::Error> {
+pub fn get_artifact<'a>(
+    art_hash: &'a [u8],
+    art_algorithm: HashAlgorithm,
+) -> Result<File, anyhow::Error> {
     let hash = Hash::new(art_algorithm, &art_hash)?;
-    ART_MGR.pull_artifact(&hash)
+    ART_MGR
+        .pull_artifact(&hash)
         .context("Error from get_artifact")
-    
 }
 
 //put_artifact: given artifact_hash(artifactName) & artifact_path push artifact to artifact_manager
@@ -45,7 +48,6 @@ pub fn put_artifact<'a>(
         .push_artifact(&mut buf_reader, &hash)
         .context("Error from put_artifact")
 }
-
 
 #[cfg(test)]
 
@@ -91,7 +93,8 @@ mod tests {
         assert_eq!(content_vec.as_slice(), actual_content_vec.as_slice());
 
         // pull artiafct
-        let file = get_artifact(&GOOD_ART_HASH, HashAlgorithm::SHA256).context("Error from get_artifact")?;
+        let file = get_artifact(&GOOD_ART_HASH, HashAlgorithm::SHA256)
+            .context("Error from get_artifact")?;
 
         //validate pulled artifact with the actual data
         let mut buf_reader = BufReader::new(file);
