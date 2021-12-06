@@ -5,45 +5,80 @@ extern crate quote;
 extern crate syn;
 
 use proc_macro::TokenStream;
+use proc_macro2::Ident;
+use std::collections::HashSet;
 
-use quote::quote;
-use syn::{parse_macro_input, AttributeArgs, DeriveInput, Field};
+use quote::{format_ident, quote};
+use syn::spanned::Spanned;
+use syn::{parse_macro_input, AttributeArgs, DeriveInput, Field, FieldsNamed};
 
 #[proc_macro_attribute]
 pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
     let _ = parse_macro_input!(args as AttributeArgs);
-    let json_field_name = "_json0";
-    let json_fields_named: syn::FieldsNamed =
-        syn::parse2(quote!( #json_field_name : String ).into()).unwrap();
-    let json_field: Field = json_fields_named.named.first().unwrap().to_owned();
     let mut ast = parse_macro_input!(input as DeriveInput);
     match &mut ast.data {
         syn::Data::Struct(ref mut struct_data) => {
-            match &mut struct_data.fields {
-                syn::Fields::Named(fields) => fields.named.push(json_field),
-                _ => (),
+            return match &mut struct_data.fields {
+                syn::Fields::Named(fields) => {
+                    let json_field_name = unique_json_field_ident(fields);
+                    let json_field = construct_json_field(&json_field_name);
+                    fields.named.push(json_field);
+                    return quote! {
+                    #[derive(serde::Serialize, serde::Deserialize)]
+                    #ast
+
+                    impl<'a> ::pyrsia_client_lib::Signed<'a> for #(ast.ident)<'a> {
+                            pub fn json(&self) -> Option<String> {
+                                self.#json_field_name.to_owned()
+                            }
+
+                            pub fn clear_json(&mut self) {
+                                self.#json_field_name = None;
+                            }
+
+                            fn set_json(&mut self, json: &str) {
+                                self.#json_field_name = Option::Some(json.to_string())
+                            }
+                        };
+                    }
+                    .into();
+                }
+                _ => syn::parse::Error::new(
+                    ast.span(),
+                    "signed_struct may only be used with struct having named field.",
+                )
+                .to_compile_error()
+                .into(),
             }
-
-            return quote! {
-                        #ast
-            impl<'a> ::pyrsia_client_lib::Signed<'a> for #(ast.ident)<'a> {
-                    fn json(&self) -> Option<String> {
-                        self._json.to_owned()
-                    }
-
-                    fn clear_json(&mut self) {
-                        self._json = None;
-                    }
-
-                    fn set_json(&mut self, json: &str) {
-                        self._json = Option::Some(json.to_string())
-                    }
-                };
-
-                    }
-            .into();
         }
-        _ => panic!("`add_field` has to be used with structs "),
+        _ => syn::parse::Error::new(ast.span(), "`add_field` has to be used with structs ")
+            .to_compile_error()
+            .into(),
+    }
+}
+
+fn construct_json_field(field_name: &Ident) -> Field {
+    let json_fields_named: syn::FieldsNamed =
+        syn::parse2(quote!( #field_name : String ).into()).unwrap();
+    let json_field: Field = json_fields_named.named.first().unwrap().to_owned();
+    json_field
+}
+
+fn unique_json_field_ident(fields: &FieldsNamed) -> Ident {
+    let mut field_names: HashSet<String> = HashSet::new();
+    for field in fields.named.iter() {
+        for id in field.ident.iter() {
+            field_names.insert(id.to_string());
+        }
+    }
+    let mut counter = 0;
+    loop {
+        let mut candidate_name = String::from("_json");
+        candidate_name.push_str(&counter.to_string());
+        if !field_names.contains(candidate_name.as_str()) {
+            return format_ident!("_json{}", counter.to_string());
+        }
+        counter += 1;
     }
 }
 
