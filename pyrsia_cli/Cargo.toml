@@ -17,4 +17,3 @@ path = "src/main.rs"
 
 [dev-dependencies]
 expectest = "0.10.0"
-cargo-make = "~0.35"
