@@ -11,8 +11,9 @@ reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1", features = [ "full"] }
 futures = { version = "0.3.*"}
 
-
-
 [[bin]]
 name = "pyrsia"
 path = "src/main.rs"
+
+[dev-dependencies]
+expectest = "0.10.0"
