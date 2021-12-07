@@ -1,4 +1,6 @@
-use network::http::get;
+extern crate pyrsia_node;
+
+use pyrsia_node::network::http::get;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
