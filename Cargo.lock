@@ -2646,6 +2646,7 @@ dependencies = [
  "serde",
  "serde_jcs",
  "serde_json",
+ "signed_struct",
  "syn",
  "time",
 ]
