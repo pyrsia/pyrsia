@@ -241,7 +241,7 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     /// Add a signature to the JSON using the contents of the given key pair.
     /// * signature_algorithm — The signature algorithm to use for signing. Must be compatible with the private key.
     /// * private_key — The der encoded private key to use for signing.
-    fn sign(
+    fn sign_json(
         &mut self,
         signature_algorithm: JwsSignatureAlgorithms,
         private_key: &Vec<u8>,
@@ -1092,7 +1092,7 @@ mod tests {
             _json: None,
         };
         assert!(foo.json().is_none());
-        foo.sign(
+        foo.sign_json(
             JwsSignatureAlgorithms::RS512,
             &key_pair.private_key,
             &key_pair.public_key,

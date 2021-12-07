@@ -3175,6 +3175,7 @@ dependencies = [
 name = "signed_struct_test"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "pyrsia_client_lib",
  "serde",
  "signed_struct",
