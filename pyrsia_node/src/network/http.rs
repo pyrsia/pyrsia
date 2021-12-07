@@ -22,5 +22,5 @@ where
 
 #[cfg(test)]
 mod tests {
-    // See pirsia_node integration tests
+    // See pyrsia_node integration tests
 }
