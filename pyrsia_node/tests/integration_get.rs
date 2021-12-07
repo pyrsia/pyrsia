@@ -34,3 +34,15 @@ fn test_get() {
         Ok(_) => println!("Removed temp file"),
     }
 }
+
+
+#[test]
+fn test_bad_site() {
+    let file_name: String = String::from("/tmp/err.txt");
+    let uri: String = String::from("https://nosuchsite.fake/");
+    let result = get(File::create(file_name.clone()).unwrap(), uri);
+    match futures::executor::block_on(result) {
+        Err(_) => assert!(true, "This request should fail"),
+        Ok(_) => assert!(false, "This request should have failed"),
+    }
+}
