@@ -10,8 +10,7 @@ mod tests {
     }
 
     #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
+    fn test_generated_methods() {
+        let foo = Foo::new(String::from("abc"), 234, &"qwerty");
     }
 }
