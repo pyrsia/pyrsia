@@ -1,4 +1,3 @@
-use defaults::Defaults;
 ///
 /// # Artifact Manager
 /// Module for managing artifacts. It manages a local collection of artifacts and is responsible
@@ -9,6 +8,7 @@ use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
 use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
+use defaults::Defaults;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io;

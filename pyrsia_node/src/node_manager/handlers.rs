@@ -1,8 +1,6 @@
 use super::ArtifactManager;
 use super::HashAlgorithm;
 
-use super::model::artifact::Artifact;
-use super::model::package::{Package, PackageVersion};
 use super::Hash;
 use anyhow::{Context, Result};
 use std::fs;
@@ -16,8 +14,8 @@ lazy_static! {
     static ref ART_MGR: ArtifactManager = {
         fs::create_dir_all(ART_MGR_DIR)
             .unwrap_or_else(|e| panic!("Error creating dir for artifacts: {}", e));
-        let artmgr = ArtifactManager::new(ART_MGR_DIR).unwrap();
-        artmgr
+        ArtifactManager::new(ART_MGR_DIR).unwrap()
+        
     };
 }
 
@@ -27,7 +25,7 @@ pub fn get_artifact<'a>(
     art_hash: &'a [u8],
     art_algorithm: HashAlgorithm,
 ) -> Result<File, anyhow::Error> {
-    let hash = Hash::new(art_algorithm, &art_hash)?;
+    let hash = Hash::new(art_algorithm, art_hash)?;
     ART_MGR
         .pull_artifact(&hash)
         .context("Error from get_artifact")
@@ -39,7 +37,7 @@ pub fn put_artifact<'a>(
     artifact_hash: &'a [u8],
     artifact_path: &str,
 ) -> Result<bool, anyhow::Error> {
-    let hash = Hash::new(HashAlgorithm::SHA256, &artifact_hash)?;
+    let hash = Hash::new(HashAlgorithm::SHA256, artifact_hash)?;
     let file =
         File::open(artifact_path).with_context(|| format!("{} not found.", artifact_path))?;
     let mut buf_reader = BufReader::new(file);
