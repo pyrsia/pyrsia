@@ -1,5 +1,3 @@
-
-
 #[cfg(test)]
 mod tests {
     use signed_struct::signed_struct;
@@ -10,7 +8,6 @@ mod tests {
         bar: u32,
         zot: &'a str,
     }
-
 
     #[test]
     fn it_works() {

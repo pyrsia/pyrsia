@@ -17,36 +17,34 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
     let _ = parse_macro_input!(args as AttributeArgs);
     let mut ast = parse_macro_input!(input as DeriveInput);
     match &mut ast.data {
-        syn::Data::Struct(ref mut struct_data) => {
-            match &mut struct_data.fields {
-                syn::Fields::Named(fields) => {
-                    match unique_json_field_ident(fields) {
-                        Ok(json_field_name) => {
-                            let json_field = construct_json_field(&json_field_name);
-                            fields.named.push(json_field);
-                        }
-                        Err(error) => return error.to_compile_error().into(),
+        syn::Data::Struct(ref mut struct_data) => match &mut struct_data.fields {
+            syn::Fields::Named(fields) => {
+                match unique_json_field_ident(fields) {
+                    Ok(json_field_name) => {
+                        let json_field = construct_json_field(&json_field_name);
+                        fields.named.push(json_field);
                     }
-                    println!("generating output");
-                    let output = quote! {
-                    #[derive(serde::Serialize, serde::Deserialize)]
-                    #[derive(signed_struct::SignedStructDerive)]
-                    #ast
-                    }
-                    .into();
-                    println!("Output for signed_struct: {}", output);
-                    return output;
+                    Err(error) => return error.to_compile_error().into(),
                 }
-                _ => {
-                    return syn::parse::Error::new(
-                        ast.span(),
-                        "signed_struct may only be used with structs having named fields.",
-                    )
-                    .to_compile_error()
-                    .into()
+                println!("generating output");
+                let output = quote! {
+                #[derive(serde::Serialize, serde::Deserialize)]
+                #[derive(signed_struct::SignedStructDerive)]
+                #ast
                 }
+                .into();
+                println!("Output for signed_struct: {}", output);
+                return output;
             }
-        }
+            _ => {
+                return syn::parse::Error::new(
+                    ast.span(),
+                    "signed_struct may only be used with structs having named fields.",
+                )
+                .to_compile_error()
+                .into()
+            }
+        },
         _ => {
             return syn::parse::Error::new(
                 ast.span(),
@@ -127,7 +125,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                             .into();
                             println!("Output from signed_struct_derive: {}", output);
                             return output;
-                        },
+                        }
                         Err(error) => error.to_compile_error().into(),
                     }
                 }
@@ -166,7 +164,12 @@ fn id_of_last_field(fields: &FieldsNamed) -> Result<Ident, syn::parse::Error> {
 mod tests {
     #[test]
     fn it_works() {
-        let foo = Foo{ foo:"xxx", bar:88, zot:"sd", _json};
+        let foo = Foo {
+            foo: "xxx",
+            bar: 88,
+            zot: "sd",
+            _json,
+        };
         let result = 2 + 2;
         assert_eq!(result, 4);
     }
