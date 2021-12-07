@@ -29,7 +29,6 @@ pub struct PackageVersion {
     pub metadata: Map<String, Value>,
     pub tags: Vec<String>,
     pub description: Option<String>,
-    pub is_release: bool,
 }
 
 #[derive(EnumIter, Debug, PartialEq, EnumString)]
