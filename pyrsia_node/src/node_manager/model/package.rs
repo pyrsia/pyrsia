@@ -35,5 +35,5 @@ pub struct PackageVersion {
 pub enum LicenseTextMimeType {
     Text,
     HTML,
-    XML,
+    Xml,
 }
