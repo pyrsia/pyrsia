@@ -13,3 +13,15 @@ pub fn get_config() -> Result<String> {
         std::fs::read_to_string(path).with_context(|| format!("could not read file `{}`", path))?;
     Ok(content)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use expectest::expect;
+    use expectest::prelude::*;
+
+    #[test]
+    fn test_get_config_errors_when_config_file_not_found() {
+        expect!(get_config()).to(be_err());
+    }
+}
