@@ -2646,7 +2646,6 @@ dependencies = [
  "serde",
  "serde_jcs",
  "serde_json",
- "signed_struct",
  "syn",
  "time",
 ]
@@ -3167,8 +3166,18 @@ name = "signed_struct"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
+ "pyrsia_client_lib",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "signed_struct_test"
+version = "0.1.0"
+dependencies = [
+ "pyrsia_client_lib",
+ "serde",
+ "signed_struct",
 ]
 
 [[package]]

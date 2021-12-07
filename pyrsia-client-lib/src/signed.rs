@@ -24,7 +24,6 @@ use openssl::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use signed_struct::signed_struct;
 use time::format_description::FormatItem;
 use time::{format_description, OffsetDateTime};
 
@@ -935,7 +934,6 @@ mod tests {
     use log::info;
 
     //noinspection NonAsciiCharacters
-    //#[signed_struct]
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
     struct Foo<'a> {
         foo: &'a str,

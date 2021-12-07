@@ -29,12 +29,12 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                     println!("generating output");
                     let output = quote! {
-                    //#[derive(serde::Serialize, serde::Deserialize)]
+                    #[derive(serde::Serialize, serde::Deserialize)]
                     #[derive(signed_struct::SignedStructDerive)]
                     #ast
                     }
                     .into();
-                    println!("Output: {}", output);
+                    println!("Output for signed_struct: {}", output);
                     return output;
                 }
                 _ => {
@@ -61,6 +61,7 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
 fn construct_json_field(field_name: &Ident) -> Field {
     let json_fields_named: syn::FieldsNamed = syn::parse2(
         quote!( {
+            #[serde(skip)]
             #field_name : Option<String>
         } )
         .into(),
@@ -109,7 +110,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                             println!("generating output");
                             let struct_ident = &ast.ident;
                             let output = quote! {
-                                impl<'a> ::pyrsia_client_lib::Signed<'a> for #struct_ident<'a> {
+                                impl<'a> ::pyrsia_client_lib::signed::Signed<'a> for #struct_ident<'a> {
                                     fn json(&self) -> Option<String> {
                                         self.#json_field_name.to_owned()
                                     }
@@ -122,10 +123,9 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                                         self.#json_field_name = Option::Some(json.to_string())
                                     }
                                 }
-
                             }
                             .into();
-                            println!("Output: {}", output);
+                            println!("Output from signed_struct_derive: {}", output);
                             return output;
                         },
                         Err(error) => error.to_compile_error().into(),
@@ -166,6 +166,7 @@ fn id_of_last_field(fields: &FieldsNamed) -> Result<Ident, syn::parse::Error> {
 mod tests {
     #[test]
     fn it_works() {
+        let foo = Foo{ foo:"xxx", bar:88, zot:"sd", _json};
         let result = 2 + 2;
         assert_eq!(result, 4);
     }
