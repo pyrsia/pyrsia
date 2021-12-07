@@ -97,7 +97,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                 syn::Fields::Named(fields) => {
                     println!("Struct contains named fields");
                     match scan_fields(fields) {
-                        Ok((json_field_name, fields_vec)) => {
+                        Ok((json_field_name, fields_vec, field_ident_vec)) => {
                             println!("generating output from signed_struct_derive");
                             let struct_ident = &ast.ident;
                             let output = quote! {
@@ -116,8 +116,8 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                                 }
 
                                 impl #struct_ident<'_> {
-                                    fn new(#(#fields_vec),*) -> Self {
-                                        todo!();
+                                    fn new(#(#fields_vec),*) -> #struct_ident {
+                                        #struct_ident{ #(#field_ident_vec),* , #json_field_name: None }
                                     }
                                 }
                             }
@@ -149,14 +149,17 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
     }
 }
 
-fn scan_fields(fields: &FieldsNamed) -> Result<(Ident, Vec<Field>), syn::parse::Error> {
+fn scan_fields(fields: &FieldsNamed) -> Result<(Ident, Vec<Field>, Vec<Ident>), syn::parse::Error> {
     let mut fields_vec = Vec::new();
+    let mut field_name_vec: Vec<Ident> = Vec::new();
     for field in fields.named.iter() {
         let param_field = remove_attrs_and_lifetime(field);
-        fields_vec.push(param_field);
+        fields_vec.push(param_field.clone());
+        field_name_vec.push(param_field.ident.clone().unwrap())
     }
+
     match fields_vec.pop() {
-        Some(field) => Ok((field.ident.clone().unwrap().clone(), fields_vec)),
+        Some(_) => Ok((field_name_vec.pop().unwrap(), fields_vec, field_name_vec)),
         None => Err(syn::parse::Error::new(
             fields.span(),
             "signed_struct_derive does not work with an empty struct",
