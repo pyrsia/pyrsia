@@ -4,7 +4,7 @@ mod tests {
 
     #[signed_struct]
     struct Foo<'a> {
-        foo: &'a str,
+        foo: String,
         bar: u32,
         zot: &'a str,
     }

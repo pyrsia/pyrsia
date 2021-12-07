@@ -10,7 +10,7 @@ use std::collections::HashSet;
 
 use quote::{format_ident, quote};
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, AttributeArgs, DeriveInput, Field, FieldsNamed, Visibility};
+use syn::{parse_macro_input, AttributeArgs, DeriveInput, Field, FieldsNamed, Visibility, TypeReference};
 
 #[proc_macro_attribute]
 pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -34,25 +34,18 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
                 .into();
                 println!("Output for signed_struct: {}", output);
-                return output;
+                output
             }
-            _ => {
-                return syn::parse::Error::new(
-                    ast.span(),
-                    "signed_struct may only be used with structs having named fields.",
-                )
-                .to_compile_error()
-                .into()
-            }
-        },
-        _ => {
-            return syn::parse::Error::new(
+            _ => syn::parse::Error::new(
                 ast.span(),
-                "signed_struct may only be used with structs ",
+                "signed_struct may only be used with structs having named fields.",
             )
             .to_compile_error()
-            .into()
-        }
+            .into(),
+        },
+        _ => syn::parse::Error::new(ast.span(), "signed_struct may only be used with structs ")
+            .to_compile_error()
+            .into(),
     }
 }
 
@@ -103,12 +96,12 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
             match &struct_data.fields {
                 syn::Fields::Named(fields) => {
                     println!("Struct contains named fields");
-                    match id_of_last_field(fields) {
-                        Ok(json_field_name) => {
-                            println!("generating output");
+                    match scan_fields(fields) {
+                        Ok((json_field_name, fields_vec)) => {
+                            println!("generating output from signed_struct_derive");
                             let struct_ident = &ast.ident;
                             let output = quote! {
-                                impl<'a> ::pyrsia_client_lib::signed::Signed<'a> for #struct_ident<'a> {
+                                impl<'π> ::pyrsia_client_lib::signed::Signed<'π> for #struct_ident<'π> {
                                     fn json(&self) -> Option<String> {
                                         self.#json_field_name.to_owned()
                                     }
@@ -119,6 +112,12 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
 
                                     fn set_json(&mut self, json: &str) {
                                         self.#json_field_name = Option::Some(json.to_string())
+                                    }
+                                }
+
+                                impl #struct_ident<'_> {
+                                    fn new(#(#fields_vec),*) -> Self {
+                                        todo!();
                                     }
                                 }
                             }
@@ -150,9 +149,14 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
     }
 }
 
-fn id_of_last_field(fields: &FieldsNamed) -> Result<Ident, syn::parse::Error> {
-    match fields.named.last() {
-        Some(field) => Ok(field.ident.clone().unwrap().clone()),
+fn scan_fields(fields: &FieldsNamed) -> Result<(Ident, Vec<Field>), syn::parse::Error> {
+    let mut fields_vec = Vec::new();
+    for field in fields.named.iter() {
+        let param_field = remove_attrs_and_lifetime(field);
+        fields_vec.push(param_field);
+    }
+    match fields_vec.pop() {
+        Some(field) => Ok((field.ident.clone().unwrap().clone(), fields_vec)),
         None => Err(syn::parse::Error::new(
             fields.span(),
             "signed_struct_derive does not work with an empty struct",
@@ -160,16 +164,19 @@ fn id_of_last_field(fields: &FieldsNamed) -> Result<Ident, syn::parse::Error> {
     }
 }
 
+fn remove_attrs_and_lifetime(field: &Field) -> Field {
+    let mut param_field = field.clone();
+    param_field.attrs = Vec::new();
+    if let syn::Type::Reference(t) = param_field.ty {
+        param_field.ty = syn::Type::Reference(TypeReference { lifetime: None, ..t });
+    }
+    param_field
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
     fn it_works() {
-        let foo = Foo {
-            foo: "xxx",
-            bar: 88,
-            zot: "sd",
-            _json,
-        };
         let result = 2 + 2;
         assert_eq!(result, 4);
     }
