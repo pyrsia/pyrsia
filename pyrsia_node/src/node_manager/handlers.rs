@@ -21,8 +21,8 @@ lazy_static! {
 
 //get_artifact: given artifact_hash(artifactName) pulls artifact for  artifact_manager and
 //              returns read object to read the bytes of artifact
-pub fn get_artifact<'a>(
-    art_hash: &'a [u8],
+pub fn get_artifact(
+    art_hash: &[u8],
     art_algorithm: HashAlgorithm,
 ) -> Result<File, anyhow::Error> {
     let hash = Hash::new(art_algorithm, art_hash)?;
