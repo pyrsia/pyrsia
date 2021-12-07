@@ -1,15 +1,21 @@
 name: Linting
 on:
-  pull_request_target: # This is needed for PRs from forks are able to post annotations
+  pull_request:
+
+permissions:
+  checks: write
+  pull-requests: write
 
 jobs:
   security_audit:
+    # This is disabled since it incorrectly posts on the "into" branch and is very sensitive
+    # making it difficult to work with at this time.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - uses: actions-rs/audit-check@v1
+      - continue-on-error: true
+        uses: actions-rs/audit-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -17,8 +23,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - run: rustup component add rustfmt
       - run: cargo fmt -- --check # Prints diff in the action logs
       - if: failure()
@@ -28,8 +32,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - run: rustup component add clippy
       - uses: actions-rs/clippy-check@v1
         with:
