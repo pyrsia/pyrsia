@@ -1,6 +1,8 @@
 extern crate anyhow;
 extern crate reqwest;
 extern crate tokio;
+#[cfg(test)]
+extern crate utilities;
 
 use std::io;
 use std::io::prelude::*;
@@ -27,16 +29,6 @@ mod tests {
     use std::fs::File;
     use std::io::BufReader;
 
-    // Reads the first line from a BufRead
-    fn first_line<R>(mut rdr: R) -> String
-    where
-        R: BufRead,
-    {
-        let mut first_line: String = String::new();
-        rdr.read_line(&mut first_line).expect("Unable to read line");
-        first_line
-    }
-
     #[test]
     fn test_get() {
         let file_name: String = String::from("/tmp/apache_license.txt");
@@ -49,7 +41,7 @@ mod tests {
         }
 
         let f: File = File::open(file_name.clone()).unwrap();
-        let first: String = String::from(first_line(BufReader::new(f)));
+        let first: String = String::from(utilities::first_line(BufReader::new(f)));
         let right: String = String::from("Apache License");
         assert_eq!(first.trim(), right);
         println!("\u{2705} test passed.");

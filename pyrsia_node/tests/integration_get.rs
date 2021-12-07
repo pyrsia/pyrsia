@@ -1,18 +1,9 @@
 extern crate pyrsia_node;
+extern crate utilities;
 
 use pyrsia_node::network::http::get;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
-
-// Reads the first line from a BufRead
-fn first_line<R>(mut rdr: R) -> String
-where
-    R: BufRead,
-{
-    let mut first_line: String = String::new();
-    rdr.read_line(&mut first_line).expect("Unable to read line");
-    first_line
-}
+use std::io::BufReader;
 
 #[test]
 fn test_get() {
@@ -25,7 +16,7 @@ fn test_get() {
     }
 
     let f: File = File::open(file_name.clone()).unwrap();
-    let first: String = String::from(first_line(BufReader::new(f)));
+    let first: String = String::from(utilities::first_line(BufReader::new(f)));
     let right: String = String::from("Apache License");
     assert_eq!(first.trim(), right);
     println!("\u{2705} test passed.");
@@ -34,7 +25,6 @@ fn test_get() {
         Ok(_) => println!("Removed temp file"),
     }
 }
-
 
 #[test]
 fn test_bad_site() {

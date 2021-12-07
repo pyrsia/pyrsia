@@ -2677,6 +2677,7 @@ dependencies = [
  "strum_macros",
  "tokio",
  "unqlite",
+ "utilities",
  "uuid",
  "warp",
 ]
@@ -3637,6 +3638,10 @@ dependencies = [
  "matches",
  "percent-encoding",
 ]
+
+[[package]]
+name = "utilities"
+version = "0.1.0"
 
 [[package]]
 name = "uuid"
