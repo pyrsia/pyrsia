@@ -10,7 +10,7 @@ use std::collections::HashSet;
 
 use quote::{format_ident, quote};
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, AttributeArgs, DeriveInput, Field, FieldsNamed};
+use syn::{parse_macro_input, AttributeArgs, DeriveInput, Field, FieldsNamed, Visibility};
 
 #[proc_macro_attribute]
 pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -18,7 +18,6 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
     let _ = parse_macro_input!(args as AttributeArgs);
     println!("parsing input");
     let mut ast = parse_macro_input!(input as DeriveInput);
-    let struct_ident = &ast.ident;
     println!("matching ast");
     match &mut ast.data {
         syn::Data::Struct(ref mut struct_data) => {
@@ -26,11 +25,16 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
             match &mut struct_data.fields {
                 syn::Fields::Named(fields) => {
                     println!("Struct contains named fields");
-                    let json_field_name = unique_json_field_ident(fields);
-                    println!("Field name is {}", json_field_name);
-                    let json_field = construct_json_field(&json_field_name);
-                    println!("Constructed field");
-                    fields.named.push(json_field);
+                    //let json_field_name = unique_json_field_ident(fields);
+                    match unique_json_field_ident(fields) {
+                        Ok(json_field_name) => {
+                            println!("Field name is {}", json_field_name);
+                            let json_field = construct_json_field(&json_field_name);
+                            println!("Constructed field");
+                            fields.named.push(json_field);
+                        },
+                        Err(error) => return error.to_compile_error().into()
+                    }
                     println!("generating output");
                     let output = quote! {
                     //#[derive(serde::Serialize, serde::Deserialize)]
@@ -72,11 +76,6 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
     }
 }
 
-//#[proc_macro_derive(SignedStructDerive)]
-//pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
-
-//}
-
 fn construct_json_field(field_name: &Ident) -> Field {
     let json_fields_named: syn::FieldsNamed = syn::parse2(
         quote!( {
@@ -90,9 +89,12 @@ fn construct_json_field(field_name: &Ident) -> Field {
     json_field
 }
 
-fn unique_json_field_ident(fields: &FieldsNamed) -> Ident {
+fn unique_json_field_ident(fields: &FieldsNamed) -> Result<Ident, syn::parse::Error> {
     let mut field_names: HashSet<String> = HashSet::new();
     for field in fields.named.iter() {
+        if field.vis != Visibility::Inherited {
+            return Err(syn::parse::Error::new(field.span(), "signed_struct requires all fields to be private"));
+        }
         for id in field.ident.iter() {
             field_names.insert(id.to_string());
         }
@@ -102,10 +104,19 @@ fn unique_json_field_ident(fields: &FieldsNamed) -> Ident {
         let mut candidate_name = String::from("_json");
         candidate_name.push_str(&counter.to_string());
         if !field_names.contains(candidate_name.as_str()) {
-            return format_ident!("_json{}", counter.to_string());
+            return Ok(format_ident!("_json{}", counter.to_string()))
         }
         counter += 1;
     }
+}
+
+#[proc_macro_derive(SignedStructDerive)]
+pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
+    println!("parsing input");
+    let ast = parse_macro_input!(input as DeriveInput);
+    let struct_ident = &ast.ident;
+
+    quote!( 9 ).into()
 }
 
 #[cfg(test)]
