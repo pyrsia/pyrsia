@@ -7,6 +7,11 @@ The daemon running everything.
 - **Artifact Manager**: A component of the node responsible for tracking software components and other artifacts on the local machine and finding it on other nodes.
 - **Metadata**: The information surrounding and describing the "data"
 
+### Generating Test Coverage Report
+
+1. `cd pyrsia`
+2. `sh ./test_code_coverage.sh`
+
 ## Running the docker integration:
 
 1. Open a terminal and start a pyrsia node with: `RUST_LOG=pyrsia cargo run -q`
