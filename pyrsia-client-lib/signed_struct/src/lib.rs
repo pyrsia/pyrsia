@@ -57,7 +57,7 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
                 _ => {
                     return syn::parse::Error::new(
                         ast.span(),
-                        "signed_struct may only be used with struct having named field.",
+                        "signed_struct may only be used with structs having named fields.",
                     )
                     .to_compile_error()
                     .into()
@@ -65,12 +65,17 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
             }
         }
         _ => {
-            return syn::parse::Error::new(ast.span(), "`add_field` has to be used with structs ")
+            return syn::parse::Error::new(ast.span(), "signed_struct may only be used with structs ")
                 .to_compile_error()
                 .into()
         }
     }
 }
+
+//#[proc_macro_derive(SignedStructDerive)]
+//pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
+
+//}
 
 fn construct_json_field(field_name: &Ident) -> Field {
     let json_fields_named: syn::FieldsNamed = syn::parse2(
