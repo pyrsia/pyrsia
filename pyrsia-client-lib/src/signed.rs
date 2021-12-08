@@ -1,3 +1,47 @@
+//! This module defines structs and traits that are used to implement _signed structs_. A signed
+//! struct is a that has associated with it a JSON representation of the struct's contents that are
+//! signed.
+//!
+//! The signed JSON associated with a struct can be stored or sent in a message as a representation
+//! of the contents of the struct. The signatures can be validated to verify that the contents of
+//! the JSON have not been modified since the JSON was signed. Multiple signatures can be applied to
+//! a signed struct.
+//!
+//! The first thing that you will do with this module is to use its `create_key_pair` function to
+//! create a key pair. You will use the private key in the key pair to sign structs. The public key
+//! is used to identify the signer.
+//! ```
+//! use pyrsia_client_lib::signed::{SignatureKeyPair, create_key_pair, JwsSignatureAlgorithms};
+//! let key_pair: SignatureKeyPair = create_key_pair(JwsSignatureAlgorithms::RS512).unwrap();
+//! ```
+//!
+//! The next thing to do is define some signed structs. Signed structs implement the `Signed` trait.
+//! However, it is not recommended that you directly implement the `Signed` trait directly. Instead,
+//! you should annotate the struct like this <br>
+//! `   #[signed_struct]` <br>
+//! `   struct Foo<'a> {` <br>
+//! `       foo: String,` <br>
+//! `       bar: u32,` <br>
+//! `       zot: &'a str,` <br>
+//! `   }` <br>
+//!
+//! This annotation runs a macro that add some fields to support the Signed trait, implements the
+//! signed trait, and generates getters and setters for the struct. There is not a full example of
+//! its use here to avoid Cargo complaining about a circular dependency. You can see a detailed
+//! example in the source for `signed_struct_test/lib.rs'. This is the best example of how to use
+//! this.
+//!
+//! Getters are generated with the signature `fn field(&self) -> &type`.
+//!
+//! Setters are generated as `fn field(&mut self, val: type)`. In addition to setting their field,
+//! the setters also call the `clear_json()` method provided by the `Signed` trait. This removes
+//! any JSON currently associated with the struct because it is no longer valid after the struct's
+//! field has been modified.
+//!
+//! It is recommended that signed structs be defined in a separate module that contains just the
+//! signed struct. This is so that nothing but the generated getters and setters can access the
+//! struct's fields.  Note that signed structs are not allowed to have public fields.
+
 extern crate anyhow;
 extern crate base64;
 extern crate detached_jws;
@@ -28,7 +72,8 @@ use serde_json::{json, Map, Value};
 use time::format_description::FormatItem;
 use time::{format_description, OffsetDateTime};
 
-/// An enumeration of the supported signature algorithms
+/// An enumeration of the supported signature algorithms used by this module to sign structs and
+/// JSON.
 #[derive(Deserialize, Serialize, Copy, Clone, Debug, PartialEq)]
 pub enum JwsSignatureAlgorithms {
     RS512,
@@ -71,6 +116,12 @@ const DEFAULT_RSA_KEY_SIZE: u32 = 8192;
 const ISO8601_FORMAT: &str = "[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:3]Z";
 
 /// This contains the information from an individual verified signature of a struct or JSON.
+/// When the signature(s) of a signed struct are verified, one of this structs is produced to
+/// provide information about each of the signatures.
+///
+/// That fact that it is validated means that it was signed by the identity associated with the
+/// public key and that the contents have not been modified since they were signed. This information
+/// is provided so that you can reason about the trust-worthiness of the signature.
 pub struct Attestation {
     public_key: Option<Vec<u8>>,
     signature_algorithm: Option<JwsSignatureAlgorithms>,
@@ -209,7 +260,11 @@ fn iso8601_date_time_to_offset_date_time(
     OffsetDateTime::parse(&formatted_date_time, &format).unwrap()
 }
 
-/// An instance of this struct is created to hold a key pair
+/// An instance of this struct is created to hold a key pair. The struct can be serialized to save
+/// the key pair for later use.
+///
+/// This struct has the public and private keys as separate values in anticipation that quantum-
+/// resistant signature algorithms will require this.
 #[derive(Deserialize, Serialize)]
 pub struct SignatureKeyPair {
     pub signature_algorithm: JwsSignatureAlgorithms,
@@ -267,7 +322,7 @@ pub fn create_key_pair(
 /// }
 /// ```
 pub trait Signed<'a>: Deserialize<'a> + Serialize {
-    /// Return as a string the signed JSON associated with this struct. Returns None if there no
+    /// Return as a string the signed JSON associated with this struct. Returns None if no
     /// signed JSON is currently associated with the struct.
     fn json(&self) -> Option<String>;
 
@@ -278,12 +333,15 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     /// Set the JSON string associated with this struct.
     ///
     /// This method should be private. It should only be called from the other methods of this
-    /// trait.
+    /// trait. **In the future, an update to the `#[signed_struct]` macro will make the presence of
+    /// this method in the train unnecessary and it will be removed from the trait.**
     fn set_json(&mut self, _json: &str);
 
     /// Create a struct of type `T` from the contents of the given JSON string.
-    ///
-    /// Return the created struct if there is an error.
+    /// For example, if you have defined a signed struct named `Foo` and you have some JSON created
+    /// by calling the `json()` method on an instance of `Foo`, then you can recreate the instance
+    /// of `Foo` by writing <br>
+    /// `    let my_foo: Foo = Foo::from_json_string(json);
     fn from_json_string<T: Signed<'a>>(json: &'a str) -> serde_json::error::Result<T> {
         let mut signed_struct: T = serde_json::from_str(json)?;
         signed_struct.set_json(json);
@@ -293,7 +351,7 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     /// If this struct does not have an associated JSON representation then create it and pass it to
     /// the `set_json` method.
     ///
-    /// Add a signature to the JSON using the contents of the given key pair.
+    /// Add a signature to the JSON using the contents of a given key pair.
     /// * signature_algorithm — The signature algorithm to use for signing. Must be compatible with the private key.
     /// * private_key — The der encoded private key to use for signing.
     fn sign_json(

@@ -1,6 +1,13 @@
 #[cfg(test)]
 mod tests {
-    use pyrsia_client_lib::signed::{create_key_pair, Attestation, JwsSignatureAlgorithms, Signed};
+    extern crate anyhow;
+    extern crate pyrsia_client_lib;
+    extern crate serde;
+    extern crate signed_struct;
+
+    use pyrsia_client_lib::signed::{
+        create_key_pair, Attestation, JwsSignatureAlgorithms, SignatureKeyPair, Signed,
+    };
     use signed_struct::signed_struct;
 
     #[signed_struct]
@@ -12,7 +19,7 @@ mod tests {
 
     #[test]
     fn test_generated_methods() -> Result<(), anyhow::Error> {
-        let key_pair = create_key_pair(JwsSignatureAlgorithms::RS512)?;
+        let key_pair: SignatureKeyPair = create_key_pair(JwsSignatureAlgorithms::RS512)?;
         let foo_value: String = String::from("abc");
         let foo_value_clone = foo_value.clone();
         let bar_value: u32 = 234;
