@@ -28,6 +28,7 @@ jobs:
 
     - run: cargo build --workspace --verbose --locked
     - run: cargo test --workspace --verbose
+
   coverage:
     needs: [build]
     runs-on: ubuntu-latest
@@ -44,7 +45,7 @@ jobs:
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         
     - run: cargo install cargo-tarpaulin
-    - run: cargo tarpaulin --workspace --out Xml
+    - run: cargo tarpaulin --workspace
 
     - uses: codecov/codecov-action@v2
       with:
