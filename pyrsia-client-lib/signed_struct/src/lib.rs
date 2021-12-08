@@ -10,8 +10,29 @@ use std::collections::HashSet;
 
 use quote::{format_ident, quote};
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, AttributeArgs, DeriveInput, Field, FieldsNamed, Visibility, TypeReference};
+use syn::{
+    parse_macro_input, AttributeArgs, DeriveInput, Field, FieldsNamed, Type, TypeReference,
+    Visibility,
+};
 
+/// Use this macro before a struct to make it a signed struct. That means it will have signed JSON
+/// associated with it. A test that shows the use of this is in the `signed-struct-test` crate.
+///
+/// This macro will generate additional field(s) to support the signed JSON. The struct will
+/// implement the `pyrsia_client_lib::Signed` trait that includes methods for signing the struct,
+/// verifying the signature(s) (multiple signatures are allowed), getting the JSON and creating a
+/// new struct from the JSON.
+///
+/// Signed structs should be in a module by themselves so that other code cannot directly reference
+/// their private fields. The macro issues an error if it has any public fields. To access the
+/// fields, you should use the getters and setters that the macro generates.
+///
+/// Getters are generated with the signature `fn field(&self) -> &type`.
+///
+/// Setters are generated as `fn field(&mut self, val: type)`. In addition to setting their field,
+/// the setters also call the `clear_json()` method provided by the `Signed` trait. This removes
+/// any JSON currently associated with the struct because it is no longer valid after the struct's
+/// field has been modified.
 #[proc_macro_attribute]
 pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
     let _ = parse_macro_input!(args as AttributeArgs);
@@ -97,7 +118,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                 syn::Fields::Named(fields) => {
                     println!("Struct contains named fields");
                     match scan_fields(fields) {
-                        Ok((json_field_name, fields_vec, field_ident_vec)) => {
+                        Ok((json_field_name, type_vec, field_ident_vec, setter_name_vec)) => {
                             println!("generating output from signed_struct_derive");
                             let struct_ident = &ast.ident;
                             let output = quote! {
@@ -116,9 +137,13 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                                 }
 
                                 impl #struct_ident<'_> {
-                                    fn new(#(#fields_vec),*) -> #struct_ident {
+                                    fn new(#( #field_ident_vec : #type_vec),*) -> #struct_ident {
                                         #struct_ident{ #(#field_ident_vec),* , #json_field_name: None }
                                     }
+
+                                    #(fn #field_ident_vec(&self)->&#type_vec{&self.#field_ident_vec}
+                                      //fn #setter_name_vec(&mut self){self.#field_ident_vec = }
+                                    )*
                                 }
                             }
                             .into();
@@ -149,17 +174,35 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
     }
 }
 
-fn scan_fields(fields: &FieldsNamed) -> Result<(Ident, Vec<Field>, Vec<Ident>), syn::parse::Error> {
-    let mut fields_vec = Vec::new();
+fn scan_fields(
+    fields: &FieldsNamed,
+) -> Result<
+    (
+        Ident, // the name of the JSON field.
+        Vec<Type>, // the types of the non-generated fields
+        Vec<Ident>, // the names of the fields to be used as getters
+        Vec<Ident>, // the name of the setters
+    ),
+    syn::parse::Error,
+> {
+    let mut type_vec = Vec::new();
     let mut field_name_vec: Vec<Ident> = Vec::new();
+    let mut setter_name_vec: Vec<Ident> = Vec::new();
     for field in fields.named.iter() {
-        let param_field = remove_attrs_and_lifetime(field);
-        fields_vec.push(param_field.clone());
-        field_name_vec.push(param_field.ident.clone().unwrap())
+        let param_type = field_type_without_lifetime(field);
+        type_vec.push(param_type.clone());
+        let field_name = field.ident.clone().unwrap();
+        field_name_vec.push(field_name.clone());
+        setter_name_vec.push(format_ident!("set_{}", field_name));
     }
-
-    match fields_vec.pop() {
-        Some(_) => Ok((field_name_vec.pop().unwrap(), fields_vec, field_name_vec)),
+    setter_name_vec.pop();
+    match type_vec.pop() {
+        Some(_) => Ok((
+            field_name_vec.pop().unwrap(),
+            type_vec,
+            field_name_vec,
+            setter_name_vec,
+        )),
         None => Err(syn::parse::Error::new(
             fields.span(),
             "signed_struct_derive does not work with an empty struct",
@@ -167,13 +210,15 @@ fn scan_fields(fields: &FieldsNamed) -> Result<(Ident, Vec<Field>, Vec<Ident>), 
     }
 }
 
-fn remove_attrs_and_lifetime(field: &Field) -> Field {
-    let mut param_field = field.clone();
-    param_field.attrs = Vec::new();
-    if let syn::Type::Reference(t) = param_field.ty {
-        param_field.ty = syn::Type::Reference(TypeReference { lifetime: None, ..t });
+fn field_type_without_lifetime(field: &Field) -> Type {
+    match field.ty {
+        syn::Type::Reference(ref t) => {
+            let mut ty = t.clone();
+            ty.lifetime = None;
+            syn::Type::Reference(ty)
+        }
+        _ => field.ty.clone(),
     }
-    param_field
 }
 
 #[cfg(test)]
