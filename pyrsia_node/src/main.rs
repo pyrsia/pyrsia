@@ -31,7 +31,7 @@ use libp2p::{
     swarm::SwarmEvent,
     Multiaddr, PeerId,
 };
-use log::{debug, info, error};
+use log::{debug, error, info};
 use std::collections::HashMap;
 use std::env;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
