@@ -34,4 +34,3 @@ libp2p = {git = "https://github.com/decentnetwork/rust-libp2p.git", branch = "fi
 unqlite = "1.5.0"
 uuid = { version = "0.8.2", features = [ "v4" ] }
 warp = { version = "0.3.1", default-features = false }
-

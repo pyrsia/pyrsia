@@ -31,7 +31,7 @@ use libp2p::{
     swarm::SwarmEvent,
     Multiaddr, PeerId,
 };
-use log::info;
+use log::{debug, info, error};
 use std::collections::HashMap;
 use std::env;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -88,7 +88,7 @@ async fn main() {
     // Reach out to another node if specified
     if let Some(to_dial) = matches.value_of("peer") {
         let addr: Multiaddr = to_dial.parse().unwrap();
-        swarm_instance.dial_addr(addr).unwrap();
+        swarm.dial_addr(addr).unwrap();
         info!("Dialed {:?}", to_dial)
     }
 
@@ -96,7 +96,7 @@ async fn main() {
     let mut stdin = io::BufReader::new(io::stdin()).lines();
 
     // Listen on all interfaces and whatever port the OS assigns
-    swarm_instance
+    swarm
         .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
         .unwrap();
 
@@ -181,15 +181,15 @@ async fn main() {
                     Err(_) => error!("failed to send stdin input")
                 }
             }
-            event = swarm_instance.select_next_some() => {
+            event = swarm.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {
                     info!("Listening on {:?}", address);
                 }
             }
             Some(message) = rx.recv() => {
                 info!("New message: {}", message);
-                swarm_instance.behaviour_mut().floodsub().publish(floodsub_topic.clone(), message.as_bytes());
-                swarm_instance.behaviour_mut().lookup_blob(message).unwrap();
+                swarm.behaviour_mut().floodsub().publish(floodsub_topic.clone(), message.as_bytes());
+                swarm.behaviour_mut().lookup_blob(message).unwrap();
             }
         }
     }

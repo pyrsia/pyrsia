@@ -24,8 +24,8 @@ Before getting started, take a moment to review our [contributing guidelines](ht
 ### Getting Started
 
 1. Setup rust on your local machine as described in [Rust's getting started guide](https://www.rust-lang.org/learn/get-started)
-2. `cd pyrsia-node`
-3. `cargo run`
+2. `cd pyrsia_node`
+3. `cargo run -p pyrsia`
 
 ### Setting Up Visual Studio Code Debugger
 
