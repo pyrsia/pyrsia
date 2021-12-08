@@ -1,6 +1,7 @@
 extern crate anyhow;
 extern crate base64;
 extern crate detached_jws;
+extern crate iso8601;
 extern crate log;
 extern crate openssl;
 extern crate serde;
@@ -15,7 +16,7 @@ use std::option::Option;
 use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
-use log::{debug, trace};
+use log::{debug, trace, warn};
 use openssl::pkey::{PKey, Private};
 use openssl::{
     hash::MessageDigest,
@@ -28,7 +29,7 @@ use time::format_description::FormatItem;
 use time::{format_description, OffsetDateTime};
 
 /// An enumeration of the supported signature algorithms
-#[derive(Deserialize, Serialize, Copy, Clone)]
+#[derive(Deserialize, Serialize, Copy, Clone, Debug, PartialEq)]
 pub enum JwsSignatureAlgorithms {
     RS512,
     RS384,
@@ -122,36 +123,90 @@ impl Attestation {
             Value::String(alg_string) => JwsSignatureAlgorithms::from_jws_name(alg_string),
             _ => None,
         };
-        attestation.expiration_time =
-            Self::date_time_from_json(&json_header, EXPIRATION_FIELD_NAME);
-        attestation.timestamp = Self::date_time_from_json(&json_header, TIMESTAMP_FIELD_NAME);
-        attestation.public_key = Self::public_key_from_json(&json_header);
+        attestation.expiration_time = date_time_from_json(&json_header, EXPIRATION_FIELD_NAME);
+        attestation.timestamp = date_time_from_json(&json_header, TIMESTAMP_FIELD_NAME);
+        attestation.public_key = public_key_from_json(&json_header);
         attestation
     }
+}
 
-    fn date_time_from_json(json_header: &Value, field_name: &str) -> Option<OffsetDateTime> {
-        match &json_header[field_name] {
-            Value::String(time_string) => {
-                match OffsetDateTime::parse(time_string, &iso8601_format_spec()) {
-                    Ok(date_time) => Some(date_time),
-                    Err(_) => None,
+fn public_key_from_json(json_header: &Value) -> Option<Vec<u8>> {
+    match &json_header[SIGNER_FIELD_NAME] {
+        Value::String(key_string) => {
+            match base64::decode_config(key_string, base64::STANDARD_NO_PAD) {
+                Ok(key) => Some(key),
+                Err(_) => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+fn date_time_from_json(json_header: &Value, field_name: &str) -> Option<OffsetDateTime> {
+    match &json_header[field_name] {
+        Value::String(time_string) => {
+            let unquoted_time_string: &str = time_string[1..time_string.len() - 1].as_ref();
+            parse_iso8601(unquoted_time_string)
+        }
+        _ => None,
+    }
+}
+
+fn parse_iso8601(dt_string: &str) -> Option<OffsetDateTime> {
+    match iso8601::datetime(dt_string) {
+        Ok(date_time) => {
+            match date_time.date {
+                iso8601::Date::YMD { year, month, day } => Some(
+                    iso8601_date_time_to_offset_date_time(year, month, day, date_time.time),
+                ),
+                iso8601::Date::Week {
+                    year: _,
+                    ww: _,
+                    d: _,
+                } => {
+                    warn!(
+                        "Unsupported timestamp in year-week-day format {}",
+                        dt_string
+                    );
+                    None
+                }
+                iso8601::Date::Ordinal { year: _, ddd: _ } => {
+                    warn!("Unsupported timestamp in year-day format {}", dt_string);
+                    None
                 }
             }
-            _ => None,
+        }
+        Err(error) => {
+            warn!("Error parsing JSON timestamp {}", error);
+            None
         }
     }
+}
 
-    fn public_key_from_json(json_header: &Value) -> Option<Vec<u8>> {
-        match &json_header[SIGNER_FIELD_NAME] {
-            Value::String(key_string) => {
-                match base64::decode_config(key_string, base64::STANDARD_NO_PAD) {
-                    Ok(key) => Some(key),
-                    Err(_) => None,
-                }
-            }
-            _ => None,
-        }
-    }
+fn iso8601_date_time_to_offset_date_time(
+    year: i32,
+    month: u32,
+    day: u32,
+    time: iso8601::Time,
+) -> OffsetDateTime {
+    let formatted_date_time = format!(
+        "{:04}-{:02}-{:02} {:02}:{:02}:{:02}:{:03} {:02}:{:02}",
+        year,
+        month,
+        day,
+        time.hour,
+        time.minute,
+        time.second,
+        time.millisecond,
+        time.tz_offset_hours,
+        time.tz_offset_minutes
+    );
+    println!("{}", formatted_date_time);
+    let format = time::format_description::parse(
+        "[year]-[month]-[day] [hour]:[minute]:[second]:[subsecond] [offset_hour]:[offset_minute]",
+    )
+    .unwrap();
+    OffsetDateTime::parse(&formatted_date_time, &format).unwrap()
 }
 
 /// An instance of this struct is created to hold a key pair
@@ -1076,6 +1131,15 @@ mod tests {
             )),
             Err(_) => Ok(()),
         }
+    }
+
+    #[test]
+    fn parse_iso8601_test() {
+        let now = now_as_iso8601_string();
+        let odt = parse_iso8601(&now);
+        assert!(odt.is_some());
+        let dt = odt.unwrap();
+        assert_eq!(2021, dt.year());
     }
 
     #[test]

@@ -10,7 +10,7 @@ use std::collections::HashSet;
 
 use quote::{format_ident, quote};
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, AttributeArgs, DeriveInput, Field, FieldsNamed, Type, TypeReference, Visibility, Lifetime};
+use syn::{parse_macro_input, AttributeArgs, DeriveInput, Field, FieldsNamed, Type, Visibility, Lifetime};
 
 /// Use this macro before a struct to make it a signed struct. That means it will have signed JSON
 /// associated with it. A test that shows the use of this is in the `signed-struct-test` crate.
@@ -140,7 +140,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
 
                                     #(fn #field_ident_vec(&self)->&#type_vec{&self.#field_ident_vec}
 
-                                      fn #setter_name_vec(&mut self, value: #type_vec){self.#field_ident_vec = value}
+                                      fn #setter_name_vec(&mut self, value: #type_vec){self.clear_json(); self.#field_ident_vec = value}
 
                                     )*
                                 }

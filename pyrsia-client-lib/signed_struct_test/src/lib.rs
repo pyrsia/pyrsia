@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use pyrsia_client_lib::signed::{create_key_pair, JwsSignatureAlgorithms, Signed};
+    use pyrsia_client_lib::signed::{create_key_pair, Attestation, JwsSignatureAlgorithms, Signed};
     use signed_struct::signed_struct;
 
     #[signed_struct]
@@ -30,6 +30,59 @@ mod tests {
         assert_eq!(foo_value_clone, *foo.foo()); // The * is needed because the getters add a & to the type.
         assert_eq!(bar_value, *foo.bar());
         assert_eq!(zot_value, *foo.zot());
+
+        // after signing, there should be json.
+        assert!(foo.json().is_some());
+
+        let foo_value: String = String::from("xyz");
+        let foo_value_clone = foo_value.clone();
+        let bar_value: u32 = 736;
+        let zot_value: &str = "asdf";
+
+        foo.set_foo(foo_value);
+        foo.set_bar(bar_value);
+        foo.set_zot(zot_value);
+
+        assert_eq!(foo_value_clone, *foo.foo()); // The * is needed because the getters add a & to the type.
+        assert_eq!(bar_value, *foo.bar());
+        assert_eq!(zot_value, *foo.zot());
+
+        // after previous set calls there should be no JSON.
+        assert!(foo.json().is_none());
+
+        // Create new JSON by signing.
+        foo.sign_json(
+            JwsSignatureAlgorithms::RS512,
+            &key_pair.private_key,
+            &key_pair.public_key,
+        )?;
+
+        // after signing, there should be json.
+        assert!(foo.json().is_some());
+
+        let json: &str = &foo.json().unwrap();
+        println!("JSON: {}", json);
+        let foo2: Foo = Foo::from_json_string(json)?;
+        // after being created from json the signature should be valid
+        let attestations: Vec<Attestation> = foo2.verify_signature()?;
+
+        // We just signed it once.
+        assert_eq!(attestations.len(), 1);
+
+        let attestation = &attestations[0];
+        assert!(attestation.signature_is_valid());
+        assert!(attestation.signature_algorithm().is_some());
+        assert_eq!(
+            &JwsSignatureAlgorithms::RS512,
+            &attestation.signature_algorithm().unwrap()
+        );
+        assert!(attestation.expiration_time().is_none());
+        assert!(attestation.timestamp().is_some());
+        assert!(attestation.public_key().is_some());
+        assert_eq!(
+            key_pair.public_key,
+            attestation.public_key().clone().unwrap()
+        );
         Ok(())
     }
 }
