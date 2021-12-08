@@ -29,7 +29,7 @@
 //! signed trait, and generates getters and setters for the struct. There is not a full example of
 //! its use here to avoid Cargo complaining about a circular dependency. You can see a detailed
 //! example in the source for `signed_struct_test/lib.rs'. This is the best example of how to use
-//! this.
+//! this. You should read it.
 //!
 //! Getters are generated with the signature `fn field(&self) -> &type`.
 //!
@@ -37,6 +37,11 @@
 //! the setters also call the `clear_json()` method provided by the `Signed` trait. This removes
 //! any JSON currently associated with the struct because it is no longer valid after the struct's
 //! field has been modified.
+//!
+//! You should not create instances of the struct directly. Instead, you should use the generated
+//! `new` method. To create an instance of the `Foo` struct shown above, you could write something
+//! like this: <br>
+//! `let foo = Foo::new(foo_value, bar_value, zot_value);`
 //!
 //! It is recommended that signed structs be defined in a separate module that contains just the
 //! signed struct. This is so that nothing but the generated getters and setters can access the

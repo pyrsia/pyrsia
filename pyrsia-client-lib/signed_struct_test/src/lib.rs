@@ -10,16 +10,24 @@ mod tests {
     };
     use signed_struct::signed_struct;
 
-    #[signed_struct]
-    struct Foo<'a> {
-        foo: String,
-        bar: u32,
-        zot: &'a str,
+    // Create a signed struct in its own module to prevent direct access to its fields. They should
+    // be access through the generated getters and setters.
+    pub mod foo {
+        #[signed_struct]
+        struct Foo<'a> {
+            foo: String,
+            bar: u32,
+            zot: &'a str,
+        }
     }
+    use foo::*;
 
     #[test]
     fn test_generated_methods() -> Result<(), anyhow::Error> {
+        // Create a signature pair for signing JSON.
         let key_pair: SignatureKeyPair = create_key_pair(JwsSignatureAlgorithms::RS512)?;
+
+        // Values to use for populating our first signed struct.
         let foo_value: String = String::from("abc");
         let foo_value_clone = foo_value.clone();
         let bar_value: u32 = 234;
@@ -33,6 +41,8 @@ mod tests {
             &key_pair.private_key,
             &key_pair.public_key,
         )?;
+        // Since we have not modified the contents of the struct, its signature should verify
+        // successfully.
         foo.verify_signature()?;
         assert_eq!(foo_value_clone, *foo.foo()); // The * is needed because the getters add a & to the type.
         assert_eq!(bar_value, *foo.bar());
@@ -41,6 +51,8 @@ mod tests {
         // after signing, there should be json.
         assert!(foo.json().is_some());
 
+        // Now we are going to exercise the generated setters, which should have the side effect of
+        // clearing the signed JSON.
         let foo_value: String = String::from("xyz");
         let foo_value_clone = foo_value.clone();
         let bar_value: u32 = 736;
@@ -69,13 +81,18 @@ mod tests {
 
         let json: &str = &foo.json().unwrap();
         println!("JSON: {}", json);
+
+        // Create a copy of the first instance of `Foo` from its signed JSON
         let foo2: Foo = Foo::from_json_string(json)?;
-        // after being created from json the signature should be valid
+
+        // after being created from json the signature should be valid and we can examine
+        // information about the signature.
         let attestations: Vec<Attestation> = foo2.verify_signature()?;
 
         // We just signed it once.
         assert_eq!(attestations.len(), 1);
 
+        // Check that the signature information is as expected.
         let attestation = &attestations[0];
         assert!(attestation.signature_is_valid());
         assert!(attestation.signature_algorithm().is_some());
