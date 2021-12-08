@@ -19,7 +19,7 @@ pub async fn new(
     let kademlia = Kademlia::new(peer_id, store);
     let mdns = Mdns::new(Default::default()).await.unwrap();
     let mut behaviour = MyBehaviour::new(Floodsub::new(peer_id), kademlia, mdns);
-    behaviour.floodsub().subscribe(topic.clone());
+    behaviour.floodsub_mut().subscribe(topic.clone());
 
     let swarm = SwarmBuilder::new(transport, behaviour, peer_id)
         // We want the connection background tasks to be spawned

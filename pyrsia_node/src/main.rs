@@ -190,7 +190,7 @@ async fn main() {
             }
             Some(message) = rx.recv() => {
                 info!("New message: {}", message);
-                swarm.behaviour_mut().floodsub().publish(floodsub_topic.clone(), message.as_bytes());
+                swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), message.as_bytes());
                 swarm.behaviour_mut().lookup_blob(message).unwrap();
             }
         }
