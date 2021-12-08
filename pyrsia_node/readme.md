@@ -9,8 +9,8 @@ The daemon running everything.
 
 ### Generating Test Coverage Report
 
-1. `cd pyrsia`
-2. `sh ./test_code_coverage.sh`
+1. From the root directory of the repository
+2. Run `sh ./test_code_coverage.sh`
 
 ## Running the docker integration:
 
