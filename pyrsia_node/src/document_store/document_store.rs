@@ -195,7 +195,6 @@ mod tests {
         let path = tmp_dir.path().join("test_create_db");
         let name = path.to_str().unwrap();
         let mut doc_store = DocumentStore::new();
-        // let name: &str = "test_create_db";
         let idx = vec![];
         doc_store.create_db(name, idx);
     }
