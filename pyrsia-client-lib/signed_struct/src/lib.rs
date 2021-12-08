@@ -5,15 +5,12 @@ extern crate quote;
 extern crate syn;
 
 use proc_macro::TokenStream;
-use proc_macro2::Ident;
+use proc_macro2::{Ident, Span};
 use std::collections::HashSet;
 
 use quote::{format_ident, quote};
 use syn::spanned::Spanned;
-use syn::{
-    parse_macro_input, AttributeArgs, DeriveInput, Field, FieldsNamed, Type, TypeReference,
-    Visibility,
-};
+use syn::{parse_macro_input, AttributeArgs, DeriveInput, Field, FieldsNamed, Type, TypeReference, Visibility, Lifetime};
 
 /// Use this macro before a struct to make it a signed struct. That means it will have signed JSON
 /// associated with it. A test that shows the use of this is in the `signed-struct-test` crate.
@@ -136,13 +133,15 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                                     }
                                 }
 
-                                impl #struct_ident<'_> {
+                                impl<'π> #struct_ident<'π> {
                                     fn new(#( #field_ident_vec : #type_vec),*) -> #struct_ident {
                                         #struct_ident{ #(#field_ident_vec),* , #json_field_name: None }
                                     }
 
                                     #(fn #field_ident_vec(&self)->&#type_vec{&self.#field_ident_vec}
-                                      //fn #setter_name_vec(&mut self){self.#field_ident_vec = }
+
+                                      fn #setter_name_vec(&mut self, value: #type_vec){self.#field_ident_vec = value}
+
                                     )*
                                 }
                             }
@@ -189,7 +188,7 @@ fn scan_fields(
     let mut field_name_vec: Vec<Ident> = Vec::new();
     let mut setter_name_vec: Vec<Ident> = Vec::new();
     for field in fields.named.iter() {
-        let param_type = field_type_without_lifetime(field);
+        let param_type = field_type_with_modified_lifetime(field);
         type_vec.push(param_type.clone());
         let field_name = field.ident.clone().unwrap();
         field_name_vec.push(field_name.clone());
@@ -210,11 +209,11 @@ fn scan_fields(
     }
 }
 
-fn field_type_without_lifetime(field: &Field) -> Type {
+fn field_type_with_modified_lifetime(field: &Field) -> Type {
     match field.ty {
         syn::Type::Reference(ref t) => {
             let mut ty = t.clone();
-            ty.lifetime = None;
+            ty.lifetime = Some(Lifetime::new("'π", Span::call_site()));
             syn::Type::Reference(ty)
         }
         _ => field.ty.clone(),
