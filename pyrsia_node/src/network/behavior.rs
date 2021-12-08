@@ -1,3 +1,4 @@
+use crate::{PEER_ID,ListResponse, ListRequest, ListMode};
 use libp2p::{
     floodsub::{Floodsub, FloodsubEvent},
     mdns::{Mdns, MdnsEvent},
@@ -13,13 +14,15 @@ use log::info;
 #[derive(NetworkBehaviour)]
 #[behaviour(event_process = true)]
 pub struct MyBehaviour {
-    floodsub: Floodsub,
-    mdns: Mdns,
+    pub floodsub: Floodsub,
+    pub mdns: Mdns,
+    #[behaviour(ignore)]
+    response_sender: tokio::sync::mpsc::UnboundedSender<ListResponse>,
 }
 
 impl MyBehaviour {
-    pub fn new(floodsub: Floodsub, mdns: Mdns) -> Self {
-        MyBehaviour { floodsub, mdns }
+    pub fn new(floodsub: Floodsub, mdns: Mdns, response_sender: tokio::sync::mpsc::UnboundedSender<ListResponse>) -> Self {
+        MyBehaviour { floodsub, mdns,response_sender }
     }
 
     pub fn floodsub_mut(&mut self) -> &mut Floodsub {
@@ -28,14 +31,29 @@ impl MyBehaviour {
 }
 
 impl NetworkBehaviourEventProcess<FloodsubEvent> for MyBehaviour {
-    // Called when `floodsub` produces an event.
-    fn inject_event(&mut self, message: FloodsubEvent) {
-        if let FloodsubEvent::Message(message) = message {
-            info!(
-                "Received: '{:?}' from {:?}",
-                String::from_utf8_lossy(&message.data),
-                message.source
-            );
+    fn inject_event(&mut self, event: FloodsubEvent) {
+        match event {
+            FloodsubEvent::Message(msg) => {
+                if let Ok(resp) = serde_json::from_slice::<ListResponse>(&msg.data) {
+                    if resp.receiver == PEER_ID.to_string() {
+                        info!("Response from {}:", msg.source);
+                        //resp.data.iter().for_each(|r| info!("{:?}", r));
+                    }
+                } else if let Ok(req) = serde_json::from_slice::<ListRequest>(&msg.data) {
+                    match req.mode {
+                        ListMode::ALL => {
+                            info!("Received ALL req: {:?} from {:?}", req, msg.source);
+                        }
+                        ListMode::One(ref peer_id) => {
+                            if peer_id == &PEER_ID.to_string() {
+                                info!("Received req: {:?} from {:?}", req, msg.source);
+                                
+                            }
+                        }
+                    }
+                }
+            }
+            _ => (),
         }
     }
 }
@@ -59,3 +77,4 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour {
         }
     }
 }
+

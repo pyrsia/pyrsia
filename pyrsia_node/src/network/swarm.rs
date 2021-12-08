@@ -1,5 +1,7 @@
 use super::behavior::MyBehaviour;
+use crate::ListResponse;
 use super::transport::TcpTokioTransport;
+use tokio::sync::mpsc::UnboundedSender;
 use libp2p::{
     floodsub::{Floodsub, Topic},
     mdns::Mdns,
@@ -13,9 +15,10 @@ pub async fn new(
     topic: Topic,
     transport: TcpTokioTransport,
     peer_id: PeerId,
+    response_sender: UnboundedSender<ListResponse>,
 ) -> Result<MyBehaviourSwarm, ()> {
     let mdns = Mdns::new(Default::default()).await.unwrap();
-    let mut behaviour = MyBehaviour::new(Floodsub::new(peer_id), mdns);
+    let mut behaviour = MyBehaviour::new(Floodsub::new(peer_id), mdns,response_sender);
     behaviour.floodsub_mut().subscribe(topic.clone());
 
     let swarm = SwarmBuilder::new(transport, behaviour, peer_id)

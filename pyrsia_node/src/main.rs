@@ -15,7 +15,20 @@ mod document_store;
 mod network;
 mod utils;
 
+use libp2p::{
+    swarm:: Swarm,
+};
+
+use log::{error, info};
+use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use tokio::{fs, io::AsyncBufReadExt, sync::mpsc};
+
+use crate::network::behavior::MyBehaviour;
+
 use docker::error_util::*;
+
 use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
 use document_store::document_store::DocumentStore;
@@ -31,14 +44,19 @@ use libp2p::{
     swarm::SwarmEvent,
     Multiaddr, PeerId,
 };
-use log::info;
 use std::collections::HashMap;
 use std::env;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use tokio::io::{self, AsyncBufReadExt};
 use warp::Filter;
 
-const DEFAULT_PORT: &str = "7878";
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
+
+const DEFAULT_PORT: &str = "8082";
+static ID_KEYS: Lazy<identity::Keypair> = Lazy::new(|| identity::Keypair::generate_ed25519());
+static PEER_ID: Lazy<PeerId> = Lazy::new(|| PeerId::from(ID_KEYS.public()));
+static TOPIC: Lazy<Topic> = Lazy::new(|| Topic::new("pyrsia-node-converstation"));
+
 
 #[tokio::main]
 async fn main() {
@@ -50,6 +68,10 @@ async fn main() {
     // Create a random PeerId
     let id_keys: Keypair = identity::Keypair::generate_ed25519();
     let peer_id: PeerId = PeerId::from(id_keys.public());
+    info!("pyrsia Peer id is {}:",peer_id);
+
+    let (response_sender, mut response_rcv) = tokio::sync::mpsc::unbounded_channel();
+
 
     let matches: ArgMatches = App::new("Pyrsia Node")
         .version("0.1.0")
@@ -78,25 +100,26 @@ async fn main() {
         .get_matches();
 
     let transport: TcpTokioTransport = new_tokio_tcp_transport(&id_keys); // Create a tokio-based TCP transport using noise for authenticated
-    let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
+    //let floodsub_topic: Topic = floodsub::Topic::newTOPIC.clone()); // Create a Floodsub topic
+
 
     // Create a Swarm to manage peers and events.
-    let mut swarm: MyBehaviourSwarm = new_swarm(floodsub_topic.clone(), transport, peer_id)
+    let mut swarm_inst: MyBehaviourSwarm = new_swarm(TOPIC.clone(), transport, peer_id,response_sender)
         .await
         .unwrap();
 
     // Reach out to another node if specified
     if let Some(to_dial) = matches.value_of("peer") {
         let addr: Multiaddr = to_dial.parse().unwrap();
-        swarm.dial_addr(addr).unwrap();
-        info!("Dialed {:?}", to_dial)
+        swarm_inst.dial_addr(addr).unwrap();
+        info!("pyrsia Dialed {:?}", to_dial)
     }
 
     // Read full lines from stdin
-    let mut stdin = io::BufReader::new(io::stdin()).lines();
+    let mut stdin = tokio::io::BufReader::new(tokio::io::stdin()).lines();
 
     // Listen on all interfaces and whatever port the OS assigns
-    swarm
+    swarm_inst
         .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
         .unwrap();
 
@@ -105,7 +128,7 @@ async fn main() {
         address.set_port(p.parse::<u16>().unwrap());
     }
 
-    let empty_json = "{}";
+    let empty_json = "{i am alive}";
     let v2_base = warp::path("v2")
         .and(warp::get())
         .and(warp::path::end())
@@ -168,19 +191,79 @@ async fn main() {
 
     // Kick it off
     loop {
-        tokio::select! {
-            line = stdin.next_line() => {
-                let line = line.unwrap().expect("stdin closed");
-                swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), line.as_bytes());
+        let evt = {
+            tokio::select! {
+                line = stdin.next_line() => Some(EventType::Input(line.expect("can get line").expect("can read line from stdin"))),
+                response = response_rcv.recv() => Some(EventType::Response(response.expect("response exists"))),
+                event = swarm_inst.select_next_some() => {
+                    if let SwarmEvent::NewListenAddr { address, .. } = event {
+                        info!("Listening on {:?}", address);
+                    }
+
+                    //info!("Swarm Event: {:?}", event);
+                    None
+                },
             }
-            event = swarm.select_next_some() => {
-                if let SwarmEvent::NewListenAddr { address, .. } = event {
-                    info!("Listening on {:?}", address);
+        };
+
+        if let Some(event) = evt {
+            match event {
+                EventType::Response(resp) => {
+                    let json = serde_json::to_string(&resp).expect("can jsonify response");
+                    swarm_inst
+                        .behaviour_mut()
+                        .floodsub
+                        .publish(TOPIC.clone(), json.as_bytes());
                 }
+                EventType::Input(line) => match line.as_str() {
+                    "ls p" => handle_list_peers(&mut swarm_inst).await,
+                    _ => error!("unknown command"),
+                },
             }
         }
     }
+
 }
+
+
+
+
+#[derive(Debug, Serialize, Deserialize)]
+enum ListMode {
+    ALL,
+    One(String),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ListRequest {
+    mode: ListMode,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ListResponse {
+    mode: ListMode,
+    receiver: String,
+}
+
+enum EventType {
+    Response(ListResponse),
+    Input(String),
+}
+
+
+async fn handle_list_peers(swarm: &mut Swarm<MyBehaviour>) {
+    info!("Discovered Peers:");
+    let nodes = swarm.behaviour().mdns.discovered_nodes();
+    let mut unique_peers = HashSet::new();
+    for peer in nodes {
+        unique_peers.insert(peer);
+    }
+    unique_peers.iter().for_each(|p| info!("{}", p));
+}
+
+
+
+
 
 #[cfg(test)]
 mod tests {
