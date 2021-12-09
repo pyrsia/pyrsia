@@ -231,12 +231,3 @@ fn field_type_with_modified_lifetime(field: &Field) -> Type {
         _ => field.ty.clone(),
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
-}
