@@ -2675,9 +2675,9 @@ dependencies = [
  "stringreader",
  "strum",
  "strum_macros",
+ "test_helpers",
  "tokio",
  "unqlite",
- "utilities",
  "uuid",
  "warp",
 ]
@@ -3318,6 +3318,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "test_helpers"
+version = "0.1.0"
+
+[[package]]
 name = "textwrap"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3638,10 +3642,6 @@ dependencies = [
  "matches",
  "percent-encoding",
 ]
-
-[[package]]
-name = "utilities"
-version = "0.1.0"
 
 [[package]]
 name = "uuid"

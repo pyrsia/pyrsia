@@ -36,4 +36,4 @@ uuid = { version = "0.8.2", features = [ "v4" ] }
 warp = { version = "0.3.1", default-features = false }
 
 [dev-dependencies]
-utilities = { path = "utilities" }
+test_helpers = { path = "test_helpers" }
