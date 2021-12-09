@@ -629,14 +629,12 @@ fn add_signature(
         signed_json_buffer.push('"');
         signed_json_buffer.push_str(SIGNATURE_FIELD_NAME);
         signed_json_buffer.push_str(r#"":[""#);
-        signed_json_buffer.push_str(jws_string.as_str());
-        signed_json_buffer.push_str("\"]");
     } else {
         signed_json_buffer.push_str(unicode_32_bit_to_string(&target[..target.len() - 1]).as_str()); // append signature array without closing ']'
         signed_json_buffer.push_str(",\"");
-        signed_json_buffer.push_str(jws_string.as_str());
-        signed_json_buffer.push_str("\"]");
     }
+    signed_json_buffer.push_str(jws_string.as_str());
+    signed_json_buffer.push_str("\"]");
     signed_json_buffer.push_str(&after_string);
     Ok(signed_json_buffer)
 }
