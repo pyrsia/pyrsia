@@ -865,6 +865,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "filename"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63e4df03effebdf9cfa31a663f569fd96cc7e206184b0d4dcd388dc490f7ebe8"
+dependencies = [
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "fixedbitset"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2660,6 +2670,7 @@ dependencies = [
  "ctor",
  "easy-hasher",
  "env_logger 0.9.0",
+ "filename",
  "futures",
  "hex",
  "hyper",
@@ -2675,6 +2686,7 @@ dependencies = [
  "stringreader",
  "strum",
  "strum_macros",
+ "tempfile",
  "test_helpers",
  "tokio",
  "unqlite",
