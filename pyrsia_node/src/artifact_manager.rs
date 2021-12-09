@@ -8,7 +8,6 @@ use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
 use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
-use defaults::Defaults;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io;
@@ -61,8 +60,7 @@ impl Digester for Sha512 {
 
 /// The types of hash algorithms that the artifact manager supports
 
-#[derive(EnumIter, Debug, PartialEq, EnumString, Defaults)]
-#[def = "SHA256"]
+#[derive(EnumIter, Debug, PartialEq, EnumString)]
 pub enum HashAlgorithm {
     SHA256,
     SHA512,
