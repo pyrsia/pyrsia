@@ -127,7 +127,12 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                 syn::Fields::Named(fields) => {
                     #[allow(clippy::let_and_return)]
                     match scan_fields(fields) {
-                        Ok(ScanFieldsResult{json_field_name, type_vec, field_ident_vec, setter_name_vec}) => {
+                        Ok(ScanFieldsResult {
+                            json_field_name,
+                            type_vec,
+                            field_ident_vec,
+                            setter_name_vec,
+                        }) => {
                             let struct_ident = &ast.ident;
                             let output = quote! {
                                 impl<'π> ::pyrsia_client_lib::signed::Signed<'π> for #struct_ident<'π> {
@@ -163,24 +168,20 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                         Err(error) => error.to_compile_error().into(),
                     }
                 }
-                _ => {
-                    syn::parse::Error::new(
-                        ast.span(),
-                        "signed_struct_derive may only be used with structs having named fields.",
-                    )
-                    .to_compile_error()
-                    .into()
-                }
+                _ => syn::parse::Error::new(
+                    ast.span(),
+                    "signed_struct_derive may only be used with structs having named fields.",
+                )
+                .to_compile_error()
+                .into(),
             }
         }
-        _ => {
-            syn::parse::Error::new(
-                ast.span(),
-                "signed_struct_derive may only be used with structs ",
-            )
-            .to_compile_error()
-            .into()
-        }
+        _ => syn::parse::Error::new(
+            ast.span(),
+            "signed_struct_derive may only be used with structs ",
+        )
+        .to_compile_error()
+        .into(),
     }
 }
 
@@ -188,15 +189,10 @@ struct ScanFieldsResult {
     json_field_name: Ident,
     type_vec: Vec<Type>,
     field_ident_vec: Vec<Ident>,
-    setter_name_vec: Vec<Ident>
+    setter_name_vec: Vec<Ident>,
 }
 
-fn scan_fields(
-    fields: &FieldsNamed,
-) -> Result<
-    ScanFieldsResult,
-    syn::parse::Error,
-> {
+fn scan_fields(fields: &FieldsNamed) -> Result<ScanFieldsResult, syn::parse::Error> {
     let mut type_vec = Vec::new();
     let mut field_name_vec: Vec<Ident> = Vec::new();
     let mut setter_name_vec: Vec<Ident> = Vec::new();
