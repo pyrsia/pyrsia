@@ -15,8 +15,8 @@
 //! ```
 //!
 //! The next thing to do is define some signed structs. Signed structs implement the `Signed` trait.
-//! However, it is not recommended that you directly implement the `Signed` trait directly. Instead,
-//! you should annotate the struct like this <br>
+//! However, it is not recommended that you implement the `Signed` trait directly. Instead, you
+//! should annotate the struct like this <br>
 //! `   #[signed_struct]` <br>
 //! `   struct Foo<'a> {` <br>
 //! `       foo: String,` <br>
@@ -28,7 +28,7 @@
 //! signed trait, and generates getters and setters for the struct. There is not a full example of
 //! its use here to avoid Cargo complaining about a circular dependency. You can see a detailed
 //! example in the source for `signed_struct_test/lib.rs'. This is the best example of how to use
-//! this. You should read it.
+//! signed struct. You should read it.
 //!
 //! Getters are generated with the signature `fn field(&self) -> &type`.
 //!
