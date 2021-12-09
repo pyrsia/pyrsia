@@ -127,6 +127,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
         syn::Data::Struct(ref struct_data) => {
             match &struct_data.fields {
                 syn::Fields::Named(fields) => {
+                    #[allow(clippy::let_and_return)]
                     match scan_fields(fields) {
                         Ok((json_field_name, type_vec, field_ident_vec, setter_name_vec)) => {
                             let struct_ident = &ast.ident;

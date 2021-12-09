@@ -610,7 +610,7 @@ fn add_signature(
         after_target,
     } = json_parser::parse(
         target_json,
-        &vec![json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)],
+        &[json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)],
     )?;
     let header = create_jsw_header(der_public_key);
     let mut before_string = unicode_32_bit_to_string(before_target);
