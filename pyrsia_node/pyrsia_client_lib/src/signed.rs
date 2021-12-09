@@ -1110,6 +1110,14 @@ mod tests {
     }
 
     #[test]
+    // The purpose of the parse function that this tests is to find a specified object field or
+    // array element in a given JSON string. The parse function returns three slices of the original
+    // string: the target that is was looking for, the portion of the string before the target and
+    // the portion of the string after the target.
+    //
+    // This test specifies a piece of JSON that includes all of the cases that need to be tested and
+    // then calls the parse method to look for different things in the string. For each search, it
+    // checks that the three slices are correct.
     fn parse_json() -> Result<(), anyhow::Error> {
         env_logger::try_init().unwrap_or_default();
         let json = r#"{"boo":true,"number":234,"nul":null, "ob":{"a":123,"b":"str"}, "arr":[3, true, {"sig":"mund", "om":"ega"}, "asfd"] , "extra":"qwoeiru"}"#;
