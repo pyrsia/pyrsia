@@ -1,6 +1,5 @@
 //! This module defines structs and traits that are used to implement _signed structs_. A signed
-//! struct is a that has associated with it a JSON representation of the struct's contents that are
-//! signed.
+//! struct has associated with it a JSON representation of the struct's contents that are signed.
 //!
 //! The signed JSON associated with a struct can be stored or sent in a message as a representation
 //! of the contents of the struct. The signatures can be validated to verify that the contents of
