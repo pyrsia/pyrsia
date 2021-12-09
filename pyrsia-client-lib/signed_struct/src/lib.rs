@@ -85,12 +85,10 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 fn construct_json_field(field_name: &Ident) -> Field {
-    let json_fields_named: syn::FieldsNamed = syn::parse2(
-        quote!( {
+    let json_fields_named: syn::FieldsNamed = syn::parse2(quote!( {
             #[serde(skip)]
             #field_name : Option<String>
-        } ),
-    )
+        } ))
     .unwrap();
     let json_field: Field = json_fields_named.named.first().unwrap().to_owned();
     json_field
@@ -129,7 +127,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                 syn::Fields::Named(fields) => {
                     #[allow(clippy::let_and_return)]
                     match scan_fields(fields) {
-                        Ok((json_field_name, type_vec, field_ident_vec, setter_name_vec)) => {
+                        Ok(ScanFieldsResult{json_field_name, type_vec, field_ident_vec, setter_name_vec}) => {
                             let struct_ident = &ast.ident;
                             let output = quote! {
                                 impl<'π> ::pyrsia_client_lib::signed::Signed<'π> for #struct_ident<'π> {
@@ -160,13 +158,13 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                             }
                             .into();
                             //println!("Output from signed_struct_derive: {}", output);
-                            return output;
+                            output
                         }
                         Err(error) => error.to_compile_error().into(),
                     }
                 }
                 _ => {
-                    return syn::parse::Error::new(
+                    syn::parse::Error::new(
                         ast.span(),
                         "signed_struct_derive may only be used with structs having named fields.",
                     )
@@ -176,7 +174,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
             }
         }
         _ => {
-            return syn::parse::Error::new(
+            syn::parse::Error::new(
                 ast.span(),
                 "signed_struct_derive may only be used with structs ",
             )
@@ -186,15 +184,17 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
     }
 }
 
+struct ScanFieldsResult {
+    json_field_name: Ident,
+    type_vec: Vec<Type>,
+    field_ident_vec: Vec<Ident>,
+    setter_name_vec: Vec<Ident>
+}
+
 fn scan_fields(
     fields: &FieldsNamed,
 ) -> Result<
-    (
-        Ident,      // the name of the JSON field.
-        Vec<Type>,  // the types of the non-generated fields
-        Vec<Ident>, // the names of the fields to be used as getters
-        Vec<Ident>, // the name of the setters
-    ),
+    ScanFieldsResult,
     syn::parse::Error,
 > {
     let mut type_vec = Vec::new();
@@ -209,12 +209,12 @@ fn scan_fields(
     }
     setter_name_vec.pop();
     match type_vec.pop() {
-        Some(_) => Ok((
-            field_name_vec.pop().unwrap(),
+        Some(_) => Ok(ScanFieldsResult {
+            json_field_name: field_name_vec.pop().unwrap(),
             type_vec,
-            field_name_vec,
+            field_ident_vec: field_name_vec,
             setter_name_vec,
-        )),
+        }),
         None => Err(syn::parse::Error::new(
             fields.span(),
             "signed_struct_derive does not work with an empty struct",
