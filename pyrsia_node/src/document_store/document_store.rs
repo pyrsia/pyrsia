@@ -191,8 +191,10 @@ mod tests {
     // Create a database with a name and an empty index list
     #[test]
     fn test_create_db() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().join("test_create_db");
+        let name = path.to_str().unwrap();
         let mut doc_store = DocumentStore::new();
-        let name: &str = "test_create_db";
         let idx = vec![];
         doc_store.create_db(name, idx);
     }
@@ -200,8 +202,10 @@ mod tests {
     // Create a database with a name and an index list with 2 elements
     #[test]
     fn test_create_db_with_index() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().join("test_create_db_with_index");
+        let name = path.to_str().unwrap();
         let mut doc_store = DocumentStore::new();
-        let name: &str = "test_create_db_with_index";
         let n1 = "mostSignificantField".to_string();
         let t1 = "string".to_string();
         let n2 = "leastSignificantField".to_string();
@@ -214,8 +218,10 @@ mod tests {
 
     #[test]
     fn test_store() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().join("test_store");
+        let name = path.to_str().unwrap();
         let mut doc_store = DocumentStore::new();
-        let name: &str = "test_store";
         let n1 = "mostSignificantField".to_string();
         let t1 = "string".to_string();
         let n2 = "leastSignificantField".to_string();
@@ -230,8 +236,10 @@ mod tests {
 
     #[test]
     fn test_fetch() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().join("test_fetch");
+        let name = path.to_str().unwrap();
         let mut doc_store = DocumentStore::new();
-        let name: &str = "test_fetch";
         let n1 = "mostSignificantField".to_string();
         let t1 = "string".to_string();
         let n2 = "leastSignificantField".to_string();
@@ -251,8 +259,10 @@ mod tests {
 
     #[test]
     fn test_fetch_not_found() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().join("test_not_found");
+        let name = path.to_str().unwrap();
         let mut doc_store = DocumentStore::new();
-        let name: &str = "test_fetch_not_found";
         let n1 = "mostSignificantField".to_string();
         let t1 = "string".to_string();
         let n2 = "leastSignificantField".to_string();
