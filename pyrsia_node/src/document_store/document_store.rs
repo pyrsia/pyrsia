@@ -331,8 +331,10 @@ mod tests {
 
     #[test]
     fn test_fetch_invalid_json() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().join("test_fetch_invalid_json");
+        let name = path.to_str().unwrap();
         let mut doc_store = DocumentStore::new();
-        let name: &str = "test_fetch_invalid_json";
         let n1 = "mostSignificantField".to_string();
         let t1 = "string".to_string();
         let n2 = "leastSignificantField".to_string();
