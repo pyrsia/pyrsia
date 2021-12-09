@@ -33,7 +33,7 @@ pub struct PackageVersion {
 
 #[derive(EnumIter, Debug, PartialEq, EnumString)]
 pub enum LicenseTextMimeType {
-    TEXT,
-    HTML,
-    XML,
+    Text,
+    Html,
+    Xml,
 }

@@ -21,8 +21,8 @@ lazy_static! {
 
 //get_artifact: given artifact_hash(artifactName) pulls artifact for  artifact_manager and
 //              returns read object to read the bytes of artifact
-pub fn get_artifact<'a>(
-    art_hash: &'a [u8],
+pub fn get_artifact(
+    art_hash: &[u8],
     art_algorithm: HashAlgorithm,
 ) -> Result<File, anyhow::Error> {
     let hash = Hash::new(art_algorithm, art_hash)?;
@@ -33,8 +33,8 @@ pub fn get_artifact<'a>(
 
 //put_artifact: given artifact_hash(artifactName) & artifact_path push artifact to artifact_manager
 //              and returns the boolean as true or false if it was able to create or not
-pub fn put_artifact<'a>(
-    artifact_hash: &'a [u8],
+pub fn put_artifact(
+    artifact_hash: &[u8],
     artifact_path: &str,
 ) -> Result<bool, anyhow::Error> {
     let hash = Hash::new(HashAlgorithm::SHA256, artifact_hash)?;
