@@ -32,6 +32,9 @@ use syn::{
 /// the setters also call the `clear_json()` method provided by the `Signed` trait. This removes
 /// any JSON currently associated with the struct because it is no longer valid after the struct's
 /// field has been modified.
+///
+/// The generated impls and their methods use a lifetime named 'π. This greek letter was chosen
+/// because it seems unlikely to conflict with most code.
 #[proc_macro_attribute]
 pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
     /////////////////////////////////////////////////////////////////////////////////////////////
