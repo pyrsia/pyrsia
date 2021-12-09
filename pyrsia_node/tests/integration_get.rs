@@ -1,5 +1,5 @@
 extern crate pyrsia_node;
-extern crate utilities;
+extern crate test_helpers;
 
 use pyrsia_node::network::http::get;
 use std::fs::File;
@@ -16,7 +16,7 @@ fn test_get() {
     }
 
     let f: File = File::open(file_name.clone()).unwrap();
-    let first: String = String::from(utilities::first_line(BufReader::new(f)));
+    let first: String = String::from(test_helpers::first_line(BufReader::new(f)));
     let right: String = String::from("Apache License");
     assert_eq!(first.trim(), right);
     println!("\u{2705} test passed.");
