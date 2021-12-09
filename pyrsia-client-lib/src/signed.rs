@@ -892,7 +892,7 @@ mod json_parser {
     // Parse a number or an word like "null", "true" or "false". Since we are just scanning to find
     // the end of something, we don't need to care about the distinctions.
     fn parse_number_or_id(json_cursor: &mut JsonCursor) -> Result<(), anyhow::Error> {
-        while json_cursor.char_predicate(|c| is_signed_alphanumeric(c)) {
+        while json_cursor.char_predicate(is_signed_alphanumeric) {
             json_cursor.next()
         }
         Ok(())
@@ -1002,7 +1002,7 @@ mod json_parser {
         }
     }
 
-    pub fn parse_string<'a>(json_cursor: &mut JsonCursor) -> Result<Vec<u32>, anyhow::Error> {
+    pub fn parse_string(json_cursor: &mut JsonCursor) -> Result<Vec<u32>, anyhow::Error> {
         skip_whitespace(json_cursor);
         json_cursor.expect_char(u32::from('"'))?;
         let string_start = json_cursor.position;
@@ -1025,7 +1025,7 @@ mod json_parser {
     }
 
     fn skip_whitespace(json_cursor: &mut JsonCursor) {
-        while json_cursor.char_predicate(|c| is_whitespace(c)) {
+        while json_cursor.char_predicate(is_whitespace) {
             json_cursor.next()
         }
     }
@@ -1038,14 +1038,14 @@ mod json_parser {
             || u == 0x00a0
             || u == 0x1680
             || u == 0x180e
-            || (u >= 0x2000 && u <= 0x200b)
+            || (0x2000..=0x200b).contains(&u)
             || u == 0x202f
             || u == 0x205f
             || u == 0x3000
             || u == 0xfeff
     }
 
-    pub fn path_to_str(path: &Vec<JsonPathElement>) -> String {
+    pub fn path_to_str(path: &[JsonPathElement]) -> String {
         let mut s = String::from("path[");
         if !path.is_empty() {
             path_element_to_str(&mut s, &path[0]);
@@ -1054,7 +1054,7 @@ mod json_parser {
                 path_element_to_str(&mut s, path_element);
             }
         }
-        s.push_str("]");
+        s.push(']');
         s
     }
 
