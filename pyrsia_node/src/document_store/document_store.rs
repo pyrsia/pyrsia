@@ -284,7 +284,7 @@ mod tests {
             .expect("Should have fetched without error.")
             .expect("Should have been found!");
         info!("Got result: {}", res);
-        assert_eq!(doc, res);
+        assert_eq!(doc.to_string(), res);
     }
 
     #[test]
