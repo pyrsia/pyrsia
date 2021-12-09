@@ -64,7 +64,9 @@ impl AsRef<[u8]> for Key {
 }
 
 fn map_to_document_store_error(e: Error) -> DocumentStoreError {
-    DocumentStoreError { message: e.to_string() }
+    DocumentStoreError {
+        message: e.to_string(),
+    }
 }
 
 impl DocumentStore {
@@ -113,7 +115,9 @@ impl DocumentStore {
         if let Ok(json_document) = serde_json::from_str::<Value>(document) {
             if let Some(db) = self.dbs.get(db_name) {
                 if let Err(e) = db.kv_store(&key, document) {
-                    return Err(DocumentStoreError { message: e.to_string() });
+                    return Err(DocumentStoreError {
+                        message: e.to_string(),
+                    });
                 }
                 debug!("Document stored!");
             }
@@ -128,7 +132,9 @@ impl DocumentStore {
                     if let Some(field_db) = self.fields.get(&index_name) {
                         if let Some(value) = json_document[&index.name].as_str() {
                             debug!("store value {} with key {:?}", value, &key);
-                            return field_db.kv_store(value, &key).map_err(map_to_document_store_error);
+                            return field_db
+                                .kv_store(value, &key)
+                                .map_err(map_to_document_store_error);
                         }
                     }
                 }
@@ -136,7 +142,9 @@ impl DocumentStore {
                 debug!("DONT Store fields!");
             }
         } else {
-            return Err(DocumentStoreError { message: String::from("Document contains invalid JSON") });
+            return Err(DocumentStoreError {
+                message: String::from("Document contains invalid JSON"),
+            });
         }
 
         Ok(())
@@ -145,7 +153,11 @@ impl DocumentStore {
     // Fetch a document from the database with the provided
     // name that has an index that maps with the provided
     // JSON filter
-    pub fn fetch(&mut self, db_name: &str, filter: &String) -> Result<Option<String>, DocumentStoreError> {
+    pub fn fetch(
+        &mut self,
+        db_name: &str,
+        filter: &String,
+    ) -> Result<Option<String>, DocumentStoreError> {
         let db = self.dbs.get(db_name).unwrap();
 
         if let Ok(json_filter) = serde_json::from_str::<Value>(filter) {
@@ -170,7 +182,9 @@ impl DocumentStore {
                 }
             }
         } else {
-            return Err(DocumentStoreError { message: String::from("Filter contains invalid JSON") });
+            return Err(DocumentStoreError {
+                message: String::from("Filter contains invalid JSON"),
+            });
         }
 
         Ok(None)
@@ -225,8 +239,10 @@ mod tests {
         let doc = json!({
             "mostSignificantField": "msf1",
             "leastSignificantField": "12"
-        }).to_string();
-        doc_store.store(name, &doc).expect("empty value");
+        });
+        doc_store
+            .store(name, &doc.to_string())
+            .expect("empty value");
     }
 
     #[test]
@@ -234,7 +250,9 @@ mod tests {
         let mut doc_store = DocumentStore::new();
         let name: &str = "test_store_invalid_json";
         doc_store.create_db(name, vec![]);
-        doc_store.store(name, &String::from("{\"mostSignificantField\":\"value\"")).expect_err("Should not store invalid json.");
+        doc_store
+            .store(name, &String::from("{\"mostSignificantField\":\"value\""))
+            .expect_err("Should not store invalid json.");
     }
 
     #[test]
@@ -253,13 +271,18 @@ mod tests {
             "foo": "bar",
             "mostSignificantField": "msf1",
             "leastSignificantField": "12"
-        }).to_string();
-        doc_store.store(name, &doc).expect("empty value");
+        });
+        doc_store
+            .store(name, &doc.to_string())
+            .expect("empty value");
         let flt = json!({
             "mostSignificantField": "msf1",
             "leastSignificantField": "12"
-        }).to_string();
-        let res: String = doc_store.fetch(name, &flt).expect("Should have fetched without error.").expect("Should have been found!");
+        });
+        let res: String = doc_store
+            .fetch(name, &flt.to_string())
+            .expect("Should have fetched without error.")
+            .expect("Should have been found!");
         info!("Got result: {}", res);
         assert_eq!(doc, res);
     }
@@ -280,15 +303,20 @@ mod tests {
             "foo": "bar",
             "mostSignificantField": "msf1",
             "leastSignificantField": "12"
-        }).to_string();
-        doc_store.store(name, &doc).expect("empty value");
+        });
+        doc_store
+            .store(name, &doc.to_string())
+            .expect("empty value");
         let flt = json!({
             "mostSignificantField": "msf2",
             "leastSignificantField": "12"
-        }).to_string();
-        let res = doc_store.fetch(name, &flt);
+        });
+        let res = doc_store.fetch(name, &flt.to_string());
         debug!("Got result: {:?}", res);
-        assert_eq!(true, res.expect("Should have fetched without error.").is_none());
+        assert_eq!(
+            true,
+            res.expect("Should have fetched without error.").is_none()
+        );
     }
 
     #[test]
@@ -307,9 +335,13 @@ mod tests {
             "foo": "bar",
             "mostSignificantField": "msf1",
             "leastSignificantField": "12"
-        }).to_string();
-        doc_store.store(name, &doc).expect("empty value");
+        });
+        doc_store
+            .store(name, &doc.to_string())
+            .expect("empty value");
         let flt = "{\"mostSignificantField\": \"msf2\"";
-        doc_store.fetch(name, &String::from(flt)).expect_err("Should not store invalid json.");
+        doc_store
+            .fetch(name, &String::from(flt))
+            .expect_err("Should not store invalid json.");
     }
 }
