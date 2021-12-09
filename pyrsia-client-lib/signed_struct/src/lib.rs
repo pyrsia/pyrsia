@@ -51,6 +51,7 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
     /////////////////////////////////////////////////////////////////////////////////////////////
     let _ = parse_macro_input!(args as AttributeArgs);
     let mut ast = parse_macro_input!(input as DeriveInput);
+    #[allow(clippy::let_and_return)]
     match &mut ast.data {
         syn::Data::Struct(ref mut struct_data) => match &mut struct_data.fields {
             syn::Fields::Named(fields) => {
@@ -88,8 +89,7 @@ fn construct_json_field(field_name: &Ident) -> Field {
         quote!( {
             #[serde(skip)]
             #field_name : Option<String>
-        } )
-        .into(),
+        } ),
     )
     .unwrap();
     let json_field: Field = json_fields_named.named.first().unwrap().to_owned();
@@ -146,13 +146,13 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                                 }
 
                                 impl<'π> #struct_ident<'π> {
-                                    fn new(#( #field_ident_vec : #type_vec),*) -> #struct_ident {
+                                    pub fn new(#( #field_ident_vec : #type_vec),*) -> #struct_ident {
                                         #struct_ident{ #(#field_ident_vec),* , #json_field_name: None }
                                     }
 
-                                    #(fn #field_ident_vec(&self)->&#type_vec{&self.#field_ident_vec}
+                                    #(pub fn #field_ident_vec(&self)->&#type_vec{&self.#field_ident_vec}
 
-                                      fn #setter_name_vec(&mut self, value: #type_vec){self.clear_json(); self.#field_ident_vec = value}
+                                      pub fn #setter_name_vec(&mut self, value: #type_vec){self.clear_json(); self.#field_ident_vec = value}
 
                                     )*
                                 }

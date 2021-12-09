@@ -792,7 +792,7 @@ mod json_parser {
     /// positioned where such an element could be inserted.
     pub fn parse<'a>(
         json: &'a [u32],
-        path: &Vec<JsonPathElement>,
+        path: &[JsonPathElement],
     ) -> Result<ParseResult<'a>, anyhow::Error> {
         if path.is_empty() {
             debug!("parse: Empty path; nothing to find");

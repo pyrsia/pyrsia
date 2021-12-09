@@ -31,11 +31,11 @@ trait Digester {
 }
 
 impl Digester for Sha256 {
-    fn update_hash(self: &mut Self, input: &[u8]) {
+    fn update_hash(&mut self, input: &[u8]) {
         self.update(input);
     }
 
-    fn finalize_hash(self: &mut Self, hash_buffer: &mut [u8]) {
+    fn finalize_hash(&mut self, hash_buffer: &mut [u8]) {
         hash_buffer.clone_from_slice(self.clone().finalize().as_slice());
     }
 
@@ -45,11 +45,11 @@ impl Digester for Sha256 {
 }
 
 impl Digester for Sha512 {
-    fn update_hash(self: &mut Self, input: &[u8]) {
+    fn update_hash(&mut self, input: &[u8]) {
         self.update(input);
     }
 
-    fn finalize_hash(self: &mut Self, hash_buffer: &mut [u8]) {
+    fn finalize_hash(&mut self, hash_buffer: &mut [u8]) {
         hash_buffer.clone_from_slice(self.clone().finalize().as_slice());
     }
 
