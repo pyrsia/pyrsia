@@ -3,9 +3,9 @@
 members = [
     "pyrsia_node",
     "pyrsia_cli",
-    "pyrsia-client-lib",
-    "pyrsia-client-lib/signed_struct",
-    "pyrsia-client-lib/signed_struct_test"
+    "pyrsia_node/pyrsia-client-lib",
+    "pyrsia_node/pyrsia-client-lib/signed_struct",
+    "pyrsia_node/pyrsia-client-lib/signed_struct_test"
 ]
 
 [profile.dev]

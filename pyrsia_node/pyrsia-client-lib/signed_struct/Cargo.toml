@@ -11,5 +11,5 @@ proc-macro = true
 [dependencies]
 quote = "1.0"
 proc-macro2 = "1.0"
-pyrsia_client_lib = { path = ".."}
+pyrsia_client_lib = { path = ".." }
 syn = { version = "1.0", features = ["full"] }
