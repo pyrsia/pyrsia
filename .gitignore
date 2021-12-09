@@ -12,3 +12,5 @@ target/
 #IntelliJ Artifacts
 .idea
 *.iml
+
+.vscode/
