@@ -95,7 +95,7 @@ impl JwsSignatureAlgorithms {
     }
 
     /// Return a MessageDigest appropriate for the algorithm.
-    fn to_message_digest(&self) -> MessageDigest {
+    fn as_message_digest(&self) -> MessageDigest {
         match self {
             JwsSignatureAlgorithms::RS512 => MessageDigest::sha512(),
             JwsSignatureAlgorithms::RS384 => MessageDigest::sha384(),
@@ -362,8 +362,8 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     fn sign_json(
         &mut self,
         signature_algorithm: JwsSignatureAlgorithms,
-        private_key: &Vec<u8>,
-        public_key: &Vec<u8>,
+        private_key: &[u8],
+        public_key: &[u8],
     ) -> Result<(), anyhow::Error> {
         let target_json = string_to_unicode_32(&serde_jcs::to_string(self)?);
         let signed_json = with_signer(
@@ -395,18 +395,22 @@ fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> 
     debug!("Verifying signatures: {}", json);
     let mut signature_count = 0;
     let json32 = string_to_unicode_32(json);
-    let (before_signatures, signatures_field, after_signatures) = parse_signatures(&json32)?;
-    let colon_index = match slice_find(signatures_field, u32::from(':')) {
+    let JsonStringSlices {
+        before_signatures,
+        signatures,
+        after_signatures,
+    } = parse_signatures(&json32)?;
+    let colon_index = match slice_find(signatures, u32::from(':')) {
         Some(i) => i,
         None => return Err(anyhow!("Corrupt jws")),
     };
-    let signatures = &signatures_field[colon_index + 1..];
+    let signatures = &signatures[colon_index + 1..];
     let mut attestations: Vec<Attestation> = Vec::new();
     loop {
-        let mut this_path = Vec::new();
-        this_path.push(JsonPathElement::Index(signature_count));
+        let this_path = vec![JsonPathElement::Index(signature_count)];
         match parse(signatures, &this_path) {
-            Ok((_, this_signature, _)) => {
+            Ok(json_parser::ParseResult { target, .. }) => {
+                let this_signature = target;
                 if this_signature.is_empty() {
                     break;
                 }
@@ -434,6 +438,9 @@ fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> 
     Ok(attestations)
 }
 
+// Since the purpose of this function is to find the index of an element in a slice, it really does
+// need to have a range loop.
+#[allow(clippy::needless_range_loop)]
 fn slice_find<T: PartialEq>(slice: &[T], x: T) -> Option<usize> {
     for i in 0..slice.len() {
         if slice[i] == x {
@@ -443,11 +450,25 @@ fn slice_find<T: PartialEq>(slice: &[T], x: T) -> Option<usize> {
     None
 }
 
-fn parse_signatures<'a>(json32: &[u32]) -> Result<(&[u32], &[u32], &[u32]), anyhow::Error> {
+struct JsonStringSlices<'a> {
+    before_signatures: &'a [u32],
+    signatures: &'a [u32],
+    after_signatures: &'a [u32],
+}
+
+fn parse_signatures(json32: &[u32]) -> Result<JsonStringSlices, anyhow::Error> {
     let signature_path: Vec<JsonPathElement> =
         Vec::from([json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)]);
-    let (before_signatures, signatures, after_signatures) = parse(&json32, &signature_path)?;
-    Ok((before_signatures, signatures, after_signatures))
+    let json_parser::ParseResult {
+        before_target,
+        target,
+        after_target,
+    } = parse(json32, &signature_path)?;
+    Ok(JsonStringSlices {
+        before_signatures: before_target,
+        signatures: target,
+        after_signatures: after_target,
+    })
 }
 
 const EMPTY_ATTESTATION: Attestation = Attestation {
@@ -482,9 +503,9 @@ fn verify_one_signature(
             .signature_algorithm
             // This is RSA specific. This should be generalized to support other types of signatures.
             .map_or(false, |alg| {
-                Rsa::public_key_from_der(&public_key).map_or(false, |rsa_key| {
+                Rsa::public_key_from_der(public_key).map_or(false, |rsa_key| {
                     PKey::from_rsa(rsa_key).map_or(false, |pkey| {
-                        Verifier::new(alg.to_message_digest(), &pkey).map_or(
+                        Verifier::new(alg.as_message_digest(), &pkey).map_or(
                             false,
                             |mut verifier| {
                                 verifier
@@ -495,15 +516,13 @@ fn verify_one_signature(
                                             |mut writer| {
                                                 writer
                                                     .write(
-                                                        &unicode_32_bit_to_string(
-                                                            before_signatures,
-                                                        )
-                                                        .as_bytes(),
+                                                        unicode_32_bit_to_string(before_signatures)
+                                                            .as_bytes(),
                                                     )
                                                     .map_or(false, |_| {
                                                         writer
                                                             .write(
-                                                                &unicode_32_bit_to_string(
+                                                                unicode_32_bit_to_string(
                                                                     after_signatures,
                                                                 )
                                                                 .as_bytes(),
@@ -535,7 +554,7 @@ fn header_from_jws(jws: &str) -> Option<String> {
     match base64::decode_config(&jws[..first_dot_index], base64::STANDARD_NO_PAD) {
         Ok(decoded_json) => match String::from_utf8(decoded_json) {
             Ok(string) => Some(string),
-            Err(_) => return None,
+            Err(_) => None,
         },
         Err(_) => None,
     }
@@ -551,7 +570,7 @@ fn string_to_unicode_32(raw: &str) -> Vec<u32> {
 }
 
 const SIGNATURE_FIELD_NAME: &str = "__signature";
-const SIGNER_FIELD_NAME: &'static str = "signer";
+const SIGNER_FIELD_NAME: &str = "signer";
 const ALG_FIELD_NAME: &str = "alg";
 const TIMESTAMP_FIELD_NAME: &str = "timestamp";
 const EXPIRATION_FIELD_NAME: &str = "ext";
@@ -559,42 +578,44 @@ const EXPIRATION_FIELD_NAME: &str = "ext";
 // Error Strings
 const NOT_SIGNED: &str = "Not signed!";
 
+type SigningFunction =
+    fn(JwsSignatureAlgorithms, Signer, &[u8], &[u32]) -> Result<String, anyhow::Error>;
+
 // construct a signer, pass it to the given signing function and then return the signed json returned from the signing function.
-fn with_signer<'a>(
+fn with_signer(
     signature_algorithm: JwsSignatureAlgorithms,
     der_private_key: &[u8],
     der_public_key: &[u8],
     target_json: &[u32],
-    signing_function: fn(
-        JwsSignatureAlgorithms,
-        Signer,
-        &[u8],
-        &[u32],
-    ) -> Result<String, anyhow::Error>,
+    signing_function: SigningFunction,
 ) -> Result<String, anyhow::Error> {
     // This is RSA specific. This should be generalized to support other types of signatures.
     let private_key: Rsa<Private> = Rsa::private_key_from_der(der_private_key)?;
     let kp: PKey<Private> = PKey::from_rsa(private_key)?;
-    let mut signer = Signer::new(signature_algorithm.to_message_digest(), &kp)
+    let mut signer = Signer::new(signature_algorithm.as_message_digest(), &kp)
         .context("Problem using key pair")?;
     signer.set_rsa_padding(Padding::PKCS1_PSS)?;
     signing_function(signature_algorithm, signer, der_public_key, target_json)
 }
 
-fn add_signature<'a>(
+fn add_signature(
     signature_algorithm: JwsSignatureAlgorithms,
     signer: Signer,
     der_public_key: &[u8],
     target_json: &[u32],
 ) -> Result<String, anyhow::Error> {
-    let (before, middle, after) = json_parser::parse(
+    let json_parser::ParseResult {
+        before_target,
+        target,
+        after_target,
+    } = json_parser::parse(
         target_json,
         &vec![json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)],
     )?;
     let header = create_jsw_header(der_public_key);
-    let mut before_string = unicode_32_bit_to_string(before);
+    let mut before_string = unicode_32_bit_to_string(before_target);
     before_string.push(',');
-    let after_string = unicode_32_bit_to_string(after);
+    let after_string = unicode_32_bit_to_string(after_target);
     let jws = create_jws(
         signature_algorithm,
         signer,
@@ -603,8 +624,8 @@ fn add_signature<'a>(
         header,
     )?;
     let jws_string = String::from_utf8(jws)?;
-    let mut signed_json_buffer = String::from(before_string);
-    if middle.is_empty() {
+    let mut signed_json_buffer = before_string.clone();
+    if target.is_empty() {
         // No existing signatures
         signed_json_buffer.push('"');
         signed_json_buffer.push_str(SIGNATURE_FIELD_NAME);
@@ -612,13 +633,13 @@ fn add_signature<'a>(
         signed_json_buffer.push_str(jws_string.as_str());
         signed_json_buffer.push_str("\"]");
     } else {
-        signed_json_buffer.push_str(unicode_32_bit_to_string(&middle[..middle.len() - 1]).as_str()); // append signature array without closing ']'
+        signed_json_buffer.push_str(unicode_32_bit_to_string(&target[..target.len() - 1]).as_str()); // append signature array without closing ']'
         signed_json_buffer.push_str(",\"");
         signed_json_buffer.push_str(jws_string.as_str());
         signed_json_buffer.push_str("\"]");
     }
     signed_json_buffer.push_str(&after_string);
-    Ok(String::from(signed_json_buffer))
+    Ok(signed_json_buffer)
 }
 
 fn create_jws(
@@ -648,7 +669,7 @@ fn unicode_32_bit_to_string(u: &[u32]) -> String {
 }
 
 fn iso8601_format_spec() -> Vec<FormatItem<'static>> {
-    format_description::parse(&ISO8601_FORMAT).unwrap() // Call unwrap because this format spec is tested and should never fail. If it does, there is nothing to do but panic.
+    format_description::parse(ISO8601_FORMAT).unwrap() // Call unwrap because this format spec is tested and should never fail. If it does, there is nothing to do but panic.
 }
 
 fn now_as_iso8601_string() -> String {
@@ -754,6 +775,12 @@ mod json_parser {
         Index(usize),
     }
 
+    pub struct ParseResult<'a> {
+        pub before_target: &'a [u32],
+        pub target: &'a [u32],
+        pub after_target: &'a [u32],
+    }
+
     /// Given a string slice that contains JSON and the path of a value, this returns three smaller
     /// slices that are the characters before a specified value, the characters that comprise the value
     /// and the characters after the value.
@@ -766,7 +793,7 @@ mod json_parser {
     pub fn parse<'a>(
         json: &'a [u32],
         path: &Vec<JsonPathElement>,
-    ) -> Result<(&'a [u32], &'a [u32], &'a [u32]), anyhow::Error> {
+    ) -> Result<ParseResult<'a>, anyhow::Error> {
         if path.is_empty() {
             debug!("parse: Empty path; nothing to find");
             return Err(anyhow!("Empty path; nothing to find"));
@@ -785,11 +812,11 @@ mod json_parser {
             debug!("parse: Did not find {}", path_to_str(path));
             return Err(anyhow!(format!("Did not find {}", path_to_str(path))));
         }
-        Ok((
-            &json[..(start_of_target)],
-            &json[start_of_target..end_of_target],
-            &json[end_of_target..],
-        ))
+        Ok(ParseResult {
+            before_target: &json[..(start_of_target)],
+            target: &json[start_of_target..end_of_target],
+            after_target: &json[end_of_target..],
+        })
     }
 
     fn parse_value(
@@ -842,7 +869,7 @@ mod json_parser {
         } else if json_cursor.this_char_equals(u32::from('"')) {
             parse_string(json_cursor)?;
             Ok(())
-        } else if json_cursor.char_predicate(|c| is_signed_alphanumeric(c)) {
+        } else if json_cursor.char_predicate(is_signed_alphanumeric) {
             parse_number_or_id(json_cursor)
         } else {
             Err(anyhow!(format!(
@@ -1095,11 +1122,15 @@ mod tests {
                     expected_after: &str,
                     path: Vec<JsonPathElement>|
          -> Result<(), anyhow::Error> {
-            let (actual_before, actual_middle, actual_after) = parse(&json32, &path)?;
+            let ParseResult {
+                before_target,
+                target,
+                after_target,
+            } = parse(&json32, &path)?;
 
-            assert_eq!(expected_before, unicode_32_bit_to_string(actual_before));
-            assert_eq!(expected_middle, unicode_32_bit_to_string(actual_middle));
-            assert_eq!(expected_after, unicode_32_bit_to_string(actual_after));
+            assert_eq!(expected_before, unicode_32_bit_to_string(before_target));
+            assert_eq!(expected_middle, unicode_32_bit_to_string(target));
+            assert_eq!(expected_after, unicode_32_bit_to_string(after_target));
             Ok(())
         };
         test(
