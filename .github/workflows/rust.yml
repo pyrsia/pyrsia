@@ -3,7 +3,7 @@ name: Rust
 on:
   push:
     branches: [ main ]
-  pull_request_target: # This is a security risk and we need to remove this being going public!
+  pull_request:
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,8 +16,6 @@ jobs:
             os: [macos-latest, ubuntu-latest]
     steps:
     - uses: actions/checkout@v2
-      with:
-        ref: ${{ github.event.pull_request.head.sha }}
     - uses: actions/cache@v2
       with:
         path: |
