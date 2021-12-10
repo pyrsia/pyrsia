@@ -139,9 +139,7 @@ impl DocumentStore {
         db_name: &str,
         document: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let db = self.dbs.get(db_name).ok_or(DocumentStoreError::Custom {
-            message: format!("No DocumentStore found for name {}", db_name),
-        })?;
+        let db = self.get_db(db_name)?;
 
         let json_document = serde_json::from_str::<Value>(document)?;
 
@@ -177,29 +175,22 @@ impl DocumentStore {
 
     // Fetch a document from the database with the provided
     // name that has an index that maps with the provided
-    // JSON filter
+    // indices
     pub fn fetch(
         &mut self,
         db_name: &str,
-        filter: &String,
+        indices: Vec<(&str, &str)>,
     ) -> Result<Option<String>, Box<dyn std::error::Error>> {
-        let db = self.dbs.get(db_name).ok_or(DocumentStoreError::Custom {
-            message: format!("No DocumentStore found for name {}", db_name),
-        })?;
+        let db = self.get_db(db_name)?;
 
-        let json_filter = serde_json::from_str::<Value>(filter)?;
-        let conditions = json_filter.as_object().ok_or(DocumentStoreError::Custom {
-            message: format!("Provided filter must be a JSON object"),
-        })?;
-
-        for (key, value) in conditions.iter() {
+        for (key, value) in indices.iter() {
             debug!("key = {}, value = {}", key, value);
             let mut index_name = String::from(db_name);
             index_name.push('_');
             index_name.push_str(key);
             debug!("this belongs to index db {}", index_name);
             if let Some(field_db) = self.fields.get(&index_name) {
-                if let Ok(key) = field_db.kv_fetch(value.as_str().unwrap()) {
+                if let Ok(key) = field_db.kv_fetch(value) {
                     debug!("Exists! key = {:?}", key);
                     if let Ok(raw_document) = db.kv_fetch(key) {
                         debug!("raw document = {:?}", raw_document);
@@ -212,6 +203,14 @@ impl DocumentStore {
         }
 
         Ok(None)
+    }
+
+    fn get_db(&self, db_name: &str) -> Result<&UnQLite, Box<dyn std::error::Error>> {
+        self.dbs.get(db_name).ok_or_else(|| {
+            From::from(DocumentStoreError::Custom {
+                message: format!("No DocumentStore found for name {}", db_name),
+            })
+        })
     }
 }
 
@@ -307,12 +306,8 @@ mod tests {
         doc_store
             .store(name, &doc.to_string())
             .expect("empty value");
-        let flt = json!({
-            "mostSignificantField": "msf1",
-            "leastSignificantField": "12"
-        });
         let res: String = doc_store
-            .fetch(name, &flt.to_string())
+            .fetch(name, vec![("mostSignificantField", "msf1")])
             .expect("Should have fetched without error.")
             .expect("Should have been found!");
         info!("Got result: {}", res);
@@ -341,43 +336,11 @@ mod tests {
         doc_store
             .store(name, &doc.to_string())
             .expect("empty value");
-        let flt = json!({
-            "mostSignificantField": "msf2",
-            "leastSignificantField": "12"
-        });
-        let res = doc_store.fetch(name, &flt.to_string());
+        let res = doc_store.fetch(name, vec![("mostSignificantField", "msf2")]);
         debug!("Got result: {:?}", res);
         assert_eq!(
             true,
             res.expect("Should have fetched without error.").is_none()
         );
-    }
-
-    #[test]
-    fn test_fetch_invalid_json() {
-        let tmp_dir = tempfile::tempdir().unwrap();
-        let path = tmp_dir.path().join("test_fetch_invalid_json");
-        let name = path.to_str().unwrap();
-        let mut doc_store = DocumentStore::new();
-        let n1 = "mostSignificantField".to_string();
-        let t1 = "string".to_string();
-        let n2 = "leastSignificantField".to_string();
-        let t2 = "string".to_string();
-        let i1 = Index::new(n1, t1, true);
-        let i2 = Index::new(n2, t2, false);
-        let idx = vec![i1, i2];
-        doc_store.create_db(name, idx);
-        let doc = json!({
-            "foo": "bar",
-            "mostSignificantField": "msf1",
-            "leastSignificantField": "12"
-        });
-        doc_store
-            .store(name, &doc.to_string())
-            .expect("empty value");
-        let flt = "{\"mostSignificantField\": \"msf2\"";
-        doc_store
-            .fetch(name, &String::from(flt))
-            .expect_err("Should not store invalid json.");
     }
 }
