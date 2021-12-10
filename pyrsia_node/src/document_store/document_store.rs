@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fmt;
 use std::str;
-use unqlite::{Error, UnQLite, KV};
+use unqlite::{UnQLite, KV};
 
 pub struct DocumentStore {
     dbs: HashMap<String, UnQLite>,
@@ -19,9 +19,11 @@ pub struct Index {
     _order: bool,
 }
 
-#[derive(Debug, Clone)]
-pub struct DocumentStoreError {
-    message: String,
+#[derive(Debug)]
+pub enum DocumentStoreError {
+    Json(serde_json::Error),
+    UnQLite(unqlite::Error),
+    Custom { message: String },
 }
 
 #[derive(Debug)]
@@ -41,12 +43,16 @@ impl Index {
 
 impl fmt::Display for DocumentStoreError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "DocumentStoreError: {}", self.message)
+        match &*self {
+            DocumentStoreError::Json(ref err) => write!(f, "Json Error: {}", err),
+            DocumentStoreError::UnQLite(ref err) => write!(f, "UnQLite Error: {}", err),
+            DocumentStoreError::Custom { message } => write!(f, "DocumentStore Error: {}", message),
+        }
     }
 }
 
 impl Key {
-    pub fn new() -> Key {
+    fn new() -> Key {
         let mut v: Vec<u8> = Vec::new();
         for _i in [0..7] {
             let rr = rand::random::<u8>();
@@ -63,9 +69,28 @@ impl AsRef<[u8]> for Key {
     }
 }
 
-fn map_to_document_store_error(e: Error) -> DocumentStoreError {
-    DocumentStoreError {
-        message: e.to_string(),
+impl std::error::Error for DocumentStoreError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match *self {
+            DocumentStoreError::Json(ref err) => Some(err),
+            DocumentStoreError::UnQLite(ref err) => match *err {
+                unqlite::Error::Custom(ref cstm) => Some(cstm),
+                unqlite::Error::Other(ref other) => Some(other.as_ref()),
+            },
+            _ => None,
+        }
+    }
+}
+
+impl From<serde_json::Error> for DocumentStoreError {
+    fn from(err: serde_json::Error) -> DocumentStoreError {
+        DocumentStoreError::Json(err)
+    }
+}
+
+impl From<unqlite::Error> for DocumentStoreError {
+    fn from(err: unqlite::Error) -> DocumentStoreError {
+        DocumentStoreError::UnQLite(err)
     }
 }
 
@@ -109,42 +134,42 @@ impl DocumentStore {
 
     // Store the provided JSON document in the database with
     // the provided name
-    pub fn store(&mut self, db_name: &str, document: &str) -> Result<(), DocumentStoreError> {
+    pub fn store(
+        &mut self,
+        db_name: &str,
+        document: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let db = self.dbs.get(db_name).ok_or(DocumentStoreError::Custom {
+            message: format!("No DocumentStore found for name {}", db_name),
+        })?;
+
+        let json_document = serde_json::from_str::<Value>(document)?;
+
         let key = Key::new();
+        db.kv_store(&key, document)
+            .map_err(DocumentStoreError::UnQLite)?;
+        debug!("Document stored!");
 
-        if let Ok(json_document) = serde_json::from_str::<Value>(document) {
-            if let Some(db) = self.dbs.get(db_name) {
-                if let Err(e) = db.kv_store(&key, document) {
-                    return Err(DocumentStoreError {
-                        message: e.to_string(),
-                    });
+        let indices = self
+            .indices
+            .get(db_name)
+            .ok_or(DocumentStoreError::Custom {
+                message: String::from("No indices found for DocumentStore"),
+            })?;
+        for index in indices {
+            debug!("got an index for {}", index.name);
+            let mut index_name = String::from(db_name);
+            index_name.push('_');
+            index_name.push_str(&index.name);
+            debug!("this belongs to db {}", index_name);
+            if let Some(field_db) = self.fields.get(&index_name) {
+                if let Some(value) = json_document[&index.name].as_str() {
+                    debug!("store value {} with key {:?}", value, &key);
+                    return field_db
+                        .kv_store(value, &key)
+                        .map_err(|e| From::from(DocumentStoreError::UnQLite(e)));
                 }
-                debug!("Document stored!");
             }
-
-            if let Some(index_db) = self.indices.get(db_name) {
-                for index in index_db {
-                    debug!("got an index for {}", index.name);
-                    let mut index_name = String::from(db_name);
-                    index_name.push('_');
-                    index_name.push_str(&index.name);
-                    debug!("this belongs to db {}", index_name);
-                    if let Some(field_db) = self.fields.get(&index_name) {
-                        if let Some(value) = json_document[&index.name].as_str() {
-                            debug!("store value {} with key {:?}", value, &key);
-                            return field_db
-                                .kv_store(value, &key)
-                                .map_err(map_to_document_store_error);
-                        }
-                    }
-                }
-            } else {
-                debug!("DONT Store fields!");
-            }
-        } else {
-            return Err(DocumentStoreError {
-                message: String::from("Document contains invalid JSON"),
-            });
         }
 
         Ok(())
@@ -157,34 +182,33 @@ impl DocumentStore {
         &mut self,
         db_name: &str,
         filter: &String,
-    ) -> Result<Option<String>, DocumentStoreError> {
-        let db = self.dbs.get(db_name).unwrap();
+    ) -> Result<Option<String>, Box<dyn std::error::Error>> {
+        let db = self.dbs.get(db_name).ok_or(DocumentStoreError::Custom {
+            message: format!("No DocumentStore found for name {}", db_name),
+        })?;
 
-        if let Ok(json_filter) = serde_json::from_str::<Value>(filter) {
-            if let Some(conditions) = json_filter.as_object() {
-                for (key, value) in conditions.iter() {
-                    debug!("key = {}, value = {}", key, value);
-                    let mut index_name = String::from(db_name);
-                    index_name.push('_');
-                    index_name.push_str(key);
-                    debug!("this belongs to index db {}", index_name);
-                    if let Some(field_db) = self.fields.get(&index_name) {
-                        if let Ok(key) = field_db.kv_fetch(value.as_str().unwrap()) {
-                            debug!("Exists! key = {:?}", key);
-                            if let Ok(raw_document) = db.kv_fetch(key) {
-                                debug!("raw document = {:?}", raw_document);
-                                return Ok(Some(String::from_utf8(raw_document).unwrap()));
-                            }
-                        } else {
-                            debug!("Does not exist!");
-                        }
+        let json_filter = serde_json::from_str::<Value>(filter)?;
+        let conditions = json_filter.as_object().ok_or(DocumentStoreError::Custom {
+            message: format!("Provided filter must be a JSON object"),
+        })?;
+
+        for (key, value) in conditions.iter() {
+            debug!("key = {}, value = {}", key, value);
+            let mut index_name = String::from(db_name);
+            index_name.push('_');
+            index_name.push_str(key);
+            debug!("this belongs to index db {}", index_name);
+            if let Some(field_db) = self.fields.get(&index_name) {
+                if let Ok(key) = field_db.kv_fetch(value.as_str().unwrap()) {
+                    debug!("Exists! key = {:?}", key);
+                    if let Ok(raw_document) = db.kv_fetch(key) {
+                        debug!("raw document = {:?}", raw_document);
+                        return Ok(Some(String::from_utf8(raw_document).unwrap()));
                     }
+                } else {
+                    debug!("Does not exist!");
                 }
             }
-        } else {
-            return Err(DocumentStoreError {
-                message: String::from("Filter contains invalid JSON"),
-            });
         }
 
         Ok(None)
