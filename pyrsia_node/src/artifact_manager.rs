@@ -31,30 +31,30 @@ trait Digester {
 }
 
 impl Digester for Sha256 {
-    fn update_hash(self: &mut Self, input: &[u8]) {
+    fn update_hash(&mut self, input: &[u8]) {
         self.update(input);
     }
 
-    fn finalize_hash(self: &mut Self, hash_buffer: &mut [u8]) {
+    fn finalize_hash(&mut self, hash_buffer: &mut [u8]) {
         hash_buffer.clone_from_slice(self.clone().finalize().as_slice());
     }
 
     fn hash_size_in_bytes(&self) -> usize {
-        return 256 / 8;
+        256 / 8
     }
 }
 
 impl Digester for Sha512 {
-    fn update_hash(self: &mut Self, input: &[u8]) {
+    fn update_hash(&mut self, input: &[u8]) {
         self.update(input);
     }
 
-    fn finalize_hash(self: &mut Self, hash_buffer: &mut [u8]) {
+    fn finalize_hash(&mut self, hash_buffer: &mut [u8]) {
         hash_buffer.clone_from_slice(self.clone().finalize().as_slice());
     }
 
     fn hash_size_in_bytes(&self) -> usize {
-        return 512 / 8;
+        512 / 8
     }
 }
 
@@ -85,17 +85,17 @@ impl HashAlgorithm {
 
     /// Translate a HashAlgorithm to a string.
     pub fn hash_algorithm_to_str(&self) -> &'static str {
-        return match self {
+        match self {
             HashAlgorithm::SHA256 => "SHA256",
             HashAlgorithm::SHA512 => "SHA512",
-        };
+        }
     }
 
     fn hash_length_in_bytes(&self) -> usize {
-        return match self {
+        match self {
             HashAlgorithm::SHA256 => 256 / 8,
             HashAlgorithm::SHA512 => 512 / 8,
-        };
+        }
     }
 }
 
@@ -125,7 +125,7 @@ impl<'a> Hash<'a> {
     // This function ensures that there is a directory under the repository root for each one of
     // the supported hash algorithms.
     fn ensure_directories_for_hash_algorithms_exist(
-        repository_path: &PathBuf,
+        repository_path: &Path,
     ) -> Result<(), anyhow::Error> {
         let mut path_buf = PathBuf::new();
         path_buf.push(repository_path);
@@ -158,11 +158,11 @@ impl<'a> Hash<'a> {
     // (base64 is more compact, but hex is easier for troubleshooting). For example
     // pyrsia-artifacts/SHA256/68efadf3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6ccbb4
     // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
-    fn base_file_path(&self, repo_dir: &PathBuf) -> PathBuf {
+    fn base_file_path(&self, repo_dir: &Path) -> PathBuf {
         let mut buffer: PathBuf = PathBuf::from(repo_dir);
         buffer.push(self.algorithm.hash_algorithm_to_str());
         buffer.push(Hash::encode_bytes_as_file_name(self.bytes));
-        return buffer;
+        buffer
     }
 }
 
@@ -185,7 +185,7 @@ struct WriteHashDecorator<'a> {
 
 impl<'a> WriteHashDecorator<'a> {
     fn new(writer: &'a mut impl Write, digester: &'a mut Box<dyn Digester>) -> Self {
-        return WriteHashDecorator { writer, digester };
+        WriteHashDecorator { writer, digester }
     }
 }
 
@@ -193,26 +193,22 @@ impl<'a> WriteHashDecorator<'a> {
 impl<'a> Write for WriteHashDecorator<'a> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let result = self.writer.write(buf);
-        match result {
-            // hash just the number of bytes that were actually written. This may be less than the whole buffer.
-            Ok(bytes_written) => self.digester.update_hash(&buf[..bytes_written]),
-            _ => {}
-        }
-        return result;
+        if let Ok(bytes_written) = result {
+            self.digester.update_hash(&buf[..bytes_written])
+        };
+        result
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        return self.writer.flush();
+        self.writer.flush()
     }
 
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         let result = self.writer.write(buf);
-        match result {
-            // hash just the number of bytes that were actually written. This may be less than the whole buffer.
-            Ok(_) => self.digester.update_hash(buf),
-            _ => {}
+        if let Ok(_) = result {
+            self.digester.update_hash(buf)
         }
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -298,11 +294,11 @@ impl<'a> ArtifactManager {
         }
     }
 
-    fn create_artifact_file(tmp_path: &PathBuf) -> std::io::Result<File> {
+    fn create_artifact_file(tmp_path: &Path) -> std::io::Result<File> {
         OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(tmp_path.as_path())
+            .open(tmp_path)
     }
 
     fn handle_wrong_hash(
@@ -323,9 +319,9 @@ impl<'a> ArtifactManager {
     fn rename_to_permanent(
         expected_hash: &Hash,
         base_path: PathBuf,
-        tmp_path: &PathBuf,
+        tmp_path: &Path,
     ) -> Result<bool, anyhow::Error> {
-        fs::rename(tmp_path.clone(), base_path.clone()).with_context(|| {
+        fs::rename(tmp_path.to_path_buf(), base_path.clone()).with_context(|| {
             format!(
                 "Attempting to rename from temporary file name{} to permanent{}",
                 tmp_path.to_str().unwrap(),
@@ -346,7 +342,7 @@ impl<'a> ArtifactManager {
         base_path
     }
 
-    fn file_creation_error(base_path: &PathBuf, error: std::io::Error) -> Result<bool, Error> {
+    fn file_creation_error(base_path: &Path, error: std::io::Error) -> Result<bool, Error> {
         match error.kind() {
             io::ErrorKind::AlreadyExists => Ok(false),
             _ => Err(anyhow!(error)),
@@ -357,7 +353,7 @@ impl<'a> ArtifactManager {
     fn do_push<'b>(
         reader: &mut impl Read,
         expected_hash: &Hash,
-        path: &PathBuf,
+        path: &Path,
         out: File,
         hash_buffer: &'b mut [u8; 128],
     ) -> Result<&'b [u8], Error> {
@@ -381,7 +377,7 @@ impl<'a> ArtifactManager {
 
     fn copy_from_reader_to_writer(
         reader: &mut impl Read,
-        path: &PathBuf,
+        path: &Path,
         mut writer: &mut WriteHashDecorator,
     ) -> Result<(), Error> {
         io::copy(reader, &mut writer).with_context(|| {
@@ -423,15 +419,15 @@ impl<'a> ArtifactManager {
 // hash will not be found in the local repository from the time it is created and not fully
 // written until the time its hash is verified. After that, the file is renamed to its permanent
 // name that will match the actual hash value.
-fn tmp_path_from_base(base: &PathBuf) -> PathBuf {
-    let mut tmp_buf = base.clone();
+fn tmp_path_from_base(base: &Path) -> PathBuf {
+    let mut tmp_buf = base.to_path_buf();
     let file_name: &OsStr = base.file_name().unwrap();
     tmp_buf.set_file_name(format!("X{}", file_name.to_str().unwrap()));
     tmp_buf
 }
 
 // return true if the given repository path leads to an accessible directory.
-fn is_accessible_directory(repository_path: &PathBuf) -> bool {
+fn is_accessible_directory(repository_path: &Path) -> bool {
     match fs::metadata(repository_path) {
         Err(_) => false,
         Ok(metadata) => metadata.is_dir(),
