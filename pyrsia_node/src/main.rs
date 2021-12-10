@@ -7,12 +7,14 @@ extern crate serde;
 extern crate tokio;
 extern crate uuid;
 extern crate warp;
-
+#[macro_use]
+extern crate lazy_static;
 //local module imports
 mod artifact_manager;
 mod docker;
 mod document_store;
 mod network;
+mod node_manager;
 mod utils;
 
 use docker::error_util::*;
