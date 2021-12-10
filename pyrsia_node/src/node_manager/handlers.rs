@@ -13,7 +13,7 @@ const ART_MGR_DIR: &str = "pyrsia";
 lazy_static! {
     static ref ART_MGR: ArtifactManager = {
         fs::create_dir_all(ART_MGR_DIR)
-            .unwrap_or_else(|e| panic!("Error creating dir for artifacts: {}", e));
+            .expect("Error creating dir for artifacts");
         ArtifactManager::new(ART_MGR_DIR).unwrap()
     };
 }
