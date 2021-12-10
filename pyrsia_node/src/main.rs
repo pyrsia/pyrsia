@@ -33,10 +33,12 @@ use libp2p::{
     swarm::SwarmEvent,
     Multiaddr, PeerId,
 };
-use log::info;
-use std::collections::HashMap;
-use std::env;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use log::{debug, error, info};
+use std::{
+    collections::HashMap,
+    env,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+};
 use tokio::io::{self, AsyncBufReadExt};
 use warp::Filter;
 
@@ -66,7 +68,7 @@ async fn main() {
                 .takes_value(true)
                 .required(false)
                 .multiple(false)
-                .help("Sets the port to listen to"),
+                .help("Sets the port to listen to for the Docker API"),
         )
         .arg(
             Arg::with_name("peer")
@@ -75,7 +77,7 @@ async fn main() {
                 .takes_value(true)
                 .required(false)
                 .multiple(false)
-                .help("Provide an explicit peerId"),
+                .help("Provide an explicit peerId to connect with"),
         )
         .get_matches();
 
@@ -133,10 +135,13 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(handle_put_manifest);
 
+    let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+    let tx1 = tx.clone();
+
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(handle_get_blobs);
+        .and_then(move |name, hash| handle_get_blobs(tx1.clone(), name, hash));
     let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
         .and(warp::post())
         .and_then(handle_post_blob);
@@ -166,26 +171,30 @@ async fn main() {
     let (addr, server) = warp::serve(routes).bind_ephemeral(address);
     info!("Pyrsia Docker Node is now running on port {}!", addr.port());
 
-    tokio::task::spawn(server);
+    tokio::spawn(server);
+    let tx2 = tx.clone();
 
     // Kick it off
     loop {
         tokio::select! {
             line = stdin.next_line() => {
                 let line = line.unwrap().expect("stdin closed");
-                swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), line.as_bytes());
+                debug!("next line!");
+                match tx2.send(line).await {
+                    Ok(_) => debug!("line sent"),
+                    Err(_) => error!("failed to send stdin input")
+                }
             }
             event = swarm.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {
                     info!("Listening on {:?}", address);
                 }
             }
+            Some(message) = rx.recv() => {
+                info!("New message: {}", message);
+                swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), message.as_bytes());
+                swarm.behaviour_mut().lookup_blob(message).unwrap();
+            }
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
-    //use super::*;
 }
