@@ -19,6 +19,7 @@ pub struct ErrorMessages {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum RegistryErrorCode {
     BlobUnknown,
+    BlobDoesNotExist(String),
     ManifestUnknown,
     Unknown(String),
 }
@@ -27,6 +28,7 @@ impl fmt::Display for RegistryErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let printable = match &self {
             RegistryErrorCode::BlobUnknown => "BLOB_UNKNOWN".to_string(),
+            RegistryErrorCode::BlobDoesNotExist(hash) => format!("BLOB_DOES_NOT_EXIST({})", hash),
             RegistryErrorCode::ManifestUnknown => "MANIFEST_UNKNOWN".to_string(),
             RegistryErrorCode::Unknown(m) => format!("UNKNOWN({})", m),
         };
@@ -54,6 +56,10 @@ pub async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
             RegistryErrorCode::BlobUnknown => {
                 status_code = StatusCode::NOT_FOUND;
                 error_message.code = RegistryErrorCode::BlobUnknown;
+            }
+            RegistryErrorCode::BlobDoesNotExist(hash) => {
+                status_code = StatusCode::NOT_FOUND;
+                error_message.code = RegistryErrorCode::BlobDoesNotExist(hash.to_string());
             }
             RegistryErrorCode::ManifestUnknown => {
                 status_code = StatusCode::NOT_FOUND;
