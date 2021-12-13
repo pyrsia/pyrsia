@@ -52,10 +52,7 @@ async fn main() {
                 let _resp = match result {
                     Ok(resp) => {
                         println!("Connected Peers:");
-                        let peers_split = resp.split(',');
-                        //let peers_set: HashSet<&str> = peers_split.collect();
-
-                        let mut unique_peers = HashSet::new();
+                        let peers_split = resp.split(',');                        let mut unique_peers = HashSet::new();
                         for peer in peers_split {
                             unique_peers.insert(peer);
                         }
