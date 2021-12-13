@@ -56,11 +56,10 @@ async fn main() {
                         //let peers_set: HashSet<&str> = peers_split.collect();
 
                         let mut unique_peers = HashSet::new();
-                    for peer in peers_split {
+                        for peer in peers_split {
                             unique_peers.insert(peer);
-                            }
+                        }
                         unique_peers.iter().for_each(|p| println!("{}", p));
-
                     }
                     Err(error) => {
                         println!("Error: {}", error);

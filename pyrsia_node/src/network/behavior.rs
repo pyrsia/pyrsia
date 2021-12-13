@@ -30,9 +30,7 @@ pub struct MyBehaviour {
     mdns: Mdns,
 }
 
-
 impl MyBehaviour {
-
     pub fn new(floodsub: Floodsub, kademlia: Kademlia<MemoryStore>, mdns: Mdns) -> Self {
         MyBehaviour {
             floodsub,
@@ -45,12 +43,11 @@ impl MyBehaviour {
         &mut self.floodsub
     }
 
-    pub async fn lookup_blob(&mut self, hash: String,tx: tokio::sync::mpsc::Sender<String>) {
+    pub async fn lookup_blob(&mut self, hash: String, tx: tokio::sync::mpsc::Sender<String>) {
         //let num = std::num::NonZeroUsize::new(2).ok_or(Error::ValueTooLarge)?;
         //Ok(self.kademlia.get_record(&Key::new(&hash), Quorum::N(num)))
         // TODO
         match tx.send(String::from("coming soon")).await {
-
             Ok(_) => debug!("response for lookup_blob sent"),
             Err(_) => error!("failed to send response"),
         }
@@ -60,7 +57,7 @@ impl MyBehaviour {
         let mut peers = String::new();
         match get_peers(&mut self.mdns) {
             Ok(val) => peers = val,
-            Err(e) => error!("failed to get peers connected: {:?}",e),
+            Err(e) => error!("failed to get peers connected: {:?}", e),
         }
 
         match tx.send(peers).await {
@@ -72,9 +69,8 @@ impl MyBehaviour {
     pub async fn list_peers_cmd(&mut self) {
         match get_peers(&mut self.mdns) {
             Ok(val) => println!("Peers are : {}", val),
-            Err(e) => error!("failed to get peers connected: {:?}",e),
+            Err(e) => error!("failed to get peers connected: {:?}", e),
         }
-        
     }
 
     pub fn advertise_blob(&mut self, hash: String, value: Vec<u8>) -> Result<QueryId, Error> {
@@ -177,13 +173,12 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
     }
 }
 
-pub fn get_peers(mdns: &mut Mdns) -> Result<String, Error>{
-
+pub fn get_peers(mdns: &mut Mdns) -> Result<String, Error> {
     let nodes = mdns.discovered_nodes();
     let mut unique_peers = HashSet::new();
     for peer in nodes {
         unique_peers.insert(peer);
     }
-     let connected_peers = itertools::join(&unique_peers, ", ");
-     Ok(connected_peers)
+    let connected_peers = itertools::join(&unique_peers, ", ");
+    Ok(connected_peers)
 }

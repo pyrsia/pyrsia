@@ -24,28 +24,22 @@ use document_store::document_store::DocumentStore;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 
-
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
-use libp2p::{
-    floodsub:: Topic,
-    identity,
-    swarm::SwarmEvent,
-    Multiaddr, PeerId,
-};
-use tokio::sync::mpsc;
+use libp2p::{floodsub::Topic, identity, swarm::SwarmEvent, Multiaddr, PeerId};
 use log::{error, info};
+use tokio::sync::mpsc;
 
 use once_cell::sync::Lazy;
+use std::sync::Arc;
 use std::{
     collections::HashMap,
     env,
     net::{IpAddr, Ipv4Addr, SocketAddr},
 };
 use tokio::io::{self, AsyncBufReadExt};
-use warp::Filter;
-use std::sync::Arc;
 use tokio::sync::Mutex;
+use warp::Filter;
 
 const DEFAULT_PORT: &str = "8082";
 static ID_KEYS: Lazy<identity::Keypair> = Lazy::new(|| identity::Keypair::generate_ed25519());
@@ -93,7 +87,7 @@ async fn main() {
                                                                           //let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
 
     // Create a Swarm to manage peers and events.
-    let mut swarm: MyBehaviourSwarm = new_swarm(TOPIC.clone(), transport, PEER_ID.clone())
+    let mut swarm: MyBehaviourSwarm = new_swarm(TOPIC.clone(), transport, *PEER_ID)
         .await
         .unwrap();
 
@@ -144,7 +138,7 @@ async fn main() {
         .and_then(handle_put_manifest);
 
     let (tx, mut rx) = mpsc::channel(32);
-    let (respond_tx,  respond_rx) = mpsc::channel(32);
+    let (respond_tx, respond_rx) = mpsc::channel(32);
 
     let tx1 = tx.clone();
 
@@ -165,17 +159,15 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(handle_put_blob);
 
-        let shared_stats = Arc::new(Mutex::new(respond_rx));
-        let my_stats = shared_stats.clone();
+    let shared_stats = Arc::new(Mutex::new(respond_rx));
+    let my_stats = shared_stats.clone();
 
     let tx3 = tx.clone();
     //swarm specific apis
-    let v2_peers = warp::path!("v2" / "peers" )
-    .and(warp::get())
-    .and(warp::path::end())
-    .and_then(move ||        handle_get_peers(tx3.clone(),my_stats.clone()));
-
-    
+    let v2_peers = warp::path!("v2" / "peers")
+        .and(warp::get())
+        .and(warp::path::end())
+        .and_then(move || handle_get_peers(tx3.clone(), my_stats.clone()));
 
     let routes = warp::any()
         .and(utils::log::log_headers())
@@ -245,23 +237,28 @@ async fn main() {
         if let Some(event) = evt {
             match event {
                 EventType::Response(resp) => {
-                    swarm.behaviour_mut().floodsub_mut().publish(TOPIC.clone(), resp.as_bytes());
-
+                    swarm
+                        .behaviour_mut()
+                        .floodsub_mut()
+                        .publish(TOPIC.clone(), resp.as_bytes());
                 }
                 EventType::Input(line) => match line.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers_cmd().await,
                     _ => error!("unknown input"),
-                }
+                },
                 EventType::Message(message) => match message.as_str() {
-
-                    "peers" =>  swarm.behaviour_mut().list_peers(respond_tx.clone()).await,
-                    cmd if cmd.starts_with("get_blobs") => swarm.behaviour_mut().lookup_blob(message,respond_tx.clone()).await,
-                    _ => error!("unknown message: {}",message),
+                    "peers" => swarm.behaviour_mut().list_peers(respond_tx.clone()).await,
+                    cmd if cmd.starts_with("get_blobs") => {
+                        swarm
+                            .behaviour_mut()
+                            .lookup_blob(message, respond_tx.clone())
+                            .await
+                    }
+                    _ => error!("unknown message: {}", message),
                 },
             }
         }
     }
-
 }
 
 enum EventType {
