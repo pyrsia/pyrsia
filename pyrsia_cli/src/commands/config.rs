@@ -1,16 +1,16 @@
 use anyhow::{Context, Result};
 
+const CONF_FILE: &str = "pyrsia-cli.conf";
+
 pub fn add_config(content: String) -> Result<()> {
-    let path = "pyrsia-cli.conf";
-    std::fs::write(path, content)
-        .with_context(|| format!("could not write to conf file `{}`", path))?;
+    std::fs::write(CONF_FILE, content)
+        .with_context(|| format!("could not write to conf file `{}`", CONF_FILE))?;
     Ok(())
 }
 
 pub fn get_config() -> Result<String> {
-    let path = "pyrsia-cli.conf";
-    let content =
-        std::fs::read_to_string(path).with_context(|| format!("could not read file `{}`", path))?;
+    let content = std::fs::read_to_string(CONF_FILE)
+        .with_context(|| format!("could not read file `{}`", CONF_FILE))?;
     Ok(content)
 }
 

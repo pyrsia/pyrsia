@@ -16,24 +16,27 @@ mod document_store;
 mod network;
 mod node_manager;
 mod utils;
-
 use docker::error_util::*;
 use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
+use docker::v2::handlers::swarm::*;
 use document_store::document_store::DocumentStore;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 
+
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
-use identity::Keypair;
 use libp2p::{
-    floodsub::{self, Topic},
+    floodsub:: Topic,
     identity,
     swarm::SwarmEvent,
     Multiaddr, PeerId,
 };
-use log::{debug, error, info};
+use tokio::sync::mpsc;
+use log::{error, info};
+
+use once_cell::sync::Lazy;
 use std::{
     collections::HashMap,
     env,
@@ -41,8 +44,13 @@ use std::{
 };
 use tokio::io::{self, AsyncBufReadExt};
 use warp::Filter;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
-const DEFAULT_PORT: &str = "7878";
+const DEFAULT_PORT: &str = "8082";
+static ID_KEYS: Lazy<identity::Keypair> = Lazy::new(|| identity::Keypair::generate_ed25519());
+static PEER_ID: Lazy<PeerId> = Lazy::new(|| PeerId::from(ID_KEYS.public()));
+static TOPIC: Lazy<Topic> = Lazy::new(|| Topic::new("pyrsia-node-converstation"));
 
 #[tokio::main]
 async fn main() {
@@ -52,8 +60,8 @@ async fn main() {
     let doc_store = DocumentStore::new();
     doc_store.ping();
     // Create a random PeerId
-    let id_keys: Keypair = identity::Keypair::generate_ed25519();
-    let peer_id: PeerId = PeerId::from(id_keys.public());
+    //let id_keys: Keypair = identity::Keypair::generate_ed25519();
+    //let peer_id: PeerId = PeerId::from(id_keys.public());
 
     let matches: ArgMatches = App::new("Pyrsia Node")
         .version("0.1.0")
@@ -81,11 +89,11 @@ async fn main() {
         )
         .get_matches();
 
-    let transport: TcpTokioTransport = new_tokio_tcp_transport(&id_keys); // Create a tokio-based TCP transport using noise for authenticated
-    let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
+    let transport: TcpTokioTransport = new_tokio_tcp_transport(&ID_KEYS); // Create a tokio-based TCP transport using noise for authenticated
+                                                                          //let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
 
     // Create a Swarm to manage peers and events.
-    let mut swarm: MyBehaviourSwarm = new_swarm(floodsub_topic.clone(), transport, peer_id)
+    let mut swarm: MyBehaviourSwarm = new_swarm(TOPIC.clone(), transport, PEER_ID.clone())
         .await
         .unwrap();
 
@@ -135,7 +143,9 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(handle_put_manifest);
 
-    let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+    let (tx, mut rx) = mpsc::channel(32);
+    let (respond_tx,  respond_rx) = mpsc::channel(32);
+
     let tx1 = tx.clone();
 
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
@@ -155,6 +165,18 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(handle_put_blob);
 
+        let shared_stats = Arc::new(Mutex::new(respond_rx));
+        let my_stats = shared_stats.clone();
+
+    let tx3 = tx.clone();
+    //swarm specific apis
+    let v2_peers = warp::path!("v2" / "peers" )
+    .and(warp::get())
+    .and(warp::path::end())
+    .and_then(move ||        handle_get_peers(tx3.clone(),my_stats.clone()));
+
+    
+
     let routes = warp::any()
         .and(utils::log::log_headers())
         .and(
@@ -164,7 +186,8 @@ async fn main() {
                 .or(v2_blobs)
                 .or(v2_blobs_post)
                 .or(v2_blobs_patch)
-                .or(v2_blobs_put),
+                .or(v2_blobs_put)
+                .or(v2_peers),
         )
         .recover(custom_recover)
         .with(warp::log("pyrsia_registry"));
@@ -175,7 +198,7 @@ async fn main() {
     let tx2 = tx.clone();
 
     // Kick it off
-    loop {
+    /*loop {
         tokio::select! {
             line = stdin.next_line() => {
                 let line = line.unwrap().expect("stdin closed");
@@ -192,9 +215,57 @@ async fn main() {
             }
             Some(message) = rx.recv() => {
                 info!("New message: {}", message);
-                swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), message.as_bytes());
-                swarm.behaviour_mut().lookup_blob(message).unwrap();
+                swarm.behaviour_mut().floodsub_mut().publish(TOPIC.clone(), message.as_bytes());
+                //swarm.behaviour_mut().lookup_blob(message).unwrap();
+                if message == String::from("peers"){
+
+                swarm.behaviour_mut().list_peers(respond_tx.clone()).await;
+
+                }
+
+            }
+        }
+    }*/
+
+    loop {
+        let evt = {
+            tokio::select! {
+                line = stdin.next_line() => Some(EventType::Input(line.expect("can get line").expect("can read line from stdin"))),
+                message = rx.recv() => Some(EventType::Message(message.expect("message exists"))),
+               // response = rx.recv() => Some(EventType::Response(response.expect("response exists"))),
+                event = swarm.select_next_some() =>  {
+                    if let SwarmEvent::NewListenAddr { address, .. } = event {
+                    info!("Listening on {:?}", address);
+                    }
+                    None
+                },
+            }
+        };
+
+        if let Some(event) = evt {
+            match event {
+                EventType::Response(resp) => {
+                    swarm.behaviour_mut().floodsub_mut().publish(TOPIC.clone(), resp.as_bytes());
+
+                }
+                EventType::Input(line) => match line.as_str() {
+                    "peers" => swarm.behaviour_mut().list_peers_cmd().await,
+                    _ => error!("unknown input"),
+                }
+                EventType::Message(message) => match message.as_str() {
+
+                    "peers" =>  swarm.behaviour_mut().list_peers(respond_tx.clone()).await,
+                    cmd if cmd.starts_with("get_blobs") => swarm.behaviour_mut().lookup_blob(message,respond_tx.clone()).await,
+                    _ => error!("unknown message: {}",message),
+                },
             }
         }
     }
+
+}
+
+enum EventType {
+    Response(String),
+    Message(String),
+    Input(String),
 }

@@ -1,0 +1,38 @@
+//use futures::channel::mpsc::Receiver;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use log::{debug, error};
+use tokio::sync::mpsc::{Sender, Receiver};
+use warp::http::StatusCode;
+use warp::{Rejection, Reply};
+
+
+/*
+use super::{RegistryError, RegistryErrorCode};
+*/
+
+pub async fn handle_get_peers(
+    tx: Sender<String>,
+    rx: Arc<Mutex<Receiver<String>>>
+) -> Result<impl Reply, Rejection> {
+    debug!("Commad executing : $$$");
+
+    match tx.send(String::from("peers")).await {
+        Ok(_) => debug!("request for peers sent"),
+        Err(_) => error!("failed to send stdin input"),
+    }
+
+    
+    let peers = rx.lock().await.recv().await.unwrap();
+    println!("Got received_peers: {}",peers);
+    /*return Err(warp::reject::custom(RegistryError {
+        code: RegistryErrorCode::BlobDoesNotExist(hash),
+    }));*/
+
+    Ok(warp::http::response::Builder::new()
+        .header("Content-Type", "application/octet-stream")
+        .status(StatusCode::OK)
+        .body(peers)
+        .unwrap())
+}
+
