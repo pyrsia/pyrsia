@@ -18,6 +18,7 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Error, Result};
 use sha2::{Digest, Sha256, Sha512};
+use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::{EnumIter, EnumString};
 
@@ -60,7 +61,7 @@ impl Digester for Sha512 {
 
 /// The types of hash algorithms that the artifact manager supports
 
-#[derive(EnumIter, Debug, PartialEq, EnumString)]
+#[derive(EnumIter, Debug, PartialEq, EnumString, Serialize, Deserialize)]
 pub enum HashAlgorithm {
     SHA256,
     SHA512,
