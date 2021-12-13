@@ -8,14 +8,10 @@ permissions:
 
 jobs:
   security_audit:
-    # This is disabled since it incorrectly posts on the "into" branch and is very sensitive
-    # making it difficult to work with at this time.
-    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - continue-on-error: true
-        uses: actions-rs/audit-check@v1
+      - uses: actions-rs/audit-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
