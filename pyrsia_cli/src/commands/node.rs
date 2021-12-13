@@ -14,9 +14,7 @@ pub async fn ping() -> Result<String, reqwest::Error> {
     };
 
     let node_url = format!("http://{}/v2", url);
-
     let response = reqwest::get(node_url).await?.text().await?;
-
     Ok(response)
 }
 

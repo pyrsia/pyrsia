@@ -27,7 +27,7 @@ use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
 use libp2p::{floodsub::Topic, identity, swarm::SwarmEvent, Multiaddr, PeerId};
-use log::{error, info};
+use log::{debug, error, info};
 use tokio::sync::mpsc;
 
 use once_cell::sync::Lazy;
@@ -41,7 +41,7 @@ use tokio::io::{self, AsyncBufReadExt};
 use tokio::sync::Mutex;
 use warp::Filter;
 
-const DEFAULT_PORT: &str = "8082";
+const DEFAULT_PORT: &str = "8081";
 static ID_KEYS: Lazy<identity::Keypair> = Lazy::new(|| identity::Keypair::generate_ed25519());
 static PEER_ID: Lazy<PeerId> = Lazy::new(|| PeerId::from(ID_KEYS.public()));
 static TOPIC: Lazy<Topic> = Lazy::new(|| Topic::new("pyrsia-node-converstation"));
@@ -53,9 +53,6 @@ async fn main() {
     // create the connection to the documentStore.
     let doc_store = DocumentStore::new();
     doc_store.ping();
-    // Create a random PeerId
-    //let id_keys: Keypair = identity::Keypair::generate_ed25519();
-    //let peer_id: PeerId = PeerId::from(id_keys.public());
 
     let matches: ArgMatches = App::new("Pyrsia Node")
         .version("0.1.0")
@@ -87,9 +84,7 @@ async fn main() {
                                                                           //let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
 
     // Create a Swarm to manage peers and events.
-    let mut swarm: MyBehaviourSwarm = new_swarm(TOPIC.clone(), transport, *PEER_ID)
-        .await
-        .unwrap();
+    let mut swarm: MyBehaviourSwarm = new_swarm(TOPIC.clone(), transport, *PEER_ID).await.unwrap();
 
     // Reach out to another node if specified
     if let Some(to_dial) = matches.value_of("peer") {
@@ -190,35 +185,6 @@ async fn main() {
     let tx2 = tx.clone();
 
     // Kick it off
-    /*loop {
-        tokio::select! {
-            line = stdin.next_line() => {
-                let line = line.unwrap().expect("stdin closed");
-                debug!("next line!");
-                match tx2.send(line).await {
-                    Ok(_) => debug!("line sent"),
-                    Err(_) => error!("failed to send stdin input")
-                }
-            }
-            event = swarm.select_next_some() => {
-                if let SwarmEvent::NewListenAddr { address, .. } = event {
-                    info!("Listening on {:?}", address);
-                }
-            }
-            Some(message) = rx.recv() => {
-                info!("New message: {}", message);
-                swarm.behaviour_mut().floodsub_mut().publish(TOPIC.clone(), message.as_bytes());
-                //swarm.behaviour_mut().lookup_blob(message).unwrap();
-                if message == String::from("peers"){
-
-                swarm.behaviour_mut().list_peers(respond_tx.clone()).await;
-
-                }
-
-            }
-        }
-    }*/
-
     loop {
         let evt = {
             tokio::select! {
@@ -237,6 +203,7 @@ async fn main() {
         if let Some(event) = evt {
             match event {
                 EventType::Response(resp) => {
+                    //here we have to manage which events to publish to floodsub
                     swarm
                         .behaviour_mut()
                         .floodsub_mut()
@@ -244,7 +211,10 @@ async fn main() {
                 }
                 EventType::Input(line) => match line.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers_cmd().await,
-                    _ => error!("unknown input"),
+                    _ => match tx2.send(line).await {
+                        Ok(_) => debug!("line sent"),
+                        Err(_) => error!("failed to send stdin input"),
+                    },
                 },
                 EventType::Message(message) => match message.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers(respond_tx.clone()).await,
@@ -254,7 +224,7 @@ async fn main() {
                             .lookup_blob(message, respond_tx.clone())
                             .await
                     }
-                    _ => error!("unknown message: {}", message),
+                    _ => info!("message received from peers: {}", message),
                 },
             }
         }

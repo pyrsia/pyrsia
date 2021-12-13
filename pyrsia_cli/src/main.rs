@@ -47,12 +47,13 @@ async fn main() {
                     }
                 };
             }
-            if node_matches.is_present("status") {
+            if node_matches.is_present("ls") {
                 let result = peers_connected().await;
                 let _resp = match result {
                     Ok(resp) => {
                         println!("Connected Peers:");
-                        let peers_split = resp.split(',');                        let mut unique_peers = HashSet::new();
+                        let peers_split = resp.split(',');                        
+                        let mut unique_peers = HashSet::new();
                         for peer in peers_split {
                             unique_peers.insert(peer);
                         }

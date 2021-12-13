@@ -6,10 +6,6 @@ use tokio::sync::Mutex;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
 
-/*
-use super::{RegistryError, RegistryErrorCode};
-*/
-
 pub async fn handle_get_peers(
     tx: Sender<String>,
     rx: Arc<Mutex<Receiver<String>>>,
@@ -23,10 +19,6 @@ pub async fn handle_get_peers(
 
     let peers = rx.lock().await.recv().await.unwrap();
     println!("Got received_peers: {}", peers);
-    /*return Err(warp::reject::custom(RegistryError {
-        code: RegistryErrorCode::BlobDoesNotExist(hash),
-    }));*/
-
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
         .status(StatusCode::OK)
