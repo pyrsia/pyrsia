@@ -45,4 +45,4 @@ jobs:
       - uses: viperproject/check-license-header@v1
         with:
           path: .
-          config: .github/license-header-config.json
+          config: .github/license-check/config.json
