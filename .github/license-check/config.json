@@ -1,0 +1,20 @@
+[
+    {
+        "include": [
+            "**/*.rs"
+        ],
+        "license": "./.github/license-check/header-Apache-2.0.txt"
+    },
+    {
+        "include": [
+            "**/Cargo.toml",
+            "**/Cargo.lock"
+        ]
+    },
+    {
+        "include": [
+            "**/*.md",
+            "**/*yml"
+        ]
+    }
+]

@@ -1,8 +1,0 @@
-[
-    {
-        "include": [
-            "**/*.rs"
-        ],
-        "license": "./.github/license-check/header-Apache-2.0.txt"
-    }
-]
