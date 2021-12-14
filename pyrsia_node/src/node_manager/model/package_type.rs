@@ -13,10 +13,22 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-pub mod artifact;
+extern crate pyrsia_client_lib;
+extern crate serde;
+extern crate serde_json;
 
-pub mod package;
-pub mod package_type;
-pub mod package_version;
+use pyrsia_client_lib::signed::Signed;
+use serde::{Deserialize, Serialize};
 
-use crate::node_manager::*;
+use signed_struct::signed_struct;
+
+#[signed_struct]
+struct PackageType {
+    name: PackageTypeName,
+    description: String,
+}
+
+#[derive(Serialize, Deserialize)]
+enum PackageTypeName {
+    Docker,
+}
