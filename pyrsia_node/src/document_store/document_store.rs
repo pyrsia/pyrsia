@@ -264,9 +264,18 @@ impl DocumentStore {
             }
 
             let index_key: IndexKey = IndexKey::new(index.0, values);
-            let raw_index_key = bincode::serialize(&index_key)?;
-            db.kv_store(raw_index_key, &raw_data_key)
-                .map_err(DocumentStoreError::UnQLite)?;
+            match bincode::serialize(&index_key) {
+                Ok(raw_index_key) => {
+                    if let Err(e) = db.kv_store(raw_index_key, &raw_data_key) {
+                        db.rollback().map_err(DocumentStoreError::UnQLite)?;
+                        return Err(From::from(DocumentStoreError::UnQLite(e)));
+                    }
+                }
+                Err(e) => {
+                    db.rollback().map_err(DocumentStoreError::UnQLite)?;
+                    return Err(e);
+                }
+            }
         }
 
         db.commit().map_err(DocumentStoreError::UnQLite)?;
