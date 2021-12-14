@@ -49,8 +49,10 @@ async fn main() {
     pretty_env_logger::init();
 
     // create the connection to the documentStore.
-    let doc_store = DocumentStore::new();
+    DocumentStore::create("document_store", vec![]).expect("Failed to create DocumentStore");
+    let doc_store = DocumentStore::get("document_store").unwrap();
     doc_store.ping();
+
     // Create a random PeerId
     let id_keys: Keypair = identity::Keypair::generate_ed25519();
     let peer_id: PeerId = PeerId::from(id_keys.public());
