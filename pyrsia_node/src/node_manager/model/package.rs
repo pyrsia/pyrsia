@@ -4,31 +4,31 @@ use strum_macros::{EnumIter, EnumString};
 
 #[derive(Debug)]
 pub struct Package {
-    pub name: String,
-    pub pkg_type: String,
-    pub namespace_id: String,
-    pub creation_time: Option<String>,
-    pub modified_time: Option<String>,
-    pub administrator: Option<Vec<u8>>,
-    pub description: Option<String>,
-    pub metadata: Map<String, Value>,
-    pub project_url: Option<String>,
-    pub project_name: Option<String>,
-    pub versions: Vec<u8>,
+    name: String,
+    pkg_type: String,
+    namespace_id: String,
+    creation_time: Option<String>,
+    modified_time: Option<String>,
+    administrator: Option<Vec<u8>>,
+    description: Option<String>,
+    metadata: Map<String, Value>,
+    project_url: Option<String>,
+    project_name: Option<String>,
+    versions: Vec<u8>,
 }
 
 #[derive(Debug)]
 pub struct PackageVersion {
-    pub id: String,
-    pub version: String,
-    pub pkg_id: String,
-    pub license_text: Option<String>,
-    pub license_text_mimetype: Option<LicenseTextMimeType>,
-    pub license_url: Option<String>,
-    pub creation_time: Option<String>,
-    pub metadata: Map<String, Value>,
-    pub tags: Vec<String>,
-    pub description: Option<String>,
+    id: String,
+    version: String,
+    pkg_id: String,
+    license_text: Option<String>,
+    license_text_mimetype: Option<LicenseTextMimeType>,
+    license_url: Option<String>,
+    creation_time: Option<String>,
+    metadata: Map<String, Value>,
+    tags: Vec<String>,
+    description: Option<String>,
 }
 
 #[derive(EnumIter, Debug, PartialEq, EnumString)]

@@ -9,7 +9,7 @@ use signed_struct::signed_struct;
 
 #[signed_struct]
 #[derive(Debug)]
-struct Artifact<'a> {
+pub struct Artifact<'a> {
     hash: &'a [u8],
     algorithm: HashAlgorithm,
     name: Option<String>,
