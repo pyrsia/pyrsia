@@ -8,7 +8,7 @@ use signed_struct::signed_struct;
 
 #[signed_struct]
 #[derive(Debug)]
-pub struct Package<'a> {
+pub struct Package {
     name: String,
     pkg_type: String,
     namespace_id: String,

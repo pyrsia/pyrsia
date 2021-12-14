@@ -4,11 +4,12 @@ extern crate serde_json;
 use pyrsia_client_lib::signed::Signed;
 use serde_json::{Map, Value};
 use signed_struct::signed_struct;
+use serde::{ Deserialize, Serialize};
 use strum_macros::{EnumIter, EnumString};
 
 #[signed_struct]
 #[derive(Debug)]
-pub struct PackageVersion<'a> {
+pub struct PackageVersion {
     id: String,
     version: String,
     pkg_id: String,
@@ -21,7 +22,7 @@ pub struct PackageVersion<'a> {
     description: Option<String>,
 }
 
-#[derive(EnumIter, Debug, PartialEq, EnumString)]
+#[derive(EnumIter, Debug, PartialEq, EnumString,Serialize,Deserialize)]
 pub enum LicenseTextMimeType {
     Text,
     Html,

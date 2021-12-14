@@ -68,7 +68,7 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
                 #ast
                 }
                 .into();
-                println!("Output for signed_struct: {}", output);
+                //println!("Output for signed_struct: {}", output);
                 output
             }
             _ => syn::parse::Error::new(
@@ -121,14 +121,13 @@ fn unique_json_field_ident(fields: &FieldsNamed) -> Result<Ident, syn::parse::Er
 #[proc_macro_derive(SignedStructDerive)]
 pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let lifetime = if check_has_lifetime(&ast) {
-        quote!(<'π>)
+    let (lifetime, signed_lifetime) = if check_has_lifetime(&ast) {
+        (quote!(<'π>), quote!(<'π>))
     } else {
-        quote!()
+        (quote!(), quote!(<'_>))
     };
     match &ast.data {
         syn::Data::Struct(ref struct_data) => {
-
             match &struct_data.fields {
                 syn::Fields::Named(fields) => {
                     #[allow(clippy::let_and_return)]
@@ -141,7 +140,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                         }) => {
                             let struct_ident = &ast.ident;
                             let output = quote! {
-                                impl #lifetime ::pyrsia_client_lib::signed::Signed #lifetime for #struct_ident #lifetime {
+                                impl #lifetime ::pyrsia_client_lib::signed::Signed #signed_lifetime for #struct_ident #lifetime {
                                     fn json(&self) -> Option<String> {
                                         self.#json_field_name.to_owned()
                                     }
@@ -168,7 +167,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                                 }
                             }
                             .into();
-                            println!("Output from signed_struct_derive: {}", output);
+                            //println!("Output from signed_struct_derive: {}", output);
                             output
                         }
                         Err(error) => error.to_compile_error().into(),
