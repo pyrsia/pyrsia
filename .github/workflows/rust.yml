@@ -46,8 +46,9 @@ jobs:
         
     - run: cargo install cargo-tarpaulin
     - run: cargo tarpaulin --workspace
+    - run: cat target/tarpaulin/coverage.json # debug test
 
     - uses: codecov/codecov-action@v2
       with:
         files: target/tarpaulin/coverage.json
-        fail_ci_if_error: ${{ github.repo.owner == 'pyrsia' }}
+        fail_ci_if_error: ${{ github.repository_owner == 'pyrsia' }}
