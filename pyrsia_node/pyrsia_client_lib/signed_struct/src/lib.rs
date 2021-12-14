@@ -68,7 +68,7 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
                 #ast
                 }
                 .into();
-                //println!("Output for signed_struct: {}", output);
+                println!("Output for signed_struct: {}", output);
                 output
             }
             _ => syn::parse::Error::new(
@@ -121,8 +121,14 @@ fn unique_json_field_ident(fields: &FieldsNamed) -> Result<Ident, syn::parse::Er
 #[proc_macro_derive(SignedStructDerive)]
 pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
+    let lifetime = if check_has_lifetime(&ast) {
+        quote!(<'π>)
+    } else {
+        quote!()
+    };
     match &ast.data {
         syn::Data::Struct(ref struct_data) => {
+
             match &struct_data.fields {
                 syn::Fields::Named(fields) => {
                     #[allow(clippy::let_and_return)]
@@ -162,7 +168,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                                 }
                             }
                             .into();
-                            //println!("Output from signed_struct_derive: {}", output);
+                            println!("Output from signed_struct_derive: {}", output);
                             output
                         }
                         Err(error) => error.to_compile_error().into(),
@@ -183,6 +189,16 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
         .to_compile_error()
         .into(),
     }
+}
+
+fn check_has_lifetime(ast: &DeriveInput) -> bool {
+    for generic in ast.generics.params.iter(){
+        match generic {
+            syn::GenericParam::Lifetime(_) => return true,
+            _ => (),
+        }
+    }
+    false
 }
 
 struct ScanFieldsResult {
