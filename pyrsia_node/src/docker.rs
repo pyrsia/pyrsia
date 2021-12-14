@@ -14,5 +14,5 @@
    limitations under the License.
 */
 
-pub mod v2;
 pub mod error_util;
+pub mod v2;
