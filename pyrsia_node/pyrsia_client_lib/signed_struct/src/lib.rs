@@ -141,7 +141,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                         }) => {
                             let struct_ident = &ast.ident;
                             let output = quote! {
-                                impl<'π> ::pyrsia_client_lib::signed::Signed<'π> for #struct_ident<'π> {
+                                impl #lifetime ::pyrsia_client_lib::signed::Signed #lifetime for #struct_ident #lifetime {
                                     fn json(&self) -> Option<String> {
                                         self.#json_field_name.to_owned()
                                     }
@@ -155,7 +155,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                                     }
                                 }
 
-                                impl<'π> #struct_ident<'π> {
+                                impl #lifetime #struct_ident #lifetime {
                                     pub fn new(#( #field_ident_vec : #type_vec),*) -> #struct_ident {
                                         #struct_ident{ #(#field_ident_vec),* , #json_field_name: None }
                                     }
