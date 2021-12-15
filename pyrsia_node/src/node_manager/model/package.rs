@@ -23,16 +23,26 @@ use signed_struct::signed_struct;
 
 #[signed_struct]
 #[derive(Debug)]
+/// Describes a package
 pub struct Package {
+    /// The name of this package. Must be unique within a namespace.
     name: String,
+    /// The type of package (Docker, Conan, npm, ...)
     pkg_type: String,
+    /// The id of the namespace that
     namespace_id: String,
+    /// ISO-8601 creation time
     creation_time: Option<String>,
+    /// ISO-8601 modification time
     modified_time: Option<String>,
+    /// Updates to a package should be signed by an identity associated with one of the public keys in the administrators field.
     administrator: Option<Vec<u8>>,
+    /// textual description
     description: Option<String>,
+    /// Attributes of a package that don't fit into one of this struct's fields can go in here as JSON
     metadata: Map<String, Value>,
+    /// A URL associated with the project.
     project_url: Option<String>,
-    project_name: Option<String>,
-    versions: Vec<u8>,
+    /// Known versions of this package.  There should be a PackageVersion describing each one of these.
+    versions: Vec<String>,
 }
