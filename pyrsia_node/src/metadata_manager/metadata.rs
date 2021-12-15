@@ -30,6 +30,8 @@ use super::super::node_manager::model::package_type;
 pub trait MetadataApi {
     /// Create a new package type with the information specified in the `pkg_type` parameter.
     ///
-    /// Returns an error if `pkg_type` does not have any trusted valid signatures
+    /// Returns an error if `pkg_type` does not have any valid signatures of it any of the valid
+    /// signatures are associated with a public key that does not identify an identity in the block
+    /// chain.
     fn create_package_type(pkg_type: package_type) -> Result<(), anyhow::Error>;
 }
