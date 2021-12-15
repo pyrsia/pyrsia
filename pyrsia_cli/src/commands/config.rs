@@ -4,8 +4,7 @@ const CONF_FILE: &str = "pyrsia-cli.conf";
 
 pub fn add_config(content: String) -> Result<()> {
     std::fs::write(CONF_FILE, content)
-        .with_context(|| format!("could not write to conf file `{}`", CONF_FILE))?;
-    Ok(())
+        .with_context(|| format!("could not write to conf file `{}`", CONF_FILE))
 }
 
 pub fn get_config() -> Result<String> {

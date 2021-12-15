@@ -12,9 +12,8 @@ use libp2p::{
     swarm::NetworkBehaviourEventProcess,
     NetworkBehaviour, PeerId,
 };
-use log::{debug, error};
+use log::{debug, error, info};
 
-use log::info;
 use std::collections::HashSet;
 
 // We create a custom network behaviour that combines floodsub and mDNS.

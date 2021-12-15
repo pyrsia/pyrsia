@@ -41,9 +41,7 @@ use tokio::io::{self, AsyncBufReadExt};
 use tokio::sync::Mutex;
 use warp::Filter;
 
-const DEFAULT_PORT: &str = "8084";
-//static ID_KEYS: Lazy<identity::Keypair> = Lazy::new(|| identity::Keypair::generate_ed25519());
-//static PEER_ID: Lazy<PeerId> = Lazy::new(|| PeerId::from(ID_KEYS.public()));
+const DEFAULT_PORT: &str = "7878";
 static TOPIC: Lazy<Topic> = Lazy::new(|| Topic::new("pyrsia-node-converstation"));
 
 #[tokio::main]
