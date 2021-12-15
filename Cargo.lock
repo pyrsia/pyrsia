@@ -3263,20 +3263,12 @@ checksum = "02658e48d89f2bec991f9a78e69cfa4c316f8d6a6c4ec12fae1aeb263d486788"
 name = "signed_struct"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "proc-macro2",
  "pyrsia_client_lib",
  "quote",
- "syn",
-]
-
-[[package]]
-name = "signed_struct_test"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "pyrsia_client_lib",
  "serde",
- "signed_struct",
+ "syn",
 ]
 
 [[package]]
