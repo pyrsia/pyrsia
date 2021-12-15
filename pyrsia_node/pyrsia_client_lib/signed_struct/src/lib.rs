@@ -205,7 +205,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
 }
 
 fn check_has_lifetime(ast: &DeriveInput) -> bool {
-    for generic in ast.generics.params.iter(){
+    for generic in ast.generics.params.iter() {
         match generic {
             syn::GenericParam::Lifetime(_) => return true,
             _ => (),
