@@ -1,0 +1,5 @@
+name: Delete Pushed Branches
+
+on: 
+  push:
+    
