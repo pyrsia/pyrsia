@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'project_card' && github.event.action == 'moved' &&
-      github.event.project_card.column_id == '16583787'
+      github.event.project_card.column_id == '16583791' # Blocked https://github.com/orgs/pyrsia/projects/2#column-16583791
     steps:
       - uses: andymckay/labeler@1.0.4
         with:
