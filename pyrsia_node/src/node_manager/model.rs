@@ -15,6 +15,7 @@
 */
 pub mod artifact;
 
+pub mod identity;
 pub mod namespace;
 pub mod package;
 pub mod package_type;
