@@ -26,7 +26,7 @@ extern crate warp;
 #[macro_use]
 extern crate lazy_static;
 //local module imports
-pub mod artifact_manager;
+mod artifact_manager;
 mod docker;
 mod document_store;
 mod network;
