@@ -10,9 +10,8 @@ use libp2p::{
     },
     mdns::{Mdns, MdnsEvent},
     swarm::NetworkBehaviourEventProcess,
-    NetworkBehaviour,
+    NetworkBehaviour, PeerId,
 };
-
 use log::{debug, error};
 
 use log::info;
@@ -28,14 +27,22 @@ pub struct MyBehaviour {
     floodsub: Floodsub,
     kademlia: Kademlia<MemoryStore>,
     mdns: Mdns,
+    #[behaviour(ignore)]
+    response_sender: tokio::sync::mpsc::Sender<String>,
 }
 
 impl MyBehaviour {
-    pub fn new(floodsub: Floodsub, kademlia: Kademlia<MemoryStore>, mdns: Mdns) -> Self {
+    pub fn new(
+        floodsub: Floodsub,
+        kademlia: Kademlia<MemoryStore>,
+        mdns: Mdns,
+        response_sender: tokio::sync::mpsc::Sender<String>,
+    ) -> Self {
         MyBehaviour {
             floodsub,
             kademlia,
             mdns,
+            response_sender,
         }
     }
 
@@ -43,27 +50,15 @@ impl MyBehaviour {
         &mut self.floodsub
     }
 
-    pub async fn lookup_blob(&mut self, hash: String, tx: tokio::sync::mpsc::Sender<String>) {
-        //let num = std::num::NonZeroUsize::new(2).ok_or(Error::ValueTooLarge)?;
-        //Ok(self.kademlia.get_record(&Key::new(&hash), Quorum::N(num)))
-        // TODO
-        match tx.send(String::from("coming soon")).await {
-            Ok(_) => debug!("response for lookup_blob sent"),
-            Err(_) => error!("failed to send response"),
-        }
+    pub async fn lookup_blob(&mut self, hash: String) {
+        let num = std::num::NonZeroUsize::new(2)
+            .ok_or(Error::ValueTooLarge)
+            .unwrap();
+        self.kademlia.get_record(&Key::new(&hash), Quorum::N(num));
     }
 
-    pub async fn list_peers(&mut self, tx: tokio::sync::mpsc::Sender<String>) {
-        let mut peers = String::new();
-        match get_peers(&mut self.mdns) {
-            Ok(val) => peers = val,
-            Err(e) => error!("failed to get peers connected: {:?}", e),
-        }
-
-        match tx.send(peers).await {
-            Ok(_) => debug!("response for list_peers sent"),
-            Err(_) => error!("failed to send response"),
-        }
+    pub async fn list_peers(&mut self, peer_id: PeerId) {
+        self.kademlia.get_closest_peers(peer_id);
     }
 
     pub async fn list_peers_cmd(&mut self) {
@@ -129,6 +124,13 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
                         );
                     }
                 }
+
+                QueryResult::GetClosestPeers(Ok(ok)) => {
+                    println!("GetClosestPeers result {:?}", ok.peers);
+                    let connected_peers = itertools::join(ok.peers, ", ");
+                    respond_send(self.response_sender.clone(), connected_peers);
+                }
+
                 QueryResult::GetProviders(Err(err)) => {
                     eprintln!("Failed to get providers: {:?}", err);
                 }
@@ -172,7 +174,14 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
         }
     }
 }
-
+pub fn respond_send(response_sender: tokio::sync::mpsc::Sender<String>, response: String) {
+    tokio::spawn(async move {
+        match response_sender.send(response).await {
+            Ok(_) => debug!("response for list_peers sent"),
+            Err(_) => error!("failed to send response"),
+        }
+    });
+}
 pub fn get_peers(mdns: &mut Mdns) -> Result<String, Error> {
     let nodes = mdns.discovered_nodes();
     let mut unique_peers = HashSet::new();

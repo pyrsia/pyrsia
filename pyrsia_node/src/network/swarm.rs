@@ -14,11 +14,14 @@ pub async fn new(
     topic: Topic,
     transport: TcpTokioTransport,
     peer_id: PeerId,
+    response_sender: tokio::sync::mpsc::Sender<String>,
 ) -> Result<MyBehaviourSwarm, ()> {
+    //create kad
     let store = MemoryStore::new(peer_id);
     let kademlia = Kademlia::new(peer_id, store);
+
     let mdns = Mdns::new(Default::default()).await.unwrap();
-    let mut behaviour = MyBehaviour::new(Floodsub::new(peer_id), kademlia, mdns);
+    let mut behaviour = MyBehaviour::new(Floodsub::new(peer_id), kademlia, mdns, response_sender);
     behaviour.floodsub_mut().subscribe(topic.clone());
 
     let swarm = SwarmBuilder::new(transport, behaviour, peer_id)

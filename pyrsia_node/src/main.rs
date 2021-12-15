@@ -41,9 +41,9 @@ use tokio::io::{self, AsyncBufReadExt};
 use tokio::sync::Mutex;
 use warp::Filter;
 
-const DEFAULT_PORT: &str = "8081";
-static ID_KEYS: Lazy<identity::Keypair> = Lazy::new(|| identity::Keypair::generate_ed25519());
-static PEER_ID: Lazy<PeerId> = Lazy::new(|| PeerId::from(ID_KEYS.public()));
+const DEFAULT_PORT: &str = "8084";
+//static ID_KEYS: Lazy<identity::Keypair> = Lazy::new(|| identity::Keypair::generate_ed25519());
+//static PEER_ID: Lazy<PeerId> = Lazy::new(|| PeerId::from(ID_KEYS.public()));
 static TOPIC: Lazy<Topic> = Lazy::new(|| Topic::new("pyrsia-node-converstation"));
 
 #[tokio::main]
@@ -80,11 +80,19 @@ async fn main() {
         )
         .get_matches();
 
-    let transport: TcpTokioTransport = new_tokio_tcp_transport(&ID_KEYS); // Create a tokio-based TCP transport using noise for authenticated
-                                                                          //let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
+    let local_key = identity::Keypair::generate_ed25519();
+
+    let local_peer_id = PeerId::from(local_key.public());
+
+    let transport: TcpTokioTransport = new_tokio_tcp_transport(&local_key); // Create a tokio-based TCP transport using noise for authenticated
+                                                                            //let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
+    let (respond_tx, respond_rx) = mpsc::channel(32);
 
     // Create a Swarm to manage peers and events.
-    let mut swarm: MyBehaviourSwarm = new_swarm(TOPIC.clone(), transport, *PEER_ID).await.unwrap();
+    let mut swarm: MyBehaviourSwarm =
+        new_swarm(TOPIC.clone(), transport, local_peer_id, respond_tx)
+            .await
+            .unwrap();
 
     // Reach out to another node if specified
     if let Some(to_dial) = matches.value_of("peer") {
@@ -133,7 +141,6 @@ async fn main() {
         .and_then(handle_put_manifest);
 
     let (tx, mut rx) = mpsc::channel(32);
-    let (respond_tx, respond_rx) = mpsc::channel(32);
 
     let tx1 = tx.clone();
 
@@ -195,6 +202,8 @@ async fn main() {
                     if let SwarmEvent::NewListenAddr { address, .. } = event {
                     info!("Listening on {:?}", address);
                     }
+
+                    //SwarmEvent::Behaviour(e) => panic!("Unexpected event: {:?}", e),
                     None
                 },
             }
@@ -217,12 +226,9 @@ async fn main() {
                     },
                 },
                 EventType::Message(message) => match message.as_str() {
-                    "peers" => swarm.behaviour_mut().list_peers(respond_tx.clone()).await,
+                    "peers" => swarm.behaviour_mut().list_peers(local_peer_id).await,
                     cmd if cmd.starts_with("get_blobs") => {
-                        swarm
-                            .behaviour_mut()
-                            .lookup_blob(message, respond_tx.clone())
-                            .await
+                        swarm.behaviour_mut().lookup_blob(message).await
                     }
                     _ => info!("message received from peers: {}", message),
                 },
