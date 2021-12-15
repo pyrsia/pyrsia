@@ -32,6 +32,7 @@ mod document_store;
 mod network;
 mod node_manager;
 mod utils;
+mod metadata_manager;
 
 use docker::error_util::*;
 use docker::v2::handlers::blobs::*;

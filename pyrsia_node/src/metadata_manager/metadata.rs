@@ -13,10 +13,23 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-pub mod artifact;
-pub mod namespace;
-pub mod package;
-pub mod package_type;
-pub mod package_version;
+extern crate anyhow;
 
-use crate::node_manager::*;
+use super::super::node_manager::model::package_type;
+
+// create namespace
+// get namespace
+// get namespaces by package type
+// create package
+// get package
+// update package
+// get packages by namespace
+// update package
+// create package version
+
+pub trait MetadataApi {
+    /// Create a new package type with the information specified in the `pkg_type` parameter.
+    ///
+    /// Returns an error if `pkg_type` does not have any trusted valid signatures
+    fn create_package_type(pkg_type: package_type) -> Result<(), anyhow::Error>;
+}
