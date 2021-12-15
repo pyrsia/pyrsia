@@ -23,12 +23,12 @@ use serde::{Deserialize, Serialize};
 use signed_struct::signed_struct;
 
 #[signed_struct]
-struct PackageType {
+pub struct PackageType {
     name: PackageTypeName,
     description: String,
 }
 
 #[derive(Serialize, Deserialize)]
-enum PackageTypeName {
+pub enum PackageTypeName {
     Docker,
 }
