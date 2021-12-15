@@ -18,8 +18,6 @@ extern crate serde;
 extern crate serde_json;
 
 use pyrsia_client_lib::signed::{JwsSignatureAlgorithms, Signed};
-use serde::{Deserialize, Serialize};
-
 use signed_struct::signed_struct;
 
 #[signed_struct]
