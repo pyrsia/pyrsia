@@ -29,6 +29,86 @@ jobs:
     - run: cargo build --workspace --verbose --locked
     - run: cargo test --workspace --verbose
 
+  persist-binaries:
+      if: github.repository_owner == 'sbtaylor15'
+      needs: [build]
+      runs-on: ubuntu-latest
+      steps:
+# save the pyrsia_node binary for the package creation
+      - uses: actions/upload-artifact@v2
+        with:
+          name: pyrsia_node
+          path: target/debug/pyrsia_node
+
+# save the pyrsia binary for the package creation
+      - uses: actions/upload-artifact@v2
+        with:
+          name: pyrsia
+          path: target/debug/pyrsia
+
+# save the DEBIAN control files to be used with the deb packager
+      - uses: actions/upload-artifact@v2
+        with:
+          name: DEBIAN
+          path: DEBIAN
+
+# Create the .deb file, add it to the apt repo and
+# push the changes to the website github repo
+  apt-package:
+      if: github.repository_owner == 'sbtaylor15'
+      needs: [persist-binaries]
+      runs-on: ubuntu-latest
+      steps:
+
+# grab the pyrsia_node from the build step
+      - uses: actions/download-artifact@v2
+        with:
+          name: pyrsia_node
+          path: target/debug
+
+# grab the pyrsia from the build step
+      - uses: actions/download-artifact@v2
+        with:
+          name: pyrsia
+          path: target/debug
+
+# grab the control file from the build step
+      - uses: actions/download-artifact@v2
+        with:
+          name: DEBIAN
+          path: pyrsia/DEBIAN
+
+# create the pyrsia.deb file
+      - name:  Package for apt-get
+        run: |
+            mkdir -p pyrsia/usr/local/bin; \
+            cp target/debug/pyrsia_node pyrsia/usr/local/bin; \
+            cp target/debug/pyrsia pyrsia/usr/local/bin; \
+            echo "Installed-Size: $(echo "$(stat -c%s pyrsia/usr/local/bin/pyrsia) + $(stat -c%s pyrsia/usr/local/bin/pyrsia_node)" | bc)" >> pyrsia/DEBIAN/control; \
+            sed -i.bak "/Version:/s/\$/-$GITHUB_RUN_NUMBER/" pyrsia/DEBIAN/control
+            cat pyrsia/DEBIAN/control; \
+            dpkg-deb --build pyrsia; \
+            ls -la pyrsia.deb;
+        shell: bash
+
+# add the prysia.deb file to the apt repo which is part of
+# the github website repo
+      - uses: sbtaylor15/apt-repo-action@v2.0.4
+        with:
+          github_token: ${{ secrets.APT }}
+          repo_supported_version: |
+            bionic
+          repo_supported_arch: |
+            amd64
+          page_branch: main
+          file: /github/workspace/pyrsia.deb
+          file_target_version: bionic
+          public_key: ${{ secrets.GPG_PUBLIC }}
+          private_key: ${{ secrets.GPG_PRIVATE }}
+          key_passphrase: ${{ secrets.GPG_SECRET }}
+          github_repository: sbtaylor15/website
+
+# Start Code Coverage
   coverage:
     needs: [build]
     runs-on: ubuntu-latest
@@ -43,7 +123,7 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        
+
     - run: cargo install cargo-tarpaulin
     - run: cargo tarpaulin --workspace
 
