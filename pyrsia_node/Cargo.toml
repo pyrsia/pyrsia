@@ -22,11 +22,13 @@ hyper = { version = "0.14", features = ["full"] }
 hyper-tls = "0.5.0"
 log = "0.4.14"
 pretty_env_logger = "0.4.0"
+pyrsia_client_lib = { path = "pyrsia_client_lib" }
 rand = "0.8.4"
 reqwest = { version = "0.11.6", features = ["blocking", "json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = { version = "0.9.8" }
+signed_struct = { path = "pyrsia_client_lib/signed_struct" }
 stringreader = "0.1.1"
 strum = "0.22.0"
 strum_macros = "0.22.0"

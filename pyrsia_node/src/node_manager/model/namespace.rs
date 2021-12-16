@@ -14,25 +14,18 @@
    limitations under the License.
 */
 extern crate pyrsia_client_lib;
+extern crate serde;
 extern crate serde_json;
 
-use super::HashAlgorithm;
 use pyrsia_client_lib::signed::Signed;
-use serde_json::{Map, Value};
-
 use signed_struct::signed_struct;
 
 #[signed_struct]
 #[derive(Debug)]
-pub struct Artifact<'a> {
-    hash: &'a [u8],
-    algorithm: HashAlgorithm,
-    name: Option<String>,
+pub struct Namespace {
+    id: String,
+    namespace_path: Vec<String>,
+    administrators: Vec<Vec<u8>>,
     creation_time: Option<String>,
-    url: Option<String>,
-    size: u32,
-    mime_type: Option<String>,
-    metadata: Map<String, Value>,
-    source_url: Option<String>,
-    art_type: Option<String>,
+    modified_time: Option<String>,
 }
