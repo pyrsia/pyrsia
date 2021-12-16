@@ -25,13 +25,14 @@ extern crate uuid;
 extern crate warp;
 #[macro_use]
 extern crate lazy_static;
+
 //local module imports
 mod artifact_manager;
 mod docker;
 mod document_store;
 mod network;
 mod node_manager;
-mod utils;
+mod logging;
 
 use docker::error_util::*;
 use docker::v2::handlers::blobs::*;
@@ -175,7 +176,7 @@ async fn main() {
         .and_then(handle_put_blob);
 
     let routes = warp::any()
-        .and(utils::log::log_headers())
+        .and(logging::headers::log_headers())
         .and(
             v2_base
                 .or(v2_manifests)
