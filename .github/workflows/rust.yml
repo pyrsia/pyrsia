@@ -30,7 +30,7 @@ jobs:
     - run: cargo test --workspace --verbose
 
   persist-binaries:
-      if: github.repository_owner == 'sbtaylor15'
+      if: github.repository_owner == 'pyrsia'
       needs: [build]
       runs-on: ubuntu-latest
       steps:
@@ -55,7 +55,7 @@ jobs:
 # Create the .deb file, add it to the apt repo and
 # push the changes to the website github repo
   apt-package:
-      if: github.repository_owner == 'sbtaylor15'
+      if: github.repository_owner == 'pyrsia'
       needs: [persist-binaries]
       runs-on: ubuntu-latest
       steps:
@@ -106,7 +106,7 @@ jobs:
           public_key: ${{ secrets.GPG_PUBLIC }}
           private_key: ${{ secrets.GPG_PRIVATE }}
           key_passphrase: ${{ secrets.GPG_SECRET }}
-          github_repository: sbtaylor15/website
+          github_repository: pyrsia/website
 
 # Start Code Coverage
   coverage:
