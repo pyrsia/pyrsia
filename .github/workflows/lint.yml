@@ -49,13 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: get-woke/woke-action-reviewdog@v0
+      - uses: get-woke/woke-action@v0
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Change reviewdog reporter if you need [github-pr-check,github-check,github-pr-review].
-          reporter: github-pr-review
-          # Change reporter level if you need.
-          # GitHub Status Check won't become failure with warning.
-          level: warning
-          # Enable this to fail the check when violations are found
-          # fail-on-error: true
+          # Cause the check to fail on any broke rules
+          fail-on-error: true
