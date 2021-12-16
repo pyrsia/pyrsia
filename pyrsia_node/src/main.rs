@@ -157,11 +157,13 @@ async fn main() {
 
     let (upload_tx, mut upload_rx) = tokio::sync::mpsc::channel(32);
     let utx1 = upload_tx.clone();
+    let mut blobs_need_hash = GetBlobsHandle::new();
+    let b1 = blobs_need_hash.clone();
 
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(move |name, hash| handle_get_blobs(tx1.clone(), name, hash));
+        .and_then(move |name, hash| handle_get_blobs(b1.clone(), name, hash));
     let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
         .and(warp::post())
         .and_then(move |name| handle_post_blob(utx1.clone(), name));
@@ -210,10 +212,10 @@ async fn main() {
                     info!("Listening on {:?}", address);
                 }
             }
-            Some(message) = rx.recv() => {
-                info!("New message: {}", message);
-                swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), message.as_bytes());
-                swarm.behaviour_mut().lookup_blob(message).unwrap();
+            new_hash = blobs_need_hash.select_next_some() => {
+                info!("New hash: {}", new_hash);
+                swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), new_hash.as_bytes());
+                swarm.behaviour_mut().lookup_blob(new_hash).unwrap();
             }
             Some(message) = upload_rx.recv() => {
                 info!("New upload: {}", message);

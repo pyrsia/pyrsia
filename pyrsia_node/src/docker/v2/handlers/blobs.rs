@@ -15,19 +15,62 @@
 */
 
 use bytes::{Buf, Bytes};
+use futures::stream::{Stream, FusedStream};
 use log::{debug, error, trace};
 use std::collections::HashMap;
 use std::fs;
+use std::result::Result;
 use std::io::prelude::*;
 use std::path::Path;
+use std::pin::Pin;
+use futures::task::{Context, Poll};
 use uuid::Uuid;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
 
 use super::{RegistryError, RegistryErrorCode};
 
+#[derive(Clone, Debug)]
+pub struct GetBlobsHandle {
+    pending_hash_queries: Vec<String>,
+}
+
+impl GetBlobsHandle {
+    pub fn new() -> GetBlobsHandle {
+        GetBlobsHandle { pending_hash_queries: vec![] }
+    }
+
+    pub fn send(mut self, message: String) {
+        self.pending_hash_queries.push(message)
+    }
+
+    // pub fn make_handler(mut self) -> Box<dyn Fn(String, String) -> Result<impl Reply, Rejection>> {
+    //     Box::new(move |name, hash| handle_get_blobs(self, name, hash))
+    // }
+}
+
+impl Stream for GetBlobsHandle {
+    type Item = String;
+
+    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if self.pending_hash_queries.len() > 0 {
+            return Poll::Ready(self.pending_hash_queries.pop());
+        }
+
+        Poll::Pending
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>){
+        (self.pending_hash_queries.len(), Some(self.pending_hash_queries.capacity()))
+    }
+}
+
+impl FusedStream for GetBlobsHandle{
+    fn is_terminated(&self) -> bool { false }
+}
+
 pub async fn handle_get_blobs(
-    tx: tokio::sync::mpsc::Sender<String>,
+    mut tx: GetBlobsHandle,
     _name: String,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
@@ -36,10 +79,11 @@ pub async fn handle_get_blobs(
         hash.get(7..9).unwrap(),
         hash.get(7..).unwrap()
     );
-    match tx.send(hash.clone()).await {
-        Ok(_) => debug!("hash sent"),
-        Err(_) => error!("failed to send stdin input"),
-    }
+    tx.send(hash.clone());
+    // match tx.send(hash.clone()).await {
+    //     Ok(_) => debug!("hash sent"),
+    //     Err(_) => error!("failed to send stdin input"),
+    // }
 
     trace!("Searching for blob: {}", blob);
     let blob_path = Path::new(&blob);
@@ -87,7 +131,11 @@ pub async fn handle_post_blob(
         Err(_) => error!("failed to send id"),
     }
 
-    trace!("Getting ready to start new upload for {} - {}", name, id.to_string());
+    trace!(
+        "Getting ready to start new upload for {} - {}",
+        name,
+        id.to_string()
+    );
     if let Err(e) = fs::create_dir_all(format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
         name, id
