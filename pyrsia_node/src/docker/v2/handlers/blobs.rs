@@ -87,6 +87,7 @@ pub async fn handle_post_blob(
         Err(_) => error!("failed to send id"),
     }
 
+    trace!("Getting ready to start new upload for {} - {}", name, id.to_string());
     if let Err(e) = fs::create_dir_all(format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
         name, id
