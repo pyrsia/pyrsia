@@ -16,6 +16,7 @@
 extern crate pyrsia_client_lib;
 extern crate serde_json;
 
+use crate::node_manager::model::artifact::Artifact;
 use pyrsia_client_lib::signed::Signed;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -41,6 +42,8 @@ pub struct PackageVersion {
     license_text_mimetype: Option<LicenseTextMimeType>,
     /// The URL for the license for this package version.
     license_url: Option<String>,
+    /// Attributes of a package version that don't fit into one of this struct's fields can go in here as JSON
+    metadata: Map<String, Value>,
     /// ISO-8601 creation time
     creation_time: Option<String>,
     /// ISO-8601 modification time
@@ -49,6 +52,8 @@ pub struct PackageVersion {
     tags: Vec<String>,
     /// A description of this package version.
     description: Option<String>,
+    /// The artifacts that are used by this package version.
+    artifacts: Vec<Artifact>,
 }
 
 #[derive(EnumIter, Debug, PartialEq, EnumString, Serialize, Deserialize)]

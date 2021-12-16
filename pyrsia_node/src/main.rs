@@ -29,10 +29,10 @@ extern crate lazy_static;
 pub mod artifact_manager;
 mod docker;
 mod document_store;
+mod metadata_manager;
 mod network;
 mod node_manager;
 mod utils;
-mod metadata_manager;
 
 use docker::error_util::*;
 use docker::v2::handlers::blobs::*;

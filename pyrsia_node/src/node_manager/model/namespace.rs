@@ -17,9 +17,9 @@ extern crate pyrsia_client_lib;
 extern crate serde;
 extern crate serde_json;
 
+use crate::node_manager::model::package_type::PackageTypeName;
 use pyrsia_client_lib::signed::Signed;
 use signed_struct::signed_struct;
-use crate::node_manager::model::package_type::PackageTypeName;
 
 #[signed_struct]
 #[derive(Debug)]

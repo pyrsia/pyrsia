@@ -18,9 +18,8 @@ extern crate anyhow;
 use crate::node_manager::model::namespace::Namespace;
 use crate::node_manager::model::package::Package;
 use crate::node_manager::model::package_type::{PackageType, PackageTypeName};
+use crate::node_manager::model::package_version::PackageVersion;
 
-// get packages by namespace
-// update package
 // create package version
 
 pub trait MetadataApi {
@@ -33,7 +32,8 @@ pub trait MetadataApi {
     fn create_package_type(&self, pkg_type: &PackageType) -> Result<(), anyhow::Error>;
 
     /// Return a PackageType struct that describes the named package type.
-    fn get_package_type(&self, name: PackageTypeName) -> Result<Option<PackageType>, anyhow::Error>;
+    fn get_package_type(&self, name: PackageTypeName)
+        -> Result<Option<PackageType>, anyhow::Error>;
 
     /// Define the namespace described by the given `Namespace` struct.
     ///
@@ -47,30 +47,54 @@ pub trait MetadataApi {
     fn create_namespace(&self, namespace: &Namespace) -> Result<(), anyhow::Error>;
 
     /// Get the namespace identified by the given package type and namespace path.
-    fn get_namespace(&self, package_type: PackageTypeName, namespace_path: &Vec<&str>) -> Result<Option<Namespace>, anyhow::Error>;
+    fn get_namespace(
+        &self,
+        package_type: PackageTypeName,
+        namespace_path: &[&str],
+    ) -> Result<Option<Namespace>, anyhow::Error>;
 
     /// Get the namespace identified by the given id.
     fn get_namespace_by_id(&self, id: &str) -> Result<Option<Namespace>, anyhow::Error>;
 
     /// Get an iterator over the namespaces associated with the specified package type.
-    fn get_namespaces_by_package_type(&self, package_type: PackageTypeName) -> Result<NamespaceIterator, anyhow::Error>;
+    fn get_namespaces_by_package_type(
+        &self,
+        package_type: PackageTypeName,
+    ) -> Result<NamespaceIterator, anyhow::Error>;
 
     /// Define the package described by the given `Package` struct.
     ///
-    /// Returns an error if there is already a package with the package_type, namespace and package_name.
+    /// Returns an error if there is already a package with the same package_type, namespace and
+    /// package_name.
     ///
     /// Returns an error if `package` does not have any valid signatures or if any of the valid
     /// signatures are associated with a public key that does not identify an identity in the blockchain.
     fn create_package(&self, package: &Package) -> Result<(), anyhow::Error>;
 
-    /// Get the package identified by the combination of the given package type, namespace id and package name.
-    fn get_package(&self, package_type: PackageTypeName, namespace_id: &str, package_name: &str) -> Result(Option<Package>, anyhow::Error);
+    /// Get the package identified by the combination of the given package type, namespace id and
+    /// package name.
+    fn get_package(
+        &self,
+        package_type: PackageTypeName,
+        namespace_id: &str,
+        package_name: &str,
+    ) -> Result<Option<Package>, anyhow::Error>;
 
-    /// Get the package identified by the combination of the given package type, namespace path and package name.
-    fn get_package_by_namespace_path(&self, package_type: PackageTypeName, namespace_path: &Vec<&str>, package_name: &str) -> Result(Option<Package>, anyhow::Error);
+    /// Get the package identified by the combination of the given package type, namespace path and
+    /// package name.
+    fn get_package_by_namespace_path(
+        &self,
+        package_type: PackageTypeName,
+        namespace_path: &[&str],
+        package_name: &str,
+    ) -> Result<Option<Package>, anyhow::Error>;
 
-    /// Get an iterator over the packages associated with the namespace identified by the given namespace ID.
-    fn get_packages_by_namespace_id(&self, namespace_id: &str) -> Result<PackageIterator, anyhow::Error>;
+    /// Get an iterator over the packages associated with the namespace identified by the given
+    /// namespace ID.
+    fn get_packages_by_namespace_id(
+        &self,
+        namespace_id: &str,
+    ) -> Result<PackageIterator, anyhow::Error>;
 
     /// Update the package described by the given `Package` struct with the information in the
     /// struct.
@@ -93,15 +117,41 @@ pub trait MetadataApi {
     /// existing record or an error is returned.
     ///
     /// Returns an error if `package` does not have any valid signatures or if any of the valid
-    /// signatures are associated with a public key that does not identify an identity in the blockchain.
+    /// signatures are associated with a public key that does not identify an identity in the
+    /// blockchain.
     ///
     /// If the values of the `administrators` field in the existing record is not an empty `Vec`,
     /// then the public key of at least one of the signers of this `Package` must be one of the
     /// public keys in the `administrators` field. Otherwise an error is returned.
-    fn update_package(&self, package: &Package, previous_signature: &str) -> Result<(), anyhow::Error>;
+    fn update_package(
+        &self,
+        package: &Package,
+        previous_signature: &str,
+    ) -> Result<(), anyhow::Error>;
+
+    /// Define the package version described by the given `PackageVersion` struct.
+    ///
+    /// Returns an error if there is already a package version with the same id or the same
+    /// combination of package_type, namespace_id, package_name and version.
+    ///
+    /// Returns an error if `package_version` does not have any valid signatures or if any of the valid
+    /// signatures are associated with a public key that does not identify an identity in the blockchain.
+    fn create_package_version(&self, package_version: &PackageVersion)
+        -> Result<(), anyhow::Error>;
+
+    /// Get the package_version that matches the given namespace_id, package_name and version.
+    fn get_package_version(
+        &self,
+        namespace_id: &str,
+        package_name: &str,
+        version: &str,
+    ) -> Result<Option<PackageVersion>, anyhow::Error>;
+
+    /// Get the package_version that has the given id.
+    fn get_package_version_by_id(&self, id: &str) -> Result<Option<PackageVersion>, anyhow::Error>;
 }
 
-/// Used to iterate over collection of namespaces without requiring the collection to fit in memory.
+/// Used to iterate over a collection of namespaces without requiring the collection to fit in memory.
 pub struct NamespaceIterator {}
 
 impl Iterator for NamespaceIterator {
@@ -112,6 +162,7 @@ impl Iterator for NamespaceIterator {
     }
 }
 
+/// Used to iterate over a collection of packages without requiring the collection to fit in memory.
 pub struct PackageIterator {}
 
 impl Iterator for PackageIterator {

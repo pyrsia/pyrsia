@@ -223,7 +223,7 @@ impl<'a> Write for WriteHashDecorator<'a> {
 
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         let result = self.writer.write(buf);
-        if let Ok(_) = result {
+        if result.is_ok() {
             self.digester.update_hash(buf)
         }
         Ok(())
