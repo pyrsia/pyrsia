@@ -3,7 +3,6 @@
 pub mod blobs;
 
 pub mod manifests;
-pub mod swarm;
 
 // functions available from other modules
 

@@ -14,23 +14,28 @@ mod artifact_manager;
 mod docker;
 mod document_store;
 mod network;
+mod node_api;
 mod node_manager;
 mod utils;
 use docker::error_util::*;
 use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
-use docker::v2::handlers::swarm::*;
 use document_store::document_store::DocumentStore;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
+use node_api::handlers::swarm::*;
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
-use libp2p::{floodsub::Topic, identity, swarm::SwarmEvent, Multiaddr, PeerId};
+use libp2p::{
+    floodsub::{self, Topic},
+    identity,
+    swarm::SwarmEvent,
+    Multiaddr, PeerId,
+};
 use log::{debug, error, info};
 use tokio::sync::mpsc;
 
-use once_cell::sync::Lazy;
 use std::sync::Arc;
 use std::{
     collections::HashMap,
@@ -42,7 +47,6 @@ use tokio::sync::Mutex;
 use warp::Filter;
 
 const DEFAULT_PORT: &str = "7878";
-static TOPIC: Lazy<Topic> = Lazy::new(|| Topic::new("pyrsia-node-converstation"));
 
 #[tokio::main]
 async fn main() {
@@ -85,10 +89,10 @@ async fn main() {
     let transport: TcpTokioTransport = new_tokio_tcp_transport(&local_key); // Create a tokio-based TCP transport using noise for authenticated
                                                                             //let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
     let (respond_tx, respond_rx) = mpsc::channel(32);
-
+    let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation");
     // Create a Swarm to manage peers and events.
     let mut swarm: MyBehaviourSwarm =
-        new_swarm(TOPIC.clone(), transport, local_peer_id, respond_tx)
+        new_swarm(floodsub_topic.clone(), transport, local_peer_id, respond_tx)
             .await
             .unwrap();
 
@@ -163,8 +167,9 @@ async fn main() {
     let my_stats = shared_stats.clone();
 
     let tx3 = tx.clone();
+
     //swarm specific apis
-    let v2_peers = warp::path!("v2" / "peers")
+    let peers = warp::path!("peers")
         .and(warp::get())
         .and(warp::path::end())
         .and_then(move || handle_get_peers(tx3.clone(), my_stats.clone()));
@@ -179,7 +184,7 @@ async fn main() {
                 .or(v2_blobs_post)
                 .or(v2_blobs_patch)
                 .or(v2_blobs_put)
-                .or(v2_peers),
+                .or(peers),
         )
         .recover(custom_recover)
         .with(warp::log("pyrsia_registry"));
@@ -214,7 +219,7 @@ async fn main() {
                     swarm
                         .behaviour_mut()
                         .floodsub_mut()
-                        .publish(TOPIC.clone(), resp.as_bytes());
+                        .publish(floodsub_topic.clone(), resp.as_bytes());
                 }
                 EventType::Input(line) => match line.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers_cmd().await,
