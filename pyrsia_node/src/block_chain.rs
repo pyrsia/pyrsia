@@ -1,4 +1,3 @@
-
 /*
    Copyright 2021 JFrog Ltd
 
@@ -14,4 +13,6 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+
 pub mod block_chain;
+pub mod block;

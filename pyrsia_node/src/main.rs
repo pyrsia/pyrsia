@@ -32,6 +32,8 @@ mod document_store;
 mod network;
 mod node_manager;
 mod utils;
+mod block_chain;
+
 
 use docker::error_util::*;
 use docker::v2::handlers::blobs::*;
@@ -57,6 +59,7 @@ use std::{
 };
 use tokio::io::{self, AsyncBufReadExt};
 use warp::Filter;
+use crate::block_chain::block_chain::BlockChain;
 
 const DEFAULT_PORT: &str = "7878";
 
@@ -189,7 +192,7 @@ async fn main() {
 
     tokio::spawn(server);
     let tx2 = tx.clone();
-
+    let bc = BlockChain::new().genesis();
     // Kick it off
     loop {
         tokio::select! {
@@ -207,7 +210,11 @@ async fn main() {
                 }
             }
             Some(message) = rx.recv() => {
-
+                // assuming the message is a json version of the block
+                // let block = Block{
+                //
+                // };
+                // bc.add_block(block);
                 info!("New message: {}", message);
                 swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), message.as_bytes());
                 swarm.behaviour_mut().lookup_blob(message).unwrap();

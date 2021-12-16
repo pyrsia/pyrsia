@@ -13,6 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
@@ -24,17 +25,3 @@ pub struct Block {
     pub nonce: u64,
 }
 
-impl Block {
-    pub fn new(id: u64, previous_hash: String, data: String) -> Self {
-        let now = Utc::now();
-        let (nonce, hash) = mine_block(id, now.timestamp(), &previous_hash, &data);
-        Self {
-            id,
-            hash,
-            timestamp: now.timestamp(),
-            previous_hash,
-            data,
-            nonce,
-        }
-    }
-}

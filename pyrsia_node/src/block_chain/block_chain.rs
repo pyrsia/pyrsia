@@ -16,11 +16,11 @@
 
 
 use chrono::Utc;
-use log::{ info, warn};
+use log::{info, warn};
+use serde_json::error::Error;
 use sha2::{Digest, Sha256};
-use serde::{Deserialize, Serialize};
-use crate::block_chain::Block;
 
+use crate::block_chain::block::Block;
 
 pub struct BlockChain {
     blocks: Vec<Block>,
@@ -35,7 +35,7 @@ impl BlockChain {
             blocks: vec![]
         }
     }
-    pub fn genesis(&mut self) {
+    pub fn genesis(&mut self) -> &mut Self {
         let genesis_block = Block {
             id: 0,
             timestamp: Utc::now().timestamp(),
@@ -45,11 +45,13 @@ impl BlockChain {
             hash: "0000f816a87f806bb0073dcf026a64fb40c946b5abee2573702828694d5b4c43".to_string(),
         };
         self.blocks.push(genesis_block);
+        self
     }
-    pub(crate) fn dump(&self) {
-        serde_json::to_string_pretty(&self.blocks).map(|pretty_json|
-            println!("{}", pretty_json)
-        );
+    pub(crate) fn dump(&self) -> Result<String, Error> {
+        serde_json::to_string_pretty(&self.blocks).map(|pretty_json| {
+            println!("{}", pretty_json);
+            pretty_json
+        })
     }
 
     pub fn add_block(&mut self, block: Block) -> Option<&Block> {
@@ -57,12 +59,25 @@ impl BlockChain {
         let last_block = self.blocks.last().expect("has a block");
         if self.is_block_valid(&block, last_block) {
             self.blocks.push(block);
-            return self.blocks.last()
+            return self.blocks.last();
         }
         None
     }
     pub fn mk_block(&mut self, data: String) -> Option<Block> {
-        self.blocks.last().map(|last_block| Block::new(last_block.id.clone() + 1, last_block.hash.clone(), data))
+        let now = Utc::now();
+        self.blocks.last()
+            .map(|last_block| {
+                let (nonce, hash) = mine_block(last_block.id, now.timestamp(), &last_block.hash, &data);
+                (nonce, hash, last_block)
+            })
+            .map(|(nonce, hash, last_block)| Block {
+                id: last_block.id.clone() + 1,
+                hash,
+                previous_hash: last_block.hash.clone(),
+                timestamp: now.timestamp(),
+                data,
+                nonce,
+            })
     }
 
     fn is_block_valid(&self, block: &Block, previous_block: &Block) -> bool {
@@ -113,10 +128,11 @@ fn mine_block(id: u64, timestamp: i64, previous_hash: &str, data: &str) -> (u64,
     info!("mining block...");
 
     (0..u64::MAX).map(|nonce| (nonce, calculate_hash(id, timestamp, previous_hash, data, nonce)))
-        .map(|(nonce,hash) | (nonce,hash.clone(),hash_to_binary_representation(&hash.clone())))
-        .find(|(nonce,hash,binary_hash)| binary_hash.starts_with(DIFFICULTY_PREFIX))
-        .map(|(nonce,hash, bin)| (nonce, hex::encode(hash))).expect("results")
+        .map(|(nonce, hash)| (nonce, hash.clone(), hash_to_binary_representation(&hash.clone())))
+        .find(|(nonce, hash, binary_hash)| binary_hash.starts_with(DIFFICULTY_PREFIX))
+        .map(|(nonce, hash, bin)| (nonce, hex::encode(hash))).expect("results")
 }
+
 fn calculate_hash(id: u64, timestamp: i64, previous_hash: &str, data: &str, nonce: u64) -> Vec<u8> {
     let data = serde_json::json!({
         "id": id,
@@ -129,6 +145,7 @@ fn calculate_hash(id: u64, timestamp: i64, previous_hash: &str, data: &str, nonc
     hasher.update(data.to_string().as_bytes());
     hasher.finalize().as_slice().to_owned()
 }
+
 fn hash_to_binary_representation(hash: &[u8]) -> String {
     hash.iter().map(|c| format!("{:b}", c)).fold("".to_string(), |cur, nxt| cur + &nxt)
 }
