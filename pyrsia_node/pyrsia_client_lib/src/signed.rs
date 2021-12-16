@@ -589,7 +589,7 @@ fn string_to_unicode_32(raw: &str) -> Vec<u32> {
     v
 }
 
-pub const SIGNATURE_FIELD_NAME: &str = "__signature";
+const SIGNATURE_FIELD_NAME: &str = "__signature";
 const SIGNER_FIELD_NAME: &str = "signer";
 const ALG_FIELD_NAME: &str = "alg";
 const TIMESTAMP_FIELD_NAME: &str = "timestamp";
