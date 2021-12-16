@@ -30,19 +30,19 @@ mod artifact_manager;
 mod docker;
 mod document_store;
 mod network;
+mod node_api;
 mod node_manager;
 mod utils;
-
 use docker::error_util::*;
 use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
 use document_store::document_store::DocumentStore;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
+use node_api::handlers::swarm::*;
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
-use identity::Keypair;
 use libp2p::{
     floodsub::{self, Topic},
     identity,
@@ -50,12 +50,16 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 use log::{debug, error, info};
+use tokio::sync::mpsc;
+
+use std::sync::Arc;
 use std::{
     collections::HashMap,
     env,
     net::{IpAddr, Ipv4Addr, SocketAddr},
 };
 use tokio::io::{self, AsyncBufReadExt};
+use tokio::sync::Mutex;
 use warp::Filter;
 
 const DEFAULT_PORT: &str = "7878";
@@ -67,9 +71,6 @@ async fn main() {
     // create the connection to the documentStore.
     let doc_store = DocumentStore::new();
     doc_store.ping();
-    // Create a random PeerId
-    let id_keys: Keypair = identity::Keypair::generate_ed25519();
-    let peer_id: PeerId = PeerId::from(id_keys.public());
 
     let matches: ArgMatches = App::new("Pyrsia Node")
         .version("0.1.0")
@@ -97,13 +98,19 @@ async fn main() {
         )
         .get_matches();
 
-    let transport: TcpTokioTransport = new_tokio_tcp_transport(&id_keys); // Create a tokio-based TCP transport using noise for authenticated
-    let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
+    let local_key = identity::Keypair::generate_ed25519();
 
+    let local_peer_id = PeerId::from(local_key.public());
+
+    let transport: TcpTokioTransport = new_tokio_tcp_transport(&local_key); // Create a tokio-based TCP transport using noise for authenticated
+                                                                            //let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
+    let (respond_tx, respond_rx) = mpsc::channel(32);
+    let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation");
     // Create a Swarm to manage peers and events.
-    let mut swarm: MyBehaviourSwarm = new_swarm(floodsub_topic.clone(), transport, peer_id)
-        .await
-        .unwrap();
+    let mut swarm: MyBehaviourSwarm =
+        new_swarm(floodsub_topic.clone(), transport, local_peer_id, respond_tx)
+            .await
+            .unwrap();
 
     // Reach out to another node if specified
     if let Some(to_dial) = matches.value_of("peer") {
@@ -151,7 +158,8 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(handle_put_manifest);
 
-    let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+    let (tx, mut rx) = mpsc::channel(32);
+
     let tx1 = tx.clone();
 
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
@@ -171,6 +179,17 @@ async fn main() {
         .and(warp::body::bytes())
         .and_then(handle_put_blob);
 
+    let shared_stats = Arc::new(Mutex::new(respond_rx));
+    let my_stats = shared_stats.clone();
+
+    let tx3 = tx.clone();
+
+    //swarm specific apis
+    let peers = warp::path!("peers")
+        .and(warp::get())
+        .and(warp::path::end())
+        .and_then(move || handle_get_peers(tx3.clone(), my_stats.clone()));
+
     let routes = warp::any()
         .and(utils::log::log_headers())
         .and(
@@ -180,7 +199,8 @@ async fn main() {
                 .or(v2_blobs)
                 .or(v2_blobs_post)
                 .or(v2_blobs_patch)
-                .or(v2_blobs_put),
+                .or(v2_blobs_put)
+                .or(peers),
         )
         .recover(custom_recover)
         .with(warp::log("pyrsia_registry"));
@@ -192,25 +212,52 @@ async fn main() {
 
     // Kick it off
     loop {
-        tokio::select! {
-            line = stdin.next_line() => {
-                let line = line.unwrap().expect("stdin closed");
-                debug!("next line!");
-                match tx2.send(line).await {
-                    Ok(_) => debug!("line sent"),
-                    Err(_) => error!("failed to send stdin input")
-                }
-            }
-            event = swarm.select_next_some() => {
-                if let SwarmEvent::NewListenAddr { address, .. } = event {
+        let evt = {
+            tokio::select! {
+                line = stdin.next_line() => Some(EventType::Input(line.expect("can get line").expect("can read line from stdin"))),
+                message = rx.recv() => Some(EventType::Message(message.expect("message exists"))),
+               // response = rx.recv() => Some(EventType::Response(response.expect("response exists"))),
+                event = swarm.select_next_some() =>  {
+                    if let SwarmEvent::NewListenAddr { address, .. } = event {
                     info!("Listening on {:?}", address);
-                }
+                    }
+
+                    //SwarmEvent::Behaviour(e) => panic!("Unexpected event: {:?}", e),
+                    None
+                },
             }
-            Some(message) = rx.recv() => {
-                info!("New message: {}", message);
-                swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), message.as_bytes());
-                swarm.behaviour_mut().lookup_blob(message).unwrap();
+        };
+
+        if let Some(event) = evt {
+            match event {
+                EventType::Response(resp) => {
+                    //here we have to manage which events to publish to floodsub
+                    swarm
+                        .behaviour_mut()
+                        .floodsub_mut()
+                        .publish(floodsub_topic.clone(), resp.as_bytes());
+                }
+                EventType::Input(line) => match line.as_str() {
+                    "peers" => swarm.behaviour_mut().list_peers_cmd().await,
+                    _ => match tx2.send(line).await {
+                        Ok(_) => debug!("line sent"),
+                        Err(_) => error!("failed to send stdin input"),
+                    },
+                },
+                EventType::Message(message) => match message.as_str() {
+                    "peers" => swarm.behaviour_mut().list_peers(local_peer_id).await,
+                    cmd if cmd.starts_with("get_blobs") => {
+                        swarm.behaviour_mut().lookup_blob(message).await
+                    }
+                    _ => info!("message received from peers: {}", message),
+                },
             }
         }
     }
+}
+
+enum EventType {
+    Response(String),
+    Message(String),
+    Input(String),
 }
