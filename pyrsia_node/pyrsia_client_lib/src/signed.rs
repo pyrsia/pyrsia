@@ -404,6 +404,11 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
             verify_json_signature(&json)
         })
     }
+
+    /// Return the signature information in the signed JSON associated with this struct.
+    fn signatures(&self) -> Option<&str> {
+        todo!()
+    }
 }
 
 fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> {
@@ -584,7 +589,7 @@ fn string_to_unicode_32(raw: &str) -> Vec<u32> {
     v
 }
 
-const SIGNATURE_FIELD_NAME: &str = "__signature";
+pub const SIGNATURE_FIELD_NAME: &str = "__signature";
 const SIGNER_FIELD_NAME: &str = "signer";
 const ALG_FIELD_NAME: &str = "alg";
 const TIMESTAMP_FIELD_NAME: &str = "timestamp";
