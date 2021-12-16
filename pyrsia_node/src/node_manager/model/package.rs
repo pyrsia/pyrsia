@@ -25,12 +25,12 @@ use signed_struct::signed_struct;
 #[derive(Debug)]
 /// Describes a package
 pub struct Package {
+    /// The id of the namespace that this package is part of.
+    namespace_id: String,
     /// The name of this package. Must be unique within a namespace.
     name: String,
     /// The type of package (Docker, Conan, npm, ...)
     pkg_type: String,
-    /// The id of the namespace that this package is part of.
-    namespace_id: String,
     /// ISO-8601 creation time
     creation_time: Option<String>,
     /// ISO-8601 modification time

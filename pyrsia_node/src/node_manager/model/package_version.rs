@@ -25,15 +25,29 @@ use strum_macros::{EnumIter, EnumString};
 #[signed_struct]
 #[derive(Debug)]
 pub struct PackageVersion {
+    /// The unique ID of this package version
     id: String,
+    /// The id of the namespace that this PackageVersion's package is part of.
+    namespace_id: String,
+    /// The name of this PackageVersions's package.
+    name: String,
+    /// The type of package (Docker, Conan, npm, ...)
+    pkg_type: String,
+    /// The version identifier for this package. It must be unique within the package that it belongs to.
     version: String,
-    pkg_id: String,
+    /// The text of the license for this package version.
     license_text: Option<String>,
+    /// The type of text in the `license_text` field.
     license_text_mimetype: Option<LicenseTextMimeType>,
+    /// The URL for the license for this package version.
     license_url: Option<String>,
+    /// ISO-8601 creation time
     creation_time: Option<String>,
-    metadata: Map<String, Value>,
+    /// ISO-8601 modification time
+    modified_time: Option<String>,
+    /// tags associated with this PackageVersion
     tags: Vec<String>,
+    /// A description of this package version.
     description: Option<String>,
 }
 
