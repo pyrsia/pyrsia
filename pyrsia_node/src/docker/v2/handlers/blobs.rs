@@ -15,7 +15,7 @@
 */
 
 use bytes::{Buf, Bytes};
-use log::{debug, error};
+use log::{debug, error, trace};
 use std::collections::HashMap;
 use std::fs;
 use std::io::prelude::*;
@@ -36,13 +36,14 @@ pub async fn handle_get_blobs(
         hash.get(7..9).unwrap(),
         hash.get(7..).unwrap()
     );
-    debug!("Searching for blob: {}", blob);
+    match tx.send(hash.clone()).await {
+        Ok(_) => debug!("hash sent"),
+        Err(_) => error!("failed to send stdin input"),
+    }
+
+    trace!("Searching for blob: {}", blob);
     let blob_path = Path::new(&blob);
     if !blob_path.exists() {
-        match tx.send(hash.clone()).await {
-            Ok(_) => debug!("hash sent"),
-            Err(_) => error!("failed to send stdin input"),
-        }
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::BlobDoesNotExist(hash),
         }));
@@ -54,7 +55,7 @@ pub async fn handle_get_blobs(
         }));
     }
 
-    debug!("Reading blob: {}", blob);
+    trace!("Reading blob: {}", blob);
     let blob_content = fs::read(blob_path);
     if blob_content.is_err() {
         return Err(warp::reject::custom(RegistryError {
