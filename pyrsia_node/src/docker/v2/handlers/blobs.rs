@@ -71,8 +71,21 @@ pub async fn handle_get_blobs(
         .unwrap())
 }
 
-pub async fn handle_post_blob(name: String) -> Result<impl Reply, Rejection> {
+pub async fn handle_post_blob(
+    tx: tokio::sync::mpsc::Sender<String>,
+    name: String,
+) -> Result<impl Reply, Rejection> {
     let id = Uuid::new_v4();
+
+    // These need to be advertised?
+    match tx.send(name.clone()).await {
+        Ok(_) => debug!("name sent"),
+        Err(_) => error!("failed to send name"),
+    }
+    match tx.send(id.to_string()).await {
+        Ok(_) => debug!("id sent"),
+        Err(_) => error!("failed to send id"),
+    }
 
     if let Err(e) = fs::create_dir_all(format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",

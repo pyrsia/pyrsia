@@ -154,13 +154,16 @@ async fn main() {
     let (tx, mut rx) = tokio::sync::mpsc::channel(32);
     let tx1 = tx.clone();
 
+    let (upload_tx, mut upload_rx) = tokio::sync::mpsc::channel(32);
+    let utx1 = upload_tx.clone();
+
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
         .and_then(move |name, hash| handle_get_blobs(tx1.clone(), name, hash));
     let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
         .and(warp::post())
-        .and_then(handle_post_blob);
+        .and_then(move |name| handle_post_blob(utx1.clone(), name));
     let v2_blobs_patch = warp::path!("v2" / String / "blobs" / "uploads" / String)
         .and(warp::patch())
         .and(warp::body::bytes())
@@ -210,6 +213,11 @@ async fn main() {
                 info!("New message: {}", message);
                 swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), message.as_bytes());
                 swarm.behaviour_mut().lookup_blob(message).unwrap();
+            }
+            Some(message) = upload_rx.recv() => {
+                info!("New upload: {}", message);
+                swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), message.as_bytes());
+                swarm.behaviour_mut().advertise_blob(message, vec![]).unwrap();
             }
         }
     }
