@@ -35,7 +35,7 @@ use bincode;
 use log::{debug, error, info};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt;
 use std::str;
@@ -265,11 +265,11 @@ impl DocumentStore {
 
         let db = DocumentStore::get_db(name);
 
-        let mut rng = rand::thread_rng();
-
         let mut doc_store_indexes: Vec<(u16, IndexSpec)> = vec![];
+        let mut pos = 1;
         for index in indexes {
-            doc_store_indexes.push((rng.gen(), IndexSpec::new(index.name, index.field_names)));
+            doc_store_indexes.push((pos, IndexSpec::new(index.name, index.field_names)));
+            pos += 1;
         }
         let doc_store = DocumentStore::new(name, doc_store_indexes)?;
 
@@ -498,6 +498,7 @@ impl DocumentStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     // Create a database with a name and an empty index list
     #[test]
