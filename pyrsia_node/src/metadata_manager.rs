@@ -15,3 +15,5 @@
 */
 
 mod metadata;
+
+use crate::node_manager::model;

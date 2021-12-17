@@ -15,10 +15,10 @@
 */
 extern crate anyhow;
 
-use crate::node_manager::model::namespace::Namespace;
-use crate::node_manager::model::package::Package;
-use crate::node_manager::model::package_type::{PackageType, PackageTypeName};
-use crate::node_manager::model::package_version::PackageVersion;
+use super::model::namespace::Namespace;
+use super::model::package::Package;
+use super::model::package_type::{PackageType, PackageTypeName};
+use super::model::package_version::PackageVersion;
 
 // create package version
 
