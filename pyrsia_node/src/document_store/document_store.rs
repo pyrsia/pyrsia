@@ -14,6 +14,23 @@
    limitations under the License.
 */
 
+//! The DocumentStore is capable of storing documents in the form
+//! of JSON objects. The DocumentStore is backed by a data store
+//! where these documents are persistently written to.
+//! 
+//! A DocumentStore is defined by a name and one or more index
+//! specifications. An index specification is defined again by a
+//! name and a list of fields that make up the index. Together, this
+//! is known as the catalog.
+//! 
+//! To create and persist the catalog, we call [`DocumentStore::create`].
+//! 
+//! A DocumentStore can be get via its name by calling [`DocumentStore::get`].
+//! 
+//! To store a document, use [`DocumentStore::store`]. Fetching a document
+//! via an index can be done with [`DocumentStore::fetch`].
+//! 
+
 use bincode;
 use log::{debug, error, info};
 use rand::Rng;
@@ -24,25 +41,25 @@ use std::fmt;
 use std::str;
 use unqlite::{Transaction, UnQLite, KV};
 
-// Defines the sorting order when storing the values associated
-// with an index.
-// Note: This is currently not yet implemented and at the moment,
-// all IndexSpec will default to IndexOrder::Asc.
+/// Defines the sorting order when storing the values associated
+/// with an index.
+/// Note: This is currently not yet implemented and at the moment,
+/// all IndexSpec will default to IndexOrder::Asc.
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
-enum IndexOrder {
-    // Fetching a range of values using the index returns
-    // the lowest value first and the highest value last.
+pub enum IndexOrder {
+    /// Fetching a range of values using the index returns
+    /// the lowest value first and the highest value last.
     Asc,
-    // Fetching a range of values using the index returns
-    // the highest value first and the lowest value last.
+    /// Fetching a range of values using the index returns
+    /// the highest value first and the lowest value last.
     Desc,
 }
 
 /// The definition of an index in the document store.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct IndexSpec {
-    name: String,
-    field_names: Vec<String>,
+    pub name: String,
+    pub field_names: Vec<String>,
     direction: IndexOrder,
 }
 
@@ -50,8 +67,8 @@ pub struct IndexSpec {
 /// with a list of predefined indexes.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DocumentStore {
-    name: String,
-    indexes: Vec<(u16, IndexSpec)>,
+    pub name: String,
+    pub indexes: Vec<(u16, IndexSpec)>,
 }
 
 /// The DocumentStoreError acts as a wrapper around all types of
@@ -62,7 +79,7 @@ pub enum DocumentStoreError {
     Bincode(bincode::Error),
     /// Errors mapped to [serde_json::Error]
     Json(serde_json::Error),
-    /// Errors mapped to [UnQLite::Error]
+    /// Errors mapped to [unqlite::Error]
     UnQLite(unqlite::Error),
     /// Custom errors specific to the document store
     Custom(String),
@@ -72,26 +89,26 @@ const KEYTYPE_CATALOG: u8 = 0b00000001;
 const KEYTYPE_DATA: u8 = 0b00000010;
 const KEYTYPE_INDEX: u8 = 0b00000011;
 
-/// A key that is associated with the metadata of the
-/// document store. It is identified by [KEYTYPE_CATALOG].
+// A key that is associated with the metadata of the
+// document store. It is identified by [KEYTYPE_CATALOG].
 #[derive(Debug, Deserialize, Serialize)]
 struct CatalogKey {
-    d: u8,
+    key_type: u8,
 }
 
-/// A key that is associated with the a document in the
-/// document store. It is identified by [KEYTYPE_DATA].
+// A key that is associated with the a document in the
+// document store. It is identified by [KEYTYPE_DATA].
 #[derive(Debug, Deserialize, Serialize)]
 struct DataKey {
-    d: u8,
+    key_type: u8,
     number: u128,
 }
 
-/// A key that is associated with the a stored index in
-/// the document store. It is identified by [KEYTYPE_INDEX].
+// A key that is associated with the a stored index in
+// the document store. It is identified by [KEYTYPE_INDEX].
 #[derive(Debug, Deserialize, Serialize)]
 struct IndexKey {
-    d: u8,
+    key_type: u8,
     index: u16,
     values: Vec<String>,
 }
@@ -160,14 +177,14 @@ impl From<unqlite::Error> for DocumentStoreError {
 
 impl CatalogKey {
     fn new() -> CatalogKey {
-        CatalogKey { d: KEYTYPE_CATALOG }
+        CatalogKey { key_type: KEYTYPE_CATALOG }
     }
 }
 
 impl DataKey {
     fn new(number: u128) -> DataKey {
         DataKey {
-            d: KEYTYPE_DATA,
+            key_type: KEYTYPE_DATA,
             number,
         }
     }
@@ -176,7 +193,7 @@ impl DataKey {
 impl IndexKey {
     fn new(index: u16, values: Vec<String>) -> IndexKey {
         IndexKey {
-            d: KEYTYPE_INDEX,
+            key_type: KEYTYPE_INDEX,
             index,
             values,
         }
@@ -184,7 +201,7 @@ impl IndexKey {
 }
 
 impl DocumentStore {
-    /// Creates a new DocumentStore
+    // Creates a new DocumentStore
     fn new(name: &str, indexes: Vec<(u16, IndexSpec)>) -> DocumentStore {
         DocumentStore {
             name: name.to_string(),
@@ -205,16 +222,36 @@ impl DocumentStore {
         UnQLite::open_mmap(format!("{}.unql", &db_name))
     }
 
-    /// Creates an UnQLite database with the specified `db_name` and
-    /// the provided list of index definitions. The metadata of the
-    /// document store is then added to this database.
+    /// Creates the persistent data store for a DocumentStore and
+    /// initializes it with the provided metadata. The metadata
+    /// currently consists of the `name` of the DocumentStore and
+    /// a vec of `indexes`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Err`] if the metadata could not be stored in the
+    /// persistent data store.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+    /// # let tmp_dir = tempfile::tempdir().unwrap();
+    /// # let path = tmp_dir.path().join("docs_code_create");
+    /// let name = "document_store";
+    /// # let name = path.to_str().unwrap();
+    /// let doc_store = DocumentStore::create(name, vec![
+    ///     IndexSpec::new("index", vec!["field_one", "field_two"])
+    /// ]);
+    /// assert!(doc_store.is_ok());
+    /// ```
     pub fn create(
-        db_name: &str,
+        name: &str,
         indexes: Vec<IndexSpec>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        info!("Creating DB with name {}", db_name);
+    ) -> Result<DocumentStore, Box<dyn std::error::Error>> {
+        info!("Creating DataStore for DocumentStore with name {}", name);
 
-        let db = DocumentStore::get_db(db_name);
+        let db = DocumentStore::get_db(name);
 
         let mut rng = rand::thread_rng();
 
@@ -222,23 +259,37 @@ impl DocumentStore {
         for index in indexes {
             doc_store_indexes.push((rng.gen(), IndexSpec::new(index.name, index.field_names)));
         }
-        let doc_store = DocumentStore::new(db_name, doc_store_indexes);
+        let doc_store = DocumentStore::new(name, doc_store_indexes);
 
         let raw_key = bincode::serialize(&CatalogKey::new())?;
         let raw_doc_store = bincode::serialize(&doc_store)?;
         db.kv_store(raw_key, raw_doc_store)
             .map_err(DocumentStoreError::UnQLite)?;
 
-        Ok(())
+        Ok(doc_store)
     }
 
-    /// Gets a document store that was [created](DocumentStore::create) previously.
+    /// Gets a document store that will use the persistent data store
+    /// [created](DocumentStore::create) previously.
     ///
     /// # Errors
     ///
-    /// Returns [`Err`] if no document store could be found with the specified name.
-    pub fn get(db_name: &str) -> Result<DocumentStore, Box<dyn std::error::Error>> {
-        let db = DocumentStore::get_db(db_name);
+    /// Returns [`Err`] if no DocumentStore could be found with the specified `name`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use pyrsia_node::document_store::document_store::DocumentStore;
+    /// # let tmp_dir = tempfile::tempdir().unwrap();
+    /// # let path = tmp_dir.path().join("docs_code_create");
+    /// let name = "document_store";
+    /// # let name = path.to_str().unwrap();
+    /// if let Ok(doc_store) = DocumentStore::get(name) {
+    ///     println!("Found the DocumentStore with name {}", doc_store.name);
+    /// }
+    /// ```
+    pub fn get(name: &str) -> Result<DocumentStore, Box<dyn std::error::Error>> {
+        let db = DocumentStore::get_db(name);
 
         let raw_key = bincode::serialize(&CatalogKey::new())?;
         let raw_doc_store = db.kv_fetch(raw_key).map_err(DocumentStoreError::UnQLite)?;
@@ -247,7 +298,40 @@ impl DocumentStore {
         Ok(doc_store)
     }
 
-    /// Store the provided JSON document in the document store.
+    /// Store the provided JSON document in the DocumentStore. The JSON document
+    /// must be a JSON Object. The document will be written together with the
+    /// document's index values. Each field for every index that is specified in
+    /// the DocumentStore must be present in the document.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Err`] in the following cases:
+    ///
+    ///  * `document` is not a JSON Object
+    ///  * the JSON object doesn't contain all the specified index fields
+    ///  * the document or its index values could not be persisted in the data store
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+    /// # use serde_json::json;
+    /// # let tmp_dir = tempfile::tempdir().unwrap();
+    /// # let path = tmp_dir.path().join("docs_code_store");
+    /// let name = "document_store";
+    /// # let name = path.to_str().unwrap();
+    /// # DocumentStore::create(name, vec![
+    /// #    IndexSpec::new("index", vec!["field_one", "field_two"])
+    /// # ]);
+    /// if let Ok(doc_store) = DocumentStore::get(name) {
+    ///     let document = json!({
+    ///         "field_one": "foo",
+    ///         "field_two": "bar"
+    ///     });
+    ///     let res = doc_store.store(&document.to_string());
+    ///     assert!(res.is_ok());
+    /// }
+    /// ```
     pub fn store(&self, document: &str) -> Result<(), Box<dyn std::error::Error>> {
         let db = DocumentStore::get_db(&self.name);
 
@@ -303,41 +387,46 @@ impl DocumentStore {
         Ok(())
     }
 
-    /// Fetches one or more documents from the database by searching
-    /// on the index with the specified `index_name` and `filter`. The
-    /// filter is a map of which the keys represent each field name
-    /// of the specified index. The values represent the associated
-    /// values of the keys in the documents to fetch.
+    /// Fetches a document from the database by searching on the index
+    /// with the specified `index_name` and `filter`. The filter is a
+    /// map where the keys represent each field name of the specified
+    /// index and the values represent the associated values of the keys
+    /// in the document to fetch.
     ///
     /// # Examples
     ///
     /// ```
-    /// // create a document store
-    /// let indexes = vec![
-    ///     IndexSpec::new("index", vec!["field"]),
-    /// ];
-    /// DocumentStore::create("sample", indexes);
-    /// let doc_store = DocumentStore::get("sample");
-    ///
-    /// // store a document
-    /// let document = json!({"field": "value"});
-    /// doc_store.store(&document.to_string());
-    ///
-    /// let mut filter = HashMap::new();
-    /// filter.insert("field", "value");
-    /// if let Ok(documents) = doc_store.fetch("index", filter) {
-    ///     println!("Found documents on index 'index': {}", documents);
+    /// # use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+    /// # use serde_json::json;
+    /// # use std::collections::HashMap;
+    /// # let tmp_dir = tempfile::tempdir().unwrap();
+    /// # let path = tmp_dir.path().join("docs_code_fetch");
+    /// let name = "document_store";
+    /// # let name = path.to_str().unwrap();
+    /// # DocumentStore::create(name, vec![
+    /// #    IndexSpec::new("index", vec!["field_one", "field_two"])
+    /// # ]);
+    /// if let Ok(doc_store) = DocumentStore::get(name) {
+    ///     # let document = json!({
+    ///     #     "field_one": "foo",
+    ///     #     "field_two": "bar"
+    ///     # });
+    ///     # doc_store.store(&document.to_string()).expect("should have stored");
+    ///     let mut filter = HashMap::new();
+    ///     filter.insert("field_one", "foo");
+    ///     filter.insert("field_two", "bar");
+    ///     if let Ok(document) = doc_store.fetch("index", filter) {
+    ///         assert!(document.is_some());
+    ///     }
     /// }
     /// ```
     pub fn fetch(
         &self,
         index_name: &str,
         filter: HashMap<&str, &str>,
-    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    ) -> Result<Option<String>, Box<dyn std::error::Error>> {
         if let Some(index_to_use) = self.indexes.iter().find(|index| index.1.name == index_name) {
-            let mut results: Vec<String> = vec![];
             let mut values: Vec<String> = vec![];
-
             for field_name in &index_to_use.1.field_names {
                 if let Some(value) = filter.get(&field_name as &str) {
                     values.push(value.to_string());
@@ -354,9 +443,10 @@ impl DocumentStore {
             let index_key = IndexKey::new(index_to_use.0, values);
             let raw_index_key = bincode::serialize(&index_key)?;
             if let Ok(raw_data_key) = db.kv_fetch(raw_index_key) {
-                if let Ok(raw_data) = db.kv_fetch(&raw_data_key) {
-                    debug!("Found raw data: {:?}", raw_data);
-                    results.push(String::from_utf8(raw_data).unwrap());
+                if let Ok(raw_document) = db.kv_fetch(&raw_data_key) {
+                    debug!("Found raw document: {:?}", raw_document);
+                    let document = String::from_utf8(raw_document)?;
+                    return Ok(Some(document));
                 } else {
                     let data_key: DataKey = bincode::deserialize(&raw_data_key)?;
                     error!(
@@ -366,7 +456,7 @@ impl DocumentStore {
                 }
             }
 
-            return Ok(results);
+            return Ok(None);
         } else {
             return Err(From::from(DocumentStoreError::Custom(format!(
                 "DocumentStore has no index with given name: {}",
@@ -375,6 +465,8 @@ impl DocumentStore {
         }
     }
 
+    // validates if a json object contains all the fields for each
+    // index that is specified for this DocumentStore
     fn validate_required_indexes(&self, json_document: &Value) -> Result<(), DocumentStoreError> {
         for index in &self.indexes {
             for field_name in &index.1.field_names {
@@ -403,7 +495,8 @@ mod tests {
         let name = path.to_str().unwrap();
 
         let result = DocumentStore::create(name, vec![]).expect("should not result in error");
-        assert_eq!(result, ());
+        assert_eq!(result.name, name);
+        assert!(result.indexes.is_empty());
 
         let doc_store = DocumentStore::get(name).expect("should not result in error");
         assert_eq!(doc_store.name, name);
@@ -536,11 +629,11 @@ mod tests {
 
         let mut filter = HashMap::new();
         filter.insert("mostSignificantField", "msf1");
-        let res: Vec<String> = doc_store
+        let res: String = doc_store
             .fetch(index, filter)
-            .expect("Should have fetched without error.");
-        assert_eq!(1, res.len());
-        assert_eq!(doc.to_string(), res[0]);
+            .expect("Should have fetched without error.") // expect Ok
+            .expect("Should have found a document."); // expect Some
+        assert_eq!(doc.to_string(), res);
     }
 
     #[test]
@@ -566,10 +659,10 @@ mod tests {
 
         let mut filter = HashMap::new();
         filter.insert("mostSignificantField", "msf2");
-        let res: Vec<String> = doc_store
+        let res: Option<String> = doc_store
             .fetch(index, filter)
-            .expect("Should have fetched without error.");
-        assert_eq!(0, res.len());
+            .expect("Should have fetched without error."); // expect Ok
+        assert!(res.is_none());
     }
 
     #[test]
@@ -602,15 +695,15 @@ mod tests {
         filter1.insert("index1_field", "msf1");
         let mut filter2 = HashMap::new();
         filter2.insert("index2_field", "msf2");
-        let res: Vec<String> = doc_store
+        let res: String = doc_store
             .fetch(index1, filter1)
-            .expect("Should have fetched without error.");
-        assert_eq!(1, res.len());
-        assert_eq!(doc.to_string(), res[0]);
-        let res: Vec<String> = doc_store
+            .expect("Should have fetched without error.") // expect Ok
+            .expect("Should have found a document."); // expect Some
+        assert_eq!(doc.to_string(), res);
+        let res: String = doc_store
             .fetch(index2, filter2)
-            .expect("Should have fetched without error.");
-        assert_eq!(1, res.len());
-        assert_eq!(doc.to_string(), res[0]);
+            .expect("Should have fetched without error.") // expect Ok
+            .expect("Should have found a document."); // expect Some
+        assert_eq!(doc.to_string(), res);
     }
 }
