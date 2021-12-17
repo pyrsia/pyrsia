@@ -2770,19 +2770,24 @@ dependencies = [
  "hex",
  "hyper",
  "hyper-tls",
+ "itertools",
  "lazy_static",
  "libp2p",
  "log",
+ "once_cell",
  "pretty_env_logger",
+ "pyrsia_client_lib",
  "rand 0.8.4",
  "reqwest",
  "serde",
  "serde_json",
  "sha2 0.9.8",
+ "signed_struct",
  "stringreader",
  "strum",
  "strum_macros",
  "tempfile",
+ "test_helpers",
  "tokio",
  "unqlite",
  "uuid",
@@ -3272,20 +3277,12 @@ checksum = "02658e48d89f2bec991f9a78e69cfa4c316f8d6a6c4ec12fae1aeb263d486788"
 name = "signed_struct"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "proc-macro2",
  "pyrsia_client_lib",
  "quote",
- "syn",
-]
-
-[[package]]
-name = "signed_struct_test"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "pyrsia_client_lib",
  "serde",
- "signed_struct",
+ "syn",
 ]
 
 [[package]]
@@ -3460,6 +3457,10 @@ checksum = "2dfed899f0eb03f32ee8c6a0aabdb8a7949659e3466561fc0adf54e26d88c5f4"
 dependencies = [
  "winapi-util",
 ]
+
+[[package]]
+name = "test_helpers"
+version = "0.1.0"
 
 [[package]]
 name = "textwrap"

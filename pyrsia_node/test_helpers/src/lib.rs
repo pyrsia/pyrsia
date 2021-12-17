@@ -14,7 +14,14 @@
    limitations under the License.
 */
 
-#![allow(mixed_script_confusables)] // This is to allow structs created by a derive macro to have private fields that begin with the grek letter π
+use std::io::BufRead;
 
-/// Library for code that will be use by both Pyrsia nodes and Pyrsia clients.
-pub mod signed;
+// Reads the first line from a BufRead
+pub fn first_line<R>(mut rdr: R) -> String
+where
+    R: BufRead,
+{
+    let mut first_line: String = String::new();
+    rdr.read_line(&mut first_line).expect("Unable to read line");
+    first_line
+}

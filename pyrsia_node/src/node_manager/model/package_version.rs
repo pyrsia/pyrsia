@@ -16,23 +16,30 @@
 extern crate pyrsia_client_lib;
 extern crate serde_json;
 
-use super::HashAlgorithm;
 use pyrsia_client_lib::signed::Signed;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-
 use signed_struct::signed_struct;
+use strum_macros::{EnumIter, EnumString};
 
 #[signed_struct]
 #[derive(Debug)]
-pub struct Artifact<'a> {
-    hash: &'a [u8],
-    algorithm: HashAlgorithm,
-    name: Option<String>,
+pub struct PackageVersion {
+    id: String,
+    version: String,
+    pkg_id: String,
+    license_text: Option<String>,
+    license_text_mimetype: Option<LicenseTextMimeType>,
+    license_url: Option<String>,
     creation_time: Option<String>,
-    url: Option<String>,
-    size: u32,
-    mime_type: Option<String>,
     metadata: Map<String, Value>,
-    source_url: Option<String>,
-    art_type: Option<String>,
+    tags: Vec<String>,
+    description: Option<String>,
+}
+
+#[derive(EnumIter, Debug, PartialEq, EnumString, Serialize, Deserialize)]
+pub enum LicenseTextMimeType {
+    Text,
+    Html,
+    Xml,
 }
