@@ -9,15 +9,17 @@ use std::fmt;
 use std::str;
 use unqlite::{Transaction, UnQLite, KV};
 
-/// Defines the sorting order when storing the values associated
-/// with an index.
+// Defines the sorting order when storing the values associated
+// with an index.
+// Note: This is currently not yet implemented and at the moment,
+// all IndexSpec will default to IndexOrder::Asc.
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
-pub enum IndexOrder {
-    /// Fetching a range of values using the index returns
-    /// the lowest value first and the highest value last.
+enum IndexOrder {
+    // Fetching a range of values using the index returns
+    // the lowest value first and the highest value last.
     Asc,
-    /// Fetching a range of values using the index returns
-    /// the highest value first and the lowest value last.
+    // Fetching a range of values using the index returns
+    // the highest value first and the lowest value last.
     Desc,
 }
 
@@ -81,7 +83,7 @@ struct IndexKey {
 
 impl IndexSpec {
     /// Creates a new index specification.
-    pub fn new<I, T>(name: T, field_names: I, direction: IndexOrder) -> IndexSpec
+    pub fn new<I, T>(name: T, field_names: I) -> IndexSpec
     where
         I: IntoIterator<Item = T>,
         T: Into<String>,
@@ -89,7 +91,7 @@ impl IndexSpec {
         IndexSpec {
             name: name.into(),
             field_names: field_names.into_iter().map(Into::into).collect(),
-            direction,
+            direction: IndexOrder::Asc, // hardcode to Asc until implemented
         }
     }
 }
@@ -201,10 +203,7 @@ impl DocumentStore {
 
         let mut doc_store_indexes: Vec<(u16, IndexSpec)> = vec![];
         for index in indexes {
-            doc_store_indexes.push((
-                rng.gen(),
-                IndexSpec::new(index.name, index.field_names, index.direction),
-            ));
+            doc_store_indexes.push((rng.gen(), IndexSpec::new(index.name, index.field_names)));
         }
         let doc_store = DocumentStore::new(db_name, doc_store_indexes);
 
@@ -298,7 +297,7 @@ impl DocumentStore {
     /// ```
     /// // create a document store
     /// let indexes = vec![
-    ///     IndexSpec::new("index", vec!["field"], IndexOrder::Asc),
+    ///     IndexSpec::new("index", vec!["field"]),
     /// ];
     /// DocumentStore::create("sample", indexes);
     /// let doc_store = DocumentStore::get("sample");
@@ -406,8 +405,8 @@ mod tests {
         let index_two = "index_two";
         let field1 = "mostSignificantField";
         let field2 = "leastSignificantField";
-        let idx1 = IndexSpec::new(index_one, vec![field1], IndexOrder::Asc);
-        let idx2 = IndexSpec::new(index_two, vec![field2], IndexOrder::Desc);
+        let idx1 = IndexSpec::new(index_one, vec![field1]);
+        let idx2 = IndexSpec::new(index_two, vec![field2]);
         let idxs = vec![idx1, idx2];
 
         DocumentStore::create(name, idxs).expect("should not result in error");
@@ -418,7 +417,7 @@ mod tests {
         assert_eq!(doc_store.indexes[0].1.direction, IndexOrder::Asc);
         assert_eq!(doc_store.indexes[1].1.name, "index_two".to_string());
         assert_eq!(doc_store.indexes[1].1.field_names, vec![field2.to_string()]);
-        assert_eq!(doc_store.indexes[1].1.direction, IndexOrder::Desc);
+        assert_eq!(doc_store.indexes[1].1.direction, IndexOrder::Asc);
     }
 
     #[test]
@@ -439,8 +438,8 @@ mod tests {
         let index_two = "index_two";
         let field1 = "mostSignificantField";
         let field2 = "leastSignificantField";
-        let i1 = IndexSpec::new(index_one, vec![field1], IndexOrder::Asc);
-        let i2 = IndexSpec::new(index_two, vec![field2], IndexOrder::Asc);
+        let i1 = IndexSpec::new(index_one, vec![field1]);
+        let i2 = IndexSpec::new(index_two, vec![field2]);
         let idxs = vec![i1, i2];
 
         DocumentStore::create(name, idxs).expect("should not result in error");
@@ -459,15 +458,8 @@ mod tests {
         let tmp_dir = tempfile::tempdir().unwrap();
         let path = tmp_dir.path().join("test_store_invalid_json");
         let name = path.to_str().unwrap();
-        DocumentStore::create(
-            name,
-            vec![IndexSpec::new(
-                "index",
-                vec!["index_field"],
-                IndexOrder::Asc,
-            )],
-        )
-        .expect("should not result in error");
+        DocumentStore::create(name, vec![IndexSpec::new("index", vec!["index_field"])])
+            .expect("should not result in error");
 
         let doc_store = DocumentStore::get(name).expect("should not result in error");
 
@@ -515,7 +507,7 @@ mod tests {
         let name = path.to_str().unwrap();
         let index = "index";
         let field = "mostSignificantField";
-        let i = IndexSpec::new(index, vec![field], IndexOrder::Asc);
+        let i = IndexSpec::new(index, vec![field]);
         let idxs = vec![i];
 
         DocumentStore::create(name, idxs).expect("should not result in error");
@@ -544,7 +536,7 @@ mod tests {
         let name = path.to_str().unwrap();
         let index = "index";
         let field = "mostSignificantField";
-        let i = IndexSpec::new(index, vec![field], IndexOrder::Asc);
+        let i = IndexSpec::new(index, vec![field]);
         let idxs = vec![i];
 
         DocumentStore::create(name, idxs).expect("should not result in error");
@@ -576,8 +568,8 @@ mod tests {
         DocumentStore::create(
             name,
             vec![
-                IndexSpec::new(index1, vec!["index1_field"], IndexOrder::Asc),
-                IndexSpec::new(index2, vec!["index2_field"], IndexOrder::Asc),
+                IndexSpec::new(index1, vec!["index1_field"]),
+                IndexSpec::new(index2, vec!["index2_field"]),
             ],
         )
         .expect("should not result in error");
