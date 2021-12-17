@@ -30,8 +30,8 @@ pub struct BlockChain {
 const DIFFICULTY_PREFIX: &str = "00";
 
 impl BlockChain {
-    pub fn new() -> Self {
-        BlockChain {
+    pub fn new() -> &'static mut Self {
+        &mut BlockChain {
             blocks: vec![]
         }
     }
@@ -129,8 +129,8 @@ fn mine_block(id: u64, timestamp: i64, previous_hash: &str, data: &str) -> (u64,
 
     (0..u64::MAX).map(|nonce| (nonce, calculate_hash(id, timestamp, previous_hash, data, nonce)))
         .map(|(nonce, hash)| (nonce, hash.clone(), hash_to_binary_representation(&hash.clone())))
-        .find(|(nonce, hash, binary_hash)| binary_hash.starts_with(DIFFICULTY_PREFIX))
-        .map(|(nonce, hash, bin)| (nonce, hex::encode(hash))).expect("results")
+        .find(|(_nonce, _hash, binary_hash)| binary_hash.starts_with(DIFFICULTY_PREFIX))
+        .map(|(nonce, hash, _bin)| (nonce, hex::encode(hash))).expect("results")
 }
 
 fn calculate_hash(id: u64, timestamp: i64, previous_hash: &str, data: &str, nonce: u64) -> Vec<u8> {
