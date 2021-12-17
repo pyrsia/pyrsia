@@ -50,7 +50,7 @@ pub enum DocumentStoreError {
     /// Errors mapped to [UnQLite::Error]
     UnQLite(unqlite::Error),
     /// Custom errors specific to the document store
-    Custom { message: String },
+    Custom(String),
 }
 
 const KEYTYPE_CATALOG: u8 = 0b00000001;
@@ -102,7 +102,9 @@ impl fmt::Display for DocumentStoreError {
             DocumentStoreError::Bincode(ref err) => write!(f, "Bincode Error: {}", err),
             DocumentStoreError::Json(ref err) => write!(f, "Json Error: {}", err),
             DocumentStoreError::UnQLite(ref err) => write!(f, "UnQLite Error: {}", err),
-            DocumentStoreError::Custom { message } => write!(f, "DocumentStore Error: {}", message),
+            DocumentStoreError::Custom(ref message) => {
+                write!(f, "DocumentStore Error: {}", message)
+            }
         }
     }
 }
@@ -236,9 +238,9 @@ impl DocumentStore {
 
         let json_document = serde_json::from_str::<Value>(&document)?;
         if !json_document.is_object() {
-            return Err(From::from(DocumentStoreError::Custom {
-                message: "Provided JSON document must represent a JSON Object".to_string(),
-            }));
+            return Err(From::from(DocumentStoreError::Custom(
+                "Provided JSON document must represent a JSON Object".to_string(),
+            )));
         }
 
         self.validate_required_indexes(&json_document)?;
@@ -325,12 +327,10 @@ impl DocumentStore {
                 if let Some(value) = filter.get(&field_name as &str) {
                     values.push(value.to_string());
                 } else {
-                    return Err(From::from(DocumentStoreError::Custom {
-                        message: format!(
-                            "Filter is missing required index key: {}.{}",
-                            index_name, field_name
-                        ),
-                    }));
+                    return Err(From::from(DocumentStoreError::Custom(format!(
+                        "Filter is missing required index key: {}.{}",
+                        index_name, field_name
+                    ))));
                 }
             }
 
@@ -353,9 +353,10 @@ impl DocumentStore {
 
             return Ok(results);
         } else {
-            return Err(From::from(DocumentStoreError::Custom {
-                message: format!("DocumentStore has no index with given name: {}", index_name),
-            }));
+            return Err(From::from(DocumentStoreError::Custom(format!(
+                "DocumentStore has no index with given name: {}",
+                index_name
+            ))));
         }
     }
 
@@ -363,12 +364,10 @@ impl DocumentStore {
         for index in &self.indexes {
             for field_name in &index.1.field_names {
                 if let None = json_document.get(field_name) {
-                    return Err(DocumentStoreError::Custom {
-                        message: format!(
-                            "Document is missing required index key: {}.{}",
-                            index.1.name, field_name
-                        ),
-                    });
+                    return Err(DocumentStoreError::Custom(format!(
+                        "Document is missing required index key: {}.{}",
+                        index.1.name, field_name
+                    )));
                 }
             }
         }
