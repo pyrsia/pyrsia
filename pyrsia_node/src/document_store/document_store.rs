@@ -17,19 +17,19 @@
 //! The DocumentStore is capable of storing documents in the form
 //! of JSON objects. The DocumentStore is backed by a data store
 //! where these documents are persistently written to.
-//! 
+//!
 //! A DocumentStore is defined by a name and one or more index
 //! specifications. An index specification is defined again by a
 //! name and a list of fields that make up the index. Together, this
 //! is known as the catalog.
-//! 
+//!
 //! To create and persist the catalog, we call [`DocumentStore::create`].
-//! 
+//!
 //! A DocumentStore can be get via its name by calling [`DocumentStore::get`].
-//! 
+//!
 //! To store a document, use [`DocumentStore::store`]. Fetching a document
 //! via an index can be done with [`DocumentStore::fetch`].
-//! 
+//!
 
 use bincode;
 use log::{debug, error, info};
@@ -177,7 +177,9 @@ impl From<unqlite::Error> for DocumentStoreError {
 
 impl CatalogKey {
     fn new() -> CatalogKey {
-        CatalogKey { key_type: KEYTYPE_CATALOG }
+        CatalogKey {
+            key_type: KEYTYPE_CATALOG,
+        }
     }
 }
 
@@ -202,11 +204,21 @@ impl IndexKey {
 
 impl DocumentStore {
     // Creates a new DocumentStore
-    fn new(name: &str, indexes: Vec<(u16, IndexSpec)>) -> DocumentStore {
-        DocumentStore {
+    fn new(
+        name: &str,
+        indexes: Vec<(u16, IndexSpec)>,
+    ) -> Result<DocumentStore, DocumentStoreError> {
+        if indexes.is_empty() {
+            return Err(DocumentStoreError::Custom(
+                "At least one index specification is required when creating a DocumentStore."
+                    .to_string(),
+            ));
+        }
+
+        Ok(DocumentStore {
             name: name.to_string(),
             indexes,
-        }
+        })
     }
 
     // ping
@@ -259,7 +271,7 @@ impl DocumentStore {
         for index in indexes {
             doc_store_indexes.push((rng.gen(), IndexSpec::new(index.name, index.field_names)));
         }
-        let doc_store = DocumentStore::new(name, doc_store_indexes);
+        let doc_store = DocumentStore::new(name, doc_store_indexes)?;
 
         let raw_key = bincode::serialize(&CatalogKey::new())?;
         let raw_doc_store = bincode::serialize(&doc_store)?;
@@ -489,17 +501,12 @@ mod tests {
 
     // Create a database with a name and an empty index list
     #[test]
-    fn test_create() {
+    fn test_create_without_indexes() {
         let tmp_dir = tempfile::tempdir().unwrap();
-        let path = tmp_dir.path().join("test_create");
+        let path = tmp_dir.path().join("test_create_without_indexes");
         let name = path.to_str().unwrap();
 
-        let result = DocumentStore::create(name, vec![]).expect("should not result in error");
-        assert_eq!(result.name, name);
-        assert!(result.indexes.is_empty());
-
-        let doc_store = DocumentStore::get(name).expect("should not result in error");
-        assert_eq!(doc_store.name, name);
+        DocumentStore::create(name, vec![]).expect_err("should not have been created");
     }
 
     // Create a database with a name and two index specifications
@@ -584,7 +591,8 @@ mod tests {
         let tmp_dir = tempfile::tempdir().unwrap();
         let path = tmp_dir.path().join("test_store_invalid_json");
         let name = path.to_str().unwrap();
-        DocumentStore::create(name, vec![]).expect("should not result in error");
+        DocumentStore::create(name, vec![IndexSpec::new("index", vec!["field"])])
+            .expect("should not result in error");
 
         let doc_store = DocumentStore::get(name).expect("should not result in error");
 
@@ -598,7 +606,8 @@ mod tests {
         let tmp_dir = tempfile::tempdir().unwrap();
         let path = tmp_dir.path().join("test_store_non_json_object");
         let name = path.to_str().unwrap();
-        DocumentStore::create(name, vec![]).expect("should not result in error");
+        DocumentStore::create(name, vec![IndexSpec::new("index", vec!["field"])])
+            .expect("should not result in error");
 
         let doc_store = DocumentStore::get(name).expect("should not result in error");
 
