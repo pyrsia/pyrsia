@@ -30,7 +30,7 @@ pub struct Package {
     /// The name of this package. Must be unique within a namespace.
     name: String,
     /// The type of package (Docker, Conan, npm, ...)
-    pkg_type: String,
+    package_type: String,
     /// ISO-8601 creation time
     creation_time: Option<String>,
     /// ISO-8601 modification time
