@@ -81,10 +81,14 @@ struct IndexKey {
 
 impl IndexSpec {
     /// Creates a new index specification.
-    pub fn new(name: String, field_names: Vec<String>, direction: IndexOrder) -> IndexSpec {
+    pub fn new<I, T>(name: T, field_names: I, direction: IndexOrder) -> IndexSpec
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<String>,
+    {
         IndexSpec {
-            name,
-            field_names,
+            name: name.into(),
+            field_names: field_names.into_iter().map(Into::into).collect(),
             direction,
         }
     }
@@ -231,7 +235,7 @@ impl DocumentStore {
     pub fn store(&self, document: &str) -> Result<(), Box<dyn std::error::Error>> {
         let db = DocumentStore::get_db(&self.name);
 
-        let json_document = serde_json::from_str::<Value>(document)?;
+        let json_document = serde_json::from_str::<Value>(&document)?;
         if !json_document.is_object() {
             return Err(From::from(DocumentStoreError::Custom {
                 message: "Provided JSON document must represent a JSON Object".to_string(),
@@ -294,7 +298,7 @@ impl DocumentStore {
     /// ```
     /// // create a document store
     /// let indexes = vec![
-    ///     IndexSpec::new("index", vec!["field".to_string()], IndexOrder::Asc),
+    ///     IndexSpec::new("index", vec!["field"], IndexOrder::Asc),
     /// ];
     /// DocumentStore::create("sample", indexes);
     /// let doc_store = DocumentStore::get("sample");
@@ -398,12 +402,12 @@ mod tests {
         let tmp_dir = tempfile::tempdir().unwrap();
         let path = tmp_dir.path().join("test_create_with_indexes");
         let name = path.to_str().unwrap();
-        let index_one = "index_one".to_string();
-        let index_two = "index_two".to_string();
+        let index_one = "index_one";
+        let index_two = "index_two";
         let field1 = "mostSignificantField";
         let field2 = "leastSignificantField";
-        let idx1 = IndexSpec::new(index_one, vec![field1.to_string()], IndexOrder::Asc);
-        let idx2 = IndexSpec::new(index_two, vec![field2.to_string()], IndexOrder::Desc);
+        let idx1 = IndexSpec::new(index_one, vec![field1], IndexOrder::Asc);
+        let idx2 = IndexSpec::new(index_two, vec![field2], IndexOrder::Desc);
         let idxs = vec![idx1, idx2];
 
         DocumentStore::create(name, idxs).expect("should not result in error");
@@ -431,10 +435,10 @@ mod tests {
         let tmp_dir = tempfile::tempdir().unwrap();
         let path = tmp_dir.path().join("test_store");
         let name = path.to_str().unwrap();
-        let index_one = "index_one".to_string();
-        let index_two = "index_two".to_string();
-        let field1 = "mostSignificantField".to_string();
-        let field2 = "leastSignificantField".to_string();
+        let index_one = "index_one";
+        let index_two = "index_two";
+        let field1 = "mostSignificantField";
+        let field2 = "leastSignificantField";
         let i1 = IndexSpec::new(index_one, vec![field1], IndexOrder::Asc);
         let i2 = IndexSpec::new(index_two, vec![field2], IndexOrder::Asc);
         let idxs = vec![i1, i2];
@@ -458,8 +462,8 @@ mod tests {
         DocumentStore::create(
             name,
             vec![IndexSpec::new(
-                "index".to_string(),
-                vec!["index_field".to_string()],
+                "index",
+                vec!["index_field"],
                 IndexOrder::Asc,
             )],
         )
@@ -510,8 +514,8 @@ mod tests {
         let path = tmp_dir.path().join("test_fetch");
         let name = path.to_str().unwrap();
         let index = "index";
-        let field = "mostSignificantField".to_string();
-        let i = IndexSpec::new(index.to_string(), vec![field], IndexOrder::Asc);
+        let field = "mostSignificantField";
+        let i = IndexSpec::new(index, vec![field], IndexOrder::Asc);
         let idxs = vec![i];
 
         DocumentStore::create(name, idxs).expect("should not result in error");
@@ -539,8 +543,8 @@ mod tests {
         let path = tmp_dir.path().join("test_fetch_not_found");
         let name = path.to_str().unwrap();
         let index = "index";
-        let field = "mostSignificantField".to_string();
-        let i = IndexSpec::new(index.to_string(), vec![field], IndexOrder::Asc);
+        let field = "mostSignificantField";
+        let i = IndexSpec::new(index, vec![field], IndexOrder::Asc);
         let idxs = vec![i];
 
         DocumentStore::create(name, idxs).expect("should not result in error");
@@ -572,16 +576,8 @@ mod tests {
         DocumentStore::create(
             name,
             vec![
-                IndexSpec::new(
-                    index1.to_string(),
-                    vec!["index1_field".to_string()],
-                    IndexOrder::Asc,
-                ),
-                IndexSpec::new(
-                    index2.to_string(),
-                    vec!["index2_field".to_string()],
-                    IndexOrder::Asc,
-                ),
+                IndexSpec::new(index1, vec!["index1_field"], IndexOrder::Asc),
+                IndexSpec::new(index2, vec!["index2_field"], IndexOrder::Asc),
             ],
         )
         .expect("should not result in error");
