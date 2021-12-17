@@ -33,7 +33,7 @@ pub struct PackageVersion {
     /// The name of this PackageVersions's package.
     name: String,
     /// The type of package (Docker, Conan, npm, ...)
-    pkg_type: String,
+    pkg_type: PackageVersion,
     /// The version identifier for this package. It must be unique within the package that it belongs to.
     version: String,
     /// The text of the license for this package version.
