@@ -406,29 +406,32 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     }
 
     /// Return the signature information in the signed JSON associated with this struct.
-    fn signatures(&self) -> Option<&str> {
-        todo!()
+    fn signatures(&self) -> Option<String> {
+        match self.json() {
+            Some(json_string) => match signatures(&json_string) {
+                Ok(signatures) => Some(signatures),
+                Err(_) => None,
+            },
+            None => None,
+        }
     }
+}
+
+fn signatures(json: &str) -> Result<String> {
+    let json32 = string_to_unicode_32(json);
+    let signature_slices = signatures_slice(&json32)?;
+    Ok(unicode_32_bit_to_string(signature_slices.signatures))
 }
 
 fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> {
     debug!("Verifying signatures: {}", json);
     let mut signature_count = 0;
     let json32 = string_to_unicode_32(json);
-    let JsonStringSlices {
-        before_signatures,
-        signatures,
-        after_signatures,
-    } = parse_signatures(&json32)?;
-    let colon_index = match slice_find(signatures, u32::from(':')) {
-        Some(i) => i,
-        None => return Err(anyhow!("Corrupt jws")),
-    };
-    let signatures = &signatures[colon_index + 1..];
+    let signature_slices = signatures_slice(&json32)?;
     let mut attestations: Vec<Attestation> = Vec::new();
     loop {
         let this_path = vec![JsonPathElement::Index(signature_count)];
-        match parse(signatures, &this_path) {
+        match parse(signature_slices.signatures, &this_path) {
             Ok(json_parser::ParseResult { target, .. }) => {
                 let this_signature = target;
                 if this_signature.is_empty() {
@@ -439,9 +442,9 @@ fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> 
                     unicode_32_bit_to_string(this_signature)
                 );
                 attestations.push(verify_one_signature(
-                    before_signatures,
+                    signature_slices.before_signatures,
                     this_signature,
-                    after_signatures,
+                    signature_slices.after_signatures,
                 ))
             }
             Err(_) => {
@@ -456,6 +459,16 @@ fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> 
         return Err(anyhow!(NOT_SIGNED));
     }
     Ok(attestations)
+}
+
+fn signatures_slice(json32: &Vec<u32>) -> Result<JsonStringSlices> {
+    let mut signature_slices = parse_signatures(&json32)?;
+    let colon_index = match slice_find(signature_slices.signatures, u32::from(':')) {
+        Some(i) => i,
+        None => return Err(anyhow!("Corrupt jws")),
+    };
+    signature_slices.signatures = &signature_slices.signatures[colon_index + 1..];
+    Ok(signature_slices)
 }
 
 // Since the purpose of this function is to find the index of an element in a slice, it really does
@@ -476,7 +489,7 @@ struct JsonStringSlices<'a> {
     after_signatures: &'a [u32],
 }
 
-fn parse_signatures(json32: &[u32]) -> Result<JsonStringSlices, anyhow::Error> {
+fn parse_signatures<'a>(json32: &'a [u32]) -> Result<JsonStringSlices<'a>, anyhow::Error> {
     let signature_path: Vec<JsonPathElement> =
         Vec::from([json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)]);
     let json_parser::ParseResult {
