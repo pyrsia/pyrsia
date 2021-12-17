@@ -26,9 +26,11 @@ use libp2p::{
     },
     mdns::{Mdns, MdnsEvent},
     swarm::NetworkBehaviourEventProcess,
-    NetworkBehaviour,
+    NetworkBehaviour, PeerId,
 };
-use log::info;
+use log::{debug, error, info};
+
+use std::collections::HashSet;
 
 // We create a custom network behaviour that combines floodsub and mDNS.
 // The derive generates a delegating `NetworkBehaviour` impl which in turn
@@ -40,14 +42,22 @@ pub struct MyBehaviour {
     floodsub: Floodsub,
     kademlia: Kademlia<MemoryStore>,
     mdns: Mdns,
+    #[behaviour(ignore)]
+    response_sender: tokio::sync::mpsc::Sender<String>,
 }
 
 impl MyBehaviour {
-    pub fn new(floodsub: Floodsub, kademlia: Kademlia<MemoryStore>, mdns: Mdns) -> Self {
+    pub fn new(
+        floodsub: Floodsub,
+        kademlia: Kademlia<MemoryStore>,
+        mdns: Mdns,
+        response_sender: tokio::sync::mpsc::Sender<String>,
+    ) -> Self {
         MyBehaviour {
             floodsub,
             kademlia,
             mdns,
+            response_sender,
         }
     }
 
@@ -55,9 +65,22 @@ impl MyBehaviour {
         &mut self.floodsub
     }
 
-    pub fn lookup_blob(&mut self, hash: String) -> Result<QueryId, Error> {
-        let num = std::num::NonZeroUsize::new(2).ok_or(Error::ValueTooLarge)?;
-        Ok(self.kademlia.get_record(&Key::new(&hash), Quorum::N(num)))
+    pub async fn lookup_blob(&mut self, hash: String) {
+        let num = std::num::NonZeroUsize::new(2)
+            .ok_or(Error::ValueTooLarge)
+            .unwrap();
+        self.kademlia.get_record(&Key::new(&hash), Quorum::N(num));
+    }
+
+    pub async fn list_peers(&mut self, peer_id: PeerId) {
+        self.kademlia.get_closest_peers(peer_id);
+    }
+
+    pub async fn list_peers_cmd(&mut self) {
+        match get_peers(&mut self.mdns) {
+            Ok(val) => println!("Peers are : {}", val),
+            Err(e) => error!("failed to get peers connected: {:?}", e),
+        }
     }
 
     pub fn advertise_blob(&mut self, hash: String, value: Vec<u8>) -> Result<QueryId, Error> {
@@ -116,6 +139,13 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
                         );
                     }
                 }
+
+                QueryResult::GetClosestPeers(Ok(ok)) => {
+                    println!("GetClosestPeers result {:?}", ok.peers);
+                    let connected_peers = itertools::join(ok.peers, ", ");
+                    respond_send(self.response_sender.clone(), connected_peers);
+                }
+
                 QueryResult::GetProviders(Err(err)) => {
                     eprintln!("Failed to get providers: {:?}", err);
                 }
@@ -158,4 +188,21 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
             _ => {}
         }
     }
+}
+pub fn respond_send(response_sender: tokio::sync::mpsc::Sender<String>, response: String) {
+    tokio::spawn(async move {
+        match response_sender.send(response).await {
+            Ok(_) => debug!("response for list_peers sent"),
+            Err(_) => error!("failed to send response"),
+        }
+    });
+}
+pub fn get_peers(mdns: &mut Mdns) -> Result<String, Error> {
+    let nodes = mdns.discovered_nodes();
+    let mut unique_peers = HashSet::new();
+    for peer in nodes {
+        unique_peers.insert(peer);
+    }
+    let connected_peers = itertools::join(&unique_peers, ", ");
+    Ok(connected_peers)
 }
