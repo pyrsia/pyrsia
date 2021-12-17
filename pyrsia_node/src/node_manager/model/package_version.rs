@@ -17,6 +17,7 @@ extern crate pyrsia_client_lib;
 extern crate serde_json;
 
 use crate::node_manager::model::artifact::Artifact;
+use crate::node_manager::model::package_type::PackageTypeName;
 use pyrsia_client_lib::signed::Signed;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -33,7 +34,7 @@ pub struct PackageVersion {
     /// The name of this PackageVersions's package.
     name: String,
     /// The type of package (Docker, Conan, npm, ...)
-    pkg_type: PackageVersion,
+    pkg_type: PackageTypeName,
     /// The version identifier for this package. It must be unique within the package that it belongs to.
     version: String,
     /// The text of the license for this package version.
