@@ -14,27 +14,24 @@
    limitations under the License.
 */
 
-
 use chrono::Utc;
 use log::{info, warn};
 use serde_json::error::Error;
 use sha2::{Digest, Sha256};
 
-use crate::block_chain::block::Block;
+use super::block::Block;
 
 pub struct BlockChain {
     blocks: Vec<Block>,
 }
 
-
 const DIFFICULTY_PREFIX: &str = "00";
 
 impl BlockChain {
-    pub fn new() -> &'static mut Self {
-        &mut BlockChain {
-            blocks: vec![]
+    pub fn new() -> Self {
+        BlockChain { blocks: vec![] }
         }
-    }
+
     pub fn genesis(&mut self) -> &mut Self {
         let genesis_block = Block {
             id: 0,
