@@ -69,7 +69,8 @@ async fn main() {
     pretty_env_logger::init();
 
     // create the connection to the documentStore.
-    let doc_store = DocumentStore::new();
+    DocumentStore::create("document_store", vec![]).expect("Failed to create DocumentStore");
+    let doc_store = DocumentStore::get("document_store").unwrap();
     doc_store.ping();
 
     let matches: ArgMatches = App::new("Pyrsia Node")
