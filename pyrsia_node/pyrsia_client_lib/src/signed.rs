@@ -461,8 +461,8 @@ fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> 
     Ok(attestations)
 }
 
-fn signatures_slice(json32: &Vec<u32>) -> Result<JsonStringSlices> {
-    let mut signature_slices = parse_signatures(&json32)?;
+fn signatures_slice(json32: &[u32]) -> Result<JsonStringSlices> {
+    let mut signature_slices = parse_signatures(json32)?;
     let colon_index = match slice_find(signature_slices.signatures, u32::from(':')) {
         Some(i) => i,
         None => return Err(anyhow!("Corrupt jws")),
@@ -489,7 +489,7 @@ struct JsonStringSlices<'a> {
     after_signatures: &'a [u32],
 }
 
-fn parse_signatures<'a>(json32: &'a [u32]) -> Result<JsonStringSlices<'a>, anyhow::Error> {
+fn parse_signatures(json32: &[u32]) -> Result<JsonStringSlices, anyhow::Error> {
     let signature_path: Vec<JsonPathElement> =
         Vec::from([json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)]);
     let json_parser::ParseResult {
