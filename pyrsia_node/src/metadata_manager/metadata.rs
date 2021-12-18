@@ -14,14 +14,21 @@
    limitations under the License.
 */
 extern crate anyhow;
+extern crate log;
 
 use super::model::namespace::Namespace;
 use super::model::package::Package;
 use super::model::package_type::{PackageType, PackageTypeName};
 use super::model::package_version::PackageVersion;
+use anyhow::anyhow;
+use anyhow::Result;
+use log::{error, info, warn};
+use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+use std::env;
+use std::error::Error;
+use std::fs;
 
-// create package version
-
+/// This trait is implemented by structs that provide the MetadataApi.
 pub trait MetadataApi {
     /// Create a new package type with the information specified in the `pkg_type` parameter.
     ///
@@ -170,5 +177,201 @@ impl Iterator for PackageIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         todo!()
+    }
+}
+
+// Names of document stores and their indexes
+const DS_PACKAGE_TYPES: &str = "package_types";
+const IX_PACKAGE_TYPES_NAME: &str = "names";
+fn ix_package_types() -> Vec<IndexSpec> {
+    vec![IndexSpec::new(
+        String::from(IX_PACKAGE_TYPES_NAME),
+        vec![String::from("name")],
+    )]
+}
+fn init_package_types() -> Vec<String> {
+    vec![]
+}
+
+pub struct Metadata {
+    package_type_docs: DocumentStore,
+}
+
+impl Metadata {
+    pub fn new() -> Result<Metadata, anyhow::Error> {
+        info!("Creating new instance of metadata manager");
+        let package_type_docs =
+            open_document_store(DS_PACKAGE_TYPES, ix_package_types, init_package_types)?;
+        todo!();
+    }
+}
+
+// Open the specified document store. If that fails, try creating it.
+fn open_document_store(
+    ds_name: &str,
+    index_fields: fn() -> Vec<IndexSpec>,
+    initial_records: fn() -> Vec<String>,
+) -> anyhow::Result<DocumentStore> {
+    info!("Opening document store: {}", ds_name);
+    match DocumentStore::get(ds_name) {
+        Ok(ds) => Ok(ds),
+        Err(error) => {
+            warn!(
+                "Failed to open document store {}; error was {}",
+                ds_name, error
+            );
+            info!("Attempting to create document store {}", ds_name);
+            let ds = match DocumentStore::create(ds_name, index_fields()) {
+                Ok(ds) => {
+                    info!("Created document store {}", ds_name);
+                    ds
+                }
+                Err(error) => {
+                    return failed_to_create_document_store(ds_name, error);
+                }
+            };
+            Err(anyhow!("Failed to open document store"))
+        }
+    }
+}
+
+fn failed_to_create_document_store(
+    ds_name: &str,
+    error: Box<dyn Error>,
+) -> Result<DocumentStore, anyhow::Error> {
+    let msg = format!(
+        "Failed to create document store {} due to error {}",
+        ds_name, error
+    );
+    error!("{}", msg);
+    return Err(anyhow!(msg));
+}
+
+impl MetadataApi for Metadata {
+    fn create_package_type(&self, pkg_type: &PackageType) -> anyhow::Result<(), anyhow::Error> {
+        todo!()
+    }
+
+    fn get_package_type(
+        &self,
+        name: PackageTypeName,
+    ) -> anyhow::Result<Option<PackageType>, anyhow::Error> {
+        todo!()
+    }
+
+    fn create_namespace(&self, namespace: &Namespace) -> anyhow::Result<(), anyhow::Error> {
+        todo!()
+    }
+
+    fn get_namespace(
+        &self,
+        package_type: PackageTypeName,
+        namespace_path: &[&str],
+    ) -> anyhow::Result<Option<Namespace>, anyhow::Error> {
+        todo!()
+    }
+
+    fn get_namespace_by_id(&self, id: &str) -> anyhow::Result<Option<Namespace>, anyhow::Error> {
+        todo!()
+    }
+
+    fn get_namespaces_by_package_type(
+        &self,
+        package_type: PackageTypeName,
+    ) -> anyhow::Result<NamespaceIterator, anyhow::Error> {
+        todo!()
+    }
+
+    fn create_package(&self, package: &Package) -> anyhow::Result<(), anyhow::Error> {
+        todo!()
+    }
+
+    fn get_package(
+        &self,
+        package_type: PackageTypeName,
+        namespace_id: &str,
+        package_name: &str,
+    ) -> anyhow::Result<Option<Package>, anyhow::Error> {
+        todo!()
+    }
+
+    fn get_package_by_namespace_path(
+        &self,
+        package_type: PackageTypeName,
+        namespace_path: &[&str],
+        package_name: &str,
+    ) -> anyhow::Result<Option<Package>, anyhow::Error> {
+        todo!()
+    }
+
+    fn get_packages_by_namespace_id(
+        &self,
+        namespace_id: &str,
+    ) -> anyhow::Result<PackageIterator, anyhow::Error> {
+        todo!()
+    }
+
+    fn update_package(
+        &self,
+        package: &Package,
+        previous_signature: &str,
+    ) -> anyhow::Result<(), anyhow::Error> {
+        todo!()
+    }
+
+    fn create_package_version(
+        &self,
+        package_version: &PackageVersion,
+    ) -> anyhow::Result<(), anyhow::Error> {
+        todo!()
+    }
+
+    fn get_package_version(
+        &self,
+        namespace_id: &str,
+        package_name: &str,
+        version: &str,
+    ) -> Result<Option<PackageVersion>, anyhow::Error> {
+        todo!()
+    }
+
+    fn get_package_version_by_id(&self, id: &str) -> Result<Option<PackageVersion>, anyhow::Error> {
+        todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::Rng;
+    use std::path::Path;
+
+    const DIR_PREFIX: &str = "metadata_test_";
+
+    fn do_in_temp_directory(
+        runner: fn() -> Result<(), anyhow::Error>,
+    ) -> Result<(), anyhow::Error> {
+        let mut rng = rand::thread_rng();
+        let n: u32 = rng.gen();
+        let mut dir_name = String::from(DIR_PREFIX);
+        dir_name.push_str(&n.to_string());
+        let dir_path = Path::new(&dir_name);
+        let prev_dir = env::current_dir()?;
+        info!("Creating temp directory {}", dir_path.to_str().unwrap());
+        fs::create_dir_all(dir_path)?;
+        env::set_current_dir(dir_path);
+        let result = runner();
+        env::set_current_dir(dir_path);
+        info!("Removing temp directory {}", dir_path.to_str().unwrap());
+        fs::remove_dir_all(dir_path);
+        result
+    }
+
+    #[test]
+    fn happy_metadata_test() -> Result<()> {
+        do_in_temp_directory(|| {
+            let metadata = Metadata::new()?;
+            Ok(())
+        })
     }
 }
