@@ -79,7 +79,12 @@ pub async fn handle_get_blobs(
         hash.get(7..9).unwrap(),
         hash.get(7..).unwrap()
     );
-    tx.send(hash.clone());
+
+    // TODO(prince-chrismc): Merge conflict -- review me
+    let mut send_message: String = "get_blobs | ".to_owned();
+    let hash_clone: String = hash.clone();
+    send_message.push_str(&hash_clone);
+    tx.send(send_message.clone());
     // match tx.send(hash.clone()).await {
     //     Ok(_) => debug!("hash sent"),
     //     Err(_) => error!("failed to send stdin input"),
@@ -167,9 +172,9 @@ pub async fn handle_patch_blob(
     );
     let append = append_to_blob(&mut blob_upload_dest, bytes);
     if let Err(e) = append {
-        return Err(warp::reject::custom(RegistryError {
+        Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
+        }))
     } else {
         let append_result = append.ok().unwrap();
         let range = format!(

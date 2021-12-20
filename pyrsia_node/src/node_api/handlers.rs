@@ -14,5 +14,4 @@
    limitations under the License.
 */
 
-pub mod document_store;
-pub mod network;
+pub mod swarm;

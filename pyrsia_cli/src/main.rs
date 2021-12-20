@@ -18,16 +18,13 @@ pub mod commands;
 
 use commands::config::*;
 use commands::node::*;
+use std::collections::HashSet;
 
 extern crate clap;
 use clap::{load_yaml, App};
 
 #[tokio::main]
 async fn main() {
-    // There are 2 methods listed below, we can decide which method to use as we get more clarity on cli structure.
-    //As of now yaml looks more neat
-
-    // 1. Yaml method of parsing commands
     let yaml = load_yaml!("cli.yaml");
     let matches = App::from(yaml).get_matches();
 
@@ -59,7 +56,24 @@ async fn main() {
                 let result = ping().await;
                 let _resp = match result {
                     Ok(resp) => {
-                        println!("Connection Successfull!! {}", resp)
+                        println!("Connection Successfull !! {}", resp)
+                    }
+                    Err(error) => {
+                        println!("Error: {}", error);
+                    }
+                };
+            }
+            if node_matches.is_present("ls") {
+                let result = peers_connected().await;
+                let _resp = match result {
+                    Ok(resp) => {
+                        println!("Connected Peers:");
+                        let peers_split = resp.split(',');
+                        let mut unique_peers = HashSet::new();
+                        for peer in peers_split {
+                            unique_peers.insert(peer);
+                        }
+                        unique_peers.iter().for_each(|p| println!("{}", p));
                     }
                     Err(error) => {
                         println!("Error: {}", error);
@@ -72,15 +86,4 @@ async fn main() {
 
         _ => unreachable!(),
     }
-
-    // 2. Builder pattern for structuring cli : this might allow more advanced configuration
-    /*let matches = App::new("pyrsia node")
-    .version("0.1.0")
-    .author("Mitali B. mitalib@jfrog.com")
-    .about("Zero-Trust Universal Decentralized Binary Network")
-    .subcommand(
-            App::new("config")
-                .about("node config")
-                .arg(Arg::new("add").short('a').about("add config")),
-    .get_matches();*/
 }

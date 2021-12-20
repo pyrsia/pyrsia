@@ -14,5 +14,6 @@
    limitations under the License.
 */
 
-pub mod document_store;
-pub mod network;
+mod metadata;
+
+use crate::node_manager::model;

@@ -404,6 +404,11 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
             verify_json_signature(&json)
         })
     }
+
+    /// Return the signature information in the signed JSON associated with this struct.
+    fn signatures(&self) -> Option<&str> {
+        todo!()
+    }
 }
 
 fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> {
