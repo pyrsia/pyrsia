@@ -5,8 +5,6 @@ on:
     types: [created, reopened, labeled]
   pull_request_target:
     types: [created, reopened, labeled]
-  project_card:
-    types: [moved]
 
 jobs:
   triage-new-issues:
@@ -50,14 +48,3 @@ jobs:
           project: Pyrsia Develop
           column: Blocked
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-  
-  move-to-blocked:
-    runs-on: ubuntu-latest
-    # Blocked column ID --> https://github.com/orgs/pyrsia/projects/2#column-16583791
-    if: |
-      github.event_name == 'project_card' && github.event.action == 'moved' &&
-      github.event.project_card.column_id == '16583791'
-    steps:
-      - uses: andymckay/labeler@1.0.4
-        with:
-          add-labels: blocked
