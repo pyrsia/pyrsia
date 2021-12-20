@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use signed_struct::signed_struct;
 
 #[signed_struct]
+#[derive(Debug)]
 pub struct PackageType {
     name: PackageTypeName,
     description: String,

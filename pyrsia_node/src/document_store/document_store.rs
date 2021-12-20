@@ -372,11 +372,11 @@ impl DocumentStore {
     ///         "field_one": "foo",
     ///         "field_two": "bar"
     ///     });
-    ///     let res = doc_store.store(&document.to_string());
+    ///     let res = doc_store.insert(&document.to_string());
     ///     assert!(res.is_ok());
     /// }
     /// ```
-    pub fn store(&self, document: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn insert(&self, document: &str) -> Result<(), Box<dyn std::error::Error>> {
         let data_store = DocumentStore::get_data_store(&self.name);
 
         let json_document = serde_json::from_str::<Value>(&document)?;
@@ -500,7 +500,7 @@ impl DocumentStore {
     ///     #     "field_one": "foo",
     ///     #     "field_two": "bar"
     ///     # });
-    ///     # doc_store.store(&document.to_string()).expect("should have stored");
+    ///     # doc_store.insert(&document.to_string()).expect("should have stored");
     ///     let mut filter = HashMap::new();
     ///     filter.insert("field_one", "foo");
     ///     filter.insert("field_two", "bar");
@@ -626,7 +626,7 @@ mod tests {
             "mostSignificantField": "msf1",
             "leastSignificantField": "12"
         });
-        doc_store.store(&doc.to_string()).expect("empty value");
+        doc_store.insert(&doc.to_string()).expect("empty value");
     }
 
     #[test]
@@ -644,7 +644,7 @@ mod tests {
             "leastSignificantField": "12"
         });
         doc_store
-            .store(&doc.to_string())
+            .insert(&doc.to_string())
             .expect_err("should not store with missing index fields.");
     }
 
@@ -659,7 +659,7 @@ mod tests {
         let doc_store = DocumentStore::get(name).expect("should not result in error");
 
         doc_store
-            .store(&String::from("{\"mostSignificantField\":\"value\""))
+            .insert(&String::from("{\"mostSignificantField\":\"value\""))
             .expect_err("should not store invalid json.");
     }
 
@@ -674,7 +674,7 @@ mod tests {
         let doc_store = DocumentStore::get(name).expect("should not result in error");
 
         doc_store
-            .store(&String::from("[{\"mostSignificantField\":\"value\"}]"))
+            .insert(&String::from("[{\"mostSignificantField\":\"value\"}]"))
             .expect_err("should not store non json object.");
     }
 
@@ -696,7 +696,7 @@ mod tests {
             "foo": "bar",
             "mostSignificantField": "msf1"
         });
-        doc_store.store(&doc.to_string()).expect("empty value");
+        doc_store.insert(&doc.to_string()).expect("empty value");
 
         let mut filter = HashMap::new();
         filter.insert("mostSignificantField", "msf1");
@@ -726,7 +726,7 @@ mod tests {
             "mostSignificantField": "msf1",
             "leastSignificantField": "12"
         });
-        doc_store.store(&doc.to_string()).expect("empty value");
+        doc_store.insert(&doc.to_string()).expect("empty value");
 
         let mut filter = HashMap::new();
         filter.insert("mostSignificantField", "msf2");
@@ -759,7 +759,7 @@ mod tests {
             "index2_field": "msf2"
         });
         doc_store
-            .store(&doc.to_string())
+            .insert(&doc.to_string())
             .expect("should not store with missing index fields.");
 
         let mut filter1 = HashMap::new();
