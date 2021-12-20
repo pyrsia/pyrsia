@@ -38,6 +38,7 @@ use docker::error_util::*;
 use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
 use document_store::document_store::DocumentStore;
+use document_store::document_store::IndexSpec;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 use node_api::handlers::swarm::*;
@@ -70,7 +71,11 @@ async fn main() {
     pretty_env_logger::init();
 
     // create the connection to the documentStore.
-    DocumentStore::create("document_store", vec![]).expect("Failed to create DocumentStore");
+    let index_one = "index_one";
+    let field1 = "mostSignificantField";
+    let idx1 = IndexSpec::new(index_one, vec![field1]);
+
+    DocumentStore::create("document_store", vec![idx1]).expect("Failed to create DocumentStore");
     let doc_store = DocumentStore::get("document_store").unwrap();
     doc_store.ping();
 
