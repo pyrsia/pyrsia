@@ -29,6 +29,7 @@ extern crate lazy_static;
 mod artifact_manager;
 mod docker;
 mod document_store;
+mod metadata_manager;
 mod network;
 mod node_api;
 mod node_manager;
