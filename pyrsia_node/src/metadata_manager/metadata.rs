@@ -510,7 +510,6 @@ mod tests {
     use rand::Rng;
     use serial_test::serial;
     use std::path::Path;
-    use pyrsia_client_lib::iso8601::now_as_utc_iso8601_string;
 
     const DIR_PREFIX: &str = "metadata_test_";
 
