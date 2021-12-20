@@ -22,7 +22,7 @@ use pyrsia_client_lib::signed::Signed;
 use signed_struct::signed_struct;
 
 #[signed_struct]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 /// Describes a name space.
 pub struct Namespace {
     /// A uuid that uniquely identifies the name space

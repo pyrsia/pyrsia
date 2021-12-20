@@ -28,6 +28,7 @@ use maplit::hashmap;
 use pyrsia_client_lib::iso8601;
 use pyrsia_client_lib::signed::{Attestation, Signed};
 use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::fmt::Debug;
@@ -346,15 +347,14 @@ impl MetadataApi for Metadata<'_> {
             FLD_NAMESPACES_PKG_TYPE => package_type_as_string.as_str(),
             FLD_NAMESPACES_PATH => namespace_path
         };
-        match self.namespace_docs.fetch(IX_NAMESPACES_PATH, filter) {
-            Err(error) => Err(anyhow!("Error fetching namespace: {}", error)),
-            Ok(Some(json)) => Ok(Some(Namespace::from_json_string(&json)?)),
-            Ok(None) => Ok(None),
-        }
+        fetch_namespace(self, IX_NAMESPACES_PATH, filter)
     }
 
-    fn get_namespace_by_id(&self, _id: &str) -> anyhow::Result<Option<Namespace>, anyhow::Error> {
-        todo!()
+    fn get_namespace_by_id(&self, id: &str) -> anyhow::Result<Option<Namespace>, anyhow::Error> {
+        let filter = hashmap! {
+            FLD_NAMESPACES_ID => id
+        };
+        fetch_namespace(self, IX_NAMESPACES_ID, filter)
     }
 
     fn get_namespaces_by_package_type(
@@ -425,6 +425,14 @@ impl MetadataApi for Metadata<'_> {
     }
 }
 
+fn fetch_namespace(md: &Metadata, index_name: &str, filter: HashMap<&str, &str>) -> anyhow::Result<Option<Namespace>, anyhow::Error> {
+    match md.namespace_docs.fetch(index_name, filter) {
+        Err(error) => Err(anyhow!("Error fetching namespace: {}", error)),
+        Ok(Some(json)) => Ok(Some(Namespace::from_json_string(&json)?)),
+        Ok(None) => Ok(None),
+    }
+}
+
 fn insert_metadata<'a, T: Signed<'a> + Debug>(
     ds: &DocumentStore,
     signed: &T,
@@ -434,7 +442,8 @@ fn insert_metadata<'a, T: Signed<'a> + Debug>(
             Ok(_) => Ok(()),
             Err(error) => Err(anyhow!(
                 "Failed to create package_type record: {:?}\nError is {}",
-                signed, error.to_string()
+                signed,
+                error.to_string()
             )),
         },
         None => Err(anyhow!(
@@ -585,8 +594,14 @@ mod tests {
             let id = "asd928374".to_string();
             let path = "all/or/nothing".to_string();
             let timestamp = Some(iso8601::now_as_utc_iso8601_string());
-            let mut namespace =
-                Namespace::new(id.clone(), PackageTypeName::Docker, path.clone(), vec![], timestamp.clone(), timestamp.clone());
+            let mut namespace = Namespace::new(
+                id.clone(),
+                PackageTypeName::Docker,
+                path.clone(),
+                vec![],
+                timestamp.clone(),
+                timestamp.clone(),
+            );
 
             namespace.sign_json(
                 JwsSignatureAlgorithms::RS512,
@@ -594,13 +609,10 @@ mod tests {
                 &key_pair.public_key,
             )?;
             metadata.create_namespace(&namespace)?;
-            let namespace2 = metadata.get_namespace(PackageTypeName::Docker, &path)?.unwrap();
-            assert_eq!(namespace2.id(), &id);
-            assert_eq!(namespace2.package_type(), &PackageTypeName::Docker);
-            assert_eq!(namespace2.namespace_path(), &path);
-            assert!(namespace2.administrators().is_empty());
-            assert_eq!(namespace2.creation_time().clone().unwrap().clone(), timestamp.clone().unwrap().clone());
-            assert_eq!(namespace2.modified_time().clone().unwrap().clone(), timestamp.clone().unwrap().clone());
+            let namespace2 = metadata
+                .get_namespace(PackageTypeName::Docker, &path)?
+                .unwrap();
+            assert_eq!(namespace2, namespace);
             Ok(())
         })
     }
