@@ -14,7 +14,8 @@
    limitations under the License.
 */
 
-use chrono::Utc;
+
+use std::time::{SystemTime, UNIX_EPOCH};
 use log::{info, warn};
 use serde_json::error::Error;
 use sha2::{Digest, Sha256};
@@ -29,13 +30,14 @@ const DIFFICULTY_PREFIX: &str = "00";
 
 impl BlockChain {
     pub fn new() -> Self {
-        BlockChain { blocks: vec![] }
+        BlockChain {
+            blocks: vec![]
         }
-
+    }
     pub fn genesis(&mut self) -> &mut Self {
         let genesis_block = Block {
             id: 0,
-            timestamp: Utc::now().timestamp(),
+            timestamp: now(),
             previous_hash: String::from("genesis"),
             data: String::from("genesis!"),
             nonce: 2836,
@@ -46,10 +48,11 @@ impl BlockChain {
     }
     pub(crate) fn dump(&self) -> Result<String, Error> {
         serde_json::to_string_pretty(&self.blocks).map(|pretty_json| {
-            println!("{}", pretty_json);
+            info!("{}", pretty_json);
             pretty_json
         })
     }
+
 
     pub fn add_block(&mut self, block: Block) -> Option<&Block> {
         // let block = self.mk_block( data.clone()).expect("error creating block");
@@ -61,17 +64,17 @@ impl BlockChain {
         None
     }
     pub fn mk_block(&mut self, data: String) -> Option<Block> {
-        let now = Utc::now();
+        let now = now();
         self.blocks.last()
             .map(|last_block| {
-                let (nonce, hash) = mine_block(last_block.id, now.timestamp(), &last_block.hash, &data);
+                let (nonce, hash) = mine_block(last_block.id, now, &last_block.hash, &data);
                 (nonce, hash, last_block)
             })
             .map(|(nonce, hash, last_block)| Block {
                 id: last_block.id.clone() + 1,
                 hash,
                 previous_hash: last_block.hash.clone(),
-                timestamp: now.timestamp(),
+                timestamp: now,
                 data,
                 nonce,
             })
@@ -119,9 +122,14 @@ impl BlockChain {
         true
     }
 }
+fn now() -> u128 {
+    match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(n) => n.as_millis(),
+        Err(_) => panic!("SystemTime before UNIX EPOCH!"),
+    }
+}
 
-
-fn mine_block(id: u64, timestamp: i64, previous_hash: &str, data: &str) -> (u64, String) {
+fn mine_block(id: u64, timestamp: u128, previous_hash: &str, data: &str) -> (u64, String) {
     info!("mining block...");
 
     (0..u64::MAX).map(|nonce| (nonce, calculate_hash(id, timestamp, previous_hash, data, nonce)))
@@ -130,7 +138,7 @@ fn mine_block(id: u64, timestamp: i64, previous_hash: &str, data: &str) -> (u64,
         .map(|(nonce, hash, _bin)| (nonce, hex::encode(hash))).expect("results")
 }
 
-fn calculate_hash(id: u64, timestamp: i64, previous_hash: &str, data: &str, nonce: u64) -> Vec<u8> {
+fn calculate_hash(id: u64, timestamp: u128, previous_hash: &str, data: &str, nonce: u64) -> Vec<u8> {
     let data = serde_json::json!({
         "id": id,
         "previous_hash": previous_hash,

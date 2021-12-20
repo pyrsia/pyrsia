@@ -66,6 +66,7 @@ use std::{
 use tokio::io::{self, AsyncBufReadExt};
 use tokio::sync::Mutex;
 use warp::Filter;
+use super::block_chain::{block::Block, block_chain::BlockChain};
 
 const DEFAULT_PORT: &str = "7878";
 
