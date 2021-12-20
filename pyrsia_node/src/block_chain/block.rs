@@ -24,4 +24,3 @@ pub struct Block {
     pub data: String,
     pub nonce: u64,
 }
-

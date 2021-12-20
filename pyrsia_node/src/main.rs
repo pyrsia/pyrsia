@@ -259,13 +259,13 @@ async fn main() {
                     "block" => {
                         // assuming the message is a json version of the block
 
-                        let block = Block{
+                        let block = Block {
                             id: 0,
                             hash: "".to_string(),
                             previous_hash: "".to_string(),
                             timestamp: 0,
                             data: "".to_string(),
-                            nonce: 0
+                            nonce: 0,
                         };
                         bc.add_block(block);
                     }

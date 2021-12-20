@@ -13,9 +13,8 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-
-
 use std::time::{SystemTime, UNIX_EPOCH};
+
 use log::{info, warn};
 use serde_json::error::Error;
 use sha2::{Digest, Sha256};
@@ -30,9 +29,7 @@ const DIFFICULTY_PREFIX: &str = "00";
 
 impl BlockChain {
     pub fn new() -> Self {
-        BlockChain {
-            blocks: vec![]
-        }
+        BlockChain { blocks: vec![] }
     }
     pub fn genesis(&mut self) -> &mut Self {
         let genesis_block = Block {
@@ -52,8 +49,6 @@ impl BlockChain {
             pretty_json
         })
     }
-
-
     pub fn add_block(&mut self, block: Block) -> Option<&Block> {
         // let block = self.mk_block( data.clone()).expect("error creating block");
         let last_block = self.blocks.last().expect("has a block");
@@ -65,7 +60,8 @@ impl BlockChain {
     }
     pub fn mk_block(&mut self, data: String) -> Option<Block> {
         let now = now();
-        self.blocks.last()
+        self.blocks
+            .last()
             .map(|last_block| {
                 let (nonce, hash) = mine_block(last_block.id, now, &last_block.hash, &data);
                 (nonce, hash, last_block)
@@ -85,7 +81,8 @@ impl BlockChain {
             warn!("block with id: {} has wrong previous hash", block.id);
             return false;
         }
-        if !hash_to_binary_representation(&hex::decode(&block.hash).expect("can decode from hex")).starts_with(DIFFICULTY_PREFIX)
+        if !hash_to_binary_representation(&hex::decode(&block.hash).expect("can decode from hex"))
+            .starts_with(DIFFICULTY_PREFIX)
         {
             warn!("block with id: {} has invalid difficulty", block.id);
             return false;
@@ -122,6 +119,7 @@ impl BlockChain {
         true
     }
 }
+
 fn now() -> u128 {
     match SystemTime::now().duration_since(UNIX_EPOCH) {
         Ok(n) => n.as_millis(),
@@ -132,13 +130,32 @@ fn now() -> u128 {
 fn mine_block(id: u64, timestamp: u128, previous_hash: &str, data: &str) -> (u64, String) {
     info!("mining block...");
 
-    (0..u64::MAX).map(|nonce| (nonce, calculate_hash(id, timestamp, previous_hash, data, nonce)))
-        .map(|(nonce, hash)| (nonce, hash.clone(), hash_to_binary_representation(&hash.clone())))
+    (0..u64::MAX)
+        .map(|nonce| {
+            (
+                nonce,
+                calculate_hash(id, timestamp, previous_hash, data, nonce),
+            )
+        })
+        .map(|(nonce, hash)| {
+            (
+                nonce,
+                hash.clone(),
+                hash_to_binary_representation(&hash.clone()),
+            )
+        })
         .find(|(_nonce, _hash, binary_hash)| binary_hash.starts_with(DIFFICULTY_PREFIX))
-        .map(|(nonce, hash, _bin)| (nonce, hex::encode(hash))).expect("results")
+        .map(|(nonce, hash, _bin)| (nonce, hex::encode(hash)))
+        .expect("results")
 }
 
-fn calculate_hash(id: u64, timestamp: u128, previous_hash: &str, data: &str, nonce: u64) -> Vec<u8> {
+fn calculate_hash(
+    id: u64,
+    timestamp: u128,
+    previous_hash: &str,
+    data: &str,
+    nonce: u64,
+) -> Vec<u8> {
     let data = serde_json::json!({
         "id": id,
         "previous_hash": previous_hash,
@@ -150,9 +167,8 @@ fn calculate_hash(id: u64, timestamp: u128, previous_hash: &str, data: &str, non
     hasher.update(data.to_string().as_bytes());
     hasher.finalize().as_slice().to_owned()
 }
-
 fn hash_to_binary_representation(hash: &[u8]) -> String {
-    hash.iter().map(|c| format!("{:b}", c)).fold("".to_string(), |cur, nxt| cur + &nxt)
+    hash.iter()
+        .map(|c| format!("{:b}", c))
+        .fold("".to_string(), |cur, nxt| cur + &nxt)
 }
-
-
