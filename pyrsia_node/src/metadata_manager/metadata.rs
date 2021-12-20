@@ -450,29 +450,33 @@ struct DefaultTrustManager {}
 
 impl TrustManager for DefaultTrustManager {
     fn trust_package_type(&self, pkg_type: &PackageType) -> anyhow::Result<()> {
-        let json = pkg_type.json();
-        match json {
-            Some(_) => match pkg_type.verify_signature() {
-                Ok(attestations) => {
-                    process_attestations(attestations)
-                }
-                Err(error) => Err(error),
-            },
-            None => Err(anyhow!("Unsigned package type")),
-        }
+        common_trust_logic(pkg_type)
     }
 
-    fn trust_namespace(&self, _namespace: &Namespace) -> Result<()> {
-        todo!()
+    fn trust_namespace(&self, namespace: &Namespace) -> Result<()> {
+        common_trust_logic(namespace)
     }
 
-    fn trust_package(&self, _package: &Package) -> Result<()> {
-        todo!()
+    fn trust_package(&self, package: &Package) -> Result<()> {
+        common_trust_logic(package)
     }
 
-    fn trust_package_version(self, _package_version: &PackageVersion) -> Result<()> {
-        todo!()
+    fn trust_package_version(self, package_version: &PackageVersion) -> Result<()> {
+        common_trust_logic(package_version)
     }
+}
+
+fn common_trust_logic<'a, T: Signed<'a>>(signed: &T) -> anyhow::Result<()> {
+    match signed.json() {
+        Some(_) => match signed.verify_signature() {
+            Ok(attestations) => {
+                process_attestations(attestations)
+            }
+            Err(error) => Err(error),
+        },
+        None => Err(anyhow!("Unsigned metadata")),
+    }
+
 }
 
 fn process_attestations(attestations: Vec<Attestation>) -> Result<()> {
