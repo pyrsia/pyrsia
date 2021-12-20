@@ -585,8 +585,9 @@ mod tests {
 
             let id = "asd928374".to_string();
             let path = "all/or/nothing".to_string();
+            let timestamp = Some(iso8601::now_as_utc_iso8601_string());
             let mut namespace =
-                Namespace::new(id.clone(), PackageTypeName::Docker, path.clone(), vec![], Some(iso8601::now_as_utc_iso8601_string()), Some(now_as_utc_iso8601_string()));
+                Namespace::new(id.clone(), PackageTypeName::Docker, path.clone(), vec![], timestamp.clone(), timestamp.clone());
 
             namespace.sign_json(
                 JwsSignatureAlgorithms::RS512,
@@ -596,7 +597,11 @@ mod tests {
             metadata.create_namespace(&namespace)?;
             let namespace2 = metadata.get_namespace(PackageTypeName::Docker, &path)?.unwrap();
             assert_eq!(namespace2.id(), &id);
+            assert_eq!(namespace2.package_type(), &PackageTypeName::Docker);
             assert_eq!(namespace2.namespace_path(), &path);
+            assert!(namespace2.administrators().is_empty());
+            assert_eq!(namespace2.creation_time().clone().unwrap().clone(), timestamp.clone().unwrap().clone());
+            assert_eq!(namespace2.modified_time().clone().unwrap().clone(), timestamp.clone().unwrap().clone());
             Ok(())
         })
     }

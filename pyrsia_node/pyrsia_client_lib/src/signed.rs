@@ -80,7 +80,7 @@ use std::option::Option;
 use crate::signed::json_parser::{JsonPathElement, parse};
 use anyhow::{anyhow, Context, Result};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
-use log::{debug, trace, warn};
+use log::{debug, trace};
 use openssl::pkey::{PKey, Private};
 use openssl::{
     hash::MessageDigest,
