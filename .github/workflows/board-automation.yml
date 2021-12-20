@@ -2,7 +2,9 @@ name: Project Board Automation - Pyrsia Develop
 
 on:
   issues:
-    types: [created, reopend, labeled]
+    types: [created, reopened, labeled]
+  pull_request_target:
+    types: [created, reopened, labeled]
   project_card:
     types: [moved]
 
@@ -11,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'issues' &&
-      github.event.action == 'created' && github.event.action == 'reopend'
+      github.event.action == 'created' && github.event.action == 'reopened'
     steps:
       - uses: actions-ecosystem/action-add-labels@v1
         with:
@@ -21,10 +23,27 @@ jobs:
           project: Pyrsia Develop
           column: Backlog for them Demo
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+  in-progress-new-prs:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'created' && github.event.action == 'reopened'
+    steps:
+      - uses: actions-ecosystem/action-add-labels@v1
+        with:
+          labels: triage
+      - uses: alex-page/github-project-automation-plus@v0.8.1
+        with:
+          project: Pyrsia Develop
+          column: In Progress
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
     
   label-blocked:
     runs-on: ubuntu-latest
-    if: github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'blocked'
+    if: |
+      (github.event_name == 'issues' ||  github.event_name == 'pull_request_target') &&
+      github.event.action == 'labeled' && github.event.label.name == 'blocked'
     steps:
       - uses: alex-page/github-project-automation-plus@v0.8.1
         with:
