@@ -13,6 +13,22 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+extern crate pyrsia_client_lib;
+extern crate serde;
+extern crate serde_json;
 
-pub mod document_store;
-pub mod network;
+use pyrsia_client_lib::signed::Signed;
+use serde::{Deserialize, Serialize};
+
+use signed_struct::signed_struct;
+
+#[signed_struct]
+struct PackageType {
+    name: PackageTypeName,
+    description: String,
+}
+
+#[derive(Serialize, Deserialize)]
+enum PackageTypeName {
+    Docker,
+}

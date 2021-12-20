@@ -13,6 +13,19 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+extern crate pyrsia_client_lib;
+extern crate serde;
+extern crate serde_json;
 
-pub mod document_store;
-pub mod network;
+use pyrsia_client_lib::signed::Signed;
+use signed_struct::signed_struct;
+
+#[signed_struct]
+#[derive(Debug)]
+pub struct Namespace {
+    id: String,
+    namespace_path: Vec<String>,
+    administrators: Vec<Vec<u8>>,
+    creation_time: Option<String>,
+    modified_time: Option<String>,
+}

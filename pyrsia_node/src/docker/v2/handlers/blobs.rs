@@ -1,4 +1,19 @@
-// module for blobs handling
+/*
+   Copyright 2021 JFrog Ltd
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 use bytes::{Buf, Bytes};
 use log::{debug, error};
 use std::collections::HashMap;
@@ -24,7 +39,11 @@ pub async fn handle_get_blobs(
     debug!("Searching for blob: {}", blob);
     let blob_path = Path::new(&blob);
     if !blob_path.exists() {
-        match tx.send(hash.clone()).await {
+        let mut send_message: String = "get_blobs | ".to_owned();
+        let hash_clone: String = hash.clone();
+        send_message.push_str(&hash_clone);
+
+        match tx.send(send_message).await {
             Ok(_) => debug!("hash sent"),
             Err(_) => error!("failed to send stdin input"),
         }
@@ -89,9 +108,9 @@ pub async fn handle_patch_blob(
     );
     let append = append_to_blob(&mut blob_upload_dest, bytes);
     if let Err(e) = append {
-        return Err(warp::reject::custom(RegistryError {
+        Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
+        }))
     } else {
         let append_result = append.ok().unwrap();
         let range = format!(
