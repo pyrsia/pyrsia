@@ -77,7 +77,7 @@ use std::char::REPLACEMENT_CHARACTER;
 use std::io::Write;
 use std::option::Option;
 
-use crate::signed::json_parser::{parse, JsonPathElement};
+use crate::signed::json_parser::{JsonPathElement, parse};
 use anyhow::{anyhow, Context, Result};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
 use log::{debug, trace, warn};
@@ -89,8 +89,7 @@ use openssl::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use time::format_description::FormatItem;
-use time::{format_description, OffsetDateTime};
+use time::OffsetDateTime;
 
 /// An enumeration of the supported signature algorithms used by this module to sign structs and
 /// JSON.
@@ -132,8 +131,6 @@ impl JwsSignatureAlgorithms {
 
 // The default size for RSA keys
 const DEFAULT_RSA_KEY_SIZE: u32 = 8192;
-
-const ISO8601_FORMAT: &str = "[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:3]Z";
 
 /// This contains the information from an individual verified signature of a struct or JSON.
 /// When the signature(s) of a signed struct are verified, one of this structs is produced to
@@ -699,23 +696,13 @@ fn unicode_32_bit_to_string(u: &[u32]) -> String {
     s
 }
 
-fn iso8601_format_spec() -> Vec<FormatItem<'static>> {
-    format_description::parse(ISO8601_FORMAT).unwrap() // Call unwrap because this format spec is tested and should never fail. If it does, there is nothing to do but panic.
-}
-
-fn now_as_iso8601_string() -> String {
-    OffsetDateTime::now_utc()
-        .format(&iso8601_format_spec())
-        .unwrap() // If the formatting fails there is no reasonable action but panic.
-}
-
 fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
     let mut header = Map::new();
     header.insert(
         SIGNER_FIELD_NAME.to_owned(),
         json!(base64::encode_config(public_key, base64::STANDARD_NO_PAD)),
     );
-    let now_string = now_as_iso8601_string();
+    let now_string = crate::iso8601::now_as_utc_iso8601_string();
     trace!("Timestamping signature at {}", now_string);
     header.insert(
         TIMESTAMP_FIELD_NAME.to_owned(),
@@ -1108,6 +1095,7 @@ mod tests {
     use anyhow::anyhow;
     use json_parser::*;
     use log::info;
+    use crate::iso8601::now_as_utc_iso8601_string;
 
     //noinspection NonAsciiCharacters
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -1268,7 +1256,7 @@ mod tests {
 
     #[test]
     fn parse_iso8601_test() {
-        let now = now_as_iso8601_string();
+        let now = now_as_utc_iso8601_string();
         let odt = parse_iso8601(&now);
         assert!(odt.is_some());
         let dt = odt.unwrap();

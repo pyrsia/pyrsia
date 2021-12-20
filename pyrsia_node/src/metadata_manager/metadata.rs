@@ -15,6 +15,7 @@
 */
 extern crate anyhow;
 extern crate log;
+extern crate maplit;
 
 use super::model::namespace::Namespace;
 use super::model::package::Package;
@@ -23,9 +24,10 @@ use super::model::package_version::PackageVersion;
 use anyhow::anyhow;
 use anyhow::Result;
 use log::{debug, error, info, warn};
+use maplit::hashmap;
+use pyrsia_client_lib::iso8601;
 use pyrsia_client_lib::signed::{Attestation, Signed};
 use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
-use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::fmt::Debug;
@@ -60,7 +62,7 @@ pub trait MetadataApi {
     fn get_namespace(
         &self,
         package_type: PackageTypeName,
-        namespace_path: &[&str],
+        namespace_path: &str,
     ) -> Result<Option<Namespace>, anyhow::Error>;
 
     /// Get the namespace identified by the given id.
@@ -307,22 +309,8 @@ fn failed_to_create_document_store(
 impl MetadataApi for Metadata<'_> {
     fn create_package_type(&self, pkg_type: &PackageType) -> anyhow::Result<(), anyhow::Error> {
         match self.trust_manager.trust_package_type(pkg_type) {
-            Ok(_) => {
-                if let Err(error) = self.package_type_docs.insert(&pkg_type.json().unwrap()) {
-                    error!("{}", error);
-                    Err(anyhow!(
-                        "Failed to create package_type record: {:?}",
-                        pkg_type
-                    ))
-                } else {
-                    Ok(())
-                }
-            }
-            Err(error) => Err(anyhow!(
-                "New package type is not trusted: JSON is {}\nError is{}",
-                pkg_type.json().unwrap_or("None".to_string()),
-                error
-            )),
+            Ok(_) => insert_metadata(&self.package_type_docs, pkg_type),
+            Err(error) => untrusted_metadata_error(pkg_type, &error.to_string()),
         }
     }
 
@@ -330,9 +318,10 @@ impl MetadataApi for Metadata<'_> {
         &self,
         name: PackageTypeName,
     ) -> anyhow::Result<Option<PackageType>, anyhow::Error> {
-        let mut filter = HashMap::new();
         let name_as_string = name.to_string();
-        filter.insert(FLD_PACKAGE_TYPES_NAME, name_as_string.as_str());
+        let filter = hashmap! {
+            FLD_PACKAGE_TYPES_NAME => name_as_string.as_str()
+        };
         match self.package_type_docs.fetch(IX_PACKAGE_TYPES_NAMES, filter) {
             Err(error) => Err(anyhow!("Error fetching package type: {}", error)),
             Ok(Some(json)) => Ok(Some(PackageType::from_json_string(&json)?)),
@@ -342,27 +331,26 @@ impl MetadataApi for Metadata<'_> {
 
     fn create_namespace(&self, namespace: &Namespace) -> anyhow::Result<(), anyhow::Error> {
         match self.trust_manager.trust_namespace(namespace) {
-            Ok(_) => {
-                if let Err(error) = self.namespace_docs.insert(&namespace.json().unwrap()) {
-                    error!("{}", error);
-                    Err(anyhow!(
-                        "Failed to create namespace record: {:?}",
-                        namespace
-                    ))
-                } else {
-                    Ok(())
-                }
-            }
-            Err(error) => Err(anyhow!("New namespace is not trusted: {}", error)),
+            Ok(_) => insert_metadata(&self.namespace_docs, namespace),
+            Err(error) => untrusted_metadata_error(namespace, &error.to_string()),
         }
     }
 
     fn get_namespace(
         &self,
-        _package_type: PackageTypeName,
-        _namespace_path: &[&str],
+        package_type: PackageTypeName,
+        namespace_path: &str,
     ) -> anyhow::Result<Option<Namespace>, anyhow::Error> {
-        todo!()
+        let package_type_as_string = package_type.to_string();
+        let filter = hashmap! {
+            FLD_NAMESPACES_PKG_TYPE => package_type_as_string.as_str(),
+            FLD_NAMESPACES_PATH => namespace_path
+        };
+        match self.namespace_docs.fetch(IX_NAMESPACES_PATH, filter) {
+            Err(error) => Err(anyhow!("Error fetching namespace: {}", error)),
+            Ok(Some(json)) => Ok(Some(Namespace::from_json_string(&json)?)),
+            Ok(None) => Ok(None),
+        }
     }
 
     fn get_namespace_by_id(&self, _id: &str) -> anyhow::Result<Option<Namespace>, anyhow::Error> {
@@ -437,6 +425,33 @@ impl MetadataApi for Metadata<'_> {
     }
 }
 
+fn insert_metadata<'a, T: Signed<'a> + Debug>(
+    ds: &DocumentStore,
+    signed: &T,
+) -> anyhow::Result<(), anyhow::Error> {
+    match signed.json() {
+        Some(json) => match ds.insert(&json) {
+            Ok(_) => Ok(()),
+            Err(error) => Err(anyhow!(
+                "Failed to create package_type record: {:?}\nError is {}",
+                signed, error.to_string()
+            )),
+        },
+        None => Err(anyhow!(
+            "A supposedly trusted metadata struct is missing its JSON: {:?}",
+            signed
+        )),
+    }
+}
+
+fn untrusted_metadata_error<'a, T: Signed<'a>>(signed: &T, error: &str) -> anyhow::Result<()> {
+    Err(anyhow!(
+        "New metadata is not trusted: JSON is {}\nError is{}",
+        signed.json().unwrap_or("None".to_string()),
+        error
+    ))
+}
+
 // TODO move trust manager trait and its default implementation to a separate module
 trait TrustManager: Debug {
     fn trust_package_type(&self, pkg_type: &PackageType) -> Result<()>;
@@ -469,14 +484,11 @@ impl TrustManager for DefaultTrustManager {
 fn common_trust_logic<'a, T: Signed<'a>>(signed: &T) -> anyhow::Result<()> {
     match signed.json() {
         Some(_) => match signed.verify_signature() {
-            Ok(attestations) => {
-                process_attestations(attestations)
-            }
+            Ok(attestations) => process_attestations(attestations),
             Err(error) => Err(error),
         },
         None => Err(anyhow!("Unsigned metadata")),
     }
-
 }
 
 fn process_attestations(attestations: Vec<Attestation>) -> Result<()> {
@@ -498,6 +510,7 @@ mod tests {
     use rand::Rng;
     use serial_test::serial;
     use std::path::Path;
+    use pyrsia_client_lib::iso8601::now_as_utc_iso8601_string;
 
     const DIR_PREFIX: &str = "metadata_test_";
 
@@ -524,7 +537,6 @@ mod tests {
     #[serial]
     fn package_type_test() -> Result<()> {
         do_in_temp_directory(|| {
-            info!("Creating metadata instance");
             let metadata = Metadata::new()?;
             info!("Created metadata instance: {:?}", metadata);
 
@@ -539,7 +551,6 @@ mod tests {
                 &key_pair.private_key,
                 &key_pair.public_key,
             )?;
-            info!("creating signed package type");
             metadata.create_package_type(&package_type)?;
             let package_type2 = metadata.get_package_type(PackageTypeName::Docker)?.unwrap();
             assert_eq!(package_type2.name(), package_type.name());
@@ -560,5 +571,33 @@ mod tests {
             ));
         };
         Ok(())
+    }
+
+    #[test]
+    #[serial]
+    fn namespace_test() -> Result<()> {
+        do_in_temp_directory(|| {
+            let metadata = Metadata::new()?;
+            info!("Created metadata instance: {:?}", metadata);
+
+            let key_pair = create_key_pair(JwsSignatureAlgorithms::RS512)?;
+            info!("Created key pair");
+
+            let id = "asd928374".to_string();
+            let path = "all/or/nothing".to_string();
+            let mut namespace =
+                Namespace::new(id.clone(), PackageTypeName::Docker, path.clone(), vec![], Some(iso8601::now_as_utc_iso8601_string()), Some(now_as_utc_iso8601_string()));
+
+            namespace.sign_json(
+                JwsSignatureAlgorithms::RS512,
+                &key_pair.private_key,
+                &key_pair.public_key,
+            )?;
+            metadata.create_namespace(&namespace)?;
+            let namespace2 = metadata.get_namespace(PackageTypeName::Docker, &path)?.unwrap();
+            assert_eq!(namespace2.id(), &id);
+            assert_eq!(namespace2.namespace_path(), &path);
+            Ok(())
+        })
     }
 }
