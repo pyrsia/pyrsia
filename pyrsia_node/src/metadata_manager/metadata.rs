@@ -29,7 +29,6 @@ use pyrsia_client_lib::iso8601;
 use pyrsia_client_lib::signed::{Attestation, Signed};
 use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
 use serde::de::Unexpected::Str;
-use serde_json::Value::String;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
