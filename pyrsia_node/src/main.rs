@@ -30,11 +30,11 @@ extern crate lazy_static;
 mod artifact_manager;
 mod docker;
 mod document_store;
+mod logging;
 mod metadata_manager;
 mod network;
 mod node_api;
 mod node_manager;
-mod logging;
 mod utils;
 
 use docker::error_util::*;
@@ -227,16 +227,13 @@ async fn main() {
                 line = stdin.next_line() => Some(EventType::Input(line.expect("can get line").expect("can read line from stdin"))),
                 message = rx.recv() => Some(EventType::Message(message.expect("message exists"))),
 
-                // TODO(prince-chrismc): Merge Conflict -- Refactor to new enum fashion
-                new_hash = blobs_need_hash.select_next_some() => {
-                    info!("New hash: {}", new_hash);
-                    swarm.behaviour_mut().floodsub_mut().publish(floodsub_topic.clone(), new_hash.as_bytes());
-                    swarm.behaviour_mut().lookup_blob(new_hash).unwrap();
-                }
-               // response = rx.recv() => Some(EventType::Response(response.expect("response exists"))),
+                // TODO(prince-chrismc): Merge Conflict -- Test
+                new_hash = blobs_need_hash.select_next_some() => Some(EventType::Response(new_hash)),
+                response = rx.recv() => Some(EventType::Response(response.expect("response exists"))),
+
                 event = swarm.select_next_some() =>  {
                     if let SwarmEvent::NewListenAddr { address, .. } = event {
-                    info!("Listening on {:?}", address);
+                        info!("Listening on {:?}", address);
                     }
 
                     //SwarmEvent::Behaviour(e) => panic!("Unexpected event: {:?}", e),
