@@ -35,7 +35,6 @@ mod metadata_manager;
 mod network;
 mod node_api;
 mod node_manager;
-mod utils;
 
 use docker::error_util::*;
 use docker::v2::handlers::blobs::*;
@@ -165,8 +164,6 @@ async fn main() {
 
     let (tx, mut rx) = mpsc::channel(32);
 
-    let tx1 = tx.clone();
-
     let (upload_tx, mut upload_rx) = tokio::sync::mpsc::channel(32);
     let utx1 = upload_tx.clone();
     let mut blobs_need_hash = GetBlobsHandle::new();
@@ -229,7 +226,6 @@ async fn main() {
 
                 // TODO(prince-chrismc): Merge Conflict -- Test
                 new_hash = blobs_need_hash.select_next_some() => Some(EventType::Response(new_hash)),
-                response = rx.recv() => Some(EventType::Response(response.expect("response exists"))),
 
                 event = swarm.select_next_some() =>  {
                     if let SwarmEvent::NewListenAddr { address, .. } = event {
