@@ -214,67 +214,10 @@ fn date_time_from_json(json_header: &Value, field_name: &str) -> Option<OffsetDa
     match &json_header[field_name] {
         Value::String(time_string) => {
             let unquoted_time_string: &str = time_string[1..time_string.len() - 1].as_ref();
-            parse_iso8601(unquoted_time_string)
+            crate::iso8601::parse_iso8601(unquoted_time_string)
         }
         _ => None,
     }
-}
-
-fn parse_iso8601(dt_string: &str) -> Option<OffsetDateTime> {
-    match iso8601::datetime(dt_string) {
-        Ok(date_time) => {
-            match date_time.date {
-                iso8601::Date::YMD { year, month, day } => Some(
-                    iso8601_date_time_to_offset_date_time(year, month, day, date_time.time),
-                ),
-                iso8601::Date::Week {
-                    year: _,
-                    ww: _,
-                    d: _,
-                } => {
-                    warn!(
-                        "Unsupported timestamp in year-week-day format {}",
-                        dt_string
-                    );
-                    None
-                }
-                iso8601::Date::Ordinal { year: _, ddd: _ } => {
-                    warn!("Unsupported timestamp in year-day format {}", dt_string);
-                    None
-                }
-            }
-        }
-        Err(error) => {
-            warn!("Error parsing JSON timestamp {}", error);
-            None
-        }
-    }
-}
-
-fn iso8601_date_time_to_offset_date_time(
-    year: i32,
-    month: u32,
-    day: u32,
-    time: iso8601::Time,
-) -> OffsetDateTime {
-    let formatted_date_time = format!(
-        "{:04}-{:02}-{:02} {:02}:{:02}:{:02}:{:03} {:02}:{:02}",
-        year,
-        month,
-        day,
-        time.hour,
-        time.minute,
-        time.second,
-        time.millisecond,
-        time.tz_offset_hours,
-        time.tz_offset_minutes
-    );
-    println!("{}", formatted_date_time);
-    let format = time::format_description::parse(
-        "[year]-[month]-[day] [hour]:[minute]:[second]:[subsecond] [offset_hour]:[offset_minute]",
-    )
-    .unwrap();
-    OffsetDateTime::parse(&formatted_date_time, &format).unwrap()
 }
 
 /// An instance of this struct is created to hold a key pair. The struct can be serialized to save
@@ -1095,7 +1038,7 @@ mod tests {
     use anyhow::anyhow;
     use json_parser::*;
     use log::info;
-    use crate::iso8601::now_as_utc_iso8601_string;
+    use crate::iso8601::{now_as_utc_iso8601_string, parse_iso8601};
 
     //noinspection NonAsciiCharacters
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
