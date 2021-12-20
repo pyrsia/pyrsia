@@ -28,6 +28,8 @@ use maplit::hashmap;
 use pyrsia_client_lib::iso8601;
 use pyrsia_client_lib::signed::{Attestation, Signed};
 use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+use serde::de::Unexpected::Str;
+use serde_json::Value::String;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
@@ -222,6 +224,23 @@ fn ix_namespaces() -> Vec<IndexSpec> {
     ]
 }
 
+const DS_PACKAGES: &str = "packages";
+const IX_PACKAGES_NAME: &str = "names";
+const FLD_PACKAGES_PACKAGE_TYPE: &str = "package_type";
+const FLD_PACKAGES_NAMESPACE_ID: &str = "namespace_id";
+const FLD_PACKAGES_NAME: &str = "name";
+
+fn ix_packages() -> Vec<IndexSpec> {
+    vec![IndexSpec::new(
+        String::from(IX_PACKAGES_NAME),
+        vec![
+            String::from(FLD_PACKAGES_PACKAGE_TYPE),
+            String::from(FLD_PACKAGES_NAMESPACE_ID),
+            String::from(FLD_PACKAGES_NAME),
+        ],
+    )]
+}
+
 fn init_empty() -> Vec<String> {
     vec![]
 }
@@ -361,7 +380,7 @@ impl MetadataApi for Metadata<'_> {
         &self,
         _package_type: PackageTypeName,
     ) -> anyhow::Result<NamespaceIterator, anyhow::Error> {
-        todo!()
+        todo!() // Requires range search support from the document store.
     }
 
     fn create_package(&self, _package: &Package) -> anyhow::Result<(), anyhow::Error> {
@@ -425,7 +444,11 @@ impl MetadataApi for Metadata<'_> {
     }
 }
 
-fn fetch_namespace(md: &Metadata, index_name: &str, filter: HashMap<&str, &str>) -> anyhow::Result<Option<Namespace>, anyhow::Error> {
+fn fetch_namespace(
+    md: &Metadata,
+    index_name: &str,
+    filter: HashMap<&str, &str>,
+) -> anyhow::Result<Option<Namespace>, anyhow::Error> {
     match md.namespace_docs.fetch(index_name, filter) {
         Err(error) => Err(anyhow!("Error fetching namespace: {}", error)),
         Ok(Some(json)) => Ok(Some(Namespace::from_json_string(&json)?)),
@@ -613,6 +636,12 @@ mod tests {
                 .get_namespace(PackageTypeName::Docker, &path)?
                 .unwrap();
             assert_eq!(namespace2, namespace);
+            let namespace3 = metadata.get_namespace_by_id(&id)?.unwrap();
+            assert_eq!(namespace3, namespace2);
+            assert!(metadata
+                .get_namespace(PackageTypeName::Docker, &"BoGuS")?
+                .is_none());
+            assert!(metadata.get_namespace_by_id(&"BoGuS")?.is_none());
             Ok(())
         })
     }
