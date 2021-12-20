@@ -4,14 +4,14 @@ on:
   issues:
     types: [created, reopened, labeled]
   pull_request_target:
-    types: [created, reopened, labeled]
+    types: [created, reopened, labeled, converted_to_draft, ready_for_review, review_requested]
 
 jobs:
   triage-new-issues:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'issues' &&
-      github.event.action == 'created' && github.event.action == 'reopened'
+      (github.event.action == 'created' || github.event.action == 'reopened')
     steps:
       - uses: actions-ecosystem/action-add-labels@v1
         with:
@@ -26,17 +26,36 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'pull_request_target' &&
-      github.event.action == 'created' && github.event.action == 'reopened'
+      (github.event.action == 'created' || github.event.action == 'reopened')
     steps:
-      - uses: actions-ecosystem/action-add-labels@v1
-        with:
-          labels: triage
       - uses: alex-page/github-project-automation-plus@v0.8.1
         with:
           project: Pyrsia Develop
           column: In Progress
           repo-token: ${{ secrets.GITHUB_TOKEN }}
     
+  darfting-pr:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request_target' && github.event.action == 'converted_to_draft'
+    steps:
+      - uses: alex-page/github-project-automation-plus@v0.8.1
+        with:
+          project: Pyrsia Develop
+          column: In Progress
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+  pr-request-review:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request_target' &&
+      (github.event.action == 'ready_for_review' || github.event.action == 'review_requested')
+    steps:
+      - uses: alex-page/github-project-automation-plus@v0.8.1
+        with:
+          project: Pyrsia Develop
+          column: Review
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
   label-blocked:
     runs-on: ubuntu-latest
     if: |
