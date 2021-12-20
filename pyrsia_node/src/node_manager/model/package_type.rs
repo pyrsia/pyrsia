@@ -19,8 +19,9 @@ extern crate serde_json;
 
 use pyrsia_client_lib::signed::Signed;
 use serde::{Deserialize, Serialize};
-
 use signed_struct::signed_struct;
+use std::string::ToString;
+use strum_macros::Display;
 
 #[signed_struct]
 #[derive(Debug)]
@@ -29,7 +30,7 @@ pub struct PackageType {
     description: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Display)]
 pub enum PackageTypeName {
     Docker,
 }

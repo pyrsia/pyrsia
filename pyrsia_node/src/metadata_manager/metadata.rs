@@ -22,9 +22,10 @@ use super::model::package_type::{PackageType, PackageTypeName};
 use super::model::package_version::PackageVersion;
 use anyhow::anyhow;
 use anyhow::Result;
-use log::{error, info, warn, debug};
-use pyrsia_client_lib::signed::{Signed};
+use log::{debug, error, info, warn};
+use pyrsia_client_lib::signed::Signed;
 use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::fmt::Debug;
@@ -184,10 +185,11 @@ impl Iterator for PackageIterator {
 
 // Names of document stores and their indexes
 const DS_PACKAGE_TYPES: &str = "package_types";
-const IX_PACKAGE_TYPES_NAME: &str = "names";
+const IX_PACKAGE_TYPES_NAMES: &str = "names";
+const FLD_PACKAGE_TYPES_NAME: &str = "name";
 fn ix_package_types() -> Vec<IndexSpec> {
     vec![IndexSpec::new(
-        String::from(IX_PACKAGE_TYPES_NAME),
+        String::from(IX_PACKAGE_TYPES_NAMES),
         vec![String::from("name")],
     )]
 }
@@ -252,8 +254,8 @@ fn populate_with_initial_records(
     for record in initial_records() {
         if let Err(error) = ds.insert(&record) {
             error!(
-                "Failed to insert initial record into document store {}: {}",
-                ds.name, record
+                "Failed to insert initial record into document store {}: {}\nError was {}",
+                ds.name, record, error
             );
             todo!("If an attempt to insert an initial record into document store fails, then we need to do something so that we will know that the document store is missing necessary information")
         }
@@ -293,9 +295,16 @@ impl MetadataApi for Metadata<'_> {
 
     fn get_package_type(
         &self,
-        _name: PackageTypeName,
+        name: PackageTypeName,
     ) -> anyhow::Result<Option<PackageType>, anyhow::Error> {
-        todo!()
+        let mut filter = HashMap::new();
+        let name_as_string = name.to_string();
+        filter.insert(FLD_PACKAGE_TYPES_NAME, name_as_string.as_str());
+        match self.package_type_docs.fetch(IX_PACKAGE_TYPES_NAMES, filter) {
+            Err(error) => Err(anyhow!("Error fetching package type: {}", error)),
+            Ok(Some(json)) => Ok(Some(PackageType::from_json_string(&json)?)),
+            Ok(None) => Ok(None)
+        }
     }
 
     fn create_namespace(&self, _namespace: &Namespace) -> anyhow::Result<(), anyhow::Error> {
@@ -395,9 +404,16 @@ impl TrustManager for DefaultTrustManager {
         match pkg_type.json() {
             Some(_) => match pkg_type.verify_signature() {
                 Ok(attestations) => {
-                    debug!("Found {} valid signatures out of {}", attestations.iter().filter(|attestation| attestation.signature_is_valid()).count(), attestations.len());
+                    debug!(
+                        "Found {} valid signatures out of {}",
+                        attestations
+                            .iter()
+                            .filter(|attestation| attestation.signature_is_valid())
+                            .count(),
+                        attestations.len()
+                    );
                     Ok(())
-                },
+                }
                 Err(error) => Err(error),
             },
             None => Err(anyhow!("Unsigned package type")),
@@ -410,6 +426,7 @@ mod tests {
     use super::*;
     use pyrsia_client_lib::signed::{create_key_pair, JwsSignatureAlgorithms};
     use rand::Rng;
+    use serial_test::serial;
     use std::path::Path;
 
     const DIR_PREFIX: &str = "metadata_test_";
@@ -434,7 +451,8 @@ mod tests {
     }
 
     #[test]
-    fn metadata_test() -> Result<()> {
+    #[serial]
+    fn package_type_test() -> Result<()> {
         do_in_temp_directory(|| {
             info!("Creating metadata instance");
             let metadata = Metadata::new()?;
@@ -445,12 +463,6 @@ mod tests {
 
             let mut package_type =
                 PackageType::new(PackageTypeName::Docker, String::from("docker packages"));
-            info!("Testing unsigned package type");
-            if let Ok(_) = metadata.create_package_type(&package_type) {
-                return Err(anyhow!(
-                    "create_package_type accepted an unsigned package type"
-                ))
-            };
 
             package_type.sign_json(
                 JwsSignatureAlgorithms::RS512,
@@ -459,7 +471,22 @@ mod tests {
             )?;
             info!("creating signed package type");
             metadata.create_package_type(&package_type)?;
+            let package_type2 = metadata.get_package_type(PackageTypeName::Docker);
             Ok(())
         })
+    }
+
+    #[test]
+    #[serial]
+    fn unsigned_package_type() -> Result<()> {
+        let metadata = Metadata::new()?;
+        let package_type =
+            PackageType::new(PackageTypeName::Docker, String::from("docker packages"));
+        if let Ok(_) = metadata.create_package_type(&package_type) {
+            return Err(anyhow!(
+                "create_package_type accepted an unsigned package type"
+            ));
+        };
+        Ok(())
     }
 }
