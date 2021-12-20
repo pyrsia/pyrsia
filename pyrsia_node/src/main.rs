@@ -25,15 +25,19 @@ extern crate uuid;
 extern crate warp;
 #[macro_use]
 extern crate lazy_static;
+
 //local module imports
 mod artifact_manager;
+mod block_chain;
 mod docker;
 mod document_store;
 mod network;
 mod node_api;
-mod block_chain;
 mod node_manager;
 mod utils;
+
+use block_chain::block::Block;
+use block_chain::block_chain::BlockChain;
 use docker::error_util::*;
 use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
@@ -62,8 +66,6 @@ use std::{
 use tokio::io::{self, AsyncBufReadExt};
 use tokio::sync::Mutex;
 use warp::Filter;
-use crate::block_chain::block::Block;
-use crate::block_chain::block_chain::BlockChain;
 
 const DEFAULT_PORT: &str = "7878";
 
