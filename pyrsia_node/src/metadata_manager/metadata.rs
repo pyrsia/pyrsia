@@ -23,7 +23,7 @@ use super::model::package_version::PackageVersion;
 use anyhow::anyhow;
 use anyhow::Result;
 use log::{debug, error, info, warn};
-use pyrsia_client_lib::signed::Signed;
+use pyrsia_client_lib::signed::{Attestation, Signed};
 use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
 use std::collections::HashMap;
 use std::env;
@@ -190,10 +190,36 @@ const FLD_PACKAGE_TYPES_NAME: &str = "name";
 fn ix_package_types() -> Vec<IndexSpec> {
     vec![IndexSpec::new(
         String::from(IX_PACKAGE_TYPES_NAMES),
-        vec![String::from("name")],
+        vec![String::from(FLD_PACKAGE_TYPES_NAME)],
     )]
 }
 fn init_package_types() -> Vec<String> {
+    init_empty() // TODO This should be replaced by code to insert a signed json string that defines the Docker package type.
+}
+
+const DS_NAMESPACES: &str = "namespaces";
+const IX_NAMESPACES_ID: &str = "ids";
+const IX_NAMESPACES_PATH: &str = "paths";
+const FLD_NAMESPACES_ID: &str = "id";
+const FLD_NAMESPACES_PKG_TYPE: &str = "package_type";
+const FLD_NAMESPACES_PATH: &str = "namespace_path";
+fn ix_namespaces() -> Vec<IndexSpec> {
+    vec![
+        IndexSpec::new(
+            String::from(IX_NAMESPACES_ID),
+            vec![String::from(FLD_NAMESPACES_ID)],
+        ),
+        IndexSpec::new(
+            String::from(IX_NAMESPACES_PATH),
+            vec![
+                String::from(FLD_NAMESPACES_PKG_TYPE),
+                String::from(FLD_NAMESPACES_PATH),
+            ],
+        ),
+    ]
+}
+
+fn init_empty() -> Vec<String> {
     vec![]
 }
 
@@ -201,6 +227,7 @@ fn init_package_types() -> Vec<String> {
 pub struct Metadata<'a> {
     trust_manager: &'a dyn TrustManager,
     package_type_docs: DocumentStore,
+    namespace_docs: DocumentStore,
 }
 
 impl<'a> Metadata<'a> {
@@ -208,9 +235,11 @@ impl<'a> Metadata<'a> {
         info!("Creating new instance of metadata manager");
         let package_type_docs =
             open_document_store(DS_PACKAGE_TYPES, ix_package_types, init_package_types)?;
+        let namespace_docs = open_document_store(DS_NAMESPACES, ix_namespaces, init_empty)?;
         Ok(Metadata {
             trust_manager: &DefaultTrustManager {},
             package_type_docs,
+            namespace_docs,
         })
     }
 }
@@ -289,7 +318,11 @@ impl MetadataApi for Metadata<'_> {
                     Ok(())
                 }
             }
-            Err(error) => Err(anyhow!("New package type is not trusted: {}", error)),
+            Err(error) => Err(anyhow!(
+                "New package type is not trusted: JSON is {}\nError is{}",
+                pkg_type.json().unwrap_or("None".to_string()),
+                error
+            )),
         }
     }
 
@@ -303,12 +336,25 @@ impl MetadataApi for Metadata<'_> {
         match self.package_type_docs.fetch(IX_PACKAGE_TYPES_NAMES, filter) {
             Err(error) => Err(anyhow!("Error fetching package type: {}", error)),
             Ok(Some(json)) => Ok(Some(PackageType::from_json_string(&json)?)),
-            Ok(None) => Ok(None)
+            Ok(None) => Ok(None),
         }
     }
 
-    fn create_namespace(&self, _namespace: &Namespace) -> anyhow::Result<(), anyhow::Error> {
-        todo!()
+    fn create_namespace(&self, namespace: &Namespace) -> anyhow::Result<(), anyhow::Error> {
+        match self.trust_manager.trust_namespace(namespace) {
+            Ok(_) => {
+                if let Err(error) = self.namespace_docs.insert(&namespace.json().unwrap()) {
+                    error!("{}", error);
+                    Err(anyhow!(
+                        "Failed to create namespace record: {:?}",
+                        namespace
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
+            Err(error) => Err(anyhow!("New namespace is not trusted: {}", error)),
+        }
     }
 
     fn get_namespace(
@@ -394,6 +440,9 @@ impl MetadataApi for Metadata<'_> {
 // TODO move trust manager trait and its default implementation to a separate module
 trait TrustManager: Debug {
     fn trust_package_type(&self, pkg_type: &PackageType) -> Result<()>;
+    fn trust_namespace(&self, namespace: &Namespace) -> Result<()>;
+    fn trust_package(&self, package: &Package) -> Result<()>;
+    fn trust_package_version(self, package_version: &PackageVersion) -> Result<()>;
 }
 
 #[derive(Debug)]
@@ -401,24 +450,41 @@ struct DefaultTrustManager {}
 
 impl TrustManager for DefaultTrustManager {
     fn trust_package_type(&self, pkg_type: &PackageType) -> anyhow::Result<()> {
-        match pkg_type.json() {
+        let json = pkg_type.json();
+        match json {
             Some(_) => match pkg_type.verify_signature() {
                 Ok(attestations) => {
-                    debug!(
-                        "Found {} valid signatures out of {}",
-                        attestations
-                            .iter()
-                            .filter(|attestation| attestation.signature_is_valid())
-                            .count(),
-                        attestations.len()
-                    );
-                    Ok(())
+                    process_attestations(attestations)
                 }
                 Err(error) => Err(error),
             },
             None => Err(anyhow!("Unsigned package type")),
         }
     }
+
+    fn trust_namespace(&self, _namespace: &Namespace) -> Result<()> {
+        todo!()
+    }
+
+    fn trust_package(&self, _package: &Package) -> Result<()> {
+        todo!()
+    }
+
+    fn trust_package_version(self, _package_version: &PackageVersion) -> Result<()> {
+        todo!()
+    }
+}
+
+fn process_attestations(attestations: Vec<Attestation>) -> Result<()> {
+    debug!(
+        "Found {} valid signatures out of {}",
+        attestations
+            .iter()
+            .filter(|attestation| attestation.signature_is_valid())
+            .count(),
+        attestations.len()
+    );
+    Ok(())
 }
 
 #[cfg(test)]
@@ -471,7 +537,9 @@ mod tests {
             )?;
             info!("creating signed package type");
             metadata.create_package_type(&package_type)?;
-            let package_type2 = metadata.get_package_type(PackageTypeName::Docker);
+            let package_type2 = metadata.get_package_type(PackageTypeName::Docker)?.unwrap();
+            assert_eq!(package_type2.name(), package_type.name());
+            assert_eq!(package_type2.description(), package_type.description());
             Ok(())
         })
     }
