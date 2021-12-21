@@ -62,7 +62,7 @@ use warp::Filter;
 use crate::docker::v2::routes::*;
 use crate::node_api::routes::*;
 
-const DEFAULT_PORT: &str = "7878";
+const DEFAULT_PORT: &str = "7879";
 
 #[tokio::main]
 async fn main() {
