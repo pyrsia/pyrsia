@@ -1236,10 +1236,6 @@ mod tests {
         let foo2: Foo = Foo::from_json_string(&json_string).unwrap();
         assert_eq!(foo, foo2);
         foo2.verify_signature()?;
-        let signatures = foo2.signatures();
-        assert!(signatures.is_some());
-        assert_eq!(signatures.clone().unwrap().chars().next().unwrap(), '[');
-        assert_eq!(signatures.unwrap().chars().last().unwrap(), ']');
         Ok(())
     }
 }

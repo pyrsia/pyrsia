@@ -28,7 +28,6 @@ use maplit::hashmap;
 use pyrsia_client_lib::iso8601;
 use pyrsia_client_lib::signed::{Attestation, Signed};
 use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
-use serde::de::Unexpected::Str;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
@@ -210,6 +209,8 @@ impl Iterator for PackageIterator {
 // JSON strings that the document store will be pre-populated with.
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Definitions for package types
 const DS_PACKAGE_TYPES: &str = "package_types";
 const IX_PACKAGE_TYPES_NAMES: &str = "names";
 const FLD_PACKAGE_TYPES_NAME: &str = "name";
@@ -223,6 +224,7 @@ fn init_package_types() -> Vec<String> {
     init_empty() // TODO This should be replaced by code to insert a signed json string that defines the Docker package type.
 }
 
+// Definitions for name spaces
 const DS_NAMESPACES: &str = "namespaces";
 const IX_NAMESPACES_ID: &str = "ids";
 const IX_NAMESPACES_PATH: &str = "paths";
@@ -245,6 +247,7 @@ fn ix_namespaces() -> Vec<IndexSpec> {
     ]
 }
 
+// Definitions for packages
 const DS_PACKAGES: &str = "packages";
 const IX_PACKAGES_NAME: &str = "names";
 const FLD_PACKAGES_PACKAGE_TYPE: &str = "package_type";
@@ -422,17 +425,26 @@ impl MetadataApi for Metadata<'_> {
         todo!() // Requires range search support from the document store.
     }
 
-    fn create_package(&self, _package: &Package) -> anyhow::Result<()> {
-        todo!()
+    fn create_package(&self, package: &Package) -> anyhow::Result<()> {
+        match self.trust_manager.trust_package(package) {
+            Ok(_) => insert_metadata(&self.package_docs, package),
+            Err(error) => untrusted_metadata_error(package, &error.to_string()),
+        }
     }
 
     fn get_package(
         &self,
-        _package_type: PackageTypeName,
-        _namespace_id: &str,
-        _package_name: &str,
+        package_type: PackageTypeName,
+        namespace_id: &str,
+        package_name: &str,
     ) -> anyhow::Result<Option<Package>> {
-        todo!()
+        let package_type_as_string = package_type.to_string();
+        let filter = hashmap! {
+            FLD_PACKAGES_PACKAGE_TYPE => package_type_as_string.as_str(),
+            FLD_PACKAGES_NAMESPACE_ID => namespace_id,
+            FLD_PACKAGES_NAME => package_name,
+        };
+        fetch_package(self, IX_PACKAGES_NAME, filter)
     }
 
     fn get_package_by_namespace_path(
@@ -478,6 +490,18 @@ fn fetch_namespace(
     match md.namespace_docs.fetch(index_name, filter) {
         Err(error) => Err(anyhow!("Error fetching namespace: {}", error)),
         Ok(Some(json)) => Ok(Some(Namespace::from_json_string(&json)?)),
+        Ok(None) => Ok(None),
+    }
+}
+
+fn fetch_package(
+    md: &Metadata,
+    index_name: &str,
+    filter: HashMap<&str, &str>,
+) -> anyhow::Result<Option<Package>> {
+    match md.namespace_docs.fetch(index_name, filter) {
+        Err(error) => Err(anyhow!("Error fetching package: {}", error)),
+        Ok(Some(json)) => Ok(Some(Package::from_json_string(&json)?)),
         Ok(None) => Ok(None),
     }
 }
