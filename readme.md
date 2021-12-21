@@ -27,7 +27,7 @@ There are two components of this project
 ### Getting Started
 
 1. Setup rust on your local machine as described in [Rust's getting started guide](https://www.rust-lang.org/learn/get-started)
-2. `cd pyrsia_node`
+2. `cd node`
 3. `cargo run`
 
 ### Setting Up Visual Studio Code Debugger
