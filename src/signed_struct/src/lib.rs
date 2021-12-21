@@ -16,17 +16,17 @@
 
 extern crate proc_macro;
 extern crate quote;
-extern crate syn;
 extern crate signed;
+extern crate syn;
 
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use std::collections::HashSet;
 
 use quote::{format_ident, quote};
-use syn::spanned::Spanned;
 use syn::{
-    parse_macro_input, AttributeArgs, DeriveInput, Field, FieldsNamed, Lifetime, Type, Visibility,
+    parse_macro_input, spanned::Spanned, AttributeArgs, DeriveInput, Field, FieldsNamed, Lifetime,
+    Type, Visibility,
 };
 
 /// Use this macro before a struct to make it a signed struct. That means it will have signed JSON
