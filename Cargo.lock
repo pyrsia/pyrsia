@@ -2735,34 +2735,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "pyrsia_client_lib"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64",
- "detached-jws",
- "env_logger 0.9.0",
- "iso8601",
- "log",
- "openssl",
- "serde",
- "serde_jcs",
- "serde_json",
- "syn",
- "time",
-]
-
-[[package]]
 name = "pyrsia_node"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "bincode",
  "blake3",
  "bytes",
  "clap 2.33.3",
  "ctor",
  "defaults",
+ "detached-jws",
  "easy-hasher",
  "env_logger 0.9.0",
  "filename",
@@ -2770,25 +2754,29 @@ dependencies = [
  "hex",
  "hyper",
  "hyper-tls",
+ "iso8601",
  "itertools",
  "lazy_static",
  "libp2p",
  "log",
  "once_cell",
+ "openssl",
  "pretty_env_logger",
- "pyrsia_client_lib",
  "rand 0.8.4",
  "reqwest",
  "serde",
+ "serde_jcs",
  "serde_json",
  "sha2 0.9.8",
  "signed_struct",
  "stringreader",
  "strum",
  "strum_macros",
+ "syn",
  "tempfile",
  "test-log",
  "test_helpers",
+ "time",
  "tokio",
  "unqlite",
  "uuid",
@@ -3280,7 +3268,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "proc-macro2",
- "pyrsia_client_lib",
  "quote",
  "serde",
  "syn",

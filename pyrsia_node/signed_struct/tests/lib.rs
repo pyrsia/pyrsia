@@ -17,17 +17,16 @@
 #[cfg(test)]
 mod tests {
     extern crate anyhow;
-    extern crate pyrsia_client_lib;
     extern crate serde;
 
-    use pyrsia_client_lib::signed::{
+    use crate::signed::{
         create_key_pair, Attestation, JwsSignatureAlgorithms, SignatureKeyPair, Signed,
     };
 
     // Create a signed struct in its own module to prevent direct access to its fields. They should
     // be access through the generated getters and setters.
     pub mod foo {
-        use pyrsia_client_lib::signed::Signed;
+        use crate::signed::Signed;
         use signed_struct::signed_struct;
 
         #[signed_struct]

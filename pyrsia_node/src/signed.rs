@@ -26,7 +26,7 @@
 //! create a key pair. You will use the private key in the key pair to sign structs. The public key
 //! is used to identify the signer.
 //! ```
-//! use pyrsia_client_lib::signed::{SignatureKeyPair, create_key_pair, JwsSignatureAlgorithms};
+//! use pyrsia_node::signed::{SignatureKeyPair, create_key_pair, JwsSignatureAlgorithms};
 //! let key_pair: SignatureKeyPair = create_key_pair(JwsSignatureAlgorithms::RS512).unwrap();
 //! ```
 //!
