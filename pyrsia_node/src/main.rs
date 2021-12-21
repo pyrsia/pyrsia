@@ -18,8 +18,6 @@ mod node_manager;
 mod utils;
 
 use docker::error_util::*;
-use docker::v2::handlers::blobs::*;
-use docker::v2::handlers::manifests::*;
 use document_store::document_store::DocumentStore;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
@@ -35,14 +33,18 @@ use libp2p::{
 };
 use log::{debug, error, info};
 use std::{
-    collections::HashMap,
     env,
     net::{IpAddr, Ipv4Addr, SocketAddr},
 };
 use tokio::io::{self, AsyncBufReadExt};
 use warp::Filter;
+use std::sync::Arc;
+use tokio::sync::mpsc;
+use tokio::sync::Mutex;
+use crate::docker::v2::routes::*;
+use crate::node_api::routes::*;
 
-const DEFAULT_PORT: &str = "7878";
+const DEFAULT_PORT: &str = "7879";
 
 #[tokio::main]
 async fn main() {
@@ -109,66 +111,31 @@ async fn main() {
         address.set_port(p.parse::<u16>().unwrap());
     }
 
-    let empty_json = "{}";
-    let v2_base = warp::path("v2")
-        .and(warp::get())
-        .and(warp::path::end())
-        .map(move || empty_json)
-        .with(warp::reply::with::header(
-            "Content-Length",
-            empty_json.len(),
-        ))
-        .with(warp::reply::with::header(
-            "Content-Type",
-            "application/json",
-        ));
+    let (tx, mut rx) = mpsc::channel(32);
 
-    let v2_manifests = warp::path!("v2" / String / "manifests" / String)
-        .and(warp::get().or(warp::head()).unify())
-        .and_then(handle_get_manifests);
-    let v2_manifests_put_docker = warp::path!("v2" / String / "manifests" / String)
-        .and(warp::put())
-        .and(warp::header::exact(
-            "Content-Type",
-            "application/vnd.docker.distribution.manifest.v2+json",
-        ))
-        .and(warp::body::bytes())
-        .and_then(handle_put_manifest);
-
-    let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+    //docker node specific tx
     let tx1 = tx.clone();
 
-    let v2_blobs = warp::path!("v2" / String / "blobs" / String)
-        .and(warp::get().or(warp::head()).unify())
-        .and(warp::path::end())
-        .and_then(move |name, hash| handle_get_blobs(tx1.clone(), name, hash));
-    let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
-        .and(warp::post())
-        .and_then(handle_post_blob);
-    let v2_blobs_patch = warp::path!("v2" / String / "blobs" / "uploads" / String)
-        .and(warp::patch())
-        .and(warp::body::bytes())
-        .and_then(handle_patch_blob);
-    let v2_blobs_put = warp::path!("v2" / String / "blobs" / "uploads" / String)
-        .and(warp::put())
-        .and(warp::query::<HashMap<String, String>>())
-        .and(warp::body::bytes())
-        .and_then(handle_put_blob);
+    //swarm specific tx,rx
+    // need better handling of all these channel resources
+    let shared_stats = Arc::new(Mutex::new(respond_rx));
+    let my_stats = shared_stats.clone();
+    let tx2 = tx.clone();
 
-    let routes = warp::any()
-        .and(utils::log::log_headers())
-        .and(
-            v2_base
-                .or(v2_manifests)
-                .or(v2_manifests_put_docker)
-                .or(v2_blobs)
-                .or(v2_blobs_post)
-                .or(v2_blobs_patch)
-                .or(v2_blobs_put),
-        )
-        .recover(custom_recover)
-        .with(warp::log("pyrsia_registry"));
-    let (addr, server) = warp::serve(routes).bind_ephemeral(address);
+    let my_stats1 = shared_stats.clone();
+    let tx3 = tx.clone();
+
+    let docker_routes = get_docker_routes(tx1);
+    let routes = docker_routes.or(get_node_routes(tx2, my_stats, tx3, my_stats1));
+
+    let (addr, server) = warp::serve(
+        routes
+            .and(utils::log::log_headers())
+            .recover(custom_recover)
+            .with(warp::log("pyrsia_registry")),
+    )
+    .bind_ephemeral(address);
+
     info!("Pyrsia Docker Node is now running on port {}!", addr.port());
 
     tokio::spawn(server);
