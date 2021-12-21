@@ -1,16 +1,11 @@
 [package]
-name = "signed_struct"
+name = "signed"
 version = "0.1.0"
 edition = "2021"
-
-[lib]
-proc-macro = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-signed = {path="../signed"}
-
 anyhow = "1.0.51"
 base64 = "0.13.0"
 quote = "1.0"

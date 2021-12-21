@@ -15,10 +15,10 @@
 */
 
 extern crate serde;
-extern crate serde_json;
+extern crate signed_struct;
 
-use crate::signed::Signed;
 use serde::{Deserialize, Serialize};
+use signed::signed::Signed;
 use signed_struct::signed_struct;
 
 #[signed_struct]

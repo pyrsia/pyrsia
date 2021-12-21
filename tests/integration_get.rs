@@ -14,10 +14,10 @@
    limitations under the License.
 */
 
-extern crate pyrsia_node;
-extern crate test_helpers;
+extern crate pyrsia;
+extern crate string_manipulation;
 
-use pyrsia_node::network::http::get;
+use pyrsia::network::http::get;
 use std::fs::File;
 use std::io::BufReader;
 
@@ -32,7 +32,7 @@ fn test_get() {
     }
 
     let f: File = File::open(file_name.clone()).unwrap();
-    let first: String = String::from(test_helpers::first_line(BufReader::new(f)));
+    let first: String = String::from(string_manipulation::first_line(BufReader::new(f)));
     let right: String = String::from("Apache License");
     assert_eq!(first.trim(), right);
     println!("\u{2705} test passed.");

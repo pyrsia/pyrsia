@@ -17,7 +17,7 @@
 extern crate serde;
 extern crate serde_json;
 
-use crate::signed::{JwsSignatureAlgorithms, Signed};
+use signed::signed::{JwsSignatureAlgorithms, Signed};
 use signed_struct::signed_struct;
 
 #[signed_struct]

@@ -26,7 +26,7 @@
 //! create a key pair. You will use the private key in the key pair to sign structs. The public key
 //! is used to identify the signer.
 //! ```
-//! use pyrsia::signed::{SignatureKeyPair, create_key_pair, JwsSignatureAlgorithms};
+//! use signed_struct::signed::{SignatureKeyPair, create_key_pair, JwsSignatureAlgorithms};
 //! let key_pair: SignatureKeyPair = create_key_pair(JwsSignatureAlgorithms::RS512).unwrap();
 //! ```
 //!
@@ -43,7 +43,7 @@
 //! This annotation runs a macro that add some fields to support the Signed trait, implements the
 //! signed trait, and generates getters and setters for the struct. There is not a full example of
 //! its use here to avoid Cargo complaining about a circular dependency. You can see a detailed
-//! example in the source for `signed_struct_test/lib.rs'. This is the best example of how to use
+//! example in the source for `signed_struct/tests/lib.rs'. This is the best example of how to use
 //! signed struct. You should read it.
 //!
 //! Getters are generated with the signature `fn field(&self) -> &type`.

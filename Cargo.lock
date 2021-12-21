@@ -1276,7 +1276,7 @@ checksum = "1323096b05d41827dadeaee54c9981958c0f94e670bc94ed80037d1a7b8b186b"
 dependencies = [
  "bytes",
  "fnv",
- "itoa",
+ "itoa 0.4.8",
 ]
 
 [[package]]
@@ -1332,7 +1332,7 @@ dependencies = [
  "http-body",
  "httparse",
  "httpdate",
- "itoa",
+ "itoa 0.4.8",
  "pin-project-lite 0.2.7",
  "socket2 0.4.2",
  "tokio",
@@ -1462,6 +1462,12 @@ name = "itoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b71991ff56294aa922b450139ee08b3bfc70982c6b2c7562771375cf73542dd4"
+
+[[package]]
+name = "itoa"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aab8fc367588b89dcee83ab0fd66b72b50b72fa1904d7095045ace2b0c81c35"
 
 [[package]]
 name = "js-sys"
@@ -2357,7 +2363,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a76789abb29de148d833bdaa8941aabc0d6306affaf4a7c1302cc309b151e4f"
 dependencies = [
  "dtoa",
- "itoa",
+ "itoa 0.4.8",
  "open-metrics-client-derive-text-encode",
  "owning_ref",
 ]
@@ -2727,14 +2733,11 @@ name = "pyrsia"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64",
  "bincode",
  "blake3",
  "bytes",
- "clap 3.0.0-beta.5",
  "ctor",
  "defaults",
- "detached-jws",
  "easy-hasher",
  "env_logger 0.9.0",
  "expectest",
@@ -2743,28 +2746,80 @@ dependencies = [
  "hex",
  "hyper",
  "hyper-tls",
- "iso8601",
  "itertools",
  "lazy_static",
  "libp2p",
  "log",
  "once_cell",
- "openssl",
  "pretty_env_logger",
  "rand 0.8.4",
  "reqwest",
  "serde",
- "serde_jcs",
  "serde_json",
  "sha2 0.9.8",
+ "signed",
  "signed_struct",
+ "string_manipulation",
  "stringreader",
  "strum",
  "strum_macros",
- "syn",
  "tempfile",
  "test-log",
- "time",
+ "tokio",
+ "unqlite",
+ "uuid",
+ "warp",
+]
+
+[[package]]
+name = "pyrsia_cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 3.0.0-beta.5",
+ "expectest",
+ "futures",
+ "reqwest",
+ "tokio",
+]
+
+[[package]]
+name = "pyrsia_node"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "blake3",
+ "bytes",
+ "clap 3.0.0-beta.5",
+ "ctor",
+ "defaults",
+ "easy-hasher",
+ "env_logger 0.9.0",
+ "filename",
+ "futures",
+ "hex",
+ "hyper",
+ "hyper-tls",
+ "itertools",
+ "lazy_static",
+ "libp2p",
+ "log",
+ "once_cell",
+ "pretty_env_logger",
+ "pyrsia",
+ "rand 0.8.4",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.9.8",
+ "signed_struct",
+ "string_manipulation",
+ "stringreader",
+ "strum",
+ "strum_macros",
+ "tempfile",
+ "test-log",
  "tokio",
  "unqlite",
  "uuid",
@@ -3020,9 +3075,9 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 
 [[package]]
 name = "ryu-js"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e26864181681b29144524f5856471a3c8dbe1a02f4fdd6f6f74d5e2528d96f42"
+checksum = "6518fc26bced4d53678a22d6e423e9d8716377def84545fe328236e3af070e7f"
 
 [[package]]
 name = "salsa20"
@@ -3139,11 +3194,11 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.69"
+version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e466864e431129c7e0d3476b92f20458e5879919a0596c6472738d9fa2d342f8"
+checksum = "bcbd0344bc6533bc7ec56df11d42fb70f1b912351c0825ccb7211b59d8af7cf5"
 dependencies = [
- "itoa",
+ "itoa 1.0.1",
  "ryu",
  "serde",
 ]
@@ -3155,7 +3210,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edfa57a7f8d9c1d260a549e7224100f6c43d43f9103e06dd8b4095a9b2b43ce9"
 dependencies = [
  "form_urlencoded",
- "itoa",
+ "itoa 0.4.8",
  "ryu",
  "serde",
 ]
@@ -3236,20 +3291,63 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
 
 [[package]]
+name = "signal-hook-registry"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e51e73328dc4ac0c7ccbda3a494dfa03df1de2f46018127f60c693f2648455b0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "signature"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02658e48d89f2bec991f9a78e69cfa4c316f8d6a6c4ec12fae1aeb263d486788"
 
 [[package]]
+name = "signed"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "detached-jws",
+ "env_logger 0.9.0",
+ "iso8601",
+ "log",
+ "openssl",
+ "pretty_env_logger",
+ "proc-macro2",
+ "pyrsia",
+ "quote",
+ "serde",
+ "serde_jcs",
+ "serde_json",
+ "syn",
+ "time",
+]
+
+[[package]]
 name = "signed_struct"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
+ "detached-jws",
+ "env_logger 0.9.0",
+ "iso8601",
+ "log",
+ "openssl",
+ "pretty_env_logger",
  "proc-macro2",
+ "pyrsia",
  "quote",
  "serde",
+ "serde_jcs",
+ "serde_json",
+ "signed",
  "syn",
+ "time",
 ]
 
 [[package]]
@@ -3336,6 +3434,10 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "string_manipulation"
+version = "0.1.0"
 
 [[package]]
 name = "stringreader"
@@ -3480,7 +3582,7 @@ version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41effe7cfa8af36f439fac33861b66b049edc6f9a32331e2312660529c1c24ad"
 dependencies = [
- "itoa",
+ "itoa 0.4.8",
  "libc",
 ]
 
@@ -3510,7 +3612,10 @@ dependencies = [
  "memchr",
  "mio",
  "num_cpus",
+ "once_cell",
+ "parking_lot",
  "pin-project-lite 0.2.7",
+ "signal-hook-registry",
  "tokio-macros",
  "winapi",
 ]

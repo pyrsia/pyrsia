@@ -17,6 +17,7 @@
 extern crate proc_macro;
 extern crate quote;
 extern crate syn;
+extern crate signed;
 
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
@@ -32,7 +33,7 @@ use syn::{
 /// associated with it. A test that shows the use of this is in the `signed-struct-test` crate.
 ///
 /// This macro will generate additional field(s) to support the signed JSON. The struct will
-/// implement the `pyrsia::Signed` trait that includes methods for signing the struct,
+/// implement the `signed::Signed` trait that includes methods for signing the struct,
 /// verifying the signature(s) (multiple signatures are allowed), getting the JSON and creating a
 /// new struct from the JSON.
 ///
@@ -154,7 +155,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                         }) => {
                             let struct_ident = &ast.ident;
                             let output = quote! {
-                                impl #lifetime crate::signed::Signed #signed_lifetime for #struct_ident #lifetime {
+                                impl #lifetime signed::signed::Signed #signed_lifetime for #struct_ident #lifetime {
                                     fn json(&self) -> Option<String> {
                                         self.#json_field_name.to_owned()
                                     }

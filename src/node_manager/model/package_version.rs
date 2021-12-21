@@ -15,10 +15,12 @@
 */
 
 extern crate serde_json;
+extern crate signed;
+extern crate signed_struct;
 
-use crate::node_manager::model::artifact::Artifact;
-use crate::node_manager::model::package_type::PackageTypeName;
-use crate::signed::Signed;
+use super::artifact::Artifact;
+use super::package_type::PackageTypeName;
+use signed::signed::Signed;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use signed_struct::signed_struct;
