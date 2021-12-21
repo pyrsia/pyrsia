@@ -14,14 +14,12 @@
    limitations under the License.
 */
 
-extern crate bytes;
 extern crate clap;
-extern crate easy_hasher;
+extern crate futures;
+extern crate libp2p;
 extern crate log;
 extern crate pretty_env_logger;
-extern crate serde;
 extern crate tokio;
-extern crate uuid;
 extern crate warp;
 
 use ::pyrsia::block_chain::*;
