@@ -2723,72 +2723,48 @@ dependencies = [
 ]
 
 [[package]]
-name = "pyrsia_cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap 3.0.0-beta.5",
- "expectest",
- "futures",
- "reqwest",
- "tokio",
-]
-
-[[package]]
-name = "pyrsia_client_lib"
+name = "pyrsia"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64",
- "detached-jws",
- "env_logger 0.9.0",
- "iso8601",
- "log",
- "openssl",
- "serde",
- "serde_jcs",
- "serde_json",
- "syn",
- "time",
-]
-
-[[package]]
-name = "pyrsia_node"
-version = "0.1.0"
-dependencies = [
- "anyhow",
  "bincode",
  "blake3",
  "bytes",
- "clap 2.33.3",
+ "clap 3.0.0-beta.5",
  "ctor",
  "defaults",
+ "detached-jws",
  "easy-hasher",
  "env_logger 0.9.0",
+ "expectest",
  "filename",
  "futures",
  "hex",
  "hyper",
  "hyper-tls",
+ "iso8601",
  "itertools",
  "lazy_static",
  "libp2p",
  "log",
  "once_cell",
+ "openssl",
  "pretty_env_logger",
- "pyrsia_client_lib",
  "rand 0.8.4",
  "reqwest",
  "serde",
+ "serde_jcs",
  "serde_json",
  "sha2 0.9.8",
  "signed_struct",
  "stringreader",
  "strum",
  "strum_macros",
+ "syn",
  "tempfile",
  "test-log",
- "test_helpers",
+ "time",
  "tokio",
  "unqlite",
  "uuid",
@@ -3260,15 +3236,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
 
 [[package]]
-name = "signal-hook-registry"
-version = "1.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e51e73328dc4ac0c7ccbda3a494dfa03df1de2f46018127f60c693f2648455b0"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "signature"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3280,7 +3247,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "proc-macro2",
- "pyrsia_client_lib",
  "quote",
  "serde",
  "syn",
@@ -3471,10 +3437,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "test_helpers"
-version = "0.1.0"
-
-[[package]]
 name = "textwrap"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3539,29 +3501,25 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.13.0"
+version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "588b2d10a336da58d877567cd8fb8a14b463e2104910f8132cd054b4b96e29ee"
+checksum = "fbbf1c778ec206785635ce8ad57fe52b3009ae9e0c9f574a728f3049d3e55838"
 dependencies = [
- "autocfg",
  "bytes",
  "libc",
  "memchr",
  "mio",
  "num_cpus",
- "once_cell",
- "parking_lot",
  "pin-project-lite 0.2.7",
- "signal-hook-registry",
  "tokio-macros",
  "winapi",
 ]
 
 [[package]]
 name = "tokio-macros"
-version = "1.5.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "114383b041aa6212c579467afa0075fbbdd0718de036100bc0ba7961d8cb9095"
+checksum = "b557f72f448c511a979e2564e55d74e6c4432fc96ff4f6241bc6bded342643b7"
 dependencies = [
  "proc-macro2",
  "quote",

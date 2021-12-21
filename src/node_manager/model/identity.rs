@@ -14,5 +14,19 @@
    limitations under the License.
 */
 
-pub mod document_store;
-pub mod network;
+extern crate serde;
+extern crate serde_json;
+
+use crate::signed::{JwsSignatureAlgorithms, Signed};
+use signed_struct::signed_struct;
+
+#[signed_struct]
+struct Identity {
+    public_key: Vec<u8>,
+    identity_algorithm: JwsSignatureAlgorithms,
+    name: String,
+    description: Option<String>,
+    email: Option<String>,
+    web_url: Option<String>,
+    phone_number: Option<String>,
+}

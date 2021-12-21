@@ -13,20 +13,19 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-extern crate pyrsia_client_lib;
-extern crate serde;
-extern crate serde_json;
 
-use pyrsia_client_lib::signed::{JwsSignatureAlgorithms, Signed};
-use signed_struct::signed_struct;
+#![allow(mixed_script_confusables)] // This is to allow structs created by a derive macro to have private fields that begin with the grek letter π
 
-#[signed_struct]
-struct Identity {
-    public_key: Vec<u8>,
-    identity_algorithm: JwsSignatureAlgorithms,
-    name: String,
-    description: Option<String>,
-    email: Option<String>,
-    web_url: Option<String>,
-    phone_number: Option<String>,
-}
+
+#[macro_use]
+extern crate lazy_static; // Must be done in crate root
+
+pub mod artifact_manager;
+pub mod docker;
+pub mod document_store;
+pub mod metadata_manager;
+pub mod network;
+pub mod node_api;
+pub mod node_manager;
+pub mod signed;
+pub mod utils;
