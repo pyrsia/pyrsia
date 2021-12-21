@@ -13,20 +13,14 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+use serde::{Deserialize, Serialize};
 
-#![allow(mixed_script_confusables)] // This is to allow structs created by a derive macro to have private fields that begin with the grek letter π
-
-
-#[macro_use]
-extern crate lazy_static; // Must be done in crate root
-
-pub mod artifact_manager;
-pub mod block_chain;
-pub mod docker;
-pub mod document_store;
-pub mod metadata_manager;
-pub mod network;
-pub mod node_api;
-pub mod node_manager;
-pub mod signed;
-pub mod utils;
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Block {
+    pub id: u64,
+    pub hash: String,
+    pub previous_hash: String,
+    pub timestamp: u128,
+    pub data: String,
+    pub nonce: u64,
+}
