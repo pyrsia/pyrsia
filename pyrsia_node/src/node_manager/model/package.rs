@@ -20,9 +20,10 @@ extern crate serde_json;
 use pyrsia_client_lib::signed::Signed;
 use serde_json::{Map, Value};
 use signed_struct::signed_struct;
+use crate::node_manager::model::package_type::PackageTypeName;
 
 #[signed_struct]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 /// Describes a package
 pub struct Package {
     /// The id of the namespace that this package is part of.
@@ -30,7 +31,7 @@ pub struct Package {
     /// The name of this package. Must be unique within a namespace.
     name: String,
     /// The type of package (Docker, Conan, npm, ...)
-    package_type: String,
+    package_type: PackageTypeName,
     /// ISO-8601 creation time
     creation_time: Option<String>,
     /// ISO-8601 modification time

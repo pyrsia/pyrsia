@@ -453,15 +453,15 @@ impl MetadataApi for Metadata<'_> {
         _namespace_path: &[&str],
         _package_name: &str,
     ) -> anyhow::Result<Option<Package>> {
-        todo!()
+        todo!() // Implementation is postponed until document store supports range searches.
     }
 
     fn get_packages_by_namespace_id(&self, _namespace_id: &str) -> anyhow::Result<PackageIterator> {
-        todo!()
+        todo!() // Implementation is postponed until document store supports range searches.
     }
 
     fn update_package(&self, _package: &Package, _previous_signature: &str) -> anyhow::Result<()> {
-        todo!()
+        todo!() // Implementation is postponed until document store supports updates.
     }
 
     fn create_package_version(&self, _package_version: &PackageVersion) -> anyhow::Result<()> {
@@ -592,6 +592,7 @@ mod tests {
     use rand::Rng;
     use serial_test::serial;
     use std::path::Path;
+    use serde_json::Value;
 
     const DIR_PREFIX: &str = "metadata_test_";
 
@@ -658,7 +659,6 @@ mod tests {
     fn namespace_test() -> Result<()> {
         do_in_temp_directory(|| {
             let metadata = Metadata::new()?;
-            info!("Created metadata instance: {:?}", metadata);
 
             let key_pair = create_key_pair(JwsSignatureAlgorithms::RS512)?;
             info!("Created key pair");
@@ -693,5 +693,50 @@ mod tests {
             assert!(metadata.get_namespace_by_id(&"BoGuS")?.is_none());
             Ok(())
         })
+    }
+
+    #[test]
+    #[serial]
+    fn package_test() -> Result<()> {
+        let metadata = Metadata::new()?;
+
+        let key_pair = create_key_pair(JwsSignatureAlgorithms::RS512)?;
+        info!("Created key pair");
+
+        let namespace_id = "asd928374".to_string();
+        let package_name = "acme".to_string();
+        let package_type = PackageTypeName::Docker;
+        let creation_time = Some(iso8601::now_as_utc_iso8601_string());
+        let modification_time = Some(iso8601::now_as_utc_iso8601_string());
+        let administrators: Vec<Vec<u8>> = vec![];
+        let description = "Roses are red".to_string();
+        let package_metadata: serde_json::Map<String, Value> = serde_json::Map::new();
+        let project_url: Option<String> = None;
+        let versions = vec!["1.0".to_string()];
+
+        let mut package = Package::new(
+            namespace_id.clone(),
+            package_name.clone(),
+            package_type,
+            creation_time,
+            modification_time,
+            administrators,
+            Some(description),
+            package_metadata,
+            project_url,
+            versions,
+        );
+        package.sign_json(
+            JwsSignatureAlgorithms::RS512,
+            &key_pair.private_key,
+            &key_pair.public_key,
+        )?;
+        metadata.create_package(&package)?;
+        let package2 = metadata.get_package(PackageTypeName::Docker, &namespace_id, &package_name)?;
+        assert!(package2.is_some());
+        assert_eq!(package, package2.unwrap());
+
+        assert!(metadata.get_package(PackageTypeName::Docker, &namespace_id, &"BoGuS")?.is_none());
+        Ok(())
     }
 }
