@@ -187,7 +187,39 @@ impl Iterator for PackageIterator {
     }
 }
 
-// Names of document stores and their indexes
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// The first time that a node is run, its metadata manager needs to create the document stores that
+// it will used to hold metadata. Below are sets of definitions used to create the document stores.
+//
+// Each set of definitions has some const declarations follows by one or two function definitions.
+// The first const is for the name of the document store. The names of these follow the pattern
+// DS_documentStoreName. For example the const for the name of the document store named
+// "package_types" is DS_PACKAGE_TYPES.
+//
+// Each document store will have at least one index. Each index has a name. The pattern for const
+// names that define the name of an index is IX_documentStoreName_indexName. For example, the name
+// of the const for an index named "names" for a document store named "package_types" is
+// IX_PACKAGE_TYPES_NAMES. There will be one of these IX consts for each index that a document store
+// will have.
+//
+// Since we need to specify which fields an index will refer to, there are also const names defined
+// for each field that is covered by an index. The patter for these names is
+// FLD_documentStoreName_fieldName. For example the const name for the field named "name" in the
+// document store named "package_types" is FLD_PACKAGE_TYPES_NAME.
+//
+// For each document store to be created, there is a function named with the pattern
+// ix_documentStoreName. For example, for the document store named "package_types" the name of this
+// function is ix_package_types. This function uses the const values defined for the document store
+// to create and return a Vec of index definitions.
+//
+// For some of the document stores there is a second function named with the pattern
+// init_documentStoreName. For example, there is one of these functions for the document store named
+// "package_types". The name of the function is init_package_types. This method creates a Vec of
+// JSON strings that the document store will be pre-populated with.
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
 const DS_PACKAGE_TYPES: &str = "package_types";
 const IX_PACKAGE_TYPES_NAMES: &str = "names";
 const FLD_PACKAGE_TYPES_NAME: &str = "name";
@@ -244,6 +276,11 @@ fn init_empty() -> Vec<String> {
     vec![]
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// End of definitions to support creation of document stores
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 #[derive(Debug)]
 pub struct Metadata<'a> {
     trust_manager: &'a dyn TrustManager,
@@ -271,9 +308,13 @@ impl<'a> Metadata<'a> {
 /// Open the specified document store. If that fails, try creating it.
 /// * `ds_name` ― The name of the document store.
 /// * `index_specs` ― If the document store need to be created, this method is called to get a
-///                   a description of the indexes it will have.
+///                   a description of the indexes it will have. When we create a new document store
+///                   we need to define the names of the indexes it will use and the names of the
+///                   fields that each index will be based on.
 /// * `initial_records` ― If the document store needs to be created, this method is called to get
-///                       JSON string that will each be inserted as a record into the document store.
+///                       JSON string that will each be inserted as a record into the document
+///                       store. While most document stores will initially be empty, some need to be
+///                       pre-populated with some records.
 fn open_document_store(
     ds_name: &str,
     index_specs: fn() -> Vec<IndexSpec>,
@@ -560,6 +601,7 @@ mod tests {
 
     const DIR_PREFIX: &str = "metadata_test_";
 
+    // Used to run a test in a randomly named directory and then clean up by deleting the directory.
     fn do_in_temp_directory(
         runner: fn() -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
