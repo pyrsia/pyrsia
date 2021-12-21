@@ -151,8 +151,8 @@ async fn main() {
     let my_stats1 = shared_stats.clone();
     let tx3 = tx.clone();
 
-    let docker_routes = get_docker_routes(tx1);
-    let routes = docker_routes.or(get_node_routes(tx2, my_stats, tx3, my_stats1));
+    let docker_routes = make_docker_routes(tx1);
+    let routes = docker_routes.or(make_node_routes(tx2, my_stats, tx3, my_stats1));
 
     let (addr, server) = warp::serve(
         routes
