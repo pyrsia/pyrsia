@@ -300,6 +300,19 @@ fn open_document_store(
     }
 }
 
+// Most types of metadata will come from the Pyrsia network or the node's clients. However there are
+// a few type of metadata that will need to be at least partially pre-populated in new nodes. For
+// example, package-type should be pre-populated with one record for each type of package that the
+// pyrsia node supports.
+//
+// When the metadata manager is setting up its local document stores to store metadata, it calls
+// this function to pre-populate each document store with any records that it should have.
+// The parameters are
+// ds - A document store to pre-populate
+// initial_records - a function that returns a Vec of JSON strings that are to be stored as the
+//                   initial content of the document store. Most document stores will not need to be
+//                   pre-populated with anything. For these, the function passed will return an
+//                   empty Vec.
 fn populate_with_initial_records(
     ds: &DocumentStore,
     initial_records: fn() -> Vec<String>,
