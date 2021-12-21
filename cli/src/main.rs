@@ -23,6 +23,9 @@ use std::collections::HashSet;
 extern crate clap;
 use clap::{load_yaml, App};
 
+extern crate pyrsia;
+use pyrsia::model;
+
 #[tokio::main]
 async fn main() {
     let yaml = load_yaml!("cli.yaml");
