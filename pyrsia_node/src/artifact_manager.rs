@@ -1,9 +1,3 @@
-///
-/// # Artifact Manager
-/// Module for managing artifacts. It manages a local collection of artifacts and is responsible
-/// getting artifacts from other nodes when they are not present locally.
-/// An artifact is a file that is identified by a hash algorithm and a hash code. To know more about
-/// an artifact, we must consult the metadata that refers to the artifact.
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
 use std::ffi::OsStr;
@@ -15,6 +9,13 @@ use std::io::{BufWriter, Read, Write};
 use std::path;
 use std::path::Path;
 use std::str::FromStr;
+///
+/// # Artifact Manager
+/// Module for managing artifacts. It manages a local collection of artifacts and is responsible
+/// getting artifacts from other nodes when they are not present locally.
+/// An artifact is a file that is identified by a hash algorithm and a hash code. To know more about
+/// an artifact, we must consult the metadata that refers to the artifact.
+use walkdir::{DirEntry, WalkDir};
 
 use anyhow::{anyhow, Context, Error, Result};
 use sha2::{Digest, Sha256, Sha512};
@@ -257,6 +258,29 @@ impl<'a> ArtifactManager {
             repository_path
         );
         Err(anyhow!("Not an accessible directory: {}", repository_path))
+    }
+
+    pub fn artifacts_count(&self,repository_path: &str) -> Result<usize, Error> {
+        let mut total_files = 0;
+
+        for file in WalkDir::new("./change_this_path")
+            .into_iter()
+            .filter_entry(|path| Self::is_not_hidden(path))
+            .filter_map(|file| file.ok())
+        {
+            if file.metadata().unwrap().is_file() {
+                total_files = total_files + 1;
+            }
+        }
+        Ok(total_files)
+    }
+
+    fn is_not_hidden(entry: &DirEntry) -> bool {
+        entry
+            .file_name()
+            .to_str()
+            .map(|s| entry.depth() == 0 || !s.starts_with("."))
+            .unwrap_or(false)
     }
 
     /// Push an artifact to this node's local repository.

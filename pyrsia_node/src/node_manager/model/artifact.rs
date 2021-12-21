@@ -1,5 +1,5 @@
 extern crate serde_json;
-use super::HashAlgorithm;
+use super::super::HashAlgorithm;
 use serde_json::{Map, Value};
 
 #[derive(Debug)]

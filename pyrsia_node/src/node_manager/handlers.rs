@@ -1,8 +1,11 @@
+use super::model::cli::Status;
 use super::ArtifactManager;
 use super::HashAlgorithm;
 
 use super::Hash;
+
 use anyhow::{Context, Result};
+use log::{error, info};
 use std::fs;
 use std::fs::File;
 use std::io::BufReader;
@@ -37,6 +40,13 @@ pub fn put_artifact(artifact_hash: &[u8], artifact_path: &str) -> Result<bool, a
     ART_MGR
         .push_artifact(&mut buf_reader, &hash)
         .context("Error from put_artifact")
+}
+
+pub fn get_arts_count() -> Result<usize, anyhow::Error> {
+    info!("get_pyrsia_status started");
+
+    ART_MGR.artifacts_count(ART_MGR_DIR).context("Error while getting artifacts count")   
+    
 }
 
 #[cfg(test)]

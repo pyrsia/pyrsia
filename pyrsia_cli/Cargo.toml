@@ -10,6 +10,7 @@ anyhow = "1.0"
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1", features = [ "full"] }
 futures = { version = "0.3.*"}
+walkdir = "2.3.2"
 
 [[bin]]
 name = "pyrsia"
