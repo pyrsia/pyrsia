@@ -499,7 +499,7 @@ fn fetch_package(
     index_name: &str,
     filter: HashMap<&str, &str>,
 ) -> anyhow::Result<Option<Package>> {
-    match md.namespace_docs.fetch(index_name, filter) {
+    match md.package_docs.fetch(index_name, filter) {
         Err(error) => Err(anyhow!("Error fetching package: {}", error)),
         Ok(Some(json)) => Ok(Some(Package::from_json_string(&json)?)),
         Ok(None) => Ok(None),
