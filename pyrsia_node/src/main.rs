@@ -39,7 +39,6 @@ use document_store::document_store::DocumentStore;
 use document_store::document_store::IndexSpec;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
-use node_api::handlers::swarm::*;
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
@@ -60,13 +59,10 @@ use std::{
 use tokio::io::{self, AsyncBufReadExt};
 use tokio::sync::Mutex;
 use warp::Filter;
-use std::sync::Arc;
-use tokio::sync::mpsc;
-use tokio::sync::Mutex;
 use crate::docker::v2::routes::*;
 use crate::node_api::routes::*;
 
-const DEFAULT_PORT: &str = "7879";
+const DEFAULT_PORT: &str = "7878";
 
 #[tokio::main]
 async fn main() {
