@@ -1,4 +1,18 @@
-//! This defines the derive(SignedStruct) macro. See the documentation for the Signed trait for documentation.
+/*
+   Copyright 2021 JFrog Ltd
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
 
 extern crate proc_macro;
 extern crate quote;
@@ -121,6 +135,11 @@ fn unique_json_field_ident(fields: &FieldsNamed) -> Result<Ident, syn::parse::Er
 #[proc_macro_derive(SignedStructDerive)]
 pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
+    let (lifetime, signed_lifetime) = if check_has_lifetime(&ast) {
+        (quote!(<'π>), quote!(<'π>))
+    } else {
+        (quote!(), quote!(<'_>))
+    };
     match &ast.data {
         syn::Data::Struct(ref struct_data) => {
             match &struct_data.fields {
@@ -135,7 +154,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                         }) => {
                             let struct_ident = &ast.ident;
                             let output = quote! {
-                                impl<'π> ::pyrsia_client_lib::signed::Signed<'π> for #struct_ident<'π> {
+                                impl #lifetime ::pyrsia_client_lib::signed::Signed #signed_lifetime for #struct_ident #lifetime {
                                     fn json(&self) -> Option<String> {
                                         self.#json_field_name.to_owned()
                                     }
@@ -149,7 +168,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                                     }
                                 }
 
-                                impl<'π> #struct_ident<'π> {
+                                impl #lifetime #struct_ident #lifetime {
                                     pub fn new(#( #field_ident_vec : #type_vec),*) -> #struct_ident {
                                         #struct_ident{ #(#field_ident_vec),* , #json_field_name: None }
                                     }
@@ -183,6 +202,15 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
         .to_compile_error()
         .into(),
     }
+}
+
+fn check_has_lifetime(ast: &DeriveInput) -> bool {
+    for generic in ast.generics.params.iter() {
+        if let syn::GenericParam::Lifetime(_) = generic {
+            return true;
+        }
+    }
+    false
 }
 
 struct ScanFieldsResult {

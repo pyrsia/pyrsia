@@ -17,32 +17,24 @@ extern crate pyrsia_client_lib;
 extern crate serde;
 extern crate serde_json;
 
+use crate::node_manager::model::package_type::PackageTypeName;
 use pyrsia_client_lib::signed::Signed;
-use serde_json::{Map, Value};
 use signed_struct::signed_struct;
 
 #[signed_struct]
 #[derive(Debug)]
-/// Describes a package
-pub struct Package {
-    /// The id of the namespace that this package is part of.
-    namespace_id: String,
-    /// The name of this package. Must be unique within a namespace.
-    name: String,
-    /// The type of package (Docker, Conan, npm, ...)
-    package_type: String,
+/// Describes a name space.
+pub struct Namespace {
+    /// A uuid that uniquely identifies the name space
+    id: String,
+    /// The type of package the name space is for (Docker, Conan, ...)
+    package_type: PackageTypeName,
+    /// Many name spaces are hierarchical. Different package types punctuate the path of a name space. Instead of using punctuation, we put the elements of the path in a Vec.
+    namespace_path: Vec<String>,
+    /// Updates to a name space should be signed by an identity associated with one of the public keys in the administrators field.
+    administrators: Vec<Vec<u8>>,
     /// ISO-8601 creation time
     creation_time: Option<String>,
     /// ISO-8601 modification time
     modified_time: Option<String>,
-    /// Updates to a package should be signed by an identity associated with one of the public keys in the administrators field.
-    administrators: Vec<Vec<u8>>,
-    /// textual description
-    description: Option<String>,
-    /// Attributes of a package that don't fit into one of this struct's fields can go in here as JSON
-    metadata: Map<String, Value>,
-    /// A URL associated with the project.
-    project_url: Option<String>,
-    /// Known versions of this package.  There should be a PackageVersion describing each one of these.
-    versions: Vec<String>,
 }

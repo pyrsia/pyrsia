@@ -13,8 +13,20 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+extern crate pyrsia_client_lib;
+extern crate serde;
+extern crate serde_json;
 
-#![allow(mixed_script_confusables)] // This is to allow structs created by a derive macro to have private fields that begin with the grek letter π
+use pyrsia_client_lib::signed::{JwsSignatureAlgorithms, Signed};
+use signed_struct::signed_struct;
 
-/// Library for code that will be use by both Pyrsia nodes and Pyrsia clients.
-pub mod signed;
+#[signed_struct]
+struct Identity {
+    public_key: Vec<u8>,
+    identity_algorithm: JwsSignatureAlgorithms,
+    name: String,
+    description: Option<String>,
+    email: Option<String>,
+    web_url: Option<String>,
+    phone_number: Option<String>,
+}

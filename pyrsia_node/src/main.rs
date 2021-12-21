@@ -1,3 +1,19 @@
+/*
+   Copyright 2021 JFrog Ltd
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 extern crate bytes;
 extern crate clap;
 extern crate easy_hasher;
@@ -13,6 +29,7 @@ extern crate lazy_static;
 mod artifact_manager;
 mod docker;
 mod document_store;
+mod metadata_manager;
 mod network;
 mod node_api;
 mod node_manager;
@@ -21,6 +38,7 @@ use docker::error_util::*;
 use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
 use document_store::document_store::DocumentStore;
+use document_store::document_store::IndexSpec;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 use node_api::handlers::swarm::*;
@@ -53,7 +71,12 @@ async fn main() {
     pretty_env_logger::init();
 
     // create the connection to the documentStore.
-    let doc_store = DocumentStore::new();
+    let index_one = "index_one";
+    let field1 = "mostSignificantField";
+    let idx1 = IndexSpec::new(index_one, vec![field1]);
+
+    DocumentStore::create("document_store", vec![idx1]).expect("Failed to create DocumentStore");
+    let doc_store = DocumentStore::get("document_store").unwrap();
     doc_store.ping();
 
     let matches: ArgMatches = App::new("Pyrsia Node")

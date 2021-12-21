@@ -296,6 +296,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "50ae17cabbc8a38a1e3e4c1a6a664e9a09672dc14d0896fa8d865d3a5a446b07"
 
 [[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.55.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2748,6 +2757,7 @@ name = "pyrsia_node"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "blake3",
  "bytes",
  "clap 2.33.3",
@@ -2766,15 +2776,19 @@ dependencies = [
  "log",
  "once_cell",
  "pretty_env_logger",
+ "pyrsia_client_lib",
  "rand 0.8.4",
  "reqwest",
  "serde",
  "serde_json",
  "sha2 0.9.8",
+ "signed_struct",
  "stringreader",
  "strum",
  "strum_macros",
  "tempfile",
+ "test-log",
+ "test_helpers",
  "tokio",
  "unqlite",
  "uuid",
@@ -3264,20 +3278,12 @@ checksum = "02658e48d89f2bec991f9a78e69cfa4c316f8d6a6c4ec12fae1aeb263d486788"
 name = "signed_struct"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "proc-macro2",
  "pyrsia_client_lib",
  "quote",
- "syn",
-]
-
-[[package]]
-name = "signed_struct_test"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "pyrsia_client_lib",
  "serde",
- "signed_struct",
+ "syn",
 ]
 
 [[package]]
@@ -3452,6 +3458,21 @@ checksum = "2dfed899f0eb03f32ee8c6a0aabdb8a7949659e3466561fc0adf54e26d88c5f4"
 dependencies = [
  "winapi-util",
 ]
+
+[[package]]
+name = "test-log"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb78caec569a40f42c078c798c0e35b922d9054ec28e166f0d6ac447563d91a4"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "test_helpers"
+version = "0.1.0"
 
 [[package]]
 name = "textwrap"
