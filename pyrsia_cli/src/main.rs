@@ -14,6 +14,8 @@
    limitations under the License.
 */
 
+extern crate pyrsia_node;
+
 pub mod commands;
 
 use commands::config::*;
@@ -34,23 +36,22 @@ async fn main() {
             if config_matches.is_present("add") {
                 let node_config = config_matches.value_of("add").unwrap();
                 let _result = add_config(String::from(node_config));
-                println!("Node configured: {}", node_config);
+                println!("Node configured:      {}", node_config);
             }
             if config_matches.is_present("show") {
                 let result = get_config();
 
                 let _url = match result {
                     Ok(url) => {
-                        println!("Node Config: {}", url)
+                        println!("Node URL:      {}", url)
                     }
                     Err(error) => {
-                        println!("Error: {}", error);
+                        println!("No Node Configured:       {}", error);
                     }
                 };
             }
         }
 
-        //node subcommand
         Some(("node", node_matches)) => {
             if node_matches.is_present("ping") {
                 let result = ping().await;
@@ -62,8 +63,7 @@ async fn main() {
                         println!("Error: {}", error);
                     }
                 };
-            }
-            if node_matches.is_present("ls") {
+            } else if node_matches.is_present("list") {
                 let result = peers_connected().await;
                 let _resp = match result {
                     Ok(resp) => {
@@ -79,6 +79,18 @@ async fn main() {
                         println!("Error: {}", error);
                     }
                 };
+            } else if node_matches.is_present("status") {
+                let result = status().await;
+                let _resp = match result {
+                    Ok(resp) => {
+                        println!("{}", resp);
+                    }
+                    Err(error) => {
+                        println!("Error: {}", error);
+                    }
+                };
+            } else {
+                println!("No help topic for '{:?}'", node_matches)
             }
         }
 

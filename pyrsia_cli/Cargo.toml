@@ -5,12 +5,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = { version = "3.0.0-beta.5", features = ["yaml"] }
 anyhow = "1.0"
+clap = { version = "3.0.0-beta.5", features = ["yaml"] }
+futures = { version = "0.3.*"}
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1", features = [ "full"] }
-futures = { version = "0.3.*"}
 walkdir = "2.3.2"
+
+pyrsia_node = { path = "../pyrsia_node" }
+
 
 [[bin]]
 name = "pyrsia"

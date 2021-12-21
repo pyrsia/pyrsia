@@ -1,4 +1,3 @@
-use super::model::cli::Status;
 /*
    Copyright 2021 JFrog Ltd
 
@@ -21,13 +20,14 @@ use super::HashAlgorithm;
 use super::Hash;
 
 use anyhow::{Context, Result};
-use log::{error, info};
+use lazy_static::lazy_static;
+use log::info;
 use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 use std::str;
 
-const ART_MGR_DIR: &str = "/var/lib/pyrsia";
+const ART_MGR_DIR: &str = "pyrsia";
 
 lazy_static! {
     static ref ART_MGR: ArtifactManager = {

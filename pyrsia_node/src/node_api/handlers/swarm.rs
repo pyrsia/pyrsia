@@ -75,7 +75,7 @@ pub async fn handle_get_status(
     let ser_status = serde_json::to_string(&status).unwrap();
 
     Ok(warp::http::response::Builder::new()
-        .header("Content-Type", "application/octet-stream")
+        .header("Content-Type", "application/json")
         .status(StatusCode::OK)
         .body(ser_status)
         .unwrap())

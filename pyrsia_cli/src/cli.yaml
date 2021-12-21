@@ -43,7 +43,7 @@ subcommands:
             - status:
                 short: s
                 long: status
-                about: Shows node details of connected peers, artifacts stored etc.
+                about: Shows node details of connected peers count, artifacts stored and available disk space
             - list:
                 short: ls
                 long: list

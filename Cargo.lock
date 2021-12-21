@@ -2730,8 +2730,10 @@ dependencies = [
  "clap 3.0.0-beta.5",
  "expectest",
  "futures",
+ "pyrsia_node",
  "reqwest",
  "tokio",
+ "walkdir",
 ]
 
 [[package]]
@@ -2792,6 +2794,7 @@ dependencies = [
  "tokio",
  "unqlite",
  "uuid",
+ "walkdir",
  "warp",
 ]
 
@@ -3055,6 +3058,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c0fbb5f676da676c260ba276a8f43a8dc67cf02d1438423aeb1c677a7212686"
 dependencies = [
  "cipher",
+]
+
+[[package]]
+name = "same-file"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
+dependencies = [
+ "winapi-util",
 ]
 
 [[package]]
@@ -3854,6 +3866,17 @@ name = "waker-fn"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d5b2c62b4012a3e1eca5a7e077d13b3bf498c4073e33ccd58626607748ceeca"
+
+[[package]]
+name = "walkdir"
+version = "2.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "808cf2735cd4b6866113f648b791c6adc5714537bc222d9347bb203386ffda56"
+dependencies = [
+ "same-file",
+ "winapi",
+ "winapi-util",
+]
 
 [[package]]
 name = "want"
