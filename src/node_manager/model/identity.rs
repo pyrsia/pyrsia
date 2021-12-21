@@ -17,7 +17,7 @@
 extern crate serde;
 extern crate serde_json;
 
-use pyrsia_node::signed::{JwsSignatureAlgorithms, Signed};
+use crate::signed::{JwsSignatureAlgorithms, Signed};
 use signed_struct::signed_struct;
 
 #[signed_struct]

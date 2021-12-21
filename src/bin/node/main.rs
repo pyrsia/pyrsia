@@ -23,30 +23,18 @@ extern crate serde;
 extern crate tokio;
 extern crate uuid;
 extern crate warp;
-#[macro_use]
-extern crate lazy_static;
 
-//local module imports
-mod artifact_manager;
-mod block_chain;
-mod docker;
-mod document_store;
-mod metadata_manager;
-mod network;
-mod node_api;
-mod node_manager;
-mod utils;
+use ::pyrsia::block_chain::*;
+use ::pyrsia::docker::error_util::*;
+use ::pyrsia::docker::v2::handlers::blobs::*;
+use ::pyrsia::docker::v2::handlers::manifests::*;
+use ::pyrsia::document_store::document_store::DocumentStore;
+use ::pyrsia::document_store::document_store::IndexSpec;
+use ::pyrsia::network::swarm::{new as new_swarm, MyBehaviourSwarm};
+use ::pyrsia::network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
+use ::pyrsia::node_api::handlers::swarm::*;
+use ::pyrsia::utils::log::*;
 
-use block_chain::block::Block;
-use block_chain::block_chain::BlockChain;
-use docker::error_util::*;
-use docker::v2::handlers::blobs::*;
-use docker::v2::handlers::manifests::*;
-use document_store::document_store::DocumentStore;
-use document_store::document_store::IndexSpec;
-use network::swarm::{new as new_swarm, MyBehaviourSwarm};
-use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
-use node_api::handlers::swarm::*;
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
@@ -89,8 +77,8 @@ async fn main() {
         .author(clap::crate_authors!(", "))
         .about("Application to connect to and participate in the Pyrsia network")
         .arg(
-            Arg::with_name("port")
-                .short("p")
+            Arg::new("port")
+                .short('p')
                 .long("port")
                 .value_name("PORT")
                 .default_value(DEFAULT_PORT)
@@ -100,7 +88,7 @@ async fn main() {
                 .help("Sets the port to listen to for the Docker API"),
         )
         .arg(
-            Arg::with_name("peer")
+            Arg::new("peer")
                 //.short("p")
                 .long("peer")
                 .takes_value(true)
@@ -203,7 +191,7 @@ async fn main() {
         .and_then(move || handle_get_peers(tx3.clone(), my_stats.clone()));
 
     let routes = warp::any()
-        .and(utils::log::log_headers())
+        .and(log_headers())
         .and(
             v2_base
                 .or(v2_manifests)

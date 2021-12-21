@@ -18,7 +18,7 @@ extern crate serde_json;
 
 use crate::node_manager::model::artifact::Artifact;
 use crate::node_manager::model::package_type::PackageTypeName;
-use pyrsia_node::signed::Signed;
+use crate::signed::Signed;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use signed_struct::signed_struct;
