@@ -20,7 +20,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use warp::Filter;
 
-pub fn get_node_routes(
+pub fn make_node_routes(
     tx: Sender<String>,
     rx: Arc<Mutex<Receiver<String>>>,
     tx1: Sender<String>,
