@@ -46,8 +46,7 @@ pub trait MetadataApi {
     fn create_package_type(&self, pkg_type: &PackageType) -> Result<()>;
 
     /// Return a PackageType struct that describes the named package type.
-    fn get_package_type(&self, name: PackageTypeName)
-        -> Result<Option<PackageType>>;
+    fn get_package_type(&self, name: PackageTypeName) -> Result<Option<PackageType>>;
 
     /// Define the namespace described by the given `Namespace` struct.
     ///
@@ -105,10 +104,7 @@ pub trait MetadataApi {
 
     /// Get an iterator over the packages associated with the namespace identified by the given
     /// namespace ID.
-    fn get_packages_by_namespace_id(
-        &self,
-        namespace_id: &str,
-    ) -> Result<PackageIterator>;
+    fn get_packages_by_namespace_id(&self, namespace_id: &str) -> Result<PackageIterator>;
 
     /// Update the package described by the given `Package` struct with the information in the
     /// struct.
@@ -137,11 +133,7 @@ pub trait MetadataApi {
     /// If the values of the `administrators` field in the existing record is not an empty `Vec`,
     /// then the public key of at least one of the signers of this `Package` must be one of the
     /// public keys in the `administrators` field. Otherwise an error is returned.
-    fn update_package(
-        &self,
-        package: &Package,
-        previous_signature: &str,
-    ) -> Result<()>;
+    fn update_package(&self, package: &Package, previous_signature: &str) -> Result<()>;
 
     /// Define the package version described by the given `PackageVersion` struct.
     ///
@@ -150,8 +142,7 @@ pub trait MetadataApi {
     ///
     /// Returns an error if `package_version` does not have any valid signatures or if any of the valid
     /// signatures are associated with a public key that does not identify an identity in the blockchain.
-    fn create_package_version(&self, package_version: &PackageVersion)
-        -> Result<()>;
+    fn create_package_version(&self, package_version: &PackageVersion) -> Result<()>;
 
     /// Get the package_version that matches the given namespace_id, package_name and version.
     fn get_package_version(
@@ -186,7 +177,6 @@ impl Iterator for PackageIterator {
         todo!()
     }
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -280,7 +270,6 @@ fn init_empty() -> Vec<String> {
 // End of definitions to support creation of document stores
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
 #[derive(Debug)]
 pub struct Metadata<'a> {
     trust_manager: &'a dyn TrustManager,
@@ -370,10 +359,7 @@ fn populate_with_initial_records(
     Ok(())
 }
 
-fn failed_to_create_document_store(
-    ds_name: &str,
-    error: Box<dyn Error>,
-) -> Result<DocumentStore> {
+fn failed_to_create_document_store(ds_name: &str, error: Box<dyn Error>) -> Result<DocumentStore> {
     let msg = format!(
         "Failed to create document store {} due to error {}",
         ds_name, error
@@ -390,10 +376,7 @@ impl MetadataApi for Metadata<'_> {
         }
     }
 
-    fn get_package_type(
-        &self,
-        name: PackageTypeName,
-    ) -> anyhow::Result<Option<PackageType>> {
+    fn get_package_type(&self, name: PackageTypeName) -> anyhow::Result<Option<PackageType>> {
         let name_as_string = name.to_string();
         let filter = hashmap! {
             FLD_PACKAGE_TYPES_NAME => name_as_string.as_str()
@@ -461,25 +444,15 @@ impl MetadataApi for Metadata<'_> {
         todo!()
     }
 
-    fn get_packages_by_namespace_id(
-        &self,
-        _namespace_id: &str,
-    ) -> anyhow::Result<PackageIterator> {
+    fn get_packages_by_namespace_id(&self, _namespace_id: &str) -> anyhow::Result<PackageIterator> {
         todo!()
     }
 
-    fn update_package(
-        &self,
-        _package: &Package,
-        _previous_signature: &str,
-    ) -> anyhow::Result<()> {
+    fn update_package(&self, _package: &Package, _previous_signature: &str) -> anyhow::Result<()> {
         todo!()
     }
 
-    fn create_package_version(
-        &self,
-        _package_version: &PackageVersion,
-    ) -> anyhow::Result<()> {
+    fn create_package_version(&self, _package_version: &PackageVersion) -> anyhow::Result<()> {
         todo!()
     }
 
@@ -492,10 +465,7 @@ impl MetadataApi for Metadata<'_> {
         todo!()
     }
 
-    fn get_package_version_by_id(
-        &self,
-        _id: &str,
-    ) -> anyhow::Result<Option<PackageVersion>> {
+    fn get_package_version_by_id(&self, _id: &str) -> anyhow::Result<Option<PackageVersion>> {
         todo!()
     }
 }
@@ -602,9 +572,7 @@ mod tests {
     const DIR_PREFIX: &str = "metadata_test_";
 
     // Used to run a test in a randomly named directory and then clean up by deleting the directory.
-    fn do_in_temp_directory(
-        runner: fn() -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
+    fn do_in_temp_directory(runner: fn() -> anyhow::Result<()>) -> anyhow::Result<()> {
         let mut rng = rand::thread_rng();
         let n: u32 = rng.gen();
         let mut dir_name = String::from(DIR_PREFIX);
