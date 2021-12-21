@@ -13,12 +13,12 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-
+extern crate pyrsia_client_lib;
 extern crate serde;
 extern crate serde_json;
 
 use crate::node_manager::model::package_type::PackageTypeName;
-use crate::signed::Signed;
+use pyrsia_client_lib::signed::Signed;
 use signed_struct::signed_struct;
 
 #[signed_struct]

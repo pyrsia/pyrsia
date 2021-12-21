@@ -14,21 +14,7 @@
    limitations under the License.
 */
 
-extern crate serde;
-extern crate serde_json;
+#![allow(mixed_script_confusables)] // This is to allow structs created by a derive macro to have private fields that begin with the grek letter π
 
-use crate::signed::Signed;
-use serde::{Deserialize, Serialize};
-
-use signed_struct::signed_struct;
-
-#[signed_struct]
-pub struct PackageType {
-    name: PackageTypeName,
-    description: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum PackageTypeName {
-    Docker,
-}
+/// Library for code that will be use by both Pyrsia nodes and Pyrsia clients.
+pub mod signed;
