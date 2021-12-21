@@ -43,11 +43,11 @@ pub trait MetadataApi {
     /// signatures are associated with a public key that does not identify an identity in the blockchain.
     ///
     /// Also returns an error if there is already package_type with the same name.
-    fn create_package_type(&self, pkg_type: &PackageType) -> Result<(), anyhow::Error>;
+    fn create_package_type(&self, pkg_type: &PackageType) -> Result<()>;
 
     /// Return a PackageType struct that describes the named package type.
     fn get_package_type(&self, name: PackageTypeName)
-        -> Result<Option<PackageType>, anyhow::Error>;
+        -> Result<Option<PackageType>>;
 
     /// Define the namespace described by the given `Namespace` struct.
     ///
@@ -58,23 +58,23 @@ pub trait MetadataApi {
     ///
     /// Returns an error if `namespace` does not have any valid signatures or if any of the valid
     /// signatures are associated with a public key that does not identify an identity in the blockchain.
-    fn create_namespace(&self, namespace: &Namespace) -> Result<(), anyhow::Error>;
+    fn create_namespace(&self, namespace: &Namespace) -> Result<()>;
 
     /// Get the namespace identified by the given package type and namespace path.
     fn get_namespace(
         &self,
         package_type: PackageTypeName,
         namespace_path: &str,
-    ) -> Result<Option<Namespace>, anyhow::Error>;
+    ) -> Result<Option<Namespace>>;
 
     /// Get the namespace identified by the given id.
-    fn get_namespace_by_id(&self, id: &str) -> Result<Option<Namespace>, anyhow::Error>;
+    fn get_namespace_by_id(&self, id: &str) -> Result<Option<Namespace>>;
 
     /// Get an iterator over the namespaces associated with the specified package type.
     fn get_namespaces_by_package_type(
         &self,
         package_type: PackageTypeName,
-    ) -> Result<NamespaceIterator, anyhow::Error>;
+    ) -> Result<NamespaceIterator>;
 
     /// Define the package described by the given `Package` struct.
     ///
@@ -83,7 +83,7 @@ pub trait MetadataApi {
     ///
     /// Returns an error if `package` does not have any valid signatures or if any of the valid
     /// signatures are associated with a public key that does not identify an identity in the blockchain.
-    fn create_package(&self, package: &Package) -> Result<(), anyhow::Error>;
+    fn create_package(&self, package: &Package) -> Result<()>;
 
     /// Get the package identified by the combination of the given package type, namespace id and
     /// package name.
@@ -92,7 +92,7 @@ pub trait MetadataApi {
         package_type: PackageTypeName,
         namespace_id: &str,
         package_name: &str,
-    ) -> Result<Option<Package>, anyhow::Error>;
+    ) -> Result<Option<Package>>;
 
     /// Get the package identified by the combination of the given package type, namespace path and
     /// package name.
@@ -101,14 +101,14 @@ pub trait MetadataApi {
         package_type: PackageTypeName,
         namespace_path: &[&str],
         package_name: &str,
-    ) -> Result<Option<Package>, anyhow::Error>;
+    ) -> Result<Option<Package>>;
 
     /// Get an iterator over the packages associated with the namespace identified by the given
     /// namespace ID.
     fn get_packages_by_namespace_id(
         &self,
         namespace_id: &str,
-    ) -> Result<PackageIterator, anyhow::Error>;
+    ) -> Result<PackageIterator>;
 
     /// Update the package described by the given `Package` struct with the information in the
     /// struct.
@@ -141,7 +141,7 @@ pub trait MetadataApi {
         &self,
         package: &Package,
         previous_signature: &str,
-    ) -> Result<(), anyhow::Error>;
+    ) -> Result<()>;
 
     /// Define the package version described by the given `PackageVersion` struct.
     ///
@@ -151,7 +151,7 @@ pub trait MetadataApi {
     /// Returns an error if `package_version` does not have any valid signatures or if any of the valid
     /// signatures are associated with a public key that does not identify an identity in the blockchain.
     fn create_package_version(&self, package_version: &PackageVersion)
-        -> Result<(), anyhow::Error>;
+        -> Result<()>;
 
     /// Get the package_version that matches the given namespace_id, package_name and version.
     fn get_package_version(
@@ -159,10 +159,10 @@ pub trait MetadataApi {
         namespace_id: &str,
         package_name: &str,
         version: &str,
-    ) -> Result<Option<PackageVersion>, anyhow::Error>;
+    ) -> Result<Option<PackageVersion>>;
 
     /// Get the package_version that has the given id.
-    fn get_package_version_by_id(&self, id: &str) -> Result<Option<PackageVersion>, anyhow::Error>;
+    fn get_package_version_by_id(&self, id: &str) -> Result<Option<PackageVersion>>;
 }
 
 /// Used to iterate over a collection of namespaces without requiring the collection to fit in memory.
@@ -249,18 +249,21 @@ pub struct Metadata<'a> {
     trust_manager: &'a dyn TrustManager,
     package_type_docs: DocumentStore,
     namespace_docs: DocumentStore,
+    package_docs: DocumentStore,
 }
 
 impl<'a> Metadata<'a> {
-    pub fn new() -> Result<Metadata<'a>, anyhow::Error> {
+    pub fn new() -> Result<Metadata<'a>> {
         info!("Creating new instance of metadata manager");
         let package_type_docs =
             open_document_store(DS_PACKAGE_TYPES, ix_package_types, init_package_types)?;
         let namespace_docs = open_document_store(DS_NAMESPACES, ix_namespaces, init_empty)?;
+        let package_docs = open_document_store(DS_PACKAGES, ix_packages, init_empty)?;
         Ok(Metadata {
             trust_manager: &DefaultTrustManager {},
             package_type_docs,
             namespace_docs,
+            package_docs,
         })
     }
 }
@@ -316,7 +319,7 @@ fn populate_with_initial_records(
 fn failed_to_create_document_store(
     ds_name: &str,
     error: Box<dyn Error>,
-) -> Result<DocumentStore, anyhow::Error> {
+) -> Result<DocumentStore> {
     let msg = format!(
         "Failed to create document store {} due to error {}",
         ds_name, error
@@ -326,7 +329,7 @@ fn failed_to_create_document_store(
 }
 
 impl MetadataApi for Metadata<'_> {
-    fn create_package_type(&self, pkg_type: &PackageType) -> anyhow::Result<(), anyhow::Error> {
+    fn create_package_type(&self, pkg_type: &PackageType) -> anyhow::Result<()> {
         match self.trust_manager.trust_package_type(pkg_type) {
             Ok(_) => insert_metadata(&self.package_type_docs, pkg_type),
             Err(error) => untrusted_metadata_error(pkg_type, &error.to_string()),
@@ -336,7 +339,7 @@ impl MetadataApi for Metadata<'_> {
     fn get_package_type(
         &self,
         name: PackageTypeName,
-    ) -> anyhow::Result<Option<PackageType>, anyhow::Error> {
+    ) -> anyhow::Result<Option<PackageType>> {
         let name_as_string = name.to_string();
         let filter = hashmap! {
             FLD_PACKAGE_TYPES_NAME => name_as_string.as_str()
@@ -348,7 +351,7 @@ impl MetadataApi for Metadata<'_> {
         }
     }
 
-    fn create_namespace(&self, namespace: &Namespace) -> anyhow::Result<(), anyhow::Error> {
+    fn create_namespace(&self, namespace: &Namespace) -> anyhow::Result<()> {
         match self.trust_manager.trust_namespace(namespace) {
             Ok(_) => insert_metadata(&self.namespace_docs, namespace),
             Err(error) => untrusted_metadata_error(namespace, &error.to_string()),
@@ -359,7 +362,7 @@ impl MetadataApi for Metadata<'_> {
         &self,
         package_type: PackageTypeName,
         namespace_path: &str,
-    ) -> anyhow::Result<Option<Namespace>, anyhow::Error> {
+    ) -> anyhow::Result<Option<Namespace>> {
         let package_type_as_string = package_type.to_string();
         let filter = hashmap! {
             FLD_NAMESPACES_PKG_TYPE => package_type_as_string.as_str(),
@@ -368,7 +371,7 @@ impl MetadataApi for Metadata<'_> {
         fetch_namespace(self, IX_NAMESPACES_PATH, filter)
     }
 
-    fn get_namespace_by_id(&self, id: &str) -> anyhow::Result<Option<Namespace>, anyhow::Error> {
+    fn get_namespace_by_id(&self, id: &str) -> anyhow::Result<Option<Namespace>> {
         let filter = hashmap! {
             FLD_NAMESPACES_ID => id
         };
@@ -378,11 +381,11 @@ impl MetadataApi for Metadata<'_> {
     fn get_namespaces_by_package_type(
         &self,
         _package_type: PackageTypeName,
-    ) -> anyhow::Result<NamespaceIterator, anyhow::Error> {
+    ) -> anyhow::Result<NamespaceIterator> {
         todo!() // Requires range search support from the document store.
     }
 
-    fn create_package(&self, _package: &Package) -> anyhow::Result<(), anyhow::Error> {
+    fn create_package(&self, _package: &Package) -> anyhow::Result<()> {
         todo!()
     }
 
@@ -391,7 +394,7 @@ impl MetadataApi for Metadata<'_> {
         _package_type: PackageTypeName,
         _namespace_id: &str,
         _package_name: &str,
-    ) -> anyhow::Result<Option<Package>, anyhow::Error> {
+    ) -> anyhow::Result<Option<Package>> {
         todo!()
     }
 
@@ -400,14 +403,14 @@ impl MetadataApi for Metadata<'_> {
         _package_type: PackageTypeName,
         _namespace_path: &[&str],
         _package_name: &str,
-    ) -> anyhow::Result<Option<Package>, anyhow::Error> {
+    ) -> anyhow::Result<Option<Package>> {
         todo!()
     }
 
     fn get_packages_by_namespace_id(
         &self,
         _namespace_id: &str,
-    ) -> anyhow::Result<PackageIterator, anyhow::Error> {
+    ) -> anyhow::Result<PackageIterator> {
         todo!()
     }
 
@@ -415,14 +418,14 @@ impl MetadataApi for Metadata<'_> {
         &self,
         _package: &Package,
         _previous_signature: &str,
-    ) -> anyhow::Result<(), anyhow::Error> {
+    ) -> anyhow::Result<()> {
         todo!()
     }
 
     fn create_package_version(
         &self,
         _package_version: &PackageVersion,
-    ) -> anyhow::Result<(), anyhow::Error> {
+    ) -> anyhow::Result<()> {
         todo!()
     }
 
@@ -431,14 +434,14 @@ impl MetadataApi for Metadata<'_> {
         _namespace_id: &str,
         _package_name: &str,
         _version: &str,
-    ) -> Result<Option<PackageVersion>, anyhow::Error> {
+    ) -> Result<Option<PackageVersion>> {
         todo!()
     }
 
     fn get_package_version_by_id(
         &self,
         _id: &str,
-    ) -> Result<Option<PackageVersion>, anyhow::Error> {
+    ) -> anyhow::Result<Option<PackageVersion>> {
         todo!()
     }
 }
@@ -447,7 +450,7 @@ fn fetch_namespace(
     md: &Metadata,
     index_name: &str,
     filter: HashMap<&str, &str>,
-) -> anyhow::Result<Option<Namespace>, anyhow::Error> {
+) -> anyhow::Result<Option<Namespace>> {
     match md.namespace_docs.fetch(index_name, filter) {
         Err(error) => Err(anyhow!("Error fetching namespace: {}", error)),
         Ok(Some(json)) => Ok(Some(Namespace::from_json_string(&json)?)),
@@ -458,7 +461,7 @@ fn fetch_namespace(
 fn insert_metadata<'a, T: Signed<'a> + Debug>(
     ds: &DocumentStore,
     signed: &T,
-) -> anyhow::Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
     match signed.json() {
         Some(json) => match ds.insert(&json) {
             Ok(_) => Ok(()),
@@ -545,8 +548,8 @@ mod tests {
     const DIR_PREFIX: &str = "metadata_test_";
 
     fn do_in_temp_directory(
-        runner: fn() -> Result<(), anyhow::Error>,
-    ) -> Result<(), anyhow::Error> {
+        runner: fn() -> anyhow::Result<()>,
+    ) -> anyhow::Result<()> {
         let mut rng = rand::thread_rng();
         let n: u32 = rng.gen();
         let mut dir_name = String::from(DIR_PREFIX);
