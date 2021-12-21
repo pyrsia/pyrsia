@@ -1,0 +1,13 @@
+name: Delete Pushed Branches
+
+on: 
+  push:
+   branches-ignore: [main]
+   
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'pyrsia' # Only on main repo
+    steps:
+    - run: |
+        curl -s -X DELETE -u ${{ github.token }} https://api.github.com/repos/${{ github.repository }}/git/refs/heads/${{ github.ref }}
