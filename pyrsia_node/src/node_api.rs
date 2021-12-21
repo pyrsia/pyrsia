@@ -18,4 +18,3 @@ pub mod handlers;
 
 use crate::node_manager::handlers::*;
 use crate::node_manager::model::cli::*;
-

@@ -282,16 +282,16 @@ impl<'a> ArtifactManager {
         Err(anyhow!("Not an accessible directory: {}", repository_path))
     }
 
-    pub fn artifacts_count(&self,repository_path: &str) -> Result<usize, Error> {
+    pub fn artifacts_count(&self, repository_path: &str) -> Result<usize, Error> {
         let mut total_files = 0;
 
-        for file in WalkDir::new("./change_this_path")
+        for file in WalkDir::new(repository_path)
             .into_iter()
             .filter_entry(|path| Self::is_not_hidden(path))
             .filter_map(|file| file.ok())
         {
             if file.metadata().unwrap().is_file() {
-                total_files = total_files + 1;
+                total_files += 1;
             }
         }
         Ok(total_files)
@@ -301,7 +301,7 @@ impl<'a> ArtifactManager {
         entry
             .file_name()
             .to_str()
-            .map(|s| entry.depth() == 0 || !s.starts_with("."))
+            .map(|s| entry.depth() == 0 || !s.starts_with('.'))
             .unwrap_or(false)
     }
 

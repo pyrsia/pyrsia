@@ -15,16 +15,16 @@
 */
 
 // this is to handle calls from cli that needs access info swarm specific from  kad dht
+use super::super::Status;
+use super::super::*;
+use super::RegistryError;
+use super::RegistryErrorCode;
 use log::{debug, error};
 use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
-use super::super::Status;
-use super::super::*;
-use super::RegistryError;
-use super::RegistryErrorCode;
 
 pub async fn handle_get_peers(
     tx: Sender<String>,
@@ -56,24 +56,23 @@ pub async fn handle_get_status(
     let peers = rx.lock().await.recv().await.unwrap();
     let split = peers.split(',');
     let vec: Vec<&str> = split.collect();
-    debug!("peers count: {}", vec.iter().count());
+    debug!("peers count: {}", vec.len());
 
     let art_count_result = get_arts_count();
     if art_count_result.is_err() {
         return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown(String::from("artifact_count")),
-        }));    }
-
+            code: RegistryErrorCode::Unknown(art_count_result.err().unwrap().to_string()),
+        }));
+    }
 
     let status = Status {
         artifact_count: art_count_result.unwrap(),
-        peers_count: vec.iter().count(),
-        // TODO: dummy disk space value, need implementation in upstream 
+        peers_count: vec.len(),
+        // TODO: dummy disk space value, need implementation in upstream
         disk_space_available: String::from("983112"),
-   };
+    };
 
-   let ser_status = serde_json::to_string(&status).unwrap();
-
+    let ser_status = serde_json::to_string(&status).unwrap();
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")

@@ -27,7 +27,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::str;
 
-const ART_MGR_DIR: &str = "pyrsia";
+const ART_MGR_DIR: &str = "/var/lib/pyrsia";
 
 lazy_static! {
     static ref ART_MGR: ArtifactManager = {
@@ -61,8 +61,9 @@ pub fn put_artifact(artifact_hash: &[u8], artifact_path: &str) -> Result<bool, a
 pub fn get_arts_count() -> Result<usize, anyhow::Error> {
     info!("get_pyrsia_status started");
 
-    ART_MGR.artifacts_count(ART_MGR_DIR).context("Error while getting artifacts count")   
-    
+    ART_MGR
+        .artifacts_count(ART_MGR_DIR)
+        .context("Error while getting artifacts count")
 }
 
 #[cfg(test)]

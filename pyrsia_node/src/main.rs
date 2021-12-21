@@ -187,15 +187,22 @@ async fn main() {
         .and_then(handle_put_blob);
 
     let shared_stats = Arc::new(Mutex::new(respond_rx));
-    let my_stats = shared_stats.clone();
 
-    let tx3 = tx.clone();
+    let my_stats = shared_stats.clone();
+    let tx2 = tx.clone();
 
     //swarm specific apis
     let peers = warp::path!("peers")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(move || handle_get_peers(tx3.clone(), my_stats.clone()));
+        .and_then(move || handle_get_peers(tx2.clone(), my_stats.clone()));
+
+    let my_stats1 = shared_stats.clone();
+    let tx3 = tx.clone();
+    let status = warp::path!("status")
+        .and(warp::get())
+        .and(warp::path::end())
+        .and_then(move || handle_get_status(tx3.clone(), my_stats1.clone()));
 
     let routes = warp::any()
         .and(utils::log::log_headers())
@@ -207,7 +214,8 @@ async fn main() {
                 .or(v2_blobs_post)
                 .or(v2_blobs_patch)
                 .or(v2_blobs_put)
-                .or(peers),
+                .or(peers)
+                .or(status),
         )
         .recover(custom_recover)
         .with(warp::log("pyrsia_registry"));
@@ -215,7 +223,7 @@ async fn main() {
     info!("Pyrsia Docker Node is now running on port {}!", addr.port());
 
     tokio::spawn(server);
-    let tx2 = tx.clone();
+    let tx4 = tx.clone();
 
     // Kick it off
     loop {
@@ -246,13 +254,15 @@ async fn main() {
                 }
                 EventType::Input(line) => match line.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers_cmd().await,
-                    _ => match tx2.send(line).await {
+                    _ => match tx4.send(line).await {
                         Ok(_) => debug!("line sent"),
                         Err(_) => error!("failed to send stdin input"),
                     },
                 },
                 EventType::Message(message) => match message.as_str() {
-                    "peers" => swarm.behaviour_mut().list_peers(local_peer_id).await,
+                    cmd if cmd.starts_with("peers") || cmd.starts_with("status") => {
+                        swarm.behaviour_mut().list_peers(local_peer_id).await
+                    }
                     cmd if cmd.starts_with("get_blobs") => {
                         swarm.behaviour_mut().lookup_blob(message).await
                     }

@@ -17,6 +17,7 @@ extern crate pyrsia_client_lib;
 extern crate serde;
 extern crate serde_json;
 use super::super::HashAlgorithm;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 /// Describes an individual artifact. This is not a signed struct because it is normally stored as
