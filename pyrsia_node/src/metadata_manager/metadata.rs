@@ -28,6 +28,7 @@ use maplit::hashmap;
 use pyrsia_client_lib::iso8601;
 use pyrsia_client_lib::signed::{Attestation, Signed};
 use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+use serde_json::Value::String;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
@@ -267,6 +268,33 @@ fn ix_packages() -> Vec<IndexSpec> {
 
 fn init_empty() -> Vec<String> {
     vec![]
+}
+
+// Definitions for package-versions
+const DS_PACKAGE_VERSIONS: &str = "package_versions";
+const IX_PACKAGE_VERSIONS_ID: &str = "id";
+const IX_PACKAGE_VERSIONS_VERSION: &str = "version";
+const FLD_PACKAGE_VERSIONS_ID: &str = "id";
+const FLD_PACKAGE_VERSIONS_PKG_TYPE: &str = "pkg_type";
+const FLD_PACKAGE_VERSIONS_NAMESPACE_ID: &str = "namespace_id";
+const FLD_PACKAGE_VERSIONS_NAME: &str = "name";
+const FLD_PACKAGE_VERSIONS_VERSION: &str = "version";
+fn ix_package_versions() -> Vec<IndexSpec> {
+    vec![
+        IndexSpec::new(
+            String::from(IX_PACKAGE_VERSIONS_ID),
+            vec![String::from(FLD_PACKAGE_VERSIONS_ID)],
+        ),
+        IndexSpec::new(
+            String::from(IX_PACKAGE_VERSIONS_VERSION),
+            vec![
+                String::from(FLD_PACKAGE_VERSIONS_PKG_TYPE),
+                String::from(FLD_PACKAGE_VERSIONS_NAMESPACE_ID),
+                String::from(FLD_PACKAGE_VERSIONS_NAME),
+                String::from(FLD_PACKAGE_VERSIONS_VERSION),
+            ],
+        ),
+    ]
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -590,9 +618,9 @@ mod tests {
     use super::*;
     use pyrsia_client_lib::signed::{create_key_pair, JwsSignatureAlgorithms};
     use rand::Rng;
+    use serde_json::Value;
     use serial_test::serial;
     use std::path::Path;
-    use serde_json::Value;
 
     const DIR_PREFIX: &str = "metadata_test_";
 
@@ -732,11 +760,14 @@ mod tests {
             &key_pair.public_key,
         )?;
         metadata.create_package(&package)?;
-        let package2 = metadata.get_package(PackageTypeName::Docker, &namespace_id, &package_name)?;
+        let package2 =
+            metadata.get_package(PackageTypeName::Docker, &namespace_id, &package_name)?;
         assert!(package2.is_some());
         assert_eq!(package, package2.unwrap());
 
-        assert!(metadata.get_package(PackageTypeName::Docker, &namespace_id, &"BoGuS")?.is_none());
+        assert!(metadata
+            .get_package(PackageTypeName::Docker, &namespace_id, &"BoGuS")?
+            .is_none());
         Ok(())
     }
 }
