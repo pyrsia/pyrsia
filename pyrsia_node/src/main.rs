@@ -113,9 +113,10 @@ async fn main() {
                                                                             //let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
     let (respond_tx, respond_rx) = mpsc::channel(32);
     let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation");
+    let gossip_topic: libp2p::gossipsub::IdentTopic = libp2p::gossipsub::IdentTopic::new("pyrsia-file-share-topic");
     // Create a Swarm to manage peers and events.
     let mut swarm: MyBehaviourSwarm =
-        new_swarm(floodsub_topic.clone(), transport, local_peer_id, respond_tx)
+        new_swarm(gossip_topic.clone(), floodsub_topic.clone(), transport, local_key, respond_tx)
             .await
             .unwrap();
 
@@ -250,6 +251,7 @@ async fn main() {
                         Ok(_) => debug!("line sent"),
                         Err(_) => error!("failed to send stdin input"),
                     },
+        
                 },
                 EventType::Message(message) => match message.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers(local_peer_id).await,
