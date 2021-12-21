@@ -20,7 +20,7 @@ use super::handlers::manifests::*;
 use std::collections::HashMap;
 use warp::Filter;
 
-pub fn get_docker_routes(
+pub fn make_docker_routes(
     tx: tokio::sync::mpsc::Sender<String>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let empty_json = "{}";
