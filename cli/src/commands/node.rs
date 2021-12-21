@@ -14,8 +14,10 @@
    limitations under the License.
 */
 
-use crate::commands::config::get_config;
+extern crate reqwest;
 use reqwest;
+
+use super::config::get_config;
 
 pub async fn ping() -> Result<String, reqwest::Error> {
     let result = get_config();
