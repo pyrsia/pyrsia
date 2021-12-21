@@ -209,7 +209,7 @@ async fn main() {
 
     tokio::spawn(server);
     let tx2 = tx.clone();
-    let mut bc = BlockChain::new();
+    let mut bc = block_chain::BlockChain::new();
     bc.genesis();
     // Kick it off
     loop {
@@ -253,7 +253,7 @@ async fn main() {
                     "block" => {
                         // assuming the message is a json version of the block
 
-                        let block = Block {
+                        let block = block::Block {
                             id: 0,
                             hash: "".to_string(),
                             previous_hash: "".to_string(),
