@@ -23,8 +23,8 @@ hyper = { version = "0.14", features = ["full"] }
 hyper-tls = "0.5.0"
 itertools = "0.10.3"
 lazy_static = "1.4.0"
-#libp2p = "0.40.0"
-libp2p = {git = "https://github.com/decentnetwork/rust-libp2p.git", branch = "fix-compiling-v0.40", features=["tcp-tokio"]}
+#libp2p = "0.42.0"
+libp2p = {git = "https://github.com/decentnetwork/rust-libp2p.git", features=["tcp-tokio"]}
 log = "0.4.14"
 maplit = "1.0.2"
 once_cell = "1.5"
@@ -46,6 +46,8 @@ tokio = { version = "1", features = [ "macros", "rt-multi-thread", "io-std" ] }
 unqlite = "1.5.0"
 uuid = { version = "0.8.2", features = [ "v4" ] }
 warp = { version = "0.3.1", default-features = false }
+walkdir = "2.3.2"
+
 
 [dev-dependencies]
 env_logger = "*"
