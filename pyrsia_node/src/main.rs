@@ -25,8 +25,10 @@ extern crate uuid;
 extern crate warp;
 #[macro_use]
 extern crate lazy_static;
+
 //local module imports
 mod artifact_manager;
+mod block_chain;
 mod docker;
 mod document_store;
 mod metadata_manager;
@@ -34,6 +36,9 @@ mod network;
 mod node_api;
 mod node_manager;
 mod utils;
+
+use block_chain::block::Block;
+use block_chain::block_chain::BlockChain;
 use docker::error_util::*;
 use docker::v2::handlers::blobs::*;
 use docker::v2::handlers::manifests::*;
@@ -217,7 +222,8 @@ async fn main() {
 
     tokio::spawn(server);
     let tx2 = tx.clone();
-
+    let mut bc = BlockChain::new();
+    bc.genesis();
     // Kick it off
     loop {
         let evt = {
@@ -257,6 +263,19 @@ async fn main() {
                     "peers" => swarm.behaviour_mut().list_peers(local_peer_id).await,
                     cmd if cmd.starts_with("get_blobs") => {
                         swarm.behaviour_mut().lookup_blob(message).await
+                    }
+                    "block" => {
+                        // assuming the message is a json version of the block
+
+                        let block = Block {
+                            id: 0,
+                            hash: "".to_string(),
+                            previous_hash: "".to_string(),
+                            timestamp: 0,
+                            data: "".to_string(),
+                            nonce: 0,
+                        };
+                        bc.add_block(block);
                     }
                     _ => info!("message received from peers: {}", message),
                 },
