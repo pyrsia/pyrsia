@@ -31,21 +31,21 @@ jobs:
 
 # save the pyrsia_node binary for the package creation
     - uses: actions/upload-artifact@v2
-      if: ${{ github.repository_owner == 'pyrsia' && runner.os == 'Linux' && github.event_name == 'push' }}
+      if: ${{ runner.os == 'Linux' && github.event_name == 'push' }}
       with:
         name: pyrsia_node
         path: target/debug/pyrsia_node
 
 # save the pyrsia binary for the package creation
     - uses: actions/upload-artifact@v2
-      if: ${{ github.repository_owner == 'pyrsia' && runner.os == 'Linux' && github.event_name == 'push' }} 
+      if: ${{ runner.os == 'Linux' && github.event_name == 'push' }} 
       with:
         name: pyrsia
         path: target/debug/pyrsia
 
 # save the DEBIAN control files to be used with the deb packager
     - uses: actions/upload-artifact@v2
-      if: ${{ github.repository_owner == 'pyrsia' && runner.os == 'Linux' && github.event_name == 'push' }} 
+      if: ${{ runner.os == 'Linux' && github.event_name == 'push' }} 
       with:
         name: DEBIAN
         path: installer/DEBIAN
@@ -53,7 +53,7 @@ jobs:
 # Create the .deb file, add it to the apt repo and
 # push the changes to the website github repo
   apt-package:
-      if: ${{ github.repository_owner == 'pyrsia' && github.event_name == 'push' }}
+      if: ${{ github.event_name == 'push' }}
       needs: [build]
       runs-on: ubuntu-latest
       steps:
@@ -79,19 +79,20 @@ jobs:
 # create the pyrsia.deb file
       - name:  Package for apt-get
         run: |
-            mkdir -p pyrsia/usr/local/bin; \
-            cp target/debug/pyrsia_node pyrsia/usr/local/bin; \
-            cp target/debug/pyrsia pyrsia/usr/local/bin; \
-            echo "Installed-Size: $(echo "$(stat -c%s pyrsia/usr/local/bin/pyrsia) + $(stat -c%s pyrsia/usr/local/bin/pyrsia_node)" | bc)" >> pyrsia/DEBIAN/control; \
+            mkdir -p pyrsia/usr/local/bin
+            cp target/debug/pyrsia_node pyrsia/usr/local/bin
+            cp target/debug/pyrsia pyrsia/usr/local/bin
+            echo "Installed-Size: $(echo "$(stat -c%s pyrsia/usr/local/bin/pyrsia) + $(stat -c%s pyrsia/usr/local/bin/pyrsia_node)" | bc)" >> pyrsia/DEBIAN/control
             sed -i.bak "/Version:/s/\$/-$GITHUB_RUN_NUMBER/" pyrsia/DEBIAN/control
-            cat pyrsia/DEBIAN/control; \
-            dpkg-deb --build pyrsia; \
-            ls -la pyrsia.deb;
+            cat pyrsia/DEBIAN/control
+            dpkg-deb --build pyrsia
+            ls -la pyrsia.deb
         shell: bash
 
 # add the prysia.deb file to the apt repo which is part of
 # the github website repo
       - uses: sbtaylor15/apt-repo-action@v2.0.4
+        if: false
         with:
           github_token: ${{ secrets.APT }}
           repo_supported_version: |
