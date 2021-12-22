@@ -28,7 +28,6 @@ use maplit::hashmap;
 use pyrsia_client_lib::iso8601;
 use pyrsia_client_lib::signed::{Attestation, Signed};
 use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
-use serde_json::Value::String;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
@@ -275,7 +274,6 @@ const DS_PACKAGE_VERSIONS: &str = "package_versions";
 const IX_PACKAGE_VERSIONS_ID: &str = "id";
 const IX_PACKAGE_VERSIONS_VERSION: &str = "version";
 const FLD_PACKAGE_VERSIONS_ID: &str = "id";
-const FLD_PACKAGE_VERSIONS_PKG_TYPE: &str = "pkg_type";
 const FLD_PACKAGE_VERSIONS_NAMESPACE_ID: &str = "namespace_id";
 const FLD_PACKAGE_VERSIONS_NAME: &str = "name";
 const FLD_PACKAGE_VERSIONS_VERSION: &str = "version";
@@ -288,7 +286,6 @@ fn ix_package_versions() -> Vec<IndexSpec> {
         IndexSpec::new(
             String::from(IX_PACKAGE_VERSIONS_VERSION),
             vec![
-                String::from(FLD_PACKAGE_VERSIONS_PKG_TYPE),
                 String::from(FLD_PACKAGE_VERSIONS_NAMESPACE_ID),
                 String::from(FLD_PACKAGE_VERSIONS_NAME),
                 String::from(FLD_PACKAGE_VERSIONS_VERSION),
@@ -307,6 +304,7 @@ pub struct Metadata<'a> {
     package_type_docs: DocumentStore,
     namespace_docs: DocumentStore,
     package_docs: DocumentStore,
+    package_version_docs: DocumentStore,
 }
 
 impl<'a> Metadata<'a> {
@@ -316,11 +314,14 @@ impl<'a> Metadata<'a> {
             open_document_store(DS_PACKAGE_TYPES, ix_package_types, init_package_types)?;
         let namespace_docs = open_document_store(DS_NAMESPACES, ix_namespaces, init_empty)?;
         let package_docs = open_document_store(DS_PACKAGES, ix_packages, init_empty)?;
+        let package_version_docs =
+            open_document_store(DS_PACKAGE_VERSIONS, ix_package_versions, init_empty)?;
         Ok(Metadata {
             trust_manager: &DefaultTrustManager {},
             package_type_docs,
             namespace_docs,
             package_docs,
+            package_version_docs,
         })
     }
 }
@@ -492,21 +493,32 @@ impl MetadataApi for Metadata<'_> {
         todo!() // Implementation is postponed until document store supports updates.
     }
 
-    fn create_package_version(&self, _package_version: &PackageVersion) -> anyhow::Result<()> {
-        todo!()
+    fn create_package_version(&self, package_version: &PackageVersion) -> anyhow::Result<()> {
+        match self.trust_manager.trust_package_version(package_version) {
+            Ok(_) => insert_metadata(&self.package_version_docs, package_version),
+            Err(error) => untrusted_metadata_error(package_version, &error.to_string()),
+        }
     }
 
     fn get_package_version(
         &self,
-        _namespace_id: &str,
-        _package_name: &str,
-        _version: &str,
+        namespace_id: &str,
+        package_name: &str,
+        version: &str,
     ) -> Result<Option<PackageVersion>> {
-        todo!()
+        let filter = hashmap! {
+            FLD_PACKAGE_VERSIONS_NAMESPACE_ID => namespace_id,
+            FLD_PACKAGE_VERSIONS_NAME => package_name,
+            FLD_PACKAGE_VERSIONS_VERSION => version,
+        };
+        fetch_package_version(self, IX_PACKAGE_VERSIONS_VERSION, filter)
     }
 
-    fn get_package_version_by_id(&self, _id: &str) -> anyhow::Result<Option<PackageVersion>> {
-        todo!()
+    fn get_package_version_by_id(&self, id: &str) -> anyhow::Result<Option<PackageVersion>> {
+        let filter = hashmap! {
+            FLD_PACKAGE_VERSIONS_ID => id,
+        };
+        fetch_package_version(self, IX_PACKAGE_VERSIONS_ID, filter)
     }
 }
 
@@ -530,6 +542,18 @@ fn fetch_package(
     match md.package_docs.fetch(index_name, filter) {
         Err(error) => Err(anyhow!("Error fetching package: {}", error)),
         Ok(Some(json)) => Ok(Some(Package::from_json_string(&json)?)),
+        Ok(None) => Ok(None),
+    }
+}
+
+fn fetch_package_version(
+    md: &Metadata,
+    index_name: &str,
+    filter: HashMap<&str, &str>,
+) -> anyhow::Result<Option<PackageVersion>> {
+    match md.package_version_docs.fetch(index_name, filter) {
+        Err(error) => Err(anyhow!("Error fetching package version: {}", error)),
+        Ok(Some(json)) => Ok(Some(PackageVersion::from_json_string(&json)?)),
         Ok(None) => Ok(None),
     }
 }
@@ -567,7 +591,7 @@ trait TrustManager: Debug {
     fn trust_package_type(&self, pkg_type: &PackageType) -> Result<()>;
     fn trust_namespace(&self, namespace: &Namespace) -> Result<()>;
     fn trust_package(&self, package: &Package) -> Result<()>;
-    fn trust_package_version(self, package_version: &PackageVersion) -> Result<()>;
+    fn trust_package_version(&self, package_version: &PackageVersion) -> Result<()>;
 }
 
 #[derive(Debug)]
@@ -586,7 +610,7 @@ impl TrustManager for DefaultTrustManager {
         common_trust_logic(package)
     }
 
-    fn trust_package_version(self, package_version: &PackageVersion) -> Result<()> {
+    fn trust_package_version(&self, package_version: &PackageVersion) -> Result<()> {
         common_trust_logic(package_version)
     }
 }
