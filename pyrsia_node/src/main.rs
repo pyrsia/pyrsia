@@ -257,7 +257,6 @@ async fn main() {
                         Ok(_) => debug!("line sent"),
                         Err(_) => error!("failed to send stdin input"),
                     },
-        
                 },
                 EventType::Message(message) => match message.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers(local_peer_id).await,
