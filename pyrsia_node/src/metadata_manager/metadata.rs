@@ -397,7 +397,7 @@ fn failed_to_create_document_store(ds_name: &str, error: Box<dyn Error>) -> Resu
         ds_name, error
     );
     error!("{}", msg);
-    return Err(anyhow!(msg));
+    Err(anyhow!(msg))
 }
 
 impl MetadataApi for Metadata<'_> {
@@ -581,7 +581,7 @@ fn insert_metadata<'a, T: Signed<'a> + Debug>(
 fn untrusted_metadata_error<'a, T: Signed<'a>>(signed: &T, error: &str) -> anyhow::Result<()> {
     Err(anyhow!(
         "New metadata is not trusted: JSON is {}\nError is{}",
-        signed.json().unwrap_or("None".to_string()),
+        signed.json().unwrap_or_else(|| "None".to_string()),
         error
     ))
 }
