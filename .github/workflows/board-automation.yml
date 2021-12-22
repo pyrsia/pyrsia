@@ -20,7 +20,7 @@ jobs:
         with:
           project: Pyrsia Develop
           column: Backlog for them Demo
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
 
   in-progress-new-prs:
     runs-on: ubuntu-latest
@@ -32,7 +32,7 @@ jobs:
         with:
           project: Pyrsia Develop
           column: In Progress
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
     
   darfting-pr:
     runs-on: ubuntu-latest
@@ -42,7 +42,7 @@ jobs:
         with:
           project: Pyrsia Develop
           column: In Progress
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
 
   pr-request-review:
     runs-on: ubuntu-latest
@@ -54,7 +54,7 @@ jobs:
         with:
           project: Pyrsia Develop
           column: Review
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
 
   label-blocked:
     runs-on: ubuntu-latest
@@ -66,7 +66,7 @@ jobs:
         with:
           project: Pyrsia Develop
           column: Blocked
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
 
   assign-author:
     runs-on: ubuntu-latest
