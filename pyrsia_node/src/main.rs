@@ -253,6 +253,7 @@ async fn main() {
                 }
                 EventType::Input(line) => match line.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers_cmd().await,
+                    "magnet" => println!("{}", swarm.behaviour_mut().gossipsub_mut().publish(gossip_topic.clone(), "magnet:?xt=urn:btih:3T5MQGERWXMGKPF4WANRZHIBJZHHRUY5").unwrap()),
                     _ => match tx2.send(line).await {
                         Ok(_) => debug!("line sent"),
                         Err(_) => error!("failed to send stdin input"),
