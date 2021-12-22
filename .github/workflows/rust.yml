@@ -35,6 +35,7 @@ jobs:
       with:
         name: pyrsia_node
         path: target/debug/pyrsia_node
+        if-no-files-found: error
 
 # save the pyrsia binary for the package creation
     - uses: actions/upload-artifact@v2
@@ -42,13 +43,15 @@ jobs:
       with:
         name: pyrsia
         path: target/debug/pyrsia
+        if-no-files-found: error
 
 # save the DEBIAN control files to be used with the deb packager
     - uses: actions/upload-artifact@v2
       if: ${{ runner.os == 'Linux' && github.event_name == 'push' }} 
       with:
         name: DEBIAN
-        path: installer/DEBIAN
+        path: installers/DEBIAN
+        if-no-files-found: error
 
 # Create the .deb file, add it to the apt repo and
 # push the changes to the website github repo
