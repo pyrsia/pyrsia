@@ -17,15 +17,13 @@
 extern crate bytes;
 extern crate clap;
 extern crate easy_hasher;
+extern crate lazy_static;
 extern crate log;
 extern crate pretty_env_logger;
 extern crate serde;
 extern crate tokio;
 extern crate uuid;
 extern crate warp;
-#[macro_use]
-extern crate lazy_static;
-
 //local module imports
 mod artifact_manager;
 mod block_chain;
@@ -125,7 +123,7 @@ async fn main() {
     // Reach out to another node if specified
     if let Some(to_dial) = matches.value_of("peer") {
         let addr: Multiaddr = to_dial.parse().unwrap();
-        swarm.dial_addr(addr).unwrap();
+        swarm.dial(addr).unwrap();
         info!("Dialed {:?}", to_dial)
     }
 
@@ -150,6 +148,7 @@ async fn main() {
     //swarm specific tx,rx
     // need better handling of all these channel resources
     let shared_stats = Arc::new(Mutex::new(respond_rx));
+
     let my_stats = shared_stats.clone();
     let tx2 = tx.clone();
 
@@ -170,7 +169,8 @@ async fn main() {
     info!("Pyrsia Docker Node is now running on port {}!", addr.port());
 
     tokio::spawn(server);
-    let tx2 = tx.clone();
+    let tx4 = tx.clone();
+
     let mut bc = BlockChain::new();
     bc.genesis();
     // Kick it off
@@ -202,13 +202,15 @@ async fn main() {
                 }
                 EventType::Input(line) => match line.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers_cmd().await,
-                    _ => match tx2.send(line).await {
+                    _ => match tx4.send(line).await {
                         Ok(_) => debug!("line sent"),
                         Err(_) => error!("failed to send stdin input"),
                     },
                 },
                 EventType::Message(message) => match message.as_str() {
-                    "peers" => swarm.behaviour_mut().list_peers(local_peer_id).await,
+                    cmd if cmd.starts_with("peers") || cmd.starts_with("status") => {
+                        swarm.behaviour_mut().list_peers(local_peer_id).await
+                    }
                     cmd if cmd.starts_with("get_blobs") => {
                         swarm.behaviour_mut().lookup_blob(message).await
                     }
