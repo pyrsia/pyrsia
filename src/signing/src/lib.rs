@@ -14,19 +14,6 @@
    limitations under the License.
 */
 
-extern crate serde;
-extern crate signing;
-
-use serde::{Deserialize, Serialize};
-use signing::signed_struct;
-
-#[signed_struct]
-pub struct PackageType {
-    name: PackageTypeName,
-    description: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum PackageTypeName {
-    Docker,
-}
+// #![feature(proc_macro)]
+pub use signed::signed::*;
+pub use signed_struct::*;

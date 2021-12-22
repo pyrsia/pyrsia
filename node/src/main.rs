@@ -33,6 +33,7 @@ use pyrsia::network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use pyrsia::network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 use pyrsia::node_api::handlers::swarm::*;
 use pyrsia::utils::log::*;
+use pyrsia::{signed::Signed, signed_struct::signed_struct};
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;

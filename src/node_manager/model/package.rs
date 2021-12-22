@@ -16,12 +16,10 @@
 
 extern crate serde;
 extern crate serde_json;
-extern crate signed;
-extern crate signed_struct;
+extern crate signing;
 
 use serde_json::{Map, Value};
-use signed::signed::Signed;
-use signed_struct::signed_struct;
+use signing::signed_struct;
 
 #[signed_struct]
 #[derive(Debug)]

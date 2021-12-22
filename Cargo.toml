@@ -5,8 +5,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-signed = {path="src/signed"}
-signed_struct = { path = "src/signed_struct" }
+signing = {path="src/signing"}
 
 anyhow = "1.0.51"
 bincode = "1.3.3"
@@ -53,8 +52,9 @@ expectest = "0.10.0"
 members = [
     "node",
     "cli",
-    "src/signed",
-    "src/signed_struct"
+    "src/signing",
+    "src/signing/signed",
+    "src/signing/signed_struct"
 ]
 
 [profile.dev]

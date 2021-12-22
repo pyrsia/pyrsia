@@ -2740,8 +2740,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.9.8",
- "signed",
- "signed_struct",
+ "signing",
  "string_manipulation",
  "stringreader",
  "strum",
@@ -2777,7 +2776,6 @@ dependencies = [
  "log",
  "pretty_env_logger",
  "pyrsia",
- "signed_struct",
  "test-log",
  "tokio",
  "warp",
@@ -3275,7 +3273,6 @@ dependencies = [
  "openssl",
  "pretty_env_logger",
  "proc-macro2",
- "pyrsia",
  "quote",
  "serde",
  "serde_jcs",
@@ -3297,7 +3294,6 @@ dependencies = [
  "openssl",
  "pretty_env_logger",
  "proc-macro2",
- "pyrsia",
  "quote",
  "serde",
  "serde_jcs",
@@ -3305,6 +3301,14 @@ dependencies = [
  "signed",
  "syn",
  "time",
+]
+
+[[package]]
+name = "signing"
+version = "0.1.0"
+dependencies = [
+ "signed",
+ "signed_struct",
 ]
 
 [[package]]

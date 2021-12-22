@@ -30,6 +30,5 @@ pub mod node_manager;
 pub use node_manager::model; // Expose nested module at the crate level
 pub mod utils;
 
-// re-expose nested crates that need to be used together
-pub use signed;
-pub use signed_struct;
+// Re-export nested dependencies
+pub use signing;

@@ -14,11 +14,9 @@
    limitations under the License.
 */
 
-extern crate serde;
-extern crate serde_json;
+extern crate signing;
 
-use signed::signed::{JwsSignatureAlgorithms, Signed};
-use signed_struct::signed_struct;
+use signing::{JwsSignatureAlgorithms, signed_struct};
 
 #[signed_struct]
 struct Identity {

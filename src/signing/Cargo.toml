@@ -1,0 +1,8 @@
+[package]
+name = "signing"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+signed = {path="signed"}
+signed_struct = {path="signed_struct"}
