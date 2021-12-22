@@ -13,22 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-extern crate pyrsia_client_lib;
-extern crate serde;
-extern crate serde_json;
 
-use pyrsia_client_lib::signed::Signed;
-use serde::{Deserialize, Serialize};
+mod metadata;
 
-use signed_struct::signed_struct;
-
-#[signed_struct]
-pub struct PackageType {
-    name: PackageTypeName,
-    description: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum PackageTypeName {
-    Docker,
-}
+use crate::node_manager::model;
