@@ -44,3 +44,59 @@ pub struct Artifact {
     /// The URL of the source of the artifact
     source_url: Option<String>,
 }
+
+impl Artifact {
+    pub fn new(
+        hash: Vec<u8>,
+        algorithm: HashAlgorithm,
+        name: Option<String>,
+        creation_time: Option<String>,
+        url: Option<String>,
+        size: u64,
+        mime_type: Option<String>,
+        metadata: Map<String, Value>,
+        source_url: Option<String>,
+    ) -> Artifact {
+        Artifact {
+            hash,
+            algorithm,
+            name,
+            creation_time,
+            url,
+            size,
+            mime_type,
+            metadata,
+            source_url,
+        }
+    }
+
+    pub fn hash(&self) -> &Vec<u8> {
+        &self.hash()
+    }
+
+    pub fn algorithm(&self) -> &HashAlgorithm {
+        &self.algorithm
+    }
+
+    pub fn name(&self) -> &Option<String> {
+        &self.name
+    }
+    pub fn creation_time(&self) -> &Option<String> {
+        &self.creation_time
+    }
+    pub fn url(&self) -> &Option<String> {
+        &self.url
+    }
+    pub fn size(&self) -> u64 {
+        self.size
+    }
+    pub fn mime_type(&self) -> &Option<String> {
+        &self.mime_type
+    }
+    pub fn metadata(&self) -> &Map<String, Value> {
+        &self.metadata
+    }
+    pub fn source_url(&self) -> &Option<String> {
+        &self.source_url
+    }
+}
