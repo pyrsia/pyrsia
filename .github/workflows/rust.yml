@@ -98,7 +98,7 @@ jobs:
             bionic
           repo_supported_arch: |
             amd64
-          page_branch: main
+          page_branch: gh-pages
           file: /github/workspace/pyrsia.deb
           file_target_version: bionic
           public_key: ${{ secrets.GPG_PUBLIC }}
