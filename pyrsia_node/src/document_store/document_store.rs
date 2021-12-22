@@ -549,8 +549,7 @@ impl DocumentStore {
         } else {
             return Err(From::from(DocumentStoreError::Custom(format!(
                 "DocumentStore {} has no index with given name: {}",
-                self.name,
-                index_name
+                self.name, index_name
             ))));
         }
     }

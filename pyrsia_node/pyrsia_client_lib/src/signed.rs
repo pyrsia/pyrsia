@@ -77,7 +77,7 @@ use std::char::REPLACEMENT_CHARACTER;
 use std::io::Write;
 use std::option::Option;
 
-use crate::signed::json_parser::{JsonPathElement, parse};
+use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
 use log::{debug, trace};
@@ -1035,10 +1035,10 @@ mod json_parser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::iso8601::{now_as_utc_iso8601_string, parse_iso8601};
     use anyhow::anyhow;
     use json_parser::*;
     use log::info;
-    use crate::iso8601::{now_as_utc_iso8601_string, parse_iso8601};
 
     //noinspection NonAsciiCharacters
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
