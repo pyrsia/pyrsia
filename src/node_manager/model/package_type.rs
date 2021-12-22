@@ -15,10 +15,11 @@
 */
 
 extern crate serde;
-extern crate signing;
+extern crate signed_struct;
 
 use serde::{Deserialize, Serialize};
-use signing::signed_struct;
+use signed::signed::Signed;
+use signed_struct::signed_struct;
 
 #[signed_struct]
 pub struct PackageType {
