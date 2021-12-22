@@ -125,7 +125,7 @@ async fn main() {
     // Reach out to another node if specified
     if let Some(to_dial) = matches.value_of("peer") {
         let addr: Multiaddr = to_dial.parse().unwrap();
-        swarm.dial_addr(addr).unwrap();
+        swarm.dial(addr).unwrap();
         info!("Dialed {:?}", to_dial)
     }
 
