@@ -71,7 +71,7 @@ impl Artifact {
     }
 
     pub fn hash(&self) -> &Vec<u8> {
-        &self.hash()
+        &self.hash
     }
 
     pub fn algorithm(&self) -> &HashAlgorithm {

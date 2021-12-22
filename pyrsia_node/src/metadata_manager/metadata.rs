@@ -640,9 +640,12 @@ fn process_attestations(attestations: Vec<Attestation>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::artifact_manager::HashAlgorithm;
+    use crate::node_manager::model::artifact::Artifact;
+    use crate::node_manager::model::package_version::LicenseTextMimeType;
     use pyrsia_client_lib::signed::{create_key_pair, JwsSignatureAlgorithms};
     use rand::Rng;
-    use serde_json::Value;
+    use serde_json::{Map, Value};
     use serial_test::serial;
     use std::path::Path;
 
@@ -792,6 +795,83 @@ mod tests {
         assert!(metadata
             .get_package(PackageTypeName::Docker, &namespace_id, &"BoGuS")?
             .is_none());
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
+    fn package_version_test() -> Result<()> {
+        let metadata = Metadata::new()?;
+
+        let key_pair = create_key_pair(JwsSignatureAlgorithms::RS512)?;
+        info!("Created key pair");
+
+        let hash1: Vec<u8> = vec![
+            0xa3, 0x3f, 0x49, 0x64, 0x00, 0xa5, 0x67, 0xe1, 0xb4, 0xe5, 0xbe, 0x4c, 0x81, 0x30,
+            0xd7, 0xd3, 0x5f, 0x67, 0x7a, 0x41, 0xff, 0xca, 0x25, 0xe5, 0x5c, 0x66, 0xde, 0xbf,
+            0x42, 0xfe, 0xc5, 0xc0,
+        ];
+        let name1 = Some("roadRunner".to_string());
+        let creation_time1 = Some(iso8601::now_as_utc_iso8601_string());
+        let url1 = Some("http://example.com".to_string());
+        let size1: u64 = 12345678;
+        let mime_type1 = Some("application/binary".to_string());
+        let source1 = Some("http://info.com".to_string());
+        let artifacts = vec![Artifact::new(
+            hash1,
+            HashAlgorithm::SHA256,
+            name1,
+            creation_time1,
+            url1,
+            size1,
+            mime_type1,
+            Map::new(),
+            source1,
+        )];
+
+        let id = "wi238rguh".to_string();
+        let namespace_id = "asd928374".to_string();
+        let name = "acme".to_string();
+        let package_type = PackageTypeName::Docker;
+        let version = "1.0".to_string();
+        let license_text = Some("Do as you will.".to_string());
+        let license_text_mimetype = Some(LicenseTextMimeType::Text);
+        let license_url = Some("http://example.com".to_string());
+        let pv_metadata: serde_json::Map<String, Value> = serde_json::Map::new();
+        let creation_time = Some(iso8601::now_as_utc_iso8601_string());
+        let modified_time = Some(iso8601::now_as_utc_iso8601_string());
+        let tags: Vec<String> = vec![];
+        let description = Some("Roses are red".to_string());
+
+        let mut package_version = PackageVersion::new(
+            id.clone(),
+            namespace_id.clone(),
+            name.clone(),
+            package_type,
+            version.clone(),
+            license_text,
+            license_text_mimetype,
+            license_url,
+            pv_metadata,
+            creation_time,
+            modified_time,
+            tags,
+            description,
+            artifacts,
+        );
+        package_version.sign_json(
+            JwsSignatureAlgorithms::RS512,
+            &key_pair.private_key,
+            &key_pair.public_key,
+        )?;
+
+        metadata.create_package_version(&package_version)?;
+        let package_version2 = metadata.get_package_version(&namespace_id, &name, &version)?;
+        assert!(package_version2.is_some());
+        assert_eq!(package_version, package_version2.unwrap());
+        let package_version3 = metadata.get_package_version_by_id(&id)?;
+        assert!(package_version3.is_some());
+        assert_eq!(package_version, package_version3.unwrap());
         Ok(())
     }
 }
