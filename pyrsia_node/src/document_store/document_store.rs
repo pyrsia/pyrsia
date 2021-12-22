@@ -39,7 +39,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt;
 use std::str;
-use unqlite::{Transaction, UnQLite, KV};
+use unqlite::{Transaction, UnQLite, KV, Entry};
 
 /// Defines the sorting order when storing the values associated
 /// with an index.
@@ -553,6 +553,35 @@ impl DocumentStore {
             ))))
         }
     }
+
+    /// This method will search for records in the index identified by `index_name`. The index must be specified
+    /// with more than one field. The `filter` hash map may contain values that will be searched for in the index.
+    ///
+    /// If the `filter` has a key that matches the name of the first field covered by the index, then the value
+    /// specified for the field is used to search the index. If the `filter` has a key that matches the name of
+    /// the second field covered by the index that is also used. This continues until there is a field whose value
+    /// is not specified or all the field are specified. All of the records that match the specified values are
+    /// returned.
+    ///
+    /// For example, suppose there is an index that contains fields named `package_type`, `namespace_id` and
+    /// `package_name`. If `fetch_multiple` is called with a `filter` that specifies values for the `package_type`
+    /// and `namespace_id` fields, then it will return multiple records that all have the specified value for
+    /// `package_type` and `namespace_id`. All of the returned records will have different values for
+    /// `package_name`. The records will be returned in the order they appear in the index.
+    ///
+    /// If no values are in the `filter` hash map, then every record in the index is returned.
+    pub fn fetch_multiple(
+        &self,
+        index_name: &str,
+        filter: HashMap<&str, &str>,
+    ) -> Result<DocumentIterator, Box<dyn std::error::Error>> {
+    }
+}
+
+//// These are returned by fetch_multiple to iterate over
+#[derive(Clone)]
+pub struct DocumentIterator {
+    entry: Entry
 }
 
 #[cfg(test)]
