@@ -15,7 +15,6 @@
 */
 
 // this is to handle calls from cli that needs access info swarm specific from  kad dht
-use super::super::Status;
 use super::super::*;
 use super::RegistryError;
 use super::RegistryErrorCode;
