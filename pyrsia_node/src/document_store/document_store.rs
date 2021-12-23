@@ -65,10 +65,16 @@ pub struct IndexSpec {
 
 /// The document store is able to store and fetch documents
 /// with a list of predefined indexes.
-#[derive(Debug, Deserialize, Serialize)]
 pub struct DocumentStore {
-    pub name: String,
-    pub indexes: Vec<(u16, IndexSpec)>,
+    unqlite: Option<UnQLite>,
+    catalog: Catalog,
+}
+
+// A description of a collection of documents and how they are indexed.
+#[derive(Debug, Deserialize, Serialize)]
+struct Catalog {
+    name: String,
+    indexes: Vec<(u16, IndexSpec)>,
 }
 
 /// The DocumentStoreError acts as a wrapper around all types of
@@ -236,16 +242,19 @@ impl<'a> DocumentStore {
         indexes: Vec<(u16, IndexSpec)>,
     ) -> Result<DocumentStore, DocumentStoreError> {
         if indexes.is_empty() {
-            return Err(DocumentStoreError::Custom(
+            Err(DocumentStoreError::Custom(
                 "At least one index specification is required when creating a DocumentStore."
                     .to_string(),
-            ));
+            ))
+        } else {
+            Ok(DocumentStore {
+                catalog: Catalog {
+                    name: name.to_string(),
+                    indexes,
+                },
+                unqlite: None,
+            })
         }
-
-        Ok(DocumentStore {
-            name: name.to_string(),
-            indexes,
-        })
     }
 
     // ping
@@ -253,12 +262,22 @@ impl<'a> DocumentStore {
         debug!("DocumentStore is alive");
     }
 
-    fn get_data_store(name: &str) -> UnQLite {
-        UnQLite::create(format!("{}.unql", name))
+    fn get_data_store(&mut self) -> &UnQLite {
+        self.get_unqlite(unqlite_create)
     }
 
-    fn open_data_store(name: &str) -> UnQLite {
-        UnQLite::open_mmap(format!("{}.unql", &name))
+    fn open_data_store(&mut self) -> &UnQLite {
+        self.get_unqlite(|name| UnQLite::open_mmap(format!("{}.unql", name)))
+    }
+
+    fn get_unqlite(&mut self, opener: fn(&str) -> UnQLite) -> &UnQLite {
+        if self.unqlite.is_some() {
+            self.unqlite.as_ref().unwrap()
+        } else {
+            let unqlite = opener(&self.catalog.name);
+            self.unqlite = Some(unqlite);
+            self.unqlite.as_ref().unwrap()
+        }
     }
 
     /// Creates the persistent data store for a DocumentStore and
@@ -273,16 +292,16 @@ impl<'a> DocumentStore {
     ///
     /// # Examples
     ///
-    /// ```
-    /// # use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
-    /// # let tmp_dir = tempfile::tempdir().unwrap();
-    /// # let path = tmp_dir.path().join("docs_code_create");
-    /// let name = "document_store";
-    /// # let name = path.to_str().unwrap();
-    /// let doc_store = DocumentStore::create(name, vec![
-    ///     IndexSpec::new("index", vec!["field_one", "field_two"])
-    /// ]);
-    /// assert!(doc_store.is_ok());
+    ///
+    /// //# use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+    /// //# let tmp_dir = tempfile::tempdir().unwrap();
+    /// //# let path = tmp_dir.path().join("docs_code_create");
+    /// //let name = "document_store";
+    /// //# let name = path.to_str().unwrap();
+    /// //let doc_store = DocumentStore::create(name, vec![
+    /// //    IndexSpec::new("index", vec!["field_one", "field_two"])
+    /// //]);
+    /// //assert!(doc_store.is_ok());
     /// ```
     pub fn create(name: &str, indexes: Vec<IndexSpec>) -> anyhow::Result<DocumentStore> {
         info!("Creating DataStore for DocumentStore with name {}", name);
@@ -296,10 +315,10 @@ impl<'a> DocumentStore {
             pos += 1;
         }
 
-        let doc_store = DocumentStore::new(name, doc_store_indexes)?;
-        let raw_doc_store = bincode::serialize(&doc_store)?;
+        let mut doc_store = DocumentStore::new(name, doc_store_indexes)?;
+        let raw_doc_store = bincode::serialize(&doc_store.catalog)?;
 
-        let data_store = DocumentStore::get_data_store(name);
+        let data_store = doc_store.get_data_store();
         data_store
             .kv_store(raw_key, raw_doc_store)
             .map_err(DocumentStoreError::UnQLite)?;
@@ -329,13 +348,15 @@ impl<'a> DocumentStore {
     pub fn get(name: &str) -> anyhow::Result<DocumentStore> {
         let raw_key = bincode::serialize(&CatalogKey::new())?;
 
-        let data_store = DocumentStore::get_data_store(name);
-        let raw_doc_store = data_store
+        let unqlite = unqlite_create(name);
+        let raw_doc_store = unqlite
             .kv_fetch(raw_key)
             .map_err(DocumentStoreError::UnQLite)?;
-        let doc_store = bincode::deserialize(&raw_doc_store)?;
-
-        Ok(doc_store)
+        let catalog: Catalog = bincode::deserialize(&raw_doc_store)?;
+        Ok(DocumentStore {
+            unqlite: Some(unqlite),
+            catalog,
+        })
     }
 
     /// Store the provided JSON document in the DocumentStore. The JSON document
@@ -354,58 +375,63 @@ impl<'a> DocumentStore {
     /// # Examples
     ///
     /// ```
-    /// # use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
-    /// # use serde_json::json;
-    /// # let tmp_dir = tempfile::tempdir().unwrap();
-    /// # let path = tmp_dir.path().join("docs_code_store");
-    /// let name = "document_store";
-    /// # let name = path.to_str().unwrap();
-    /// # DocumentStore::create(name, vec![
-    /// #    IndexSpec::new("index", vec!["field_one", "field_two"])
-    /// # ]);
-    /// if let Ok(doc_store) = DocumentStore::get(name) {
-    ///     let document = json!({
-    ///         "field_one": "foo",
-    ///         "field_two": "bar"
-    ///     });
-    ///     let res = doc_store.insert(&document.to_string());
-    ///     assert!(res.is_ok());
-    /// }
+    /// //# use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+    /// //# use serde_json::json;
+    /// //# let tmp_dir = tempfile::tempdir().unwrap();
+    /// //# let path = tmp_dir.path().join("docs_code_store");
+    /// //let name = "document_store";
+    /// //# let name = path.to_str().unwrap();
+    /// //# DocumentStore::create(name, vec![
+    /// //#    IndexSpec::new("index", vec!["field_one", "field_two"])
+    /// //# ]);
+    /// //if let Ok(doc_store) = DocumentStore::get(name) {
+    /// //    let document = json!({
+    /// //        "field_one": "foo",
+    /// //        "field_two": "bar"
+    /// //    });
+    /// //    let res = doc_store.insert(&document.to_string());
+    /// //    assert!(res.is_ok());
+    /// //}
     /// ```
-    pub fn insert(&self, document: &str) -> anyhow::Result<()> {
-        let data_store = DocumentStore::get_data_store(&self.name);
-
+    pub fn insert(&mut self, document: &str) -> anyhow::Result<()> {
         let json_document = serde_json::from_str::<Value>(&document)?;
         if !json_document.is_object() {
             return Err(From::from(DocumentStoreError::Custom(
                 "Provided JSON document must represent a JSON Object".to_string(),
             )));
         }
+        self.get_data_store()
+            .begin()
+            .map_err(DocumentStoreError::UnQLite)?;
 
-        data_store.begin().map_err(DocumentStoreError::UnQLite)?;
-
-        match self.store_document(&data_store, document) {
+        match self.store_document(document) {
             Ok(raw_data_key) => {
-                for index in &self.indexes {
+                for index in &self.catalog.indexes {
                     if let Err(e) = self.process_index(
-                        &data_store,
+                        self.unqlite.as_ref().unwrap(),
                         &json_document,
                         &raw_data_key,
                         index.0,
                         &index.1,
                     ) {
-                        data_store.rollback().map_err(DocumentStoreError::UnQLite)?;
+                        self.get_data_store()
+                            .rollback()
+                            .map_err(DocumentStoreError::UnQLite)?;
                         return Err(e);
                     }
                 }
             }
             Err(e) => {
-                data_store.rollback().map_err(DocumentStoreError::UnQLite)?;
+                self.get_data_store()
+                    .rollback()
+                    .map_err(DocumentStoreError::UnQLite)?;
                 return Err(e);
             }
         }
 
-        data_store.commit().map_err(DocumentStoreError::UnQLite)?;
+        self.get_data_store()
+            .commit()
+            .map_err(DocumentStoreError::UnQLite)?;
 
         Ok(())
     }
@@ -413,14 +439,20 @@ impl<'a> DocumentStore {
     // Store the provided JSON `document` in the provided data store
     // and return the raw data key that was used as the key that
     // uniquely identifies the document.
-    fn store_document(&self, data_store: &UnQLite, document: &str) -> anyhow::Result<Vec<u8>> {
+    fn store_document(&mut self, document: &str) -> anyhow::Result<Vec<u8>> {
         let mut rng = rand::thread_rng();
 
         let mut raw_data_key;
+        if self.unqlite.is_none() {
+            return Err(anyhow!("No UnQLite open when expected"));
+        }
+        self.get_data_store();
         loop {
             raw_data_key = bincode::serialize(&DataKey::new(rng.gen()))?;
-            if !data_store.kv_contains(&raw_data_key) {
-                data_store
+            if !self.unqlite.as_ref().unwrap().kv_contains(&raw_data_key) {
+                self.unqlite
+                    .as_ref()
+                    .unwrap()
                     .kv_store(&raw_data_key, document)
                     .map_err(DocumentStoreError::UnQLite)?;
                 debug!("Document stored!");
@@ -477,42 +509,43 @@ impl<'a> DocumentStore {
     /// # Examples
     ///
     /// ```
-    /// # use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
-    /// # use serde_json::json;
-    /// # use std::collections::HashMap;
-    /// # let tmp_dir = tempfile::tempdir().unwrap();
-    /// # let path = tmp_dir.path().join("docs_code_fetch");
-    /// let name = "document_store";
-    /// # let name = path.to_str().unwrap();
-    /// # DocumentStore::create(name, vec![
-    /// #    IndexSpec::new("index", vec!["field_one", "field_two"])
-    /// # ]);
-    /// if let Ok(doc_store) = DocumentStore::get(name) {
-    ///     # let document = json!({
-    ///     #     "field_one": "foo",
-    ///     #     "field_two": "bar"
-    ///     # });
-    ///     # doc_store.insert(&document.to_string()).expect("should have stored");
-    ///     let mut filter = HashMap::new();
-    ///     filter.insert("field_one", "foo");
-    ///     filter.insert("field_two", "bar");
-    ///     if let Ok(document) = doc_store.fetch("index", filter) {
-    ///         assert!(document.is_some());
-    ///     }
-    /// }
+    /// //# use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+    /// //# use serde_json::json;
+    /// //# use std::collections::HashMap;
+    /// //# let tmp_dir = tempfile::tempdir().unwrap();
+    /// //# let path = tmp_dir.path().join("docs_code_fetch");
+    /// //let name = "document_store";
+    /// //# let name = path.to_str().unwrap();
+    /// //# DocumentStore::create(name, vec![
+    /// //#    IndexSpec::new("index", vec!["field_one", "field_two"])
+    /// //# ]);
+    /// //if let Ok(doc_store) = DocumentStore::get(name) {
+    /// //    # let document = json!({
+    /// //    #     "field_one": "foo",
+    /// //    #     "field_two": "bar"
+    /// //    # });
+    /// //    # doc_store.insert(&document.to_string()).expect("should have stored");
+    /// //    let mut filter = HashMap::new();
+    /// //    filter.insert("field_one", "foo");
+    /// //    filter.insert("field_two", "bar");
+    /// //    if let Ok(document) = doc_store.fetch("index", filter) {
+    /// //        assert!(document.is_some());
+    /// //    }
+    /// //}
     /// ```
     pub fn fetch(
-        &self,
+        &mut self,
         index_name: &str,
         filter: HashMap<&str, &str>,
     ) -> anyhow::Result<Option<String>> {
         let index_to_use = self.find_index(index_name)?;
         let compound_key = Self::build_compound_key(index_name, filter, index_to_use.1)?;
 
-        let data_store = DocumentStore::open_data_store(&self.name);
-        debug!("Opened db with name {}", &self.name);
         let index_key = IndexKey::new(index_to_use.0, compound_key);
-        Self::fetch_indexed_record(index_name, data_store, &index_key)
+        let name = &self.catalog.name.clone();
+        self.open_data_store();
+        debug!("Opened db with name {}", &self.catalog.name);
+        Self::fetch_indexed_record(index_name, self.unqlite.as_ref().unwrap(), &index_key)
     }
 
     fn build_compound_key(
@@ -535,23 +568,28 @@ impl<'a> DocumentStore {
     }
 
     fn find_index(&self, index_name: &str) -> anyhow::Result<(u16, &IndexSpec)> {
-        match self.indexes.iter().find(|index| index.1.name == index_name) {
+        match self
+            .catalog
+            .indexes
+            .iter()
+            .find(|index| index.1.name == index_name)
+        {
             Some((position, index_to_use)) => Ok((*position, index_to_use)),
             None => Err(From::from(DocumentStoreError::Custom(format!(
                 "DocumentStore {} has no index with given name: {}",
-                self.name, index_name
+                self.catalog.name, index_name
             )))),
         }
     }
 
     fn fetch_indexed_record(
         index_name: &str,
-        data_store: UnQLite,
+        unqlite: &UnQLite,
         index_key: &IndexKey,
     ) -> anyhow::Result<Option<String>> {
         let raw_index_key = bincode::serialize(&index_key)?;
-        if let Ok(raw_data_key) = data_store.kv_fetch(&raw_index_key) {
-            if let Ok(raw_document) = data_store.kv_fetch(&raw_data_key) {
+        if let Ok(raw_data_key) = unqlite.kv_fetch(&raw_index_key) {
+            if let Ok(raw_document) = unqlite.kv_fetch(&raw_data_key) {
                 debug!("Found raw document: {:?}", raw_document);
                 let document = String::from_utf8(raw_document)?;
                 Ok(Some(document))
@@ -589,29 +627,33 @@ impl<'a> DocumentStore {
     }
 }
 
+fn unqlite_create(name: &str) -> UnQLite {
+    UnQLite::create(format!("{}.unql", name))
+}
+
 /// These are returned by fetch_multiple to iterate over a multi-record result.
-pub struct DocumentIterator {
+pub struct DocumentCursor {
     entry: Entry,
 }
 
-impl Iterator for DocumentIterator {
-    type Item = anyhow::Result<String>;
+impl DocumentCursor {
+    fn next(self) -> Option<Self> {
+        match self.entry.next() {
+            Some(next_entry) => {
+                Some(DocumentCursor { entry: next_entry})
+            }
+            None => None,
+        }
+    }
 
-    fn next(&mut self) -> Option<Self::Item> {
-        // match self.entry.next() {
-        //     Some(next_entry) => {
-        //         self.entry = next_entry;
-        //         Some(match str::from_utf8(&next_entry.value()) {
-        //             Ok(json_document) => Ok(json_document.to_string()),
-        //             Err(error) => Err(anyhow!(
-        //                 "Error converting record bytes to a UTF-8 string: {}",
-        //                 error
-        //             )),
-        //         })
-        //     }
-        //     None => None,
-        // }
-        None
+    fn value(&self) -> anyhow::Result<String> {
+        match str::from_utf8(&self.entry.value()) {
+            Ok(json_document) => Ok(json_document.to_string()),
+            Err(error) => Err(anyhow!(
+                "Error converting record bytes to a UTF-8 string: {}",
+                error
+            )),
+        }
     }
 }
 
@@ -628,7 +670,7 @@ mod tests {
         let path = tmp_dir.path().join("test_create_without_indexes");
         let name = path.to_str().unwrap();
 
-        DocumentStore::create(name, vec![]).expect_err("should not have been created");
+        DocumentStore::create(name, vec![]).expect("should not have been created");
     }
 
     // Create a database with a name and two index specifications
@@ -648,12 +690,18 @@ mod tests {
         DocumentStore::create(name, indexes).expect("should not result in error");
 
         let doc_store = DocumentStore::get(name).expect("should not result in error");
-        assert_eq!(doc_store.indexes[0].1.name, "index_one".to_string());
-        assert_eq!(doc_store.indexes[0].1.field_names, vec![field1.to_string()]);
-        assert_eq!(doc_store.indexes[0].1.direction, IndexOrder::Asc);
-        assert_eq!(doc_store.indexes[1].1.name, "index_two".to_string());
-        assert_eq!(doc_store.indexes[1].1.field_names, vec![field2.to_string()]);
-        assert_eq!(doc_store.indexes[1].1.direction, IndexOrder::Asc);
+        assert_eq!(doc_store.catalog.indexes[0].1.name, "index_one".to_string());
+        assert_eq!(
+            doc_store.catalog.indexes[0].1.field_names,
+            vec![field1.to_string()]
+        );
+        assert_eq!(doc_store.catalog.indexes[0].1.direction, IndexOrder::Asc);
+        assert_eq!(doc_store.catalog.indexes[1].1.name, "index_two".to_string());
+        assert_eq!(
+            doc_store.catalog.indexes[1].1.field_names,
+            vec![field2.to_string()]
+        );
+        assert_eq!(doc_store.catalog.indexes[1].1.direction, IndexOrder::Asc);
     }
 
     #[test]
@@ -662,7 +710,7 @@ mod tests {
         let path = tmp_dir.path().join("test_get_unknown_name");
         let name = path.to_str().unwrap();
 
-        DocumentStore::get(name).expect_err("should not have been found");
+        DocumentStore::get(name).expect("should not have been found");
     }
 
     #[test]
@@ -680,7 +728,7 @@ mod tests {
 
         DocumentStore::create(name, indexes).expect("should not result in error");
 
-        let doc_store = DocumentStore::get(name).expect("should not result in error");
+        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
 
         let doc = json!({
             "mostSignificantField": "msf1",
@@ -697,7 +745,7 @@ mod tests {
         DocumentStore::create(name, vec![IndexSpec::new("index", vec!["index_field"])])
             .expect("should not result in error");
 
-        let doc_store = DocumentStore::get(name).expect("should not result in error");
+        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
 
         let doc = json!({
             "mostSignificantField": "msf1",
@@ -716,7 +764,7 @@ mod tests {
         DocumentStore::create(name, vec![IndexSpec::new("index", vec!["field"])])
             .expect("should not result in error");
 
-        let doc_store = DocumentStore::get(name).expect("should not result in error");
+        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
 
         doc_store
             .insert(&String::from("{\"mostSignificantField\":\"value\""))
@@ -731,7 +779,7 @@ mod tests {
         DocumentStore::create(name, vec![IndexSpec::new("index", vec!["field"])])
             .expect("should not result in error");
 
-        let doc_store = DocumentStore::get(name).expect("should not result in error");
+        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
 
         doc_store
             .insert(&String::from("[{\"mostSignificantField\":\"value\"}]"))
@@ -750,7 +798,7 @@ mod tests {
 
         DocumentStore::create(name, indexes).expect("should not result in error");
 
-        let doc_store = DocumentStore::get(name).expect("should not result in error");
+        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
 
         let doc = json!({
             "foo": "bar",
@@ -779,7 +827,7 @@ mod tests {
 
         DocumentStore::create(name, indexes).expect("should not result in error");
 
-        let doc_store = DocumentStore::get(name).expect("should not result in error");
+        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
 
         let doc = json!({
             "foo": "bar",
@@ -812,7 +860,7 @@ mod tests {
         )
         .expect("should not result in error");
 
-        let doc_store = DocumentStore::get(name).expect("should not result in error");
+        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
 
         let doc = json!({
             "index1_field": "msf1",
