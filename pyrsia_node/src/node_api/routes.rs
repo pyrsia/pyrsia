@@ -26,15 +26,17 @@ pub fn make_node_routes(
     tx1: Sender<String>,
     rx1: Arc<Mutex<Receiver<String>>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    let tx1 = tx.clone();
+    let rx1 = rx.clone();
     let peers = warp::path!("peers")
         .and(warp::get())
         .and(warp::path::end())
         .and_then(move || handle_get_peers(tx.clone(), rx.clone()));
 
-    /*let status = warp::path!("status")
-    .and(warp::get())
-    .and(warp::path::end())
-    .and_then(move || handle_get_status(tx1.clone(), rx1.clone()));*/
+    let blocks = warp::path!("blocks")
+        .and(warp::get())
+        .and(warp::path::end())
+        .and_then(move || handle_get_peers(tx1.clone(), rx1.clone()));
 
-    warp::any().and(peers)
+    warp::any().and(peers.or(blocks))
 }

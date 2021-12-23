@@ -13,6 +13,8 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+use std::fmt::{Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -24,3 +26,27 @@ pub struct Block {
     pub data: String,
     pub nonce: u64,
 }
+
+impl Display for Block {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let json = serde_json::to_string_pretty(&self).expect("json format error");
+        write!(f, "{}", json)
+    }
+}
+/*
+impl std::fmt::Display for HashAlgorithm {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(HashAlgorithm::hash_algorithm_to_str(self))
+    }
+}
+ */
+impl PartialEq<Self> for Block {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.hash == other.hash
+            && self.previous_hash == other.previous_hash
+            && self.nonce == other.nonce
+    }
+}
+
+impl Eq for Block {}

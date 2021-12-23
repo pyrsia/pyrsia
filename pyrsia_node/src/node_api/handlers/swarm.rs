@@ -39,3 +39,22 @@ pub async fn handle_get_peers(
         .body(peers)
         .unwrap())
 }
+
+// replace string with Block
+pub async fn handle_blocks(
+    tx: Sender<String>,
+    rx: Arc<Mutex<Receiver<String>>>,
+) -> Result<impl Reply, Rejection> {
+    match tx.send(String::from("blocks")).await {
+        Ok(_) => debug!("request for peers sent"),
+        Err(_) => error!("failed to send stdin input"),
+    }
+
+    let blocks = rx.lock().await.recv().await.unwrap();
+    println!("Got receive_blocks: {}", blocks);
+    Ok(warp::http::response::Builder::new()
+        .header("Content-Type", "application/octet-stream")
+        .status(StatusCode::OK)
+        .body(blocks)
+        .unwrap())
+}

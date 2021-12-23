@@ -39,6 +39,7 @@ mod utils;
 
 use block_chain::block::Block;
 use block_chain::block_chain::BlockChain;
+use block_chain::block_chain::Ledger;
 use docker::error_util::*;
 use document_store::document_store::DocumentStore;
 use document_store::document_store::IndexSpec;
@@ -171,8 +172,8 @@ async fn main() {
 
     tokio::spawn(server);
     let tx2 = tx.clone();
+
     let mut bc = BlockChain::new();
-    bc.genesis();
     // Kick it off
     loop {
         let evt = {
@@ -212,7 +213,7 @@ async fn main() {
                     cmd if cmd.starts_with("get_blobs") => {
                         swarm.behaviour_mut().lookup_blob(message).await
                     }
-                    "block" => {
+                    "blocks" => {
                         // assuming the message is a json version of the block
 
                         let block = Block {
@@ -223,7 +224,7 @@ async fn main() {
                             data: "".to_string(),
                             nonce: 0,
                         };
-                        bc.add_block(block);
+                        bc.add_entry(block);
                     }
                     _ => info!("message received from peers: {}", message),
                 },
