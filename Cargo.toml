@@ -51,8 +51,8 @@ expectest = "0.10.0"
 
 [workspace]
 members = [
-    "node",
-    "cli",
+    "pyrsia_node",
+    "pyrsia_cli",
     "src/signed",
     "src/signed_struct"
 ]
