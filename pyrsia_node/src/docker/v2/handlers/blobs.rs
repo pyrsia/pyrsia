@@ -62,12 +62,11 @@ pub async fn handle_get_blobs(
     }*/
 
     debug!(
-        "Getting blob with hash : {:?}",
-        hash.get(1..32).unwrap().as_bytes()
+        "Getting blob with hash : {:?}",hash
     );
 
     let mut art_reader =
-        match get_artifact(hash.get(0..32).unwrap().as_bytes(), HashAlgorithm::SHA256) {
+        match get_artifact(&hex::decode(&hash).unwrap().as_ref(), HashAlgorithm::SHA256) {
             Ok(reader) => reader,
             Err(error) => {
                 return Err(warp::reject::custom(RegistryError {
@@ -76,7 +75,7 @@ pub async fn handle_get_blobs(
             }
         };
 
-    debug!("Reading blob contents");
+    debug!("Reading blob contents..");
 
     let mut blob_content_buf = Vec::new();
     let blob_content_len = match art_reader.read_to_end(&mut blob_content_buf) {
@@ -96,9 +95,8 @@ pub async fn handle_get_blobs(
         .unwrap())
 }
 
-pub async fn handle_post_blob(hash: String, blob_path: String) -> Result<impl Reply, Rejection> {
+pub async fn handle_post_blob(name: String) -> Result<impl Reply, Rejection> {
     let id = Uuid::new_v4();
-    /*
 
     if let Err(e) = fs::create_dir_all(format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
@@ -107,28 +105,12 @@ pub async fn handle_post_blob(hash: String, blob_path: String) -> Result<impl Re
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(e.to_string()),
         }));
-    }*/
-
-    match File::open(blob_path) {
-        Ok(file) => match put_artifact(hash.as_bytes(), Box::new(file)) {
-            Ok(push) => push,
-            Err(error) => {
-                return Err(warp::reject::custom(RegistryError {
-                    code: RegistryErrorCode::Unknown(error.to_string()),
-                }))
-            }
-        },
-        Err(error) => {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(error.to_string()),
-            }))
-        }
-    };
+    }
 
     Ok(warp::http::response::Builder::new()
         .header(
             "Location",
-            format!("http://localhost:7878/v2/{}/blobs/uploads/{}", hash, id),
+            format!("http://localhost:7878/v2/{}/blobs/uploads/{}", name, id),
         )
         .header("Range", "0-0")
         .status(StatusCode::ACCEPTED)
