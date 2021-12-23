@@ -14,12 +14,15 @@
    limitations under the License.
 */
 
+use super::*;
 use bytes::{Buf, Bytes};
 use log::{debug, error};
 use std::collections::HashMap;
 use std::fs;
+use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+use std::str;
 use uuid::Uuid;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
@@ -31,7 +34,7 @@ pub async fn handle_get_blobs(
     _name: String,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
-    let blob = format!(
+    /*let blob = format!(
         "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
         hash.get(7..9).unwrap(),
         hash.get(7..).unwrap()
@@ -56,26 +59,46 @@ pub async fn handle_get_blobs(
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown("ITS_NOT_A_FILE".to_string()),
         }));
-    }
+    }*/
 
-    debug!("Reading blob: {}", blob);
-    let blob_content = fs::read(blob_path);
-    if blob_content.is_err() {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobUnknown,
-        }));
-    }
+    debug!(
+        "Getting blob with hash : {:?}",
+        hash.get(1..32).unwrap().as_bytes()
+    );
 
-    let content = blob_content.unwrap();
+    let mut art_reader =
+        match get_artifact(hash.get(0..32).unwrap().as_bytes(), HashAlgorithm::SHA256) {
+            Ok(reader) => reader,
+            Err(error) => {
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::BlobDoesNotExist(error.to_string()),
+                }))
+            }
+        };
+
+    debug!("Reading blob contents");
+
+    let mut blob_content_buf = Vec::new();
+    let blob_content_len = match art_reader.read_to_end(&mut blob_content_buf) {
+        Ok(content) => content,
+        Err(error) => {
+            return Err(warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::Unknown(error.to_string()),
+            }))
+        }
+    };
+    debug!("blob_content : {}", blob_content_len);
+
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
         .status(StatusCode::OK)
-        .body(content)
+        .body(blob_content_buf)
         .unwrap())
 }
 
-pub async fn handle_post_blob(name: String) -> Result<impl Reply, Rejection> {
+pub async fn handle_post_blob(hash: String, blob_path: String) -> Result<impl Reply, Rejection> {
     let id = Uuid::new_v4();
+    /*
 
     if let Err(e) = fs::create_dir_all(format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
@@ -84,12 +107,28 @@ pub async fn handle_post_blob(name: String) -> Result<impl Reply, Rejection> {
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(e.to_string()),
         }));
-    }
+    }*/
+
+    match File::open(blob_path) {
+        Ok(file) => match put_artifact(hash.as_bytes(), Box::new(file)) {
+            Ok(push) => push,
+            Err(error) => {
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::Unknown(error.to_string()),
+                }))
+            }
+        },
+        Err(error) => {
+            return Err(warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::Unknown(error.to_string()),
+            }))
+        }
+    };
 
     Ok(warp::http::response::Builder::new()
         .header(
             "Location",
-            format!("http://localhost:7878/v2/{}/blobs/uploads/{}", name, id),
+            format!("http://localhost:7878/v2/{}/blobs/uploads/{}", hash, id),
         )
         .header("Range", "0-0")
         .status(StatusCode::ACCEPTED)

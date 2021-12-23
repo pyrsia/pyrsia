@@ -452,7 +452,7 @@ impl<'a> ArtifactManager {
         let mut base_path: PathBuf = hash.base_file_path(&self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension("file");
-        debug!("Pushing artifact from {}", base_path.display());
+        debug!("Pulling artifact from {}", base_path.display());
         File::open(base_path.as_path())
             .with_context(|| format!("{} not found.", base_path.display()))
     }

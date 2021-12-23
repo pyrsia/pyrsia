@@ -53,7 +53,7 @@ pub fn make_docker_routes(
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
         .and_then(move |name, hash| handle_get_blobs(tx.clone(), name, hash));
-    let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
+    let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads" / String)
         .and(warp::post())
         .and_then(handle_post_blob);
     let v2_blobs_patch = warp::path!("v2" / String / "blobs" / "uploads" / String)
