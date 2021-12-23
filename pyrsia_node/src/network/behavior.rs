@@ -107,12 +107,17 @@ impl NetworkBehaviourEventProcess<gossipsub::GossipsubEvent> for MyBehaviour {
             message,
         } = message
         {
-            info!(
-                "Got message: {} with id: {} from peer: {:?}",
-                String::from_utf8_lossy(&message.data),
-                message_id,
-                propagation_source
-            );
+            let msg_data: String = String::from_utf8(message.data).unwrap();
+            if msg_data.starts_with("magnet:") {
+                println!("Start downloading {}", msg_data);
+            } else {
+                info!(
+                    "Got message: {} with id: {} from peer: {:?}",
+                    msg_data,
+                    message_id,
+                    propagation_source
+                );
+            }
         }
     }
 }
