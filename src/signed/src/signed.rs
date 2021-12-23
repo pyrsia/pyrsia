@@ -26,7 +26,8 @@
 //! create a key pair. You will use the private key in the key pair to sign structs. The public key
 //! is used to identify the signer.
 //! ```
-//! use signed_struct::signed::{SignatureKeyPair, create_key_pair, JwsSignatureAlgorithms};
+//! // Use adjecent crate (as dictated by Rust)
+//! use signed::signed::{SignatureKeyPair, create_key_pair, JwsSignatureAlgorithms};
 //! let key_pair: SignatureKeyPair = create_key_pair(JwsSignatureAlgorithms::RS512).unwrap();
 //! ```
 //!
