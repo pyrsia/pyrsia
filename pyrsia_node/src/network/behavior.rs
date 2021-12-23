@@ -169,7 +169,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
 
                 QueryResult::GetClosestPeers(Ok(ok)) => {
                     println!("GetClosestPeers result {:?}", ok.peers);
-                    let connected_peers = itertools::join(ok.peers, ", ");
+                    let connected_peers = itertools::join(ok.peers, ",");
                     respond_send(self.response_sender.clone(), connected_peers);
                 }
 
