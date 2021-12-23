@@ -24,12 +24,7 @@ extern crate serde;
 extern crate tokio;
 extern crate uuid;
 extern crate warp;
-<<<<<<< HEAD
-#[macro_use]
-extern crate lazy_static;
 
-=======
->>>>>>> upstream/main
 //local module imports
 mod artifact_manager;
 mod block_chain;
@@ -40,19 +35,17 @@ mod metadata_manager;
 mod network;
 mod node_api;
 mod node_manager;
-<<<<<<< HEAD
-
-=======
-mod utils;
 
 use block_chain::block::Block;
 use block_chain::block_chain::BlockChain;
->>>>>>> upstream/main
 use docker::error_util::*;
+use docker::v2::handlers::blobs::GetBlobsHandle;
+use docker::v2::routes::*;
 use document_store::document_store::DocumentStore;
 use document_store::document_store::IndexSpec;
 use network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
+use node_api::routes::*;
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
@@ -63,17 +56,13 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 use log::{debug, error, info};
-use tokio::sync::mpsc;
-
-use crate::docker::v2::routes::*;
-use crate::node_api::routes::*;
 use std::sync::Arc;
 use std::{
     env,
     net::{IpAddr, Ipv4Addr, SocketAddr},
 };
 use tokio::io::{self, AsyncBufReadExt};
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 use warp::Filter;
 
 const DEFAULT_PORT: &str = "7878";
@@ -84,7 +73,7 @@ async fn main() {
 
     // create the connection to the documentStore.
     let index_one = "index_one";
-    let field1 = "mostSignificantField";
+    let field1 = "most_significant_field";
     let idx1 = IndexSpec::new(index_one, vec![field1]);
 
     DocumentStore::create("document_store", vec![idx1]).expect("Failed to create DocumentStore");
@@ -153,8 +142,6 @@ async fn main() {
 
     let (tx, mut rx) = mpsc::channel(32);
 
-    let (upload_tx, mut upload_rx) = tokio::sync::mpsc::channel(32);
-    let utx1 = upload_tx.clone();
     let mut blobs_need_hash = GetBlobsHandle::new();
     let b1 = blobs_need_hash.clone();
     //docker node specific tx
@@ -170,12 +157,12 @@ async fn main() {
     let my_stats1 = shared_stats.clone();
     let tx3 = tx.clone();
 
-    let docker_routes = make_docker_routes(tx1);
+    let docker_routes = make_docker_routes(b1, tx1);
     let routes = docker_routes.or(make_node_routes(tx2, my_stats, tx3, my_stats1));
 
     let (addr, server) = warp::serve(
         routes
-            .and(utils::log::log_headers())
+            .and(logging::headers::log_headers())
             .recover(custom_recover)
             .with(warp::log("pyrsia_registry")),
     )
@@ -195,8 +182,10 @@ async fn main() {
                 line = stdin.next_line() => Some(EventType::Input(line.expect("can get line").expect("can read line from stdin"))),
                 message = rx.recv() => Some(EventType::Message(message.expect("message exists"))),
 
-                // TODO(prince-chrismc): Merge Conflict -- Test
-                new_hash = blobs_need_hash.select_next_some() => Some(EventType::Response(new_hash)),
+                new_hash = blobs_need_hash.select_next_some() => {
+                    debug!("Looking for {}", new_hash);
+                    Some(EventType::Response(new_hash))
+                },
 
                 event = swarm.select_next_some() =>  {
                     if let SwarmEvent::NewListenAddr { address, .. } = event {

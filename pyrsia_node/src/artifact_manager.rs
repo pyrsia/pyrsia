@@ -14,36 +14,28 @@
    limitations under the License.
 */
 
-///
-/// # Artifact Manager
-/// Module for managing artifacts. It manages a local collection of artifacts and is responsible
-/// getting artifacts from other nodes when they are not present locally.
-/// An artifact is a file that is identified by a hash algorithm and a hash code. To know more about
-/// an artifact, we must consult the metadata that refers to the artifact.
-use log::{debug, error, info, warn}; //log_enabled, Level,
-use path::PathBuf;
-use std::ffi::OsStr;
-use std::fmt::{Display, Formatter};
-use std::fs;
-use std::fs::{File, OpenOptions};
-use std::io;
-use std::io::{BufWriter, Read, Write};
-use std::path;
-use std::path::Path;
-use std::str::FromStr;
-///
-/// # Artifact Manager
-/// Module for managing artifacts. It manages a local collection of artifacts and is responsible
-/// getting artifacts from other nodes when they are not present locally.
-/// An artifact is a file that is identified by a hash algorithm and a hash code. To know more about
-/// an artifact, we must consult the metadata that refers to the artifact.
-use walkdir::{DirEntry, WalkDir};
-
 use anyhow::{anyhow, Context, Error, Result};
+use log::{debug, error, info, warn};
+use path::PathBuf;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
+use std::{
+    ffi::OsStr,
+    fmt::{Display, Formatter},
+    fs::{self, File, OpenOptions},
+    io::{self, BufWriter, Read, Write},
+    path::{self, Path},
+    str::FromStr,
+};
 use strum::IntoEnumIterator;
 use strum_macros::{EnumIter, EnumString};
+use walkdir::{DirEntry, WalkDir};
+
+/// # Artifact Manager
+/// Module for managing artifacts. It manages a local collection of artifacts and is responsible
+/// getting artifacts from other nodes when they are not present locally.
+/// An artifact is a file that is identified by a hash algorithm and a hash code. To know more about
+/// an artifact, we must consult the metadata that refers to the artifact.
 
 // We will provide implementations of this trait for each hash algorithm that we support.
 trait Digester {

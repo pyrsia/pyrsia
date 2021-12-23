@@ -15,18 +15,17 @@
 */
 
 use bytes::{Buf, Bytes};
-use futures::stream::{Stream, FusedStream};
+use futures::stream::{FusedStream, Stream};
+use futures::task::{Context, Poll};
 use log::{debug, error, trace};
 use std::collections::HashMap;
 use std::fs;
-use std::result::Result;
 use std::io::prelude::*;
 use std::path::Path;
 use std::pin::Pin;
-use futures::task::{Context, Poll};
+use std::result::Result;
 use uuid::Uuid;
-use warp::http::StatusCode;
-use warp::{Rejection, Reply};
+use warp::{http::StatusCode, Rejection, Reply};
 
 use super::{RegistryError, RegistryErrorCode};
 
@@ -37,16 +36,14 @@ pub struct GetBlobsHandle {
 
 impl GetBlobsHandle {
     pub fn new() -> GetBlobsHandle {
-        GetBlobsHandle { pending_hash_queries: vec![] }
+        GetBlobsHandle {
+            pending_hash_queries: vec![],
+        }
     }
 
     pub fn send(mut self, message: String) {
         self.pending_hash_queries.push(message)
     }
-
-    // pub fn make_handler(mut self) -> Box<dyn Fn(String, String) -> Result<impl Reply, Rejection>> {
-    //     Box::new(move |name, hash| handle_get_blobs(self, name, hash))
-    // }
 }
 
 impl Stream for GetBlobsHandle {
@@ -60,17 +57,22 @@ impl Stream for GetBlobsHandle {
         Poll::Pending
     }
 
-    fn size_hint(&self) -> (usize, Option<usize>){
-        (self.pending_hash_queries.len(), Some(self.pending_hash_queries.capacity()))
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (
+            self.pending_hash_queries.len(),
+            Some(self.pending_hash_queries.capacity()),
+        )
     }
 }
 
-impl FusedStream for GetBlobsHandle{
-    fn is_terminated(&self) -> bool { false }
+impl FusedStream for GetBlobsHandle {
+    fn is_terminated(&self) -> bool {
+        false
+    }
 }
 
 pub async fn handle_get_blobs(
-    mut tx: GetBlobsHandle,
+    tx: GetBlobsHandle,
     _name: String,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
@@ -80,7 +82,6 @@ pub async fn handle_get_blobs(
         hash.get(7..).unwrap()
     );
 
-    // TODO(prince-chrismc): Merge conflict -- review me
     let mut send_message: String = "get_blobs | ".to_owned();
     let hash_clone: String = hash.clone();
     send_message.push_str(&hash_clone);
