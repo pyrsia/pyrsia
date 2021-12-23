@@ -14,8 +14,6 @@
    limitations under the License.
 */
 
-extern crate pyrsia_node;
-
 pub mod cli;
 pub mod commands;
 
@@ -28,6 +26,7 @@ use pyrsia::model;
 
 #[tokio::main]
 async fn main() {
+    model::package_version::LicenseTextMimeType::Text;
     //parsing command line arguments
 
     let matches = cli_parser();

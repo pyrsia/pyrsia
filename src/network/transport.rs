@@ -18,7 +18,7 @@ use noise::AuthenticKeypair;
 use noise::X25519Spec;
 
 use libp2p::{
-    core::{muxing, transport, upgrade},
+    core::{identity, muxing, transport, upgrade},
     mplex,
     noise,
     // `TokioTcpConfig` is available through the `tcp-tokio` feature.
@@ -31,7 +31,7 @@ pub type TcpTokioTransport = transport::Boxed<(PeerId, muxing::StreamMuxerBox)>;
 
 // Create a tokio-based TCP transport use noise for authenticated
 // encryption and Mplex for multiplexing of substreams on a TCP stream.
-pub fn new_tokio_tcp_transport(id_keys: &libp2p::identity::Keypair) -> TcpTokioTransport {
+pub fn new_tokio_tcp_transport(id_keys: &identity::Keypair) -> TcpTokioTransport {
     // Create a keypair for authenticated encryption of the transport.
     let noise_keys: AuthenticKeypair<X25519Spec> = noise::Keypair::<noise::X25519Spec>::new()
         .into_authentic(id_keys)

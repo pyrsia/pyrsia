@@ -18,9 +18,7 @@ extern crate reqwest;
 extern crate pyrsia;
 
 use pyrsia::model::cli::Status;
-use pyrsia::config::get_config;
-
-use crate::commands::config::get_config;
+use super::config::get_config;
 
 pub async fn ping() -> Result<String, reqwest::Error> {
     let result = get_config();

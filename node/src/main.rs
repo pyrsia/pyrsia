@@ -17,8 +17,6 @@
 extern crate clap;
 extern crate futures;
 extern crate libp2p;
-extern crate easy_hasher;
-extern crate lazy_static;
 extern crate log;
 extern crate pretty_env_logger;
 extern crate pyrsia;
@@ -27,20 +25,19 @@ extern crate warp;
 
 use pyrsia::block_chain::*;
 use pyrsia::docker::error_util::*;
-use pyrsia::docker::v2::handlers::blobs::*;
-use pyrsia::docker::v2::handlers::manifests::*;
+use pyrsia::docker::v2::routes::*;
 use pyrsia::document_store::document_store::DocumentStore;
 use pyrsia::document_store::document_store::IndexSpec;
 use pyrsia::network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use pyrsia::network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
-use pyrsia::node_api::handlers::swarm::*;
-use pyrsia::utils::log::*;
+use pyrsia::node_api::routes::make_node_routes;
+use pyrsia::logging::*;
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
 use libp2p::{
+    core::identity,
     floodsub::{self, Topic},
-    identity,
     swarm::SwarmEvent,
     Multiaddr, PeerId,
 };
@@ -97,7 +94,7 @@ async fn main() {
         )
         .get_matches();
 
-    let local_key = identity::Keypair::generate_ed25519();
+    let local_key: identity::Keypair = identity::Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
     let transport: TcpTokioTransport = new_tokio_tcp_transport(&local_key); // Create a tokio-based TCP transport using noise for authenticated
 
@@ -149,7 +146,7 @@ async fn main() {
 
     let (addr, server) = warp::serve(
         routes
-            .and(utils::log::log_headers())
+            .and(http::log_headers())
             .recover(custom_recover)
             .with(warp::log("pyrsia_registry")),
     )

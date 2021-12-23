@@ -14,6 +14,8 @@
    limitations under the License.
 */
 
+extern crate easy_hasher;
+
 use super::{RegistryError, RegistryErrorCode};
 
 use bytes::Bytes;

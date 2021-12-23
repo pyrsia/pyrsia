@@ -10,12 +10,12 @@ edition = "2021"
 pyrsia = { path = ".." }
 signed_struct = { path = "../src/signed_struct" }
 
-clap = { version = "3.0.0-beta.5", features = ["yaml"] }
+clap = { version = "3.0.0-rc.7", features= ["cargo"] }
 log = "0.4.14"
 pretty_env_logger = "0.4.0"
 test-log = "0.2.8"
 tokio = { version = "1", features = [ "macros", "rt-multi-thread", "io-std" ] }
 warp = { version = "0.3.1", default-features = false }
 futures = "0.3.19"
-#libp2p = "0.40.0"
-libp2p = {git = "https://github.com/decentnetwork/rust-libp2p.git", branch = "fix-compiling-v0.40", features=["tcp-tokio"]}
+#libp2p = "0.42.0"
+libp2p = {git = "https://github.com/libp2p/rust-libp2p.git", rev = "e15dad5f45a9ae804b7a27bd6f885a1b00e0525a", features=["tcp-tokio"]}
