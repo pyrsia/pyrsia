@@ -1,4 +1,4 @@
-name: Project Board Automation - Pyrsia Develop
+name: Project Board Automation - Pyrsia Development
 
 on:
   issues:
@@ -18,8 +18,8 @@ jobs:
           labels: triage
       - uses: alex-page/github-project-automation-plus@v0.8.1
         with:
-          project: Pyrsia Develop
-          column: Backlog for them Demo
+          project: Pyrsia Development
+          column: Backlog for the Demo
           repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
 
   in-progress-new-prs:
@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: alex-page/github-project-automation-plus@v0.8.1
         with:
-          project: Pyrsia Develop
+          project: Pyrsia Development
           column: In Progress
           repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
     
@@ -40,7 +40,7 @@ jobs:
     steps:
       - uses: alex-page/github-project-automation-plus@v0.8.1
         with:
-          project: Pyrsia Develop
+          project: Pyrsia Development
           column: In Progress
           repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
 
@@ -52,7 +52,7 @@ jobs:
     steps:
       - uses: alex-page/github-project-automation-plus@v0.8.1
         with:
-          project: Pyrsia Develop
+          project: Pyrsia Development
           column: Review
           repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
 
@@ -64,7 +64,7 @@ jobs:
     steps:
       - uses: alex-page/github-project-automation-plus@v0.8.1
         with:
-          project: Pyrsia Develop
+          project: Pyrsia Development
           column: Blocked
           repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
 
