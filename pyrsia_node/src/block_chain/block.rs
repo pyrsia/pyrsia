@@ -13,6 +13,14 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+use serde::{Deserialize, Serialize};
 
-pub mod swarm;
-pub use crate::docker::error_util::*;
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Block {
+    pub id: u64,
+    pub hash: String,
+    pub previous_hash: String,
+    pub timestamp: u128,
+    pub data: String,
+    pub nonce: u64,
+}
