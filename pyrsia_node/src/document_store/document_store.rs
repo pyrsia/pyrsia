@@ -31,8 +31,8 @@
 //! via an index can be done with [`DocumentStore::fetch`].
 //!
 
+use anyhow::anyhow;
 use bincode;
-use futures::future::err;
 use log::{debug, error, info};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -128,7 +128,7 @@ impl IndexSpec {
     }
 
     // Extracts the index values from the provided JSON object.
-    fn get_index_values(&self, json_document: &Value) -> Result<Vec<String>, impl Error> {
+    fn get_index_values(&self, json_document: &Value) -> Result<Vec<String>, anyhow::Error> {
         let mut values: Vec<String> = vec![];
 
         for field_name in &self.field_names {
@@ -136,10 +136,12 @@ impl IndexSpec {
                 if let Some(json_string) = value.as_str() {
                     values.push(json_string.to_string());
                 } else {
-                    return Err(From::from(DocumentStoreError::Custom(format!(
+                    return Err(anyhow!(
                         "Document has required index key {}.{}, but is not a JSON string: {}.",
-                        self.name, field_name, value
-                    ))));
+                        self.name,
+                        field_name,
+                        value
+                    ));
                 }
             } else {
                 return Err(From::from(DocumentStoreError::Custom(format!(
@@ -174,7 +176,7 @@ impl Error for DocumentStoreError {
             DocumentStoreError::Bincode(ref err) => Some(err),
             DocumentStoreError::Json(ref err) => Some(err),
             DocumentStoreError::UnQLite(ref err) => match *err {
-                unqlite::Error::Custom(ref cstm) => Some(cstm),
+                unqlite::Error::Custom(ref custom) => Some(custom),
                 unqlite::Error::Other(ref other) => Some(other.as_ref()),
             },
             _ => None,
@@ -282,7 +284,7 @@ impl<'a> DocumentStore {
     /// ]);
     /// assert!(doc_store.is_ok());
     /// ```
-    pub fn create(name: &str, indexes: Vec<IndexSpec>) -> Result<DocumentStore, impl Error> {
+    pub fn create(name: &str, indexes: Vec<IndexSpec>) -> anyhow::Result<DocumentStore> {
         info!("Creating DataStore for DocumentStore with name {}", name);
 
         let raw_key = bincode::serialize(&CatalogKey::new())?;
@@ -324,7 +326,7 @@ impl<'a> DocumentStore {
     ///     println!("Found the DocumentStore with name {}", doc_store.name);
     /// }
     /// ```
-    pub fn get(name: &str) -> Result<DocumentStore, impl Error> {
+    pub fn get(name: &str) -> anyhow::Result<DocumentStore> {
         let raw_key = bincode::serialize(&CatalogKey::new())?;
 
         let data_store = DocumentStore::get_data_store(name);
@@ -370,7 +372,7 @@ impl<'a> DocumentStore {
     ///     assert!(res.is_ok());
     /// }
     /// ```
-    pub fn insert(&self, document: &str) -> Result<(), impl Error> {
+    pub fn insert(&self, document: &str) -> anyhow::Result<()> {
         let data_store = DocumentStore::get_data_store(&self.name);
 
         let json_document = serde_json::from_str::<Value>(&document)?;
@@ -411,7 +413,7 @@ impl<'a> DocumentStore {
     // Store the provided JSON `document` in the provided data store
     // and return the raw data key that was used as the key that
     // uniquely identifies the document.
-    fn store_document(&self, data_store: &UnQLite, document: &str) -> Result<Vec<u8>, impl Error> {
+    fn store_document(&self, data_store: &UnQLite, document: &str) -> anyhow::Result<Vec<u8>> {
         let mut rng = rand::thread_rng();
 
         let mut raw_data_key;
@@ -439,7 +441,7 @@ impl<'a> DocumentStore {
         raw_data_key: &Vec<u8>,
         index: u16,
         index_spec: &IndexSpec,
-    ) -> Result<(), impl Error> {
+    ) -> anyhow::Result<()> {
         let index_values = index_spec.get_index_values(json_document)?;
         self.store_index(data_store, raw_data_key, index, index_values)?;
 
@@ -456,7 +458,7 @@ impl<'a> DocumentStore {
         raw_data_key: &Vec<u8>,
         index: u16,
         index_values: Vec<String>,
-    ) -> Result<(), impl Error> {
+    ) -> anyhow::Result<()> {
         let index_key: IndexKey = IndexKey::new(index, index_values);
         let raw_index_key = bincode::serialize(&index_key)?;
         data_store
@@ -503,18 +505,21 @@ impl<'a> DocumentStore {
         &self,
         index_name: &str,
         filter: HashMap<&str, &str>,
-    ) -> Result<Option<String>, impl Error> {
+    ) -> anyhow::Result<Option<String>> {
         let index_to_use = self.find_index(index_name)?;
-        let compound_key = Self::build_compound_key(index_name, filter, index_to_use)?;
+        let compound_key = Self::build_compound_key(index_name, filter, index_to_use.1)?;
 
         let data_store = DocumentStore::open_data_store(&self.name);
         debug!("Opened db with name {}", &self.name);
         let index_key = IndexKey::new(index_to_use.0, compound_key);
-        Self::fetch_indexed_record(index_name, data_store, &index_key);
-        Ok(None)
+        Self::fetch_indexed_record(index_name, data_store, &index_key)
     }
 
-    fn build_compound_key(index_name: &str, filter: HashMap<&str, &str>, index_to_use: &IndexSpec) -> Result<Vec<String>, Error> {
+    fn build_compound_key(
+        index_name: &str,
+        filter: HashMap<&str, &str>,
+        index_to_use: &IndexSpec,
+    ) -> anyhow::Result<Vec<String>> {
         let mut compound_key: Vec<String> = vec![];
         for field_name in &index_to_use.field_names {
             if let Some(value) = filter.get(&field_name as &str) {
@@ -529,9 +534,9 @@ impl<'a> DocumentStore {
         Ok(compound_key)
     }
 
-    fn find_index(&self, index_name: &str) -> Result<&'a IndexSpec, impl Error> {
+    fn find_index(&self, index_name: &str) -> anyhow::Result<(u16, &IndexSpec)> {
         match self.indexes.iter().find(|index| index.1.name == index_name) {
-            Some((_, index_to_use)) => Ok(index_to_use),
+            Some((position, index_to_use)) => Ok((*position, index_to_use)),
             None => Err(From::from(DocumentStoreError::Custom(format!(
                 "DocumentStore {} has no index with given name: {}",
                 self.name, index_name
@@ -539,20 +544,26 @@ impl<'a> DocumentStore {
         }
     }
 
-    fn fetch_indexed_record(index_name: &str, data_store: UnQLite, index_key: &IndexKey) {
+    fn fetch_indexed_record(
+        index_name: &str,
+        data_store: UnQLite,
+        index_key: &IndexKey,
+    ) -> anyhow::Result<Option<String>> {
         let raw_index_key = bincode::serialize(&index_key)?;
-        if let Ok(raw_data_key) = data_store.kv_fetch(raw_index_key) {
+        if let Ok(raw_data_key) = data_store.kv_fetch(&raw_index_key) {
             if let Ok(raw_document) = data_store.kv_fetch(&raw_data_key) {
                 debug!("Found raw document: {:?}", raw_document);
                 let document = String::from_utf8(raw_document)?;
-                return Ok(Some(document));
+                Ok(Some(document))
             } else {
                 let data_key: DataKey = bincode::deserialize(&raw_data_key)?;
-                error!(
-                    "DocumentStore failed to find Document with key {} on index {}.",
-                    data_key.number, index_name
-                );
+                let message = format!("DocumentStore found an index entry for {:?} in index {} using raw index key {:?} pointing to record {:?}, but failed to find Document with key {}.",
+                                      index_key, index_name, raw_index_key, raw_data_key, data_key.number);
+                error!("{}", message);
+                Err(anyhow!("{}", message))
             }
+        } else {
+            Ok(None)
         }
     }
 
@@ -572,34 +583,35 @@ impl<'a> DocumentStore {
     /// `package_name`. The records will be returned in the order they appear in the index.
     ///
     /// If no values are in the `filter` hash map, then every record in the index is returned.
-    pub fn fetch_multiple(
-        &self,
-        index_name: &str,
-        filter: HashMap<&str, &str>,
-    ) -> Result<DocumentIterator, impl Error> {
+    pub fn fetch_multiple(&self, _index_name: &str, _filter: HashMap<&str, &str>)
+    /*-> Result<DocumentIterator, impl Error>*/
+    {
     }
 }
 
 /// These are returned by fetch_multiple to iterate over a multi-record result.
-#[derive(Clone)]
 pub struct DocumentIterator {
     entry: Entry,
 }
 
 impl Iterator for DocumentIterator {
-    type Item = Result<String, impl Error>;
+    type Item = anyhow::Result<String>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.entry.next() {
-            Some(next_entry) => {
-                self.entry = next_entry;
-                Some(match str::from_utf8(&next_entry.value()) {
-                    Ok(json_document) => Ok(json_document.to_string()),
-                    Err(error) => Some(Err(error)),
-                })
-            }
-            None => None,
-        }
+        // match self.entry.next() {
+        //     Some(next_entry) => {
+        //         self.entry = next_entry;
+        //         Some(match str::from_utf8(&next_entry.value()) {
+        //             Ok(json_document) => Ok(json_document.to_string()),
+        //             Err(error) => Err(anyhow!(
+        //                 "Error converting record bytes to a UTF-8 string: {}",
+        //                 error
+        //             )),
+        //         })
+        //     }
+        //     None => None,
+        // }
+        None
     }
 }
 
@@ -631,9 +643,9 @@ mod tests {
         let field2 = "leastSignificantField";
         let idx1 = IndexSpec::new(index_one, vec![field1]);
         let idx2 = IndexSpec::new(index_two, vec![field2]);
-        let idxs = vec![idx1, idx2];
+        let indexes = vec![idx1, idx2];
 
-        DocumentStore::create(name, idxs).expect("should not result in error");
+        DocumentStore::create(name, indexes).expect("should not result in error");
 
         let doc_store = DocumentStore::get(name).expect("should not result in error");
         assert_eq!(doc_store.indexes[0].1.name, "index_one".to_string());
@@ -664,9 +676,9 @@ mod tests {
         let field2 = "leastSignificantField";
         let i1 = IndexSpec::new(index_one, vec![field1]);
         let i2 = IndexSpec::new(index_two, vec![field2]);
-        let idxs = vec![i1, i2];
+        let indexes = vec![i1, i2];
 
-        DocumentStore::create(name, idxs).expect("should not result in error");
+        DocumentStore::create(name, indexes).expect("should not result in error");
 
         let doc_store = DocumentStore::get(name).expect("should not result in error");
 
@@ -734,9 +746,9 @@ mod tests {
         let index = "index";
         let field = "mostSignificantField";
         let i = IndexSpec::new(index, vec![field]);
-        let idxs = vec![i];
+        let indexes = vec![i];
 
-        DocumentStore::create(name, idxs).expect("should not result in error");
+        DocumentStore::create(name, indexes).expect("should not result in error");
 
         let doc_store = DocumentStore::get(name).expect("should not result in error");
 
@@ -763,9 +775,9 @@ mod tests {
         let index = "index";
         let field = "mostSignificantField";
         let i = IndexSpec::new(index, vec![field]);
-        let idxs = vec![i];
+        let indexes = vec![i];
 
-        DocumentStore::create(name, idxs).expect("should not result in error");
+        DocumentStore::create(name, indexes).expect("should not result in error");
 
         let doc_store = DocumentStore::get(name).expect("should not result in error");
 
