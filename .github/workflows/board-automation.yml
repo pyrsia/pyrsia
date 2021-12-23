@@ -72,6 +72,6 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'pull_request_target' &&
-      (github.event.action == 'opened'  || github.event.action == 'reopened' || github.event.action == 'ready_for_review')
+      (github.event.action == 'created'  || github.event.action == 'reopened' || github.event.action == 'ready_for_review')
     steps:
       - uses: toshimaru/auto-author-assign@v1.4.0
