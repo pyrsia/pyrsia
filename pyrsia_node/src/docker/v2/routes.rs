@@ -22,7 +22,7 @@ use warp::Filter;
 
 pub fn make_docker_routes(
     tx_blobs: GetBlobsHandle,
-    tx: tokio::sync::mpsc::Sender<String>
+    tx: tokio::sync::mpsc::Sender<String>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let empty_json = "{}";
     let v2_base = warp::path("v2")
