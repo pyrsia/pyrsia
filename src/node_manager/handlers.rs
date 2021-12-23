@@ -88,7 +88,7 @@ mod tests {
 
         // tetst artifact file in resources/test dir
         let mut curr_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        curr_dir.push("resources/test/artifact_test.txt");
+        curr_dir.push("tests/resources/artifact_test.txt");
         println!("curr_dir is: {}", curr_dir.display());
 
         let path = String::from(curr_dir.to_string_lossy());

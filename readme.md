@@ -21,13 +21,13 @@ Before getting started, take a moment to review our [contributing guidelines](ht
 
 There are two components of this project
 
-- **[CLI](cli/)**: A basic interface which communicates with a node.
-- **[Node](node/)**: An instance of the Pyrsia daemon which can participate in the network with other nodes.
+- **[CLI](pyrsia_cli/)**: A basic interface which communicates with a node.
+- **[Node](pyrsia_node/)**: An instance of the Pyrsia daemon which can participate in the network with other nodes.
 
 ### Getting Started
 
 1. Setup rust on your local machine as described in [Rust's getting started guide](https://www.rust-lang.org/learn/get-started)
-2. `cd node`
+2. `cd pyrsia_node`
 3. `cargo run`
 
 ### Setting Up Visual Studio Code Debugger

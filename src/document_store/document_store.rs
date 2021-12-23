@@ -275,7 +275,7 @@ impl DocumentStore {
     /// # Examples
     ///
     /// ```
-    /// # use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+    /// # use pyrsia::document_store::document_store::{DocumentStore, IndexSpec};
     /// # let tmp_dir = tempfile::tempdir().unwrap();
     /// # let path = tmp_dir.path().join("docs_code_create");
     /// let name = "document_store";
@@ -321,7 +321,7 @@ impl DocumentStore {
     /// # Examples
     ///
     /// ```
-    /// # use pyrsia_node::document_store::document_store::DocumentStore;
+    /// # use pyrsia::document_store::document_store::DocumentStore;
     /// # let tmp_dir = tempfile::tempdir().unwrap();
     /// # let path = tmp_dir.path().join("docs_code_create");
     /// let name = "document_store";
@@ -358,7 +358,7 @@ impl DocumentStore {
     /// # Examples
     ///
     /// ```
-    /// # use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+    /// # use pyrsia::document_store::document_store::{DocumentStore, IndexSpec};
     /// # use serde_json::json;
     /// # let tmp_dir = tempfile::tempdir().unwrap();
     /// # let path = tmp_dir.path().join("docs_code_store");
@@ -485,7 +485,7 @@ impl DocumentStore {
     /// # Examples
     ///
     /// ```
-    /// # use pyrsia_node::document_store::document_store::{DocumentStore, IndexSpec};
+    /// # use pyrsia::document_store::document_store::{DocumentStore, IndexSpec};
     /// # use serde_json::json;
     /// # use std::collections::HashMap;
     /// # let tmp_dir = tempfile::tempdir().unwrap();
