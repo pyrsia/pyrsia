@@ -16,8 +16,7 @@
 
 extern crate serde;
 extern crate serde_json;
-
-use super::HashAlgorithm;
+use super::super::HashAlgorithm;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
