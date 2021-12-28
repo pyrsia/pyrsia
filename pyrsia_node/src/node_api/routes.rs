@@ -36,7 +36,7 @@ pub fn make_node_routes(
     let blocks = warp::path!("blocks")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(move || handle_get_peers(tx1.clone(), rx1.clone()));
+        .and_then(move || handle_get_blocks(tx1.clone(), rx1.clone()));
 
     warp::any().and(peers.or(blocks))
 }

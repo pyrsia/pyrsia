@@ -22,6 +22,7 @@ use sha2::{Digest, Sha256};
 
 use super::block::Block;
 
+#[derive(Debug, Clone)]
 pub struct BlockChain {
     blocks: Vec<Block>,
 }
@@ -201,7 +202,7 @@ impl Iterator for BlockChain {
 }
 
 pub trait Ledger {
-    fn add_entry(self, entry: Block) -> Result<BlockChain, anyhow::Error>;
+    fn add_entry(/*mut*/ self, entry: Block) -> Result<BlockChain, anyhow::Error>;
 
     fn is_valid(self) -> Result<bool, anyhow::Error>;
 }

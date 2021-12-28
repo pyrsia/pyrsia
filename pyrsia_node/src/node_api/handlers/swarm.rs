@@ -15,7 +15,7 @@
 */
 
 // this is to handle calls from cli that needs access info swarm specific from  kad dht
-use log::{debug, error};
+use log::{debug, info, error};
 use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
@@ -32,7 +32,7 @@ pub async fn handle_get_peers(
     }
 
     let peers = rx.lock().await.recv().await.unwrap();
-    println!("Got received_peers: {}", peers);
+    info!("Got received_peers: {}", peers);
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
         .status(StatusCode::OK)
@@ -41,9 +41,9 @@ pub async fn handle_get_peers(
 }
 
 // replace string with Block
-pub async fn handle_blocks(
+pub async fn handle_get_blocks(
     tx: Sender<String>,
-    rx: Arc<Mutex<Receiver<String>>>,
+    rx: Arc<Mutex<Receiver<String>>>, // TODO: Make this a struct that can be serialized to JSON
 ) -> Result<impl Reply, Rejection> {
     match tx.send(String::from("blocks")).await {
         Ok(_) => debug!("request for peers sent"),
@@ -51,10 +51,14 @@ pub async fn handle_blocks(
     }
 
     let blocks = rx.lock().await.recv().await.unwrap();
-    println!("Got receive_blocks: {}", blocks);
+    info!("Got receive_blocks: {}", blocks);
     Ok(warp::http::response::Builder::new()
-        .header("Content-Type", "application/octet-stream")
+        .header("Content-Type", "application/json")
         .status(StatusCode::OK)
         .body(blocks)
         .unwrap())
 }
+
+// Next Step:
+// handle_get_block_id
+// hand put block

@@ -173,7 +173,8 @@ async fn main() {
     tokio::spawn(server);
     let tx2 = tx.clone();
 
-    let mut bc = BlockChain::new();
+    let raw_chain = BlockChain::new();
+    let bc = Arc::new(Mutex::new(raw_chain));
     // Kick it off
     loop {
         let evt = {
@@ -224,7 +225,13 @@ async fn main() {
                             data: "".to_string(),
                             nonce: 0,
                         };
-                        bc.add_entry(block);
+
+                        let bc1 = bc.clone();
+                        let mut bc2 = bc1.lock().await;
+                        // Crashing here -- we are adding in a get, still WIP
+                        let new_chain = bc2.clone().add_entry(block.clone()).expect("should have added");
+                        *bc2 = new_chain;
+
                     }
                     _ => info!("message received from peers: {}", message),
                 },
