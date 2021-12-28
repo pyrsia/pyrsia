@@ -114,12 +114,18 @@ async fn main() {
                                                                             //let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
     let (respond_tx, respond_rx) = mpsc::channel(32);
     let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation");
-    let gossip_topic: libp2p::gossipsub::IdentTopic = libp2p::gossipsub::IdentTopic::new("pyrsia-file-share-topic");
+    let gossip_topic: libp2p::gossipsub::IdentTopic =
+        libp2p::gossipsub::IdentTopic::new("pyrsia-file-share-topic");
     // Create a Swarm to manage peers and events.
-    let mut swarm: MyBehaviourSwarm =
-        new_swarm(gossip_topic.clone(), floodsub_topic.clone(), transport, local_key, respond_tx)
-            .await
-            .unwrap();
+    let mut swarm: MyBehaviourSwarm = new_swarm(
+        gossip_topic.clone(),
+        floodsub_topic.clone(),
+        transport,
+        local_key,
+        respond_tx,
+    )
+    .await
+    .unwrap();
 
     // Reach out to another node if specified
     if let Some(to_dial) = matches.value_of("peer") {
@@ -204,8 +210,15 @@ async fn main() {
                 EventType::Input(line) => match line.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers_cmd().await,
                     cmd if cmd.starts_with("magnet:") => {
-                        println!("{}", swarm.behaviour_mut().gossipsub_mut().publish(gossip_topic.clone(), cmd).unwrap())
-                    },
+                        println!(
+                            "{}",
+                            swarm
+                                .behaviour_mut()
+                                .gossipsub_mut()
+                                .publish(gossip_topic.clone(), cmd)
+                                .unwrap()
+                        )
+                    }
                     _ => match tx4.send(line).await {
                         Ok(_) => debug!("line sent"),
                         Err(_) => error!("failed to send stdin input"),
