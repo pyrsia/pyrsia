@@ -2838,7 +2838,6 @@ dependencies = [
  "bincode",
  "blake3",
  "bytes",
- "chrono",
  "ctor",
  "defaults",
  "easy-hasher",
@@ -2880,7 +2879,7 @@ name = "pyrsia_cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 3.0.0-rc.7",
+ "clap 3.0.0-rc.9",
  "expectest",
  "futures",
  "pyrsia",
@@ -2893,7 +2892,8 @@ dependencies = [
 name = "pyrsia_node"
 version = "0.1.0"
 dependencies = [
- "clap 3.0.0-rc.7",
+ "chrono",
+ "clap 3.0.0-rc.9",
  "futures",
  "libp2p",
  "log",
