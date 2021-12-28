@@ -24,17 +24,19 @@ pub fn make_node_routes(
     tx: Sender<String>,
     rx: Arc<Mutex<Receiver<String>>>,
     get_blocks_tx: Sender<String>,
-    mut get_blocks_rx: Receiver<String>,
+    get_blocks_rx: Receiver<String>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let peers = warp::path!("peers")
         .and(warp::get())
         .and(warp::path::end())
         .and_then(move || handle_get_peers(tx.clone(), rx.clone()));
 
+    let repeatable_get_blocks_receiver = Arc::new(Mutex::new(get_blocks_rx));
+    // The problem was our closure was being invoked "aka made again" so each new call needs to _take ownership_
     let blocks = warp::path!("blocks")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(move || handle_get_blocks(get_blocks_tx.clone(), get_blocks_rx));
+        .and_then(move || handle_get_blocks(get_blocks_tx.clone(), repeatable_get_blocks_receiver.clone()));
 
     warp::any().and(peers.or(blocks))
 }

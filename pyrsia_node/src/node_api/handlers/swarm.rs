@@ -43,7 +43,7 @@ pub async fn handle_get_peers(
 // replace string with Block
 pub async fn handle_get_blocks(
     tx: Sender<String>,
-    mut rx: Receiver<String>, // TODO: Make this a struct that can be serialized to JSON
+    rx: Arc<Mutex<Receiver<String>>>, // TODO: Make this a struct that can be serialized to JSON
 ) -> Result<impl Reply, Rejection> {
     // Send "digested" request data to main
     match tx.send(String::from("blocks")).await {
@@ -52,7 +52,7 @@ pub async fn handle_get_blocks(
     }
 
     // get result from main ( where the block chain lives )
-    let blocks = rx.recv().await.unwrap();
+    let blocks = rx.lock().await.recv().await.unwrap();
     info!("Got receive_blocks: {}", blocks);
 
     // format the response

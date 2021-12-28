@@ -153,12 +153,14 @@ async fn main() {
     let my_stats = shared_stats.clone();
     let tx2 = tx.clone();
 
-    let my_stats1 = shared_stats.clone();
-    let tx3 = tx.clone();
-
+    // We need to have two channels (to seperate the handling)
+    // 1. API to main
+    // 2. main to API
     let (blocks_get_tx, mut blocks_get_rx) = mpsc::channel(32);
+    let (blocks_get_tx_answer, blocks_get_rx_answer) = mpsc::channel(32);
+
     let docker_routes = make_docker_routes(tx1);
-    let routes = docker_routes.or(make_node_routes(tx2, my_stats, blocks_get_tx.clone(), blocks_get_rx.clone()));
+    let routes = docker_routes.or(make_node_routes(tx2, my_stats, blocks_get_tx.clone(), blocks_get_rx_answer));
 
     let (addr, server) = warp::serve(
         routes
@@ -189,6 +191,14 @@ async fn main() {
                     //SwarmEvent::Behaviour(e) => panic!("Unexpected event: {:?}", e),
                     None
                 },
+                get_blocks_request_input = blocks_get_rx.recv() => {
+                    info!("Processessing 'GET /blocks' {} request", get_blocks_request_input.unwrap());
+                    let bc1 = bc.clone();
+                    let block_chaing_instance = bc1.lock().await;
+                    blocks_get_tx_answer.send(block_chaing_instance.dump().unwrap()).await.expect("send to work");
+
+                    None
+                }
             }
         };
 
