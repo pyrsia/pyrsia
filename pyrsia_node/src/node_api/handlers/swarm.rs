@@ -40,6 +40,7 @@ pub async fn handle_get_peers(
         .unwrap())
 }
 
+// TODO Move to block chain module
 // replace string with Block
 pub async fn handle_get_blocks(
     tx: Sender<String>,
@@ -65,4 +66,4 @@ pub async fn handle_get_blocks(
 
 // Next Step:
 // handle_get_block_id
-// hand put block
+// hand_put_block

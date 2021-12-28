@@ -156,11 +156,16 @@ async fn main() {
     // We need to have two channels (to seperate the handling)
     // 1. API to main
     // 2. main to API
-    let (blocks_get_tx, mut blocks_get_rx) = mpsc::channel(32);
-    let (blocks_get_tx_answer, blocks_get_rx_answer) = mpsc::channel(32);
+    let (blocks_get_tx_to_main, mut blocks_get_rx) = mpsc::channel(32); // Request Channel
+    let (blocks_get_tx_answer, blocks_get_rx_answers_from_main) = mpsc::channel(32); // Response Channel
+
+    // We Can do one channel
+    // Instead of strings
+    // Channel<GetBlocksApiMessage>
+    // enum GetBlocksApiMessage { Request, Answer }
 
     let docker_routes = make_docker_routes(tx1);
-    let routes = docker_routes.or(make_node_routes(tx2, my_stats, blocks_get_tx.clone(), blocks_get_rx_answer));
+    let routes = docker_routes.or(make_node_routes(tx2, my_stats, blocks_get_tx_to_main.clone(), blocks_get_rx_answers_from_main));
 
     let (addr, server) = warp::serve(
         routes
