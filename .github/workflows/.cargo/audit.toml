@@ -1,5 +1,4 @@
-# All of the options which can be passed via CLI arguments can also be
-# permanently specified in this file.
+# All of the options which can be passed via CLI arguments can also be permanently specified in this file.
 # A good example is at https://docs.rs/crate/cargo-audit/0.10.0/source/audit.toml.example
 
 [advisories]
