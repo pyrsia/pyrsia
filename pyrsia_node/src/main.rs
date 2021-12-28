@@ -165,7 +165,8 @@ async fn main() {
     // enum GetBlocksApiMessage { Request, Answer }
 
     let docker_routes = make_docker_routes(tx1);
-    let routes = docker_routes.or(make_node_routes(tx2, my_stats, blocks_get_tx_to_main.clone(), blocks_get_rx_answers_from_main));
+    let routes = docker_routes
+        .or(make_node_routes(tx2, my_stats, blocks_get_tx_to_main.clone(), blocks_get_rx_answers_from_main));
 
     let (addr, server) = warp::serve(
         routes
@@ -196,11 +197,17 @@ async fn main() {
                     //SwarmEvent::Behaviour(e) => panic!("Unexpected event: {:?}", e),
                     None
                 },
-                get_blocks_request_input = blocks_get_rx.recv() => {
+                get_blocks_request_input = blocks_get_rx.recv() => //BlockChain::handle_api_requests(),
+
+                // Channels are only one type (both tx and rx must match)
+                // We need to have two channel for each API call to send and receive
+                // The request and the response.
+
+                {
                     info!("Processessing 'GET /blocks' {} request", get_blocks_request_input.unwrap());
                     let bc1 = bc.clone();
-                    let block_chaing_instance = bc1.lock().await;
-                    blocks_get_tx_answer.send(block_chaing_instance.dump().unwrap()).await.expect("send to work");
+                    let block_chaing_instance = bc1.lock().await.clone();
+                    blocks_get_tx_answer.send(block_chaing_instance).await.expect("send to work");
 
                     None
                 }

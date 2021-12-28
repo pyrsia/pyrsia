@@ -15,6 +15,9 @@
 */
 
 // this is to handle calls from cli that needs access info swarm specific from  kad dht
+
+use crate::block_chain::block_chain::BlockChain;
+
 use log::{debug, info, error};
 use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -41,10 +44,12 @@ pub async fn handle_get_peers(
 }
 
 // TODO Move to block chain module
+
+
 // replace string with Block
 pub async fn handle_get_blocks(
     tx: Sender<String>,
-    rx: Arc<Mutex<Receiver<String>>>, // TODO: Make this a struct that can be serialized to JSON
+    rx: Arc<Mutex<Receiver<BlockChain>>>, // TODO: Make this a struct that can be serialized to JSON
 ) -> Result<impl Reply, Rejection> {
     // Send "digested" request data to main
     match tx.send(String::from("blocks")).await {
@@ -53,7 +58,7 @@ pub async fn handle_get_blocks(
     }
 
     // get result from main ( where the block chain lives )
-    let blocks = rx.lock().await.recv().await.unwrap();
+    let blocks = rx.lock().await.recv().await.unwrap().dump().unwrap();
     info!("Got receive_blocks: {}", blocks);
 
     // format the response
@@ -63,6 +68,8 @@ pub async fn handle_get_blocks(
         .body(blocks)
         .unwrap())
 }
+
+
 
 // Next Step:
 // handle_get_block_id
