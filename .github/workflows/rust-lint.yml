@@ -1,6 +1,5 @@
 name: Linting
-on:
-  pull_request:
+on:  [push]
 
 permissions:
   checks: write
@@ -11,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - run: mkdir -p ~/.cargo
+      - run: cp .github/workflows/.cargo/* ~/.cargo
       - uses: actions-rs/audit-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
