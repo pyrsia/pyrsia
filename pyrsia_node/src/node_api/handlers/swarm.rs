@@ -43,15 +43,19 @@ pub async fn handle_get_peers(
 // replace string with Block
 pub async fn handle_get_blocks(
     tx: Sender<String>,
-    rx: Arc<Mutex<Receiver<String>>>, // TODO: Make this a struct that can be serialized to JSON
+    mut rx: Receiver<String>, // TODO: Make this a struct that can be serialized to JSON
 ) -> Result<impl Reply, Rejection> {
+    // Send "digested" request data to main
     match tx.send(String::from("blocks")).await {
         Ok(_) => debug!("request for peers sent"),
         Err(_) => error!("failed to send stdin input"),
     }
 
-    let blocks = rx.lock().await.recv().await.unwrap();
+    // get result from main ( where the block chain lives )
+    let blocks = rx.recv().await.unwrap();
     info!("Got receive_blocks: {}", blocks);
+
+    // format the response
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/json")
         .status(StatusCode::OK)

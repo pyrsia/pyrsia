@@ -110,11 +110,10 @@ async fn main() {
         .get_matches();
 
     let local_key = identity::Keypair::generate_ed25519();
-
     let local_peer_id = PeerId::from(local_key.public());
-
     let transport: TcpTokioTransport = new_tokio_tcp_transport(&local_key); // Create a tokio-based TCP transport using noise for authenticated
                                                                             //let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
+
     let (respond_tx, respond_rx) = mpsc::channel(32);
     let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation");
     // Create a Swarm to manage peers and events.
@@ -157,8 +156,9 @@ async fn main() {
     let my_stats1 = shared_stats.clone();
     let tx3 = tx.clone();
 
+    let (blocks_get_tx, mut blocks_get_rx) = mpsc::channel(32);
     let docker_routes = make_docker_routes(tx1);
-    let routes = docker_routes.or(make_node_routes(tx2, my_stats, tx3, my_stats1));
+    let routes = docker_routes.or(make_node_routes(tx2, my_stats, blocks_get_tx.clone(), blocks_get_rx.clone()));
 
     let (addr, server) = warp::serve(
         routes
@@ -181,7 +181,6 @@ async fn main() {
             tokio::select! {
                 line = stdin.next_line() => Some(EventType::Input(line.expect("can get line").expect("can read line from stdin"))),
                 message = rx.recv() => Some(EventType::Message(message.expect("message exists"))),
-               // response = rx.recv() => Some(EventType::Response(response.expect("response exists"))),
                 event = swarm.select_next_some() =>  {
                     if let SwarmEvent::NewListenAddr { address, .. } = event {
                     info!("Listening on {:?}", address);

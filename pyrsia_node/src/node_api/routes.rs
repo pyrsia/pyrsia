@@ -23,11 +23,9 @@ use warp::Filter;
 pub fn make_node_routes(
     tx: Sender<String>,
     rx: Arc<Mutex<Receiver<String>>>,
-    tx1: Sender<String>,
-    rx1: Arc<Mutex<Receiver<String>>>,
+    get_blocks_tx: Sender<String>,
+    mut get_blocks_rx: Receiver<String>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    let tx1 = tx.clone();
-    let rx1 = rx.clone();
     let peers = warp::path!("peers")
         .and(warp::get())
         .and(warp::path::end())
@@ -36,7 +34,7 @@ pub fn make_node_routes(
     let blocks = warp::path!("blocks")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(move || handle_get_blocks(tx1.clone(), rx1.clone()));
+        .and_then(move || handle_get_blocks(get_blocks_tx.clone(), get_blocks_rx));
 
     warp::any().and(peers.or(blocks))
 }
