@@ -14,11 +14,11 @@
    limitations under the License.
 */
 
-extern crate reqwest;
 extern crate pyrsia;
+extern crate reqwest;
 
-use pyrsia::model::cli::Status;
 use super::config::get_config;
+use pyrsia::model::cli::Status;
 
 pub async fn ping() -> Result<String, reqwest::Error> {
     let result = get_config();

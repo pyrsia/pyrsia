@@ -20,9 +20,9 @@ extern crate signed_struct;
 
 use super::artifact::Artifact;
 use super::package_type::PackageTypeName;
-use signed::signed::Signed;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use signed::signed::Signed;
 use signed_struct::signed_struct;
 use strum_macros::{EnumIter, EnumString};
 

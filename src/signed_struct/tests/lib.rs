@@ -27,8 +27,8 @@ mod tests {
     // Create a signed struct in its own module to prevent direct access to its fields. They should
     // be access through the generated getters and setters.
     pub mod foo {
-        use signed_struct::signed_struct;
         use signed::signed::Signed;
+        use signed_struct::signed_struct;
 
         #[signed_struct]
         pub struct Foo<'a> {

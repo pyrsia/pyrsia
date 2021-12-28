@@ -28,10 +28,10 @@ use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::*;
 use pyrsia::document_store::document_store::DocumentStore;
 use pyrsia::document_store::document_store::IndexSpec;
+use pyrsia::logging::*;
 use pyrsia::network::swarm::{new as new_swarm, MyBehaviourSwarm};
 use pyrsia::network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 use pyrsia::node_api::routes::make_node_routes;
-use pyrsia::logging::*;
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
