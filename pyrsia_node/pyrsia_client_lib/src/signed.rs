@@ -633,8 +633,7 @@ fn unicode_32_bit_to_string(u: &[u32]) -> String {
 
 // Now with millisecond precision and time zone "Z"
 fn now_as_iso8601_string() -> String {
-    Utc::now()
-        .to_rfc3339_opts(SecondsFormat::Millis, true)
+    Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
 fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
