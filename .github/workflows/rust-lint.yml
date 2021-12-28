@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: mkdir -p $HOME/.cargo
-      - run: cp .github/workflows/.cargo/* $HOME/.cargo
+      - run: cp .github/workflows/.cargo/audit.toml $HOME/.cargo
       - uses: actions-rs/audit-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

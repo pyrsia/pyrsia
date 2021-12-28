@@ -1,4 +1,5 @@
 # Cargo Configuration
 The contents of this directory are configuration files for components of Cargo.
 
-The contents of this directory should be copied to `~/.cargo` before running the cargo workflows.
+For these files to be used, they need to be copied to `$HOME/.cargo`. You will need to add a suitable
+`cp` command to actions for them to use the files.
