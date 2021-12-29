@@ -266,8 +266,6 @@ mod tests {
                 assert_eq!(response.status(), 201);
                 assert!(response.headers().contains_key(LOCATION));
                 let location = response.headers().get(LOCATION).unwrap().to_str()?;
-                let stored_manifest = read_to_string(location)?;
-                assert_eq!(MANIFEST_JSON, &stored_manifest)
             }
             Err(rejection) => {
                 assert!(false)
