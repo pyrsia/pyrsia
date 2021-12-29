@@ -3442,7 +3442,6 @@ dependencies = [
  "pretty_env_logger",
  "proc-macro2",
  "pyrsia",
- "quote",
  "serde",
  "serde_jcs",
  "serde_json",

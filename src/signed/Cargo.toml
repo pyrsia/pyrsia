@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.51"
 base64 = "0.13.0"
-quote = "1.0"
 proc-macro2 = "1.0"
 detached-jws = "0.2.1"
 chrono = { version="0.4.19", default-features = false, features=["clock", "std"] }
