@@ -64,14 +64,13 @@
 
 extern crate anyhow;
 extern crate base64;
+extern crate chrono;
 extern crate detached_jws;
-extern crate iso8601;
 extern crate log;
 extern crate openssl;
 extern crate serde;
 extern crate serde_jcs;
 extern crate serde_json;
-extern crate time;
 
 use std::char::REPLACEMENT_CHARACTER;
 use std::io::Write;
@@ -79,6 +78,7 @@ use std::option::Option;
 
 use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
+use chrono::{DateTime, SecondsFormat, Utc};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
 use log::{debug, trace, warn};
 use openssl::pkey::{PKey, Private};
@@ -89,8 +89,6 @@ use openssl::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use time::format_description::FormatItem;
-use time::{format_description, OffsetDateTime};
 
 /// An enumeration of the supported signature algorithms used by this module to sign structs and
 /// JSON.
@@ -133,8 +131,6 @@ impl JwsSignatureAlgorithms {
 // The default size for RSA keys
 const DEFAULT_RSA_KEY_SIZE: u32 = 8192;
 
-const ISO8601_FORMAT: &str = "[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:3]Z";
-
 /// This contains the information from an individual verified signature of a struct or JSON.
 /// When the signature(s) of a signed struct are verified, one of this structs is produced to
 /// provide information about each of the signatures.
@@ -145,8 +141,8 @@ const ISO8601_FORMAT: &str = "[year]-[month]-[day]T[hour]:[minute]:[second].[sub
 pub struct Attestation {
     public_key: Option<Vec<u8>>,
     signature_algorithm: Option<JwsSignatureAlgorithms>,
-    timestamp: Option<OffsetDateTime>,
-    expiration_time: Option<OffsetDateTime>,
+    timestamp: Option<DateTime<Utc>>,
+    expiration_time: Option<DateTime<Utc>>,
     signature_is_valid: bool,
 }
 
@@ -162,12 +158,12 @@ impl Attestation {
     }
 
     /// The timestamp of the signature
-    pub fn timestamp(&self) -> &Option<OffsetDateTime> {
+    pub fn timestamp(&self) -> &Option<DateTime<Utc>> {
         &self.timestamp
     }
 
     /// The optional expiration time of the signature
-    pub fn expiration_time(&self) -> &Option<OffsetDateTime> {
+    pub fn expiration_time(&self) -> &Option<DateTime<Utc>> {
         &self.expiration_time
     }
 
@@ -213,71 +209,20 @@ fn public_key_from_json(json_header: &Value) -> Option<Vec<u8>> {
     }
 }
 
-fn date_time_from_json(json_header: &Value, field_name: &str) -> Option<OffsetDateTime> {
+fn date_time_from_json(json_header: &Value, field_name: &str) -> Option<DateTime<Utc>> {
     match &json_header[field_name] {
         Value::String(time_string) => {
             let unquoted_time_string: &str = time_string[1..time_string.len() - 1].as_ref();
-            parse_iso8601(unquoted_time_string)
-        }
-        _ => None,
-    }
-}
-
-fn parse_iso8601(dt_string: &str) -> Option<OffsetDateTime> {
-    match iso8601::datetime(dt_string) {
-        Ok(date_time) => {
-            match date_time.date {
-                iso8601::Date::YMD { year, month, day } => Some(
-                    iso8601_date_time_to_offset_date_time(year, month, day, date_time.time),
-                ),
-                iso8601::Date::Week {
-                    year: _,
-                    ww: _,
-                    d: _,
-                } => {
-                    warn!(
-                        "Unsupported timestamp in year-week-day format {}",
-                        dt_string
-                    );
-                    None
-                }
-                iso8601::Date::Ordinal { year: _, ddd: _ } => {
-                    warn!("Unsupported timestamp in year-day format {}", dt_string);
+            match DateTime::parse_from_rfc3339(unquoted_time_string) {
+                Ok(datetime) => Some(DateTime::from(datetime)),
+                Err(err) => {
+                    warn!("Datetime value in JSON field {} could not be parsed \"{}\". {}. Treating the field as missing", field_name, err, time_string);
                     None
                 }
             }
         }
-        Err(error) => {
-            warn!("Error parsing JSON timestamp {}", error);
-            None
-        }
+        _ => None,
     }
-}
-
-fn iso8601_date_time_to_offset_date_time(
-    year: i32,
-    month: u32,
-    day: u32,
-    time: iso8601::Time,
-) -> OffsetDateTime {
-    let formatted_date_time = format!(
-        "{:04}-{:02}-{:02} {:02}:{:02}:{:02}:{:03} {:02}:{:02}",
-        year,
-        month,
-        day,
-        time.hour,
-        time.minute,
-        time.second,
-        time.millisecond,
-        time.tz_offset_hours,
-        time.tz_offset_minutes
-    );
-    println!("{}", formatted_date_time);
-    let format = time::format_description::parse(
-        "[year]-[month]-[day] [hour]:[minute]:[second]:[subsecond] [offset_hour]:[offset_minute]",
-    )
-    .unwrap();
-    OffsetDateTime::parse(&formatted_date_time, &format).unwrap()
 }
 
 /// An instance of this struct is created to hold a key pair. The struct can be serialized to save
@@ -686,14 +631,9 @@ fn unicode_32_bit_to_string(u: &[u32]) -> String {
     s
 }
 
-fn iso8601_format_spec() -> Vec<FormatItem<'static>> {
-    format_description::parse(ISO8601_FORMAT).unwrap() // Call unwrap because this format spec is tested and should never fail. If it does, there is nothing to do but panic.
-}
-
+// Now with millisecond precision and time zone "Z"
 fn now_as_iso8601_string() -> String {
-    OffsetDateTime::now_utc()
-        .format(&iso8601_format_spec())
-        .unwrap() // If the formatting fails there is no reasonable action but panic.
+    Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
 fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
@@ -1251,15 +1191,6 @@ mod tests {
             )),
             Err(_) => Ok(()),
         }
-    }
-
-    #[test]
-    fn parse_iso8601_test() {
-        let now = now_as_iso8601_string();
-        let odt = parse_iso8601(&now);
-        assert!(odt.is_some());
-        let dt = odt.unwrap();
-        assert_eq!(2021, dt.year());
     }
 
     #[test]
