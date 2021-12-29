@@ -15,16 +15,77 @@
 */
 use std::fmt::{Display, Formatter};
 
+use libp2p::{identity, Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
+
+pub struct H256(pub [u8; 32]);
+
+//Unformatted binary data of fixed length
+pub struct Address(pub [u8; 20]);
+
+//Unformatted binary data of fixed length
+pub struct H64(pub [u8; 8]);
+
+//Unformatted binary data of fixed length
+pub struct U256(pub [u64; 4]); //Little-endian large integer type
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Header {
+    pub parent_hash: H256,
+    //256bit Keccak Hash of the Parent Block
+    pub beneficiary: Address,
+    //Beneficiary Address, currently this is the commit node PeerID
+    pub transactions_root: H256,
+    //256bit Keccak Hash of the root node of Transaction Trie
+    pub state_root: H256,
+    //256bit Keccak Hash of the root node of state Trie
+    pub timestamp: u64,
+    pub number: U256,
+    pub nonce: H64,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
-    pub id: u64,
-    pub hash: String,
-    pub previous_hash: String,
-    pub timestamp: u128,
-    pub data: String,
-    pub nonce: u64,
+    pub header: Header,
+    pub transactions: Vec<Transaction>,
+}
+
+pub struct Transaction {
+    pub nonce: U256,
+    pub action: TransactionAction,
+    pub value: U256,
+    pub signature: TransactionSignature,
+    pub input: Vec<u8>,
+}
+
+pub struct TransactionSignature {
+    //RFC6979
+    pub v: u64,
+    pub r: H256,
+    pub s: H256,
+}
+
+pub enum TransactionAction {
+    Create,
+}
+
+//RFC8032
+pub fn generate_ed25519() -> identity::ed25519::Keypair {
+    identity::ed25519::Keypair::generate()
+}
+
+pub fn signature(keypair: &identity::ed25519::Keypair, msg: &[u8]) -> Vec<u8> {
+    (*keypair).sign(msg)
+}
+
+pub fn get_publickey_from_keypair(
+    keypair: &identity::ed25519::Keypair,
+) -> identity::ed25519::PublicKey {
+    (*keypair).public()
+}
+
+pub fn verify(pubkey: &identity::ed25519::PublicKey, msg: &[u8], sig: &[u8]) -> bool {
+    (*pubkey).verify(msg, sig)
 }
 
 impl Display for Block {
@@ -33,13 +94,7 @@ impl Display for Block {
         write!(f, "{}", json)
     }
 }
-/*
-impl std::fmt::Display for HashAlgorithm {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(HashAlgorithm::hash_algorithm_to_str(self))
-    }
-}
- */
+
 impl PartialEq<Self> for Block {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
