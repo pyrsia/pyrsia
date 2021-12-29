@@ -2,16 +2,16 @@ name: Project Board Automation - Pyrsia Development
 
 on:
   issues:
-    types: [created, reopened, labeled]
+    types: [opened, reopened, labeled]
   pull_request_target:
-    types: [created, reopened, labeled, converted_to_draft, ready_for_review, review_requested]
+    types: [opened, reopened, labeled, converted_to_draft, ready_for_review, review_requested]
 
 jobs:
   triage-new-issues:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'issues' &&
-      (github.event.action == 'created' || github.event.action == 'reopened')
+      (github.event.action == 'opened' || github.event.action == 'reopened')
     steps:
       - uses: actions-ecosystem/action-add-labels@v1
         with:
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'pull_request_target' &&
-      (github.event.action == 'created' || github.event.action == 'reopened')
+      (github.event.action == 'opened' || github.event.action == 'reopened')
     steps:
       - uses: alex-page/github-project-automation-plus@v0.8.1
         with:
@@ -72,6 +72,6 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'pull_request_target' &&
-      (github.event.action == 'created'  || github.event.action == 'reopened' || github.event.action == 'ready_for_review')
+      (github.event.action == 'opened'  || github.event.action == 'reopened' || github.event.action == 'ready_for_review')
     steps:
       - uses: toshimaru/auto-author-assign@v1.4.0
