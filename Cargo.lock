@@ -3434,9 +3434,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64",
+ "chrono",
  "detached-jws",
  "env_logger 0.9.0",
- "iso8601",
  "log",
  "openssl",
  "pretty_env_logger",
@@ -3447,7 +3447,6 @@ dependencies = [
  "serde_jcs",
  "serde_json",
  "syn",
- "time",
 ]
 
 [[package]]
