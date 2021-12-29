@@ -265,7 +265,6 @@ mod tests {
                 let response = reply.into_response();
                 assert_eq!(response.status(), 201);
                 assert!(response.headers().contains_key(LOCATION));
-                let location = response.headers().get(LOCATION).unwrap().to_str()?;
             }
             Err(rejection) => {
                 assert!(false)
