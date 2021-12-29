@@ -17,12 +17,14 @@
 use super::{RegistryError, RegistryErrorCode};
 
 use bytes::Bytes;
-use easy_hasher::easy_hasher::{file_hash, raw_sha256, Hash};
-use log::debug;
+use crate::artifact_manager;
+use easy_hasher::easy_hasher::{file_hash, raw_sha256, Hash, raw_sha512};
+use log::{debug, info, warn};
 use std::fs;
 use uuid::Uuid;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
+use crate::artifact_manager::HashAlgorithm;
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Reply, Rejection> {
@@ -75,6 +77,11 @@ pub async fn handle_put_manifest(
     bytes: Bytes,
 ) -> Result<impl Reply, Rejection> {
     let id = Uuid::new_v4();
+
+    match store_manifest_in_artifact_manager(&bytes) {
+        Ok(artifact_hash) => info!("Stored manifest with {} hash {}", artifact_hash.0, artifact_hash),
+        Err(error) => warn!("Error storing manifest in artifact_manager {}", error)
+    };
 
     // temporary upload of manifest
     let blob_upload_dest_dir = format!(
@@ -191,6 +198,15 @@ pub async fn handle_put_manifest(
             .unwrap())
     }
 }
+
+fn store_manifest_in_artifact_manager(bytes: &Bytes) -> anyhow::Result<(HashAlgorithm, Vec<u8>)> {
+    let mut manifest_vec = bytes.to_vec();
+    let sha512: Vec<u8> = raw_sha512(manifest_vec.clone()).to_vec();
+    let artifact_hash = artifact_manager::Hash::new(HashAlgorithm::SHA512, &sha512)?;
+    crate::node_manager::handlers::ART_MGR.push_artifact(&mut manifest_vec.as_slice(), &artifact_hash)?;
+    Ok((HashAlgorithm::SHA512, sha512))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

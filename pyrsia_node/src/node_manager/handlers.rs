@@ -30,7 +30,7 @@ use std::str;
 const ART_MGR_DIR: &str = "pyrsia";
 
 lazy_static! {
-    static ref ART_MGR: ArtifactManager = {
+    pub static ref ART_MGR: ArtifactManager = {
         fs::create_dir_all(ART_MGR_DIR).expect("Error creating dir for artifacts");
         ArtifactManager::new(ART_MGR_DIR).unwrap()
     };
