@@ -40,7 +40,7 @@ use block_chain::block_chain::BlockChain;
 use docker::error_util::*;
 use document_store::document_store::DocumentStore;
 use document_store::document_store::IndexSpec;
-use network::swarm::{new as new_swarm, MyBehaviourSwarm};
+use network::swarm::MyBehaviourSwarm;
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 
 use clap::{App, Arg, ArgMatches};
@@ -117,7 +117,7 @@ async fn main() {
     let gossip_topic: libp2p::gossipsub::IdentTopic =
         libp2p::gossipsub::IdentTopic::new("pyrsia-file-share-topic");
     // Create a Swarm to manage peers and events.
-    let mut swarm: MyBehaviourSwarm = new_swarm(
+    let mut swarm: MyBehaviourSwarm = network::swarm::new(
         gossip_topic.clone(),
         floodsub_topic.clone(),
         transport,
