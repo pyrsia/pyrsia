@@ -61,7 +61,7 @@ async fn main() {
 
     // create the connection to the documentStore.
     let index_one = "index_one";
-    let field1 = "mostSignificantField";
+    let field1 = "most_significant_field";
     let idx1 = IndexSpec::new(index_one, vec![field1]);
 
     DocumentStore::create("document_store", vec![idx1]).expect("Failed to create DocumentStore");
@@ -99,9 +99,10 @@ async fn main() {
     let transport: TcpTokioTransport = new_tokio_tcp_transport(&local_key); // Create a tokio-based TCP transport using noise for authenticated
 
     let (respond_tx, respond_rx) = mpsc::channel(32);
-    let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation");
+    let floodsub_topic: Topic = floodsub::Topic::new("pyrsia_node_converstation");
     let gossip_topic: libp2p::gossipsub::IdentTopic =
-        libp2p::gossipsub::IdentTopic::new("pyrsia-file-share-topic");
+        libp2p::gossipsub::IdentTopic::new("pyrsia_file_share_topic");
+
     // Create a Swarm to manage peers and events.
     let mut swarm: MyBehaviourSwarm = swarm::new(
         gossip_topic.clone(),
