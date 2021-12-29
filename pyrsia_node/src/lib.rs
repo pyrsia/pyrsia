@@ -14,5 +14,7 @@
    limitations under the License.
 */
 
+pub mod artifact_manager;
 pub mod document_store;
 pub mod network;
+pub mod node_manager;
