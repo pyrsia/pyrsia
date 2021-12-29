@@ -1,6 +1,5 @@
 [package]
 name = "pyrsia_cli"
-authors = ["Mitali Bisht <mitalib@jfrog.com>"]
 version = "0.1.0"
 description = "Zero-Trust Decentralized Package Network"
 edition = "2021"
