@@ -193,12 +193,12 @@ pub async fn handle_put_manifest(
 }
 #[cfg(test)]
 mod tests {
-    use std::fs::read_to_string;
     use super::*;
     use anyhow::Context;
     use futures::executor;
     use futures::executor::ThreadPool;
     use serde::de::StdError;
+    use std::fs::read_to_string;
 
     const MANIFEST_JSON: &str = r##"{
 	"schemaVersion": 2,
