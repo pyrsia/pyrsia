@@ -40,7 +40,7 @@ use block_chain::block_chain::BlockChain;
 use docker::error_util::*;
 use document_store::document_store::DocumentStore;
 use document_store::document_store::IndexSpec;
-use network::swarm::{new as new_swarm, MyBehaviourSwarm};
+use network::swarm::MyBehaviourSwarm;
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 
 use clap::{App, Arg, ArgMatches};
@@ -114,11 +114,18 @@ async fn main() {
                                                                             //let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
     let (respond_tx, respond_rx) = mpsc::channel(32);
     let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation");
+    let gossip_topic: libp2p::gossipsub::IdentTopic =
+        libp2p::gossipsub::IdentTopic::new("pyrsia-file-share-topic");
     // Create a Swarm to manage peers and events.
-    let mut swarm: MyBehaviourSwarm =
-        new_swarm(floodsub_topic.clone(), transport, local_peer_id, respond_tx)
-            .await
-            .unwrap();
+    let mut swarm: MyBehaviourSwarm = network::swarm::new(
+        gossip_topic.clone(),
+        floodsub_topic.clone(),
+        transport,
+        local_key,
+        respond_tx,
+    )
+    .await
+    .unwrap();
 
     // Reach out to another node if specified
     if let Some(to_dial) = matches.value_of("peer") {
@@ -202,6 +209,16 @@ async fn main() {
                 }
                 EventType::Input(line) => match line.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers_cmd().await,
+                    cmd if cmd.starts_with("magnet:") => {
+                        info!(
+                            "{}",
+                            swarm
+                                .behaviour_mut()
+                                .gossipsub_mut()
+                                .publish(gossip_topic.clone(), cmd)
+                                .unwrap()
+                        )
+                    }
                     _ => match tx4.send(line).await {
                         Ok(_) => debug!("line sent"),
                         Err(_) => error!("failed to send stdin input"),
