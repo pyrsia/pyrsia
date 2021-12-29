@@ -66,6 +66,8 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
         .unwrap());
 }
 
+const LOCATION: &'static str = "Location";
+
 // Handles PUT endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn handle_put_manifest(
     name: String,
@@ -177,7 +179,7 @@ pub async fn handle_put_manifest(
 
         Ok(warp::http::response::Builder::new()
             .header(
-                "Location",
+                LOCATION,
                 format!(
                     "http://localhost:7878/v2/{}/manifests/sha256:{}",
                     name, hash
@@ -191,6 +193,7 @@ pub async fn handle_put_manifest(
 }
 #[cfg(test)]
 mod tests {
+    use std::fs::read_to_string;
     use super::*;
     use anyhow::Context;
     use futures::executor;
@@ -259,7 +262,12 @@ mod tests {
         let result = executor::block_on(future);
         match result {
             Ok(reply) => {
-                assert_eq!(reply.into_response().status(), 201);
+                let response = reply.into_response();
+                assert_eq!(response.status(), 201);
+                assert!(response.headers().contains_key(LOCATION));
+                let location = response.headers().get(LOCATION).unwrap().to_str()?;
+                let stored_manifest = read_to_string(location)?;
+                assert_eq!(MANIFEST_JSON, &stored_manifest)
             }
             Err(rejection) => {
                 assert!(false)
