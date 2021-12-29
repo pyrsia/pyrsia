@@ -110,7 +110,7 @@ impl NetworkBehaviourEventProcess<gossipsub::GossipsubEvent> for MyBehaviour {
             let msg_data: String = String::from_utf8(message.data).unwrap();
             if msg_data.starts_with("magnet:") {
                 // Synapse RPC Integration point
-                println!("Start downloading {}", msg_data);
+                info!("Start downloading {}", msg_data);
                 // This should kick-off the download
             } else {
                 info!(

@@ -210,7 +210,7 @@ async fn main() {
                 EventType::Input(line) => match line.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers_cmd().await,
                     cmd if cmd.starts_with("magnet:") => {
-                        println!(
+                        info!(
                             "{}",
                             swarm
                                 .behaviour_mut()
