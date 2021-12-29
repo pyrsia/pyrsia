@@ -26,6 +26,7 @@ use uuid::Uuid;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
 
+// Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Reply, Rejection> {
     let colon = tag.find(':');
     let mut hash = String::from(&tag);
@@ -67,6 +68,9 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
         .unwrap());
 }
 
+const LOCATION: &'static str = "Location";
+
+// Handles PUT endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn handle_put_manifest(
     name: String,
     reference: String,
@@ -177,7 +181,7 @@ pub async fn handle_put_manifest(
 
         Ok(warp::http::response::Builder::new()
             .header(
-                "Location",
+                LOCATION,
                 format!(
                     "http://localhost:7878/v2/{}/manifests/sha256:{}",
                     name, hash
@@ -187,5 +191,87 @@ pub async fn handle_put_manifest(
             .status(StatusCode::CREATED)
             .body("")
             .unwrap())
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Context;
+    use futures::executor;
+    use futures::executor::ThreadPool;
+    use serde::de::StdError;
+    use std::fs::read_to_string;
+
+    const MANIFEST_JSON: &str = r##"{
+	"schemaVersion": 2,
+	"mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+	"config": {
+		"mediaType": "application/vnd.docker.container.image.v1+json",
+		"size": 5215,
+		"digest": "sha256:b138b9264903f46a43e1c750e07dc06f5d2a1bd5d51f37fb185bc608f61090dd"
+	},
+	"layers": [
+		{
+			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+			"size": 32034160,
+			"digest": "sha256:473ede7ed136b710ab2dd51579af038b7d00fbbf6a1790c6294c93666203c0a6"
+		},
+		{
+			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+			"size": 843,
+			"digest": "sha256:c46b5fa4d940569e49988515c1ea0295f56d0a16228d8f854e27613f467ec892"
+		},
+		{
+			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+			"size": 554,
+			"digest": "sha256:93ae3df89c92cb1d20e9c09f499e693d3a8a8cef161f7158f7a9a3b5d06e4ef2"
+		},
+		{
+			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+			"size": 162,
+			"digest": "sha256:6b1eed27cadec5de8051d56697b0b67527e4076deedceefb41b7b2ea9b900459"
+		},
+		{
+			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+			"size": 169218938,
+			"digest": "sha256:0373952b589d2d14782a35c2e67826e80c814e5d3ae41370a6dc89ed43c2e60b"
+		},
+		{
+			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+			"size": 108979,
+			"digest": "sha256:7b82cd0ee5279a665a15cb61719276284e769e4b980f46709b21e53183974eec"
+		},
+		{
+			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+			"size": 12803584,
+			"digest": "sha256:a36b2d884a8941918fba8ffd1599b5187de99bd30c8aa112694fc5f8d024f506"
+		}]}"##;
+
+    #[test]
+    fn happy_put_manifest() -> Result<(), Box<dyn StdError>> {
+        let name = "httpbin";
+        let reference = "latest";
+        let pool = ThreadPool::new().context("Failed to build pool")?;
+
+        let future = async {
+            handle_put_manifest(
+                name.to_string(),
+                reference.to_string(),
+                Bytes::from(MANIFEST_JSON.as_bytes()),
+            )
+            .await
+        };
+        let result = executor::block_on(future);
+        match result {
+            Ok(reply) => {
+                let response = reply.into_response();
+                assert_eq!(response.status(), 201);
+                assert!(response.headers().contains_key(LOCATION));
+            }
+            Err(rejection) => {
+                assert!(false)
+            }
+        };
+        Ok(())
     }
 }
