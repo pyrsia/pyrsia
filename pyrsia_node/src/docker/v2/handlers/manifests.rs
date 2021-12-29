@@ -24,6 +24,7 @@ use uuid::Uuid;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
 
+// Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Reply, Rejection> {
     let colon = tag.find(':');
     let mut hash = String::from(&tag);
@@ -65,6 +66,7 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
         .unwrap());
 }
 
+// Handles PUT endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn handle_put_manifest(
     name: String,
     reference: String,
