@@ -79,7 +79,7 @@ pub async fn handle_put_manifest(
     let id = Uuid::new_v4();
 
     match store_manifest_in_artifact_manager(&bytes) {
-        Ok(artifact_hash) => info!("Stored manifest with {} hash {}", artifact_hash.0, artifact_hash),
+        Ok(artifact_hash) => info!("Stored manifest with {} hash {}", artifact_hash.0, hex::encode(artifact_hash.1)),
         Err(error) => warn!("Error storing manifest in artifact_manager {}", error)
     };
 
@@ -265,7 +265,6 @@ mod tests {
     fn happy_put_manifest() -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
         let reference = "latest";
-        let pool = ThreadPool::new().context("Failed to build pool")?;
 
         let future = async {
             handle_put_manifest(
@@ -282,7 +281,7 @@ mod tests {
                 assert_eq!(response.status(), 201);
                 assert!(response.headers().contains_key(LOCATION));
             }
-            Err(rejection) => {
+            Err(_) => {
                 assert!(false)
             }
         };

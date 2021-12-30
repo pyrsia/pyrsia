@@ -376,7 +376,7 @@ impl<'a> ArtifactManager {
             )
         })?;
         debug!(
-            "Artifact has the expected hash and is available locally {}",
+            "Artifact has the expected hash available locally {}",
             expected_hash
         );
         Ok(true)
