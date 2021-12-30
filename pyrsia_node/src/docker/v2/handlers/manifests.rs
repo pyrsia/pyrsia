@@ -204,7 +204,7 @@ pub async fn handle_put_manifest(
 }
 
 fn store_manifest_in_artifact_manager(bytes: &Bytes) -> anyhow::Result<(HashAlgorithm, Vec<u8>)> {
-    let mut manifest_vec = bytes.to_vec();
+    let manifest_vec = bytes.to_vec();
     let sha512: Vec<u8> = raw_sha512(manifest_vec.clone()).to_vec();
     let artifact_hash = artifact_manager::Hash::new(HashAlgorithm::SHA512, &sha512)?;
     crate::node_manager::handlers::ART_MGR
@@ -267,22 +267,7 @@ mod tests {
 			"digest": "sha256:a36b2d884a8941918fba8ffd1599b5187de99bd30c8aa112694fc5f8d024f506"
 		}]}"##;
 
-    fn with_artifact_repository_cleanup(
-        f: fn() -> Result<(), Box<dyn StdError>>,
-    ) -> Result<(), Box<dyn StdError>> {
-        let catch_result = panic::catch_unwind(f);
-        fs::remove_dir_all(&ART_MGR.repository_path);
-        match catch_result {
-            Ok(result) => result,
-            Err(unwind) => panic::resume_unwind(unwind),
-        }
-    }
-
     #[test]
-    fn happy_put_manifest_test() -> Result<(), Box<dyn StdError>> {
-        with_artifact_repository_cleanup(happy_put_manifest)
-    }
-
     fn happy_put_manifest() -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
         let reference = "latest";

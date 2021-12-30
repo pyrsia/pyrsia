@@ -86,7 +86,7 @@ mod tests {
     fn put_and_get_artifact_test() -> Result<(), anyhow::Error> {
         println!("put_and_get_artifact_test started !!");
 
-        // tetst artifact file in resources/test dir
+        // test artifact file in resources/test dir
         let mut curr_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         curr_dir.push("resources/test/artifact_test.txt");
         println!("curr_dir is: {}", curr_dir.display());
