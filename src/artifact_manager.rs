@@ -322,7 +322,7 @@ impl<'a> ArtifactManager {
         let tmp_path = tmp_path_from_base(&base_path);
 
         match Self::create_artifact_file(&tmp_path) {
-            Err(error) => Self::file_creation_error(&tmp_path, error),
+            Err(error) => file_creation_error(&tmp_path, error),
             Ok(out) => {
                 println!("hash is {}", expected_hash);
                 let mut hash_buffer: [u8; 128] = [0; 128];
@@ -372,7 +372,7 @@ impl<'a> ArtifactManager {
             )
         })?;
         debug!(
-            "Artifact has the expected hash and is available locally {}",
+            "Artifact has the expected hash available locally {}",
             expected_hash
         );
         Ok(true)
@@ -383,14 +383,6 @@ impl<'a> ArtifactManager {
         // for now all artifacts are unstructured
         base_path.set_extension("file");
         base_path
-    }
-
-    fn file_creation_error(base_path: &Path, error: std::io::Error) -> Result<bool, Error> {
-        match error.kind() {
-            io::ErrorKind::AlreadyExists => Ok(false),
-            _ => Err(anyhow!(error)),
-        }
-        .with_context(|| format!("Error creating file {}", base_path.display()))
     }
 
     fn do_push<'b>(
@@ -452,6 +444,17 @@ impl<'a> ArtifactManager {
         File::open(base_path.as_path())
             .with_context(|| format!("{} not found.", base_path.display()))
     }
+}
+
+fn file_creation_error(base_path: &Path, error: std::io::Error) -> Result<bool, Error> {
+    error!("I/O error {} on {}", error, base_path.display());
+    let result = match error.kind() {
+        io::ErrorKind::AlreadyExists => Ok(false),
+        _ => Err(anyhow!(error.to_string())),
+    }
+    .with_context(|| format!("Error creating file {}", base_path.display()));
+
+    result
 }
 
 // Return a temporary file name to use for the file until we have verified that the hash is correct.

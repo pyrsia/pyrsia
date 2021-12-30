@@ -30,7 +30,7 @@ use std::str;
 const ART_MGR_DIR: &str = "pyrsia";
 
 lazy_static! {
-    static ref ART_MGR: ArtifactManager = {
+    pub static ref ART_MGR: ArtifactManager = {
         fs::create_dir_all(ART_MGR_DIR).expect("Error creating dir for artifacts");
         ArtifactManager::new(ART_MGR_DIR).unwrap()
     };
@@ -86,7 +86,7 @@ mod tests {
     fn put_and_get_artifact_test() -> Result<(), anyhow::Error> {
         println!("put_and_get_artifact_test started !!");
 
-        // tetst artifact file in resources/test dir
+        // test artifact file in resources/test dir
         let mut curr_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         curr_dir.push("tests/resources/artifact_test.txt");
         println!("curr_dir is: {}", curr_dir.display());
