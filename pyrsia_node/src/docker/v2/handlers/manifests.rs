@@ -16,9 +16,11 @@
 
 use super::{RegistryError, RegistryErrorCode};
 
+use crate::artifact_manager;
+use crate::artifact_manager::HashAlgorithm;
 use bytes::Bytes;
-use easy_hasher::easy_hasher::{file_hash, raw_sha256, Hash};
-use log::debug;
+use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
+use log::{debug, info, warn};
 use std::fs;
 use uuid::Uuid;
 use warp::http::StatusCode;
@@ -55,7 +57,7 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
     }
 
     let content = blob_content.unwrap();
-    return Ok(warp::http::response::Builder::new()
+    Ok(warp::http::response::Builder::new()
         .header(
             "Content-Type",
             "application/vnd.docker.distribution.manifest.v2+json",
@@ -63,10 +65,10 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
         .header("Content-Length", content.len())
         .status(StatusCode::OK)
         .body(content)
-        .unwrap());
+        .unwrap())
 }
 
-const LOCATION: &'static str = "Location";
+const LOCATION: &str = "Location";
 
 // Handles PUT endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn handle_put_manifest(
@@ -75,6 +77,15 @@ pub async fn handle_put_manifest(
     bytes: Bytes,
 ) -> Result<impl Reply, Rejection> {
     let id = Uuid::new_v4();
+
+    match store_manifest_in_artifact_manager(&bytes) {
+        Ok(artifact_hash) => info!(
+            "Stored manifest with {} hash {}",
+            artifact_hash.0,
+            hex::encode(artifact_hash.1)
+        ),
+        Err(error) => warn!("Error storing manifest in artifact_manager {}", error),
+    };
 
     // temporary upload of manifest
     let blob_upload_dest_dir = format!(
@@ -87,15 +98,15 @@ pub async fn handle_put_manifest(
         }));
     }
 
-    let mut blob_upload_dest = format!(
+    let blob_upload_dest = format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}/data",
         name, id
     );
-    let append = super::blobs::append_to_blob(&mut blob_upload_dest, bytes);
+    let append = super::blobs::append_to_blob(&blob_upload_dest, bytes);
     if let Err(e) = append {
-        return Err(warp::reject::custom(RegistryError {
+        Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
+        }))
     } else {
         // calculate sha256 checksum on manifest file
         let file256 = file_hash(raw_sha256, &blob_upload_dest);
@@ -104,7 +115,7 @@ pub async fn handle_put_manifest(
             Ok(hash) => digest = hash,
             Err(e) => {
                 return Err(warp::reject::custom(RegistryError {
-                    code: RegistryErrorCode::Unknown(e.to_string()),
+                    code: RegistryErrorCode::Unknown(e),
                 }))
             }
         }
@@ -159,7 +170,7 @@ pub async fn handle_put_manifest(
 
         // create manifest link file in tags if reference is a tag (no colon)
         let colon = reference.find(':');
-        if let None = colon {
+        if colon.is_none() {
             let mut manifest_tag_dest = format!(
                 "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current",
                 name, reference
@@ -191,9 +202,20 @@ pub async fn handle_put_manifest(
             .unwrap())
     }
 }
+
+fn store_manifest_in_artifact_manager(bytes: &Bytes) -> anyhow::Result<(HashAlgorithm, Vec<u8>)> {
+    let manifest_vec = bytes.to_vec();
+    let sha512: Vec<u8> = raw_sha512(manifest_vec.clone()).to_vec();
+    let artifact_hash = artifact_manager::Hash::new(HashAlgorithm::SHA512, &sha512)?;
+    crate::node_manager::handlers::ART_MGR
+        .push_artifact(&mut manifest_vec.as_slice(), &artifact_hash)?;
+    Ok((HashAlgorithm::SHA512, sha512))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::node_manager::handlers::ART_MGR;
     use anyhow::Context;
     use futures::executor;
     use futures::executor::ThreadPool;
@@ -249,7 +271,6 @@ mod tests {
     fn happy_put_manifest() -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
         let reference = "latest";
-        let pool = ThreadPool::new().context("Failed to build pool")?;
 
         let future = async {
             handle_put_manifest(
@@ -260,16 +281,28 @@ mod tests {
             .await
         };
         let result = executor::block_on(future);
+        check_put_manifest_result(result);
+        check_artifact_manager_side_effects()?;
+        Ok(())
+    }
+
+    fn check_put_manifest_result(result: Result<impl Reply, Rejection>) {
         match result {
             Ok(reply) => {
                 let response = reply.into_response();
                 assert_eq!(response.status(), 201);
                 assert!(response.headers().contains_key(LOCATION));
             }
-            Err(rejection) => {
+            Err(_) => {
                 assert!(false)
             }
         };
+    }
+
+    fn check_artifact_manager_side_effects() -> Result<(), Box<dyn StdError>> {
+        let manifest_sha512: Vec<u8> = raw_sha512(MANIFEST_JSON.as_bytes().to_vec()).to_vec();
+        let artifact_hash = artifact_manager::Hash::new(HashAlgorithm::SHA512, &manifest_sha512)?;
+        ART_MGR.pull_artifact(&artifact_hash)?;
         Ok(())
     }
 }
