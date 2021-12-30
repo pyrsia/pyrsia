@@ -21,7 +21,7 @@ use crate::artifact_manager::HashAlgorithm;
 use bytes::Bytes;
 use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
 use log::{debug, info, warn};
-use std::fs;
+use std::{fs, panic};
 use uuid::Uuid;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
@@ -220,6 +220,7 @@ mod tests {
     use futures::executor::ThreadPool;
     use serde::de::StdError;
     use std::fs::read_to_string;
+    use crate::node_manager::handlers::ART_MGR;
 
     const MANIFEST_JSON: &str = r##"{
 	"schemaVersion": 2,
@@ -266,7 +267,20 @@ mod tests {
 			"digest": "sha256:a36b2d884a8941918fba8ffd1599b5187de99bd30c8aa112694fc5f8d024f506"
 		}]}"##;
 
+    fn with_artifact_repository_cleanup(f: fn() -> Result<(), Box<dyn StdError>>) -> Result<(), Box<dyn StdError>>{
+        let catch_result = panic::catch_unwind(f);
+        fs::remove_dir_all(&ART_MGR.repository_path);
+        match catch_result {
+            Ok(result) => result,
+            Err(unwind) => panic::resume_unwind(unwind)
+        }
+    }
+
     #[test]
+    fn happy_put_manifest_test() -> Result<(), Box<dyn StdError>> {
+        with_artifact_repository_cleanup(happy_put_manifest)
+    }
+
     fn happy_put_manifest() -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
         let reference = "latest";
@@ -280,6 +294,12 @@ mod tests {
             .await
         };
         let result = executor::block_on(future);
+        check_put_manifest_result(result);
+        check_artifact_manager_side_effects()?;
+        Ok(())
+    }
+
+    fn check_put_manifest_result(result: Result<impl Reply, Rejection>) {
         match result {
             Ok(reply) => {
                 let response = reply.into_response();
@@ -290,6 +310,12 @@ mod tests {
                 assert!(false)
             }
         };
+    }
+
+    fn check_artifact_manager_side_effects() -> Result<(), Box<dyn StdError>> {
+        let manifest_sha512: Vec<u8> = raw_sha512(MANIFEST_JSON.as_bytes().to_vec()).to_vec();
+        let artifact_hash = artifact_manager::Hash::new(HashAlgorithm::SHA512, &manifest_sha512)?;
+        ART_MGR.pull_artifact(&artifact_hash)?;
         Ok(())
     }
 }
