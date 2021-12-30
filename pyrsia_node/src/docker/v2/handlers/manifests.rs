@@ -21,7 +21,7 @@ use crate::artifact_manager::HashAlgorithm;
 use bytes::Bytes;
 use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
 use log::{debug, info, warn};
-use std::{fs, panic};
+use std::fs;
 use uuid::Uuid;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
@@ -57,7 +57,7 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
     }
 
     let content = blob_content.unwrap();
-    return Ok(warp::http::response::Builder::new()
+    Ok(warp::http::response::Builder::new()
         .header(
             "Content-Type",
             "application/vnd.docker.distribution.manifest.v2+json",
@@ -65,10 +65,10 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
         .header("Content-Length", content.len())
         .status(StatusCode::OK)
         .body(content)
-        .unwrap());
+        .unwrap())
 }
 
-const LOCATION: &'static str = "Location";
+const LOCATION: &str = "Location";
 
 // Handles PUT endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn handle_put_manifest(
@@ -98,15 +98,15 @@ pub async fn handle_put_manifest(
         }));
     }
 
-    let mut blob_upload_dest = format!(
+    let blob_upload_dest = format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}/data",
         name, id
     );
-    let append = super::blobs::append_to_blob(&mut blob_upload_dest, bytes);
+    let append = super::blobs::append_to_blob(&blob_upload_dest, bytes);
     if let Err(e) = append {
-        return Err(warp::reject::custom(RegistryError {
+        Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
+        }))
     } else {
         // calculate sha256 checksum on manifest file
         let file256 = file_hash(raw_sha256, &blob_upload_dest);
@@ -115,7 +115,7 @@ pub async fn handle_put_manifest(
             Ok(hash) => digest = hash,
             Err(e) => {
                 return Err(warp::reject::custom(RegistryError {
-                    code: RegistryErrorCode::Unknown(e.to_string()),
+                    code: RegistryErrorCode::Unknown(e),
                 }))
             }
         }
@@ -170,7 +170,7 @@ pub async fn handle_put_manifest(
 
         // create manifest link file in tags if reference is a tag (no colon)
         let colon = reference.find(':');
-        if let None = colon {
+        if colon.is_none() {
             let mut manifest_tag_dest = format!(
                 "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current",
                 name, reference
