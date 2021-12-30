@@ -215,12 +215,12 @@ fn store_manifest_in_artifact_manager(bytes: &Bytes) -> anyhow::Result<(HashAlgo
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::node_manager::handlers::ART_MGR;
     use anyhow::Context;
     use futures::executor;
     use futures::executor::ThreadPool;
     use serde::de::StdError;
     use std::fs::read_to_string;
-    use crate::node_manager::handlers::ART_MGR;
 
     const MANIFEST_JSON: &str = r##"{
 	"schemaVersion": 2,
@@ -267,12 +267,14 @@ mod tests {
 			"digest": "sha256:a36b2d884a8941918fba8ffd1599b5187de99bd30c8aa112694fc5f8d024f506"
 		}]}"##;
 
-    fn with_artifact_repository_cleanup(f: fn() -> Result<(), Box<dyn StdError>>) -> Result<(), Box<dyn StdError>>{
+    fn with_artifact_repository_cleanup(
+        f: fn() -> Result<(), Box<dyn StdError>>,
+    ) -> Result<(), Box<dyn StdError>> {
         let catch_result = panic::catch_unwind(f);
         fs::remove_dir_all(&ART_MGR.repository_path);
         match catch_result {
             Ok(result) => result,
-            Err(unwind) => panic::resume_unwind(unwind)
+            Err(unwind) => panic::resume_unwind(unwind),
         }
     }
 
