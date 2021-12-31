@@ -27,7 +27,7 @@ pub struct PackageType {
     description: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum PackageTypeName {
     Docker,
 }
