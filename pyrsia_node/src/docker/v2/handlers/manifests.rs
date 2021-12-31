@@ -19,6 +19,7 @@ use super::{RegistryError, RegistryErrorCode};
 use crate::artifact_manager;
 use crate::artifact_manager::HashAlgorithm;
 use crate::node_manager::model::artifact::Artifact;
+use crate::node_manager::model::package_type::PackageTypeName;
 use crate::node_manager::model::package_version::PackageVersion;
 use anyhow::{anyhow, Context, Error};
 use bytes::Bytes;
@@ -233,6 +234,8 @@ fn store_manifest_in_artifact_manager(bytes: &Bytes) -> anyhow::Result<(HashAlgo
     Ok((HashAlgorithm::SHA512, sha512))
 }
 
+const DOCKER_NAMESPACE_ID: &str = "4658011310974e1bb5c46fd4df7e78b9";
+
 fn package_version_from_manifest_bytes(
     bytes: &Bytes,
     docker_name: &str,
@@ -270,8 +273,8 @@ fn package_version_from_manifest_json(
 fn package_version_from_schema1(
     json_object: &Map<String, Value>,
 ) -> Result<PackageVersion, anyhow::Error> {
-    let manifest_name = value_of(json_object, "name", serde_json::value::Value::as_str)?;
-    let manifest_tag = value_of(json_object, "tag", serde_json::value::Value::as_str)?;
+    let manifest_name = json_object.get("name").context("missing name field")?.as_str().context("invalid name")?;
+    let manifest_tag = json_object.get("tag").context("missing tag field")?.as_str().context("invalid tag")?;
     let fslayers = json_object
         .get("fslayers")
         .context("missing fslayers field")?
@@ -290,17 +293,43 @@ fn package_version_from_schema1(
             return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
         }
         let digest = hex::decode(&hex_digest["sha256:".len()..])?;
-        artifacts.push( Artifact::new(digest, HashAlgorithm::SHA256, None, None, None, None, None, Map::new(), None))
+        artifacts.push(Artifact::new(
+            digest,
+            HashAlgorithm::SHA256,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Map::new(),
+            None,
+        ))
     }
-    Ok(PackageVersion::new())
+    Ok(PackageVersion::new(
+        String::from(Uuid::new_v4().to_simple().encode_lower(&mut Uuid::encode_buffer())),
+        String::from(DOCKER_NAMESPACE_ID),
+        String::from(manifest_name),
+        PackageTypeName::Docker,
+        String::from(manifest_tag),
+        None,
+        None,
+        None,
+        Map::new(),
+        None,
+        None,
+        Vec::new(),
+        None,
+        artifacts,
+    ))
 }
 
 fn package_version_from_schema2(
-    json_object: &Map<String, Value>,
-    json_string: &str,
-    docker_name: &str,
-    docker_reference: &str,
+    _json_object: &Map<String, Value>,
+    _json_string: &str,
+    _docker_name: &str,
+    _docker_reference: &str,
 ) -> Result<PackageVersion, anyhow::Error> {
+    todo!()
 }
 
 fn manifest_schema_version(
@@ -315,20 +344,9 @@ fn manifest_schema_version(
         Some(Value::String(s)) => s
             .as_str()
             .parse::<u64>()
-            .with_context(|| !format!("Invalid schemaVersion value: {}", s)),
+            .with_context(|| format!("Invalid schemaVersion value: {}", s)),
         _ => invalid_manifest(json_string),
     }
-}
-
-fn value_of<T>(
-    json_object: &Map<String, Value>,
-    field_name: &str,
-    f: fn(&Value) -> Option<T>,
-) -> Result<T, anyhow::Error> {
-    f(json_object
-        .get(field_name)
-        .with_context(|| format!("missing {} field", field_name))?)
-    .with_context(|| format!("invalid {}", field_name))
 }
 
 fn invalid_manifest<T>(json_string: &str) -> Result<T, anyhow::Error> {
