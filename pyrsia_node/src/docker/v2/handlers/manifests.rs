@@ -525,7 +525,10 @@ mod tests {
         assert!(package_version.description().is_none());
         assert_eq!(4, package_version.artifacts().len());
         assert_eq!(32, package_version.artifacts()[0].hash().len());
-        assert_eq!(HashAlgorithm::SHA256, *package_version.artifacts()[0].algorithm());
+        assert_eq!(
+            HashAlgorithm::SHA256,
+            *package_version.artifacts()[0].algorithm()
+        );
         assert!(package_version.artifacts()[0].name().is_none());
         assert!(package_version.artifacts()[0].creation_time().is_none());
         assert!(package_version.artifacts()[0].url().is_none());
