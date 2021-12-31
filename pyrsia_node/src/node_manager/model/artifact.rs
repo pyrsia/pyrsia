@@ -35,11 +35,74 @@ pub struct Artifact {
     /// A URL associated with the artifact.
     url: Option<String>,
     /// The size of the artifact.
-    size: u64,
+    size: Option<u64>,
     /// The mime type of the artifact
     mime_type: Option<String>,
     /// Attributes of an artifact that don't fit into one of this struct's fields can go in here as JSON
     metadata: Map<String, Value>,
     /// The URL of the source of the artifact
     source_url: Option<String>,
+}
+
+impl Artifact {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        hash: Vec<u8>,
+        algorithm: HashAlgorithm,
+        name: Option<String>,
+        creation_time: Option<String>,
+        url: Option<String>,
+        size: Option<u64>,
+        mime_type: Option<String>,
+        metadata: Map<String, Value>,
+        source_url: Option<String>,
+    ) -> Artifact {
+        Artifact {
+            hash,
+            algorithm,
+            name,
+            creation_time,
+            url,
+            size,
+            mime_type,
+            metadata,
+            source_url,
+        }
+    }
+
+    fn hash(&self) -> &Vec<u8> {
+        &self.hash
+    }
+
+    fn algorithm(&self) -> &HashAlgorithm {
+        &self.algorithm
+    }
+
+    fn name(&self) -> &Option<String> {
+        &self.name
+    }
+
+    fn creation_time(&self) -> &Option<String> {
+        &self.creation_time
+    }
+
+    fn url(&self) -> &Option<String> {
+        &self.url
+    }
+
+    fn size(&self) -> &Option<u64> {
+        &self.size
+    }
+
+    fn mime_type(&self) -> &Option<String> {
+        &self.mime_type
+    }
+
+    fn metadata(&self) -> &Map<String, Value> {
+        &self.metadata
+    }
+
+    fn source_url(&self) -> &Option<String> {
+        &self.source_url
+    }
 }
