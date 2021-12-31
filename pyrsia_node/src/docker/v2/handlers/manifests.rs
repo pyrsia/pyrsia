@@ -21,7 +21,7 @@ use crate::artifact_manager::HashAlgorithm;
 use crate::node_manager::model::artifact::Artifact;
 use crate::node_manager::model::package_type::PackageTypeName;
 use crate::node_manager::model::package_version::PackageVersion;
-use anyhow::{anyhow, Context, Error};
+use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
 use log::{debug, error, info, warn};
@@ -376,11 +376,9 @@ fn invalid_manifest<T>(json_string: &str) -> Result<T, anyhow::Error> {
 mod tests {
     use super::*;
     use crate::node_manager::handlers::ART_MGR;
-    use anyhow::Context;
+    use bytes::Bytes;
     use futures::executor;
-    use futures::executor::ThreadPool;
     use serde::de::StdError;
-    use std::fs::read_to_string;
 
     const MANIFEST_V1_JSON: &str = r##"{
    "name": "hello-world",
@@ -506,6 +504,35 @@ mod tests {
         let manifest_sha512: Vec<u8> = raw_sha512(MANIFEST_V1_JSON.as_bytes().to_vec()).to_vec();
         let artifact_hash = artifact_manager::Hash::new(HashAlgorithm::SHA512, &manifest_sha512)?;
         ART_MGR.pull_artifact(&artifact_hash)?;
+        Ok(())
+    }
+
+    #[test]
+    fn package_version_from_manifest() -> Result<(), anyhow::Error> {
+        let json_bytes = Bytes::from(MANIFEST_V1_JSON);
+        let package_version = package_version_from_manifest_bytes(&json_bytes, "test_pkg", "v1.4")?;
+        assert_eq!(32, package_version.id().len());
+        assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
+        assert_eq!("hello-world", package_version.name());
+        assert_eq!(PackageTypeName::Docker, *package_version.pkg_type());
+        assert_eq!("latest", package_version.version());
+        assert!(package_version.license_text().is_none());
+        assert!(package_version.license_text_mimetype().is_none());
+        assert!(package_version.license_url().is_none());
+        assert!(package_version.creation_time().is_none());
+        assert!(package_version.modified_time().is_none());
+        assert!(package_version.tags().is_empty());
+        assert!(package_version.description().is_none());
+        assert_eq!(4, package_version.artifacts().len());
+        assert_eq!(32, package_version.artifacts()[0].hash().len());
+        assert_eq!(HashAlgorithm::SHA256, *package_version.artifacts()[0].algorithm());
+        assert!(package_version.artifacts()[0].name().is_none());
+        assert!(package_version.artifacts()[0].creation_time().is_none());
+        assert!(package_version.artifacts()[0].url().is_none());
+        assert!(package_version.artifacts()[0].size().is_none());
+        assert!(package_version.artifacts()[0].mime_type().is_none());
+        assert!(package_version.artifacts()[0].metadata().is_empty());
+        assert!(package_version.artifacts()[0].source_url().is_none());
         Ok(())
     }
 }
