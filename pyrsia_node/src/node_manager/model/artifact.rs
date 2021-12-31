@@ -46,7 +46,7 @@ pub struct Artifact {
 
 impl Artifact {
     #[allow(clippy::too_many_arguments)]
-    fn new(
+    pub fn new(
         hash: Vec<u8>,
         algorithm: HashAlgorithm,
         name: Option<String>,
@@ -70,39 +70,39 @@ impl Artifact {
         }
     }
 
-    fn hash(&self) -> &Vec<u8> {
+    pub fn hash(&self) -> &Vec<u8> {
         &self.hash
     }
 
-    fn algorithm(&self) -> &HashAlgorithm {
+    pub fn algorithm(&self) -> &HashAlgorithm {
         &self.algorithm
     }
 
-    fn name(&self) -> &Option<String> {
+    pub fn name(&self) -> &Option<String> {
         &self.name
     }
 
-    fn creation_time(&self) -> &Option<String> {
+    pub fn creation_time(&self) -> &Option<String> {
         &self.creation_time
     }
 
-    fn url(&self) -> &Option<String> {
+    pub fn url(&self) -> &Option<String> {
         &self.url
     }
 
-    fn size(&self) -> &Option<u64> {
+    pub fn size(&self) -> &Option<u64> {
         &self.size
     }
 
-    fn mime_type(&self) -> &Option<String> {
+    pub fn mime_type(&self) -> &Option<String> {
         &self.mime_type
     }
 
-    fn metadata(&self) -> &Map<String, Value> {
+    pub fn metadata(&self) -> &Map<String, Value> {
         &self.metadata
     }
 
-    fn source_url(&self) -> &Option<String> {
+    pub fn source_url(&self) -> &Option<String> {
         &self.source_url
     }
 }

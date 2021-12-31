@@ -290,9 +290,9 @@ fn package_version_from_schema1(
             return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
         }
         let digest = hex::decode(&hex_digest["sha256:".len()..])?;
-        artifacts.push( Artifact { hash: digest, })
+        artifacts.push( Artifact::new(digest, HashAlgorithm::SHA256, None, None, None, None, None, Map::new(), None))
     }
-    Ok(PackageVersion {})
+    Ok(PackageVersion::new())
 }
 
 fn package_version_from_schema2(
