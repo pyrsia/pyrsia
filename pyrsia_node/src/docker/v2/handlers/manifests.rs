@@ -265,8 +265,8 @@ fn package_version_from_manifest_json(
     docker_reference: &str,
 ) -> Result<PackageVersion, anyhow::Error> {
     let result = match manifest_schema_version(json_object, json_string)? {
-        1 => package_version_from_schema1(&json_object),
-        2 => package_version_from_schema2(&json_object, json_string, docker_name, docker_reference),
+        1 => package_version_from_schema1(json_object),
+        2 => package_version_from_schema2(json_object, json_string, docker_name, docker_reference),
         n => Err(anyhow!("Unsupported manifest schema version {}", n)),
     };
     if result.is_err() {
@@ -275,7 +275,7 @@ fn package_version_from_manifest_json(
     result
 }
 
-const FS_LAYERS: &'static str = "fsLayers";
+const FS_LAYERS: &str = "fsLayers";
 
 fn package_version_from_schema1(
     json_object: &Map<String, Value>,
