@@ -18,7 +18,7 @@ use super::{RegistryError, RegistryErrorCode};
 
 use crate::artifact_manager;
 use crate::artifact_manager::HashAlgorithm;
-use crate::node_manager::model::artifact::Artifact;
+use crate::node_manager::model::artifact::{Artifact,ArtifactBuilder};
 use crate::node_manager::model::package_type::PackageTypeName;
 use crate::node_manager::model::package_version::PackageVersion;
 use anyhow::{anyhow, Context};
@@ -308,17 +308,7 @@ fn package_version_from_schema1(
             return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
         }
         let digest = hex::decode(&hex_digest["sha256:".len()..])?;
-        artifacts.push(Artifact::new(
-            digest,
-            HashAlgorithm::SHA256,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Map::new(),
-            None,
-        ))
+        artifacts.push( ArtifactBuilder::default().algorithm(HashAlgorithm::SHA256).hash(digest).build()?);
     }
     Ok(PackageVersion::new(
         String::from(
