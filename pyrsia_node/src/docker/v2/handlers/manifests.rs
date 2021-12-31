@@ -250,8 +250,9 @@ fn package_version_from_manifest_bytes(
             docker_reference,
         ),
         Ok(_) => invalid_manifest(&json_string),
-        Err(_) => Err(anyhow!(
-            "Error parsing docker manifest JSON: {}",
+        Err(error) => Err(anyhow!(
+            "Error parsing docker manifest JSON: {} in {}",
+            error,
             json_string
         )),
     }
@@ -263,23 +264,37 @@ fn package_version_from_manifest_json(
     docker_name: &str,
     docker_reference: &str,
 ) -> Result<PackageVersion, anyhow::Error> {
-    match manifest_schema_version(json_object, json_string)? {
+    let result = match manifest_schema_version(json_object, json_string)? {
         1 => package_version_from_schema1(&json_object),
         2 => package_version_from_schema2(&json_object, json_string, docker_name, docker_reference),
         n => Err(anyhow!("Unsupported manifest schema version {}", n)),
+    };
+    if result.is_err() {
+        error!("Invalid manifest {}", json_string)
     }
+    result
 }
+
+const FS_LAYERS: &'static str = "fsLayers";
 
 fn package_version_from_schema1(
     json_object: &Map<String, Value>,
 ) -> Result<PackageVersion, anyhow::Error> {
-    let manifest_name = json_object.get("name").context("missing name field")?.as_str().context("invalid name")?;
-    let manifest_tag = json_object.get("tag").context("missing tag field")?.as_str().context("invalid tag")?;
+    let manifest_name = json_object
+        .get("name")
+        .context("missing name field")?
+        .as_str()
+        .context("invalid name")?;
+    let manifest_tag = json_object
+        .get("tag")
+        .context("missing tag field")?
+        .as_str()
+        .context("invalid tag")?;
     let fslayers = json_object
-        .get("fslayers")
-        .context("missing fslayers field")?
+        .get(FS_LAYERS)
+        .context("missing fsLayers field")?
         .as_array()
-        .context("invalid fslayers")?;
+        .context("invalid fsLayers")?;
     let mut artifacts: Vec<Artifact> = Vec::new();
     for fslayer in fslayers {
         let hex_digest = fslayer
@@ -288,7 +303,7 @@ fn package_version_from_schema1(
             .get("blobSum")
             .context("missing blobSum")?
             .as_str()
-            .context("invalid blogSum")?;
+            .context("invalid blobSum")?;
         if !hex_digest.starts_with("sha256:") {
             return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
         }
@@ -306,7 +321,11 @@ fn package_version_from_schema1(
         ))
     }
     Ok(PackageVersion::new(
-        String::from(Uuid::new_v4().to_simple().encode_lower(&mut Uuid::encode_buffer())),
+        String::from(
+            Uuid::new_v4()
+                .to_simple()
+                .encode_lower(&mut Uuid::encode_buffer()),
+        ),
         String::from(DOCKER_NAMESPACE_ID),
         String::from(manifest_name),
         PackageTypeName::Docker,
@@ -387,7 +406,7 @@ mod tests {
       },
       {
          "v1Compatibility": "{\"id\":\"e45a5af57b00862e5ef5782a9925979a02ba2b12dff832fd0991335f4a11e5c5\",\"parent\":\"31cbccb51277105ba3ae35ce33c22b69c9e3f1002e76e4c736a2e8ebff9d7b5d\",\"created\":\"2014-12-31T22:57:59.178729048Z\",\"container\":\"27b45f8fb11795b52e9605b686159729b0d9ca92f76d40fb4f05a62e19c46b4f\",\"container_config\":{\"Hostname\":\"8ce6509d66e2\",\"Domainname\":\"\",\"User\":\"\",\"Memory\":0,\"MemorySwap\":0,\"CpuShares\":0,\"Cpuset\":\"\",\"AttachStdin\":false,\"AttachStdout\":false,\"AttachStderr\":false,\"PortSpecs\":null,\"ExposedPorts\":null,\"Tty\":false,\"OpenStdin\":false,\"StdinOnce\":false,\"Env\":[\"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"],\"Cmd\":[\"/bin/sh\",\"-c\",\"#(nop) CMD [/hello]\"],\"Image\":\"31cbccb51277105ba3ae35ce33c22b69c9e3f1002e76e4c736a2e8ebff9d7b5d\",\"Volumes\":null,\"WorkingDir\":\"\",\"Entrypoint\":null,\"NetworkDisabled\":false,\"MacAddress\":\"\",\"OnBuild\":[],\"SecurityOpt\":null,\"Labels\":null},\"docker_version\":\"1.4.1\",\"config\":{\"Hostname\":\"8ce6509d66e2\",\"Domainname\":\"\",\"User\":\"\",\"Memory\":0,\"MemorySwap\":0,\"CpuShares\":0,\"Cpuset\":\"\",\"AttachStdin\":false,\"AttachStdout\":false,\"AttachStderr\":false,\"PortSpecs\":null,\"ExposedPorts\":null,\"Tty\":false,\"OpenStdin\":false,\"StdinOnce\":false,\"Env\":[\"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"],\"Cmd\":[\"/hello\"],\"Image\":\"31cbccb51277105ba3ae35ce33c22b69c9e3f1002e76e4c736a2e8ebff9d7b5d\",\"Volumes\":null,\"WorkingDir\":\"\",\"Entrypoint\":null,\"NetworkDisabled\":false,\"MacAddress\":\"\",\"OnBuild\":[],\"SecurityOpt\":null,\"Labels\":null},\"architecture\":\"amd64\",\"os\":\"linux\",\"Size\":0}\n"
-      },
+      }
    ],
    "schemaVersion": 1,
    "signatures": [
