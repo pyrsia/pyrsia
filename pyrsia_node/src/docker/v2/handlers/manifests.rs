@@ -242,6 +242,8 @@ fn manifest_hash(manifest_vec: &Vec<u8>) -> _Data {
     raw_sha512(manifest_vec.clone()).to_vec()
 }
 
+// This is the TEMPORARY source of the id for the DOCKER namespace. When the metadata manager is
+// fully implemented, this namespace will be pre-installed in it.
 const DOCKER_NAMESPACE_ID: &str = "4658011310974e1bb5c46fd4df7e78b9";
 
 fn package_version_from_manifest_bytes(
@@ -277,13 +279,10 @@ fn package_version_from_manifest_json(
 ) -> Result<PackageVersion, anyhow::Error> {
     let result = match manifest_schema_version(json_object, json_string)? {
         1 => package_version_from_schema1(manifest_hash, json_object),
-        2 => package_version_from_schema2(
-            manifest_hash,
-            json_object,
-            json_string,
-            docker_name,
-            docker_reference,
-        ),
+        2 => {
+            package_version_from_schema2(manifest_hash, json_object, docker_name, docker_reference)
+        }
+
         n => Err(anyhow!("Unsupported manifest schema version {}", n)),
     };
     if result.is_err() {
@@ -293,6 +292,11 @@ fn package_version_from_manifest_json(
 }
 
 const FS_LAYERS: &str = "fsLayers";
+
+const MIME_TYPE_MANIFEST_SCHEMA_1: &str = "application/vnd.docker.distribution.manifest.v1+json";
+const MIME_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.tar.gzip";
+const MIME_TYPE_IMAGE_MANIFEST: &str = "application/vnd.docker.distribution.manifest.list.v2+json";
+const MIME_TYPE_MANIFEST_LIST: &str = "application/vnd.docker.distribution.manifest.v2+json";
 
 fn package_version_from_schema1(
     manifest_hash: &[u8],
@@ -318,7 +322,7 @@ fn package_version_from_schema1(
         ArtifactBuilder::default()
             .algorithm(HashAlgorithm::SHA512)
             .hash(manifest_hash)
-            .mime_type("application/vnd.docker.distribution.manifest.v1+json")
+            .mime_type(MIME_TYPE_MANIFEST_SCHEMA_1)
             .build()?,
     );
     for fslayer in fslayers {
@@ -362,7 +366,7 @@ fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), an
         ArtifactBuilder::default()
             .algorithm(HashAlgorithm::SHA256)
             .hash(digest)
-            .mime_type("application/vnd.docker.image.rootfs.diff.tar.gzip")
+            .mime_type(MIME_TYPE_BLOB_GZIPPED)
             .build()?,
     );
     Ok(())
@@ -371,7 +375,6 @@ fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), an
 fn package_version_from_schema2(
     manifest_hash: &[u8],
     json_object: &Map<String, Value>,
-    json_string: &str,
     docker_name: &str,
     docker_reference: &str,
 ) -> Result<PackageVersion, anyhow::Error> {
@@ -381,15 +384,25 @@ fn package_version_from_schema2(
         .as_str()
         .context("invalid mediaType")?;
     match media_type {
-        "application/vnd.docker.distribution.manifest.list.v2+json" => {
-            Err(anyhow!("Manifest lists are not supported yet"))
+        MIME_TYPE_IMAGE_MANIFEST => {
+            Err(anyhow!("Manifest lists are not supported yet")) //TODO
         }
-        "application/vnd.docker.distribution.manifest.v2+json" => {
-            Err(anyhow!("Image manifests are not supported yet"))
+        MIME_TYPE_MANIFEST_LIST => {
+            package_version_from_image_manifest(manifest_hash, json_object, docker_name, docker_reference)
         }
         _ => Err(anyhow!("Unexpected meditType {}", media_type)),
     }
 }
+
+fn package_version_from_image_manifest(
+    manifest_hash: &[u8],
+    json_object: &Map<String, Value>,
+    docker_name: &str,
+    docker_reference: &str,
+) -> Result<PackageVersion, anyhow::Error> {
+
+}
+
 
 fn manifest_schema_version(
     json_object: &Map<String, Value>,
