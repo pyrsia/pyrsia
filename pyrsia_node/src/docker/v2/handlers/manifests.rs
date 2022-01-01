@@ -18,7 +18,7 @@ use super::{RegistryError, RegistryErrorCode};
 
 use crate::artifact_manager;
 use crate::artifact_manager::HashAlgorithm;
-use crate::node_manager::model::artifact::Artifact;
+use crate::node_manager::model::artifact::{Artifact, ArtifactBuilder};
 use crate::node_manager::model::package_type::PackageTypeName;
 use crate::node_manager::model::package_version::PackageVersion;
 use anyhow::{anyhow, Context};
@@ -277,6 +277,8 @@ fn package_version_from_manifest_json(
 
 const FS_LAYERS: &str = "fsLayers";
 
+const MIME_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.tar.gzip";
+
 fn package_version_from_schema1(
     json_object: &Map<String, Value>,
 ) -> Result<PackageVersion, anyhow::Error> {
@@ -297,28 +299,7 @@ fn package_version_from_schema1(
         .context("invalid fsLayers")?;
     let mut artifacts: Vec<Artifact> = Vec::new();
     for fslayer in fslayers {
-        let hex_digest = fslayer
-            .as_object()
-            .context("invalid fslayer")?
-            .get("blobSum")
-            .context("missing blobSum")?
-            .as_str()
-            .context("invalid blobSum")?;
-        if !hex_digest.starts_with("sha256:") {
-            return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
-        }
-        let digest = hex::decode(&hex_digest["sha256:".len()..])?;
-        artifacts.push(Artifact::new(
-            digest,
-            HashAlgorithm::SHA256,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Map::new(),
-            None,
-        ))
+        add_fslayers(&mut artifacts, fslayer)?;
     }
     Ok(PackageVersion::new(
         String::from(
@@ -340,6 +321,28 @@ fn package_version_from_schema1(
         None,
         artifacts,
     ))
+}
+
+fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), anyhow::Error> {
+    let hex_digest = fslayer
+        .as_object()
+        .context("invalid fslayer")?
+        .get("blobSum")
+        .context("missing blobSum")?
+        .as_str()
+        .context("invalid blobSum")?;
+    if !hex_digest.starts_with("sha256:") {
+        return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
+    }
+    let digest = hex::decode(&hex_digest["sha256:".len()..])?;
+    artifacts.push(
+        ArtifactBuilder::default()
+            .algorithm(HashAlgorithm::SHA256)
+            .hash(digest)
+            .mime_type(MIME_TYPE_BLOB_GZIPPED.to_string())
+            .build()?,
+    );
+    Ok(())
 }
 
 fn package_version_from_schema2(
@@ -533,7 +536,10 @@ mod tests {
         assert!(package_version.artifacts()[0].creation_time().is_none());
         assert!(package_version.artifacts()[0].url().is_none());
         assert!(package_version.artifacts()[0].size().is_none());
-        assert!(package_version.artifacts()[0].mime_type().is_none());
+        match package_version.artifacts()[0].mime_type() {
+            Some(mime_type) => assert_eq!(MIME_TYPE_BLOB_GZIPPED, mime_type),
+            None => assert!(false)
+        }
         assert!(package_version.artifacts()[0].metadata().is_empty());
         assert!(package_version.artifacts()[0].source_url().is_none());
         Ok(())

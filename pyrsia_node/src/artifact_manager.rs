@@ -84,7 +84,7 @@ impl Digester for Sha512 {
 
 /// The types of hash algorithms that the artifact manager supports
 
-#[derive(EnumIter, Debug, PartialEq, EnumString, Serialize, Deserialize)]
+#[derive(EnumIter, Clone, Debug, PartialEq, EnumString, Serialize, Deserialize)]
 pub enum HashAlgorithm {
     SHA256,
     SHA512,

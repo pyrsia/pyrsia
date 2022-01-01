@@ -14,6 +14,9 @@
    limitations under the License.
 */
 
+//#[macro_use]
+extern crate derive_builder;
+
 pub mod artifact_manager;
 pub mod document_store;
 pub mod network;
