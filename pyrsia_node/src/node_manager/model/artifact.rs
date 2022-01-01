@@ -54,6 +54,7 @@ pub struct Artifact {
 }
 
 impl Artifact {
+    #[allow(dead_code)]
     pub fn hash(&self) -> &Vec<u8> {
         &self.hash
     }
