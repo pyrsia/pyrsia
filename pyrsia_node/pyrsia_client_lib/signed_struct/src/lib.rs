@@ -204,11 +204,6 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                                 }
 
                                 impl #lifetime #struct_ident #lifetime {
-                                    #[allow(clippy::too_many_arguments)]
-                                    pub fn new(#( #field_ident_vec : #type_vec),*) -> #struct_ident {
-                                        #struct_ident{ #(#field_ident_vec),* , #json_field_name: None }
-                                    }
-
                                     #(pub fn #field_ident_vec(&self)->&#type_vec{&self.#field_ident_vec}
 
                                       pub fn #setter_name_vec(&mut self, value: #type_vec){self.clear_json(); self.#field_ident_vec = value}
