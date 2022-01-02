@@ -23,9 +23,12 @@ use proc_macro2::{Ident, Span};
 use std::collections::HashSet;
 
 use quote::{format_ident, quote};
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
+use syn::token::{Bracket, Pound};
 use syn::{
-    parse_macro_input, AttributeArgs, DeriveInput, Field, FieldsNamed, Lifetime, Type, Visibility,
+    parse_macro_input, AttrStyle, Attribute, AttributeArgs, DeriveInput, Field, FieldsNamed,
+    Lifetime, Path, PathArguments, PathSegment, Token, Type, Visibility,
 };
 
 /// Use this macro before a struct to make it a signed struct. That means it will have signed JSON
@@ -78,11 +81,12 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
                 let output = quote! {
                 #[derive(serde::Serialize, serde::Deserialize)]
+                #[derive(derive_builder::Builder)]
                 #[derive(signed_struct::SignedStructDerive)]
                 #ast
                 }
                 .into();
-                //println!("Output for signed_struct: {}", output);
+                println!("Output for signed_struct: {}", output);
                 output
             }
             _ => syn::parse::Error::new(
@@ -101,6 +105,7 @@ pub fn signed_struct(args: TokenStream, input: TokenStream) -> TokenStream {
 fn construct_json_field(field_name: &Ident) -> Field {
     let json_fields_named: syn::FieldsNamed = syn::parse2(quote!( {
             #[serde(skip)]
+            #[builder(setter(skip))]
             #field_name : Option<String>
         } ))
     .unwrap();
@@ -108,18 +113,16 @@ fn construct_json_field(field_name: &Ident) -> Field {
     json_field
 }
 
-fn unique_json_field_ident(fields: &FieldsNamed) -> Result<Ident, syn::parse::Error> {
+// scrutinize and massage the fields of the struct and return the unique name for the generated JSON field
+fn unique_json_field_ident(fields: &mut FieldsNamed) -> Result<Ident, syn::parse::Error> {
     let mut field_names: HashSet<String> = HashSet::new();
-    for field in fields.named.iter() {
-        if field.vis != Visibility::Inherited {
-            return Err(syn::parse::Error::new(
-                field.span(),
-                "signed_struct requires all fields to be private",
-            ));
-        }
+    for field in fields.named.iter_mut() {
+        ensure_field_is_private(field)?;
         for id in field.ident.iter() {
             field_names.insert(id.to_string());
         }
+        field.attrs.push(builder_attribute());
+        println!("Field info: {:?}", field);
     }
     let mut counter = 0;
     loop {
@@ -130,6 +133,38 @@ fn unique_json_field_ident(fields: &FieldsNamed) -> Result<Ident, syn::parse::Er
         }
         counter += 1;
     }
+}
+
+// return an attribute struct that represents
+// #[builder(setter(into, strip_option), default)]
+fn builder_attribute() -> Attribute {
+    let mut punctuated: Punctuated<PathSegment, Token![::]> = Punctuated::new();
+    punctuated.push(PathSegment {
+        ident: Ident::new("builder", Span::call_site()),
+        arguments: PathArguments::None,
+    });
+    Attribute {
+        pound_token: Pound{ spans: [Span::call_site()] },
+        style: AttrStyle::Outer,
+        bracket_token: Bracket {
+            span: Span::call_site(),
+        },
+        path: Path {
+            leading_colon: None,
+            segments: punctuated,
+        },
+        tokens: quote! {(setter(into, strip_option), default)}.into(),
+    }
+}
+
+fn ensure_field_is_private(field: &Field) -> Result<(), syn::parse::Error> {
+    if field.vis != Visibility::Inherited {
+        return Err(syn::parse::Error::new(
+            field.span(),
+            "signed_struct requires all fields to be private",
+        ));
+    }
+    Ok(())
 }
 
 #[proc_macro_derive(SignedStructDerive)]
@@ -182,7 +217,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                                 }
                             }
                             .into();
-                            //println!("Output from signed_struct_derive: {}", output);
+                            println!("Output from signed_struct_derive: {}", output);
                             output
                         }
                         Err(error) => error.to_compile_error().into(),

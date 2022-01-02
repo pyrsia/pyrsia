@@ -3481,6 +3481,7 @@ name = "signed_struct"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "derive_builder",
  "proc-macro2",
  "pyrsia_client_lib",
  "quote",
