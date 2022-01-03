@@ -359,6 +359,7 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
 fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> {
     debug!("Verifying signatures: {}", json);
     let mut signature_count = 0;
+    let mut valid_signature_count = 0;
     let json32 = string_to_unicode_32(json);
     let JsonStringSlices {
         before_signatures,
@@ -383,11 +384,12 @@ fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> 
                     "verify_json_signature: this_signature={}",
                     unicode_32_bit_to_string(this_signature)
                 );
-                attestations.push(verify_one_signature(
-                    before_signatures,
-                    this_signature,
-                    after_signatures,
-                ))
+                let this_attestation =
+                    verify_one_signature(before_signatures, this_signature, after_signatures);
+                if this_attestation.signature_is_valid {
+                    valid_signature_count += 1;
+                }
+                attestations.push(this_attestation);
             }
             Err(_) => {
                 trace!("No more signatures");
@@ -398,9 +400,12 @@ fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> 
     }
     trace!("signature_count={}", signature_count);
     if signature_count == 0 {
-        return Err(anyhow!(NOT_SIGNED));
+        Err(anyhow!(NOT_SIGNED))
+    } else if valid_signature_count == 0 {
+        Err(anyhow!("No valid signatures"))
+    } else {
+        Ok(attestations)
     }
-    Ok(attestations)
 }
 
 // Since the purpose of this function is to find the index of an element in a slice, it really does

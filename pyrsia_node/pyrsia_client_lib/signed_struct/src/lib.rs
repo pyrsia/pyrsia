@@ -28,7 +28,7 @@ use syn::spanned::Spanned;
 use syn::token::{Bracket, Pound};
 use syn::{
     parse_macro_input, AttrStyle, Attribute, AttributeArgs, DeriveInput, Field, FieldsNamed,
-    Lifetime, Path, PathArguments, PathSegment, Token, Type, Visibility,
+    Lifetime, Path, PathArguments, PathSegment, Token, Type, TypePath, Visibility,
 };
 
 /// Use this macro before a struct to make it a signed struct. That means it will have signed JSON
@@ -113,7 +113,7 @@ fn construct_json_field(field_name: &Ident) -> Field {
     json_field
 }
 
-// scrutinize and massage the fields of the struct and return the unique name for the generated JSON field
+// scrutinize and annotate the fields of the struct and return the unique name for the generated JSON field
 fn unique_json_field_ident(fields: &mut FieldsNamed) -> Result<Ident, syn::parse::Error> {
     let mut field_names: HashSet<String> = HashSet::new();
     for field in fields.named.iter_mut() {
@@ -121,7 +121,9 @@ fn unique_json_field_ident(fields: &mut FieldsNamed) -> Result<Ident, syn::parse
         for id in field.ident.iter() {
             field_names.insert(id.to_string());
         }
-        field.attrs.push(builder_attribute());
+        if field_type_is_option(field) {
+            field.attrs.push(builder_attribute())
+        }
         println!("Field info: {:?}", field);
     }
     let mut counter = 0;
@@ -135,6 +137,23 @@ fn unique_json_field_ident(fields: &mut FieldsNamed) -> Result<Ident, syn::parse
     }
 }
 
+// This just checks for owned types like
+// Option<foo>
+// It does not recognize
+// &Option<foo>
+fn field_type_is_option(field: &Field) -> bool {
+    if let Type::Path(TypePath {
+        path: Path { segments, .. },
+        ..
+    }) = &field.ty
+    {
+        if let Some(path_segment) = segments.last() {
+            return &path_segment.ident.to_string() == "Option";
+        }
+    }
+    false
+}
+
 // return an attribute struct that represents
 // #[builder(setter(into, strip_option), default)]
 fn builder_attribute() -> Attribute {
@@ -144,7 +163,9 @@ fn builder_attribute() -> Attribute {
         arguments: PathArguments::None,
     });
     Attribute {
-        pound_token: Pound{ spans: [Span::call_site()] },
+        pound_token: Pound {
+            spans: [Span::call_site()],
+        },
         style: AttrStyle::Outer,
         bracket_token: Bracket {
             span: Span::call_site(),
@@ -176,19 +197,19 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
         (quote!(), quote!(<'_>))
     };
     match &ast.data {
-        syn::Data::Struct(ref struct_data) => {
-            match &struct_data.fields {
-                syn::Fields::Named(fields) => {
-                    #[allow(clippy::let_and_return)]
-                    match scan_fields(fields) {
-                        Ok(ScanFieldsResult {
-                            json_field_name,
-                            type_vec,
-                            field_ident_vec,
-                            setter_name_vec,
-                        }) => {
-                            let struct_ident = &ast.ident;
-                            let output = quote! {
+        syn::Data::Struct(ref struct_data) => match &struct_data.fields {
+            syn::Fields::Named(fields) =>
+            {
+                #[allow(clippy::let_and_return)]
+                match scan_fields(fields) {
+                    Ok(ScanFieldsResult {
+                        json_field_name,
+                        type_vec,
+                        field_ident_vec,
+                        setter_name_vec,
+                    }) => {
+                        let struct_ident = &ast.ident;
+                        let output = quote! {
                                 impl #lifetime ::pyrsia_client_lib::signed::Signed #signed_lifetime for #struct_ident #lifetime {
                                     fn json(&self) -> Option<String> {
                                         self.#json_field_name.to_owned()
@@ -212,20 +233,19 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                                 }
                             }
                             .into();
-                            println!("Output from signed_struct_derive: {}", output);
-                            output
-                        }
-                        Err(error) => error.to_compile_error().into(),
+                        println!("Output from signed_struct_derive: {}", output);
+                        output
                     }
+                    Err(error) => error.to_compile_error().into(),
                 }
-                _ => syn::parse::Error::new(
-                    ast.span(),
-                    "signed_struct_derive may only be used with structs having named fields.",
-                )
-                .to_compile_error()
-                .into(),
             }
-        }
+            _ => syn::parse::Error::new(
+                ast.span(),
+                "signed_struct_derive may only be used with structs having named fields.",
+            )
+            .to_compile_error()
+            .into(),
+        },
         _ => syn::parse::Error::new(
             ast.span(),
             "signed_struct_derive may only be used with structs ",

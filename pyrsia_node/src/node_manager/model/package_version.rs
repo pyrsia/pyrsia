@@ -57,7 +57,7 @@ pub struct PackageVersion {
     artifacts: Vec<Artifact>,
 }
 
-#[derive(EnumIter, Debug, PartialEq, EnumString, Serialize, Deserialize)]
+#[derive(EnumIter, Debug, PartialEq, EnumString, Serialize, Deserialize, Clone)]
 pub enum LicenseTextMimeType {
     Text,
     Html,
