@@ -39,8 +39,9 @@ mod tests {
             zot: &'a str,
             zing: Option<u64>, // All option types are defaulted to None if the builder is not given a value.
             omega: Option<String>,
-            #[builder(default = "Vec::new()")] // Putting a default makes it optional to set this in the builder.
-            gonkulators: Vec<u128>
+            #[builder(default = "Vec::new()")]
+            // Putting a default makes it optional to set this in the builder.
+            gonkulators: Vec<u128>,
         }
     }
     use foo::*;
@@ -89,7 +90,9 @@ mod tests {
             &key_pair.public_key,
         )?;
         let attestations: Vec<Attestation> = foo.verify_signature()?;
-        assert!(attestations.iter().all(|attestation| attestation.signature_is_valid()));
+        assert!(attestations
+            .iter()
+            .all(|attestation| attestation.signature_is_valid()));
 
         info!("Modifying struct to verify that it is unsigned after modification.");
         // Now we are going to exercise the generated setters, which should have the side effect of
