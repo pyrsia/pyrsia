@@ -80,13 +80,22 @@ mod tests {
         // after signing, there should be json.
         assert!(foo.json().is_some());
 
+        info!("Signing a second time to see that the struct can have two valid signatures");
+        foo.sign_json(
+            JwsSignatureAlgorithms::RS512,
+            &key_pair.private_key,
+            &key_pair.public_key,
+        )?;
+        let attestations: Vec<Attestation> = foo.verify_signature()?;
+        assert!(attestations.iter().all(|attestation| attestation.signature_is_valid()));
+
         info!("Modifying struct to verify that it is unsigned after modification.");
         // Now we are going to exercise the generated setters, which should have the side effect of
         // clearing the signed JSON.
         let foo_value: String = String::from("xyz");
         let foo_value_clone = foo_value.clone();
         let bar_value: u32 = 736;
-        let zot_value: &str = "asdf";
+        // let zot_value: &str = "asdf";
 
         foo.set_foo(foo_value);
         foo.set_bar(bar_value);
@@ -94,7 +103,7 @@ mod tests {
 
         assert_eq!(foo_value_clone, *foo.foo()); // The * is needed because the getters add a & to the type.
         assert_eq!(bar_value, *foo.bar());
-        assert_eq!(zot_value, *foo.zot());
+        // assert_eq!(zot_value, *foo.zot());
 
         // after previous set calls there should be no JSON.
         assert!(foo.json().is_none());
