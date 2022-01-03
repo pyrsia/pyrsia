@@ -20,7 +20,7 @@ use crate::artifact_manager;
 use crate::artifact_manager::HashAlgorithm;
 use crate::node_manager::model::artifact::{Artifact, ArtifactBuilder};
 use crate::node_manager::model::package_type::PackageTypeName;
-use crate::node_manager::model::package_version::PackageVersion;
+use crate::node_manager::model::package_version::{PackageVersion, PackageVersionBuilder};
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
@@ -301,26 +301,37 @@ fn package_version_from_schema1(
     for fslayer in fslayers {
         add_fslayers(&mut artifacts, fslayer)?;
     }
-    Ok(PackageVersion::new(
-        String::from(
+    Ok(
+        PackageVersionBuilder::default().id(String::from(
             Uuid::new_v4()
                 .to_simple()
                 .encode_lower(&mut Uuid::encode_buffer()),
-        ),
-        String::from(DOCKER_NAMESPACE_ID),
-        String::from(manifest_name),
-        PackageTypeName::Docker,
-        String::from(manifest_tag),
-        None,
-        None,
-        None,
-        Map::new(),
-        None,
-        None,
-        Vec::new(),
-        None,
-        artifacts,
-    ))
+        ))
+        .namespace_id(DOCKER_NAMESPACE_ID.to_string())
+        .name(String::from(manifest_name))
+        .pkg_type(PackageTypeName::Docker)
+        .version(String::from(manifest_tag))
+        .artifacts(artifacts)
+        .build()?) //     PackageVersion::new(
+                    //     String::from(
+                    //         Uuid::new_v4()
+                    //             .to_simple()
+                    //             .encode_lower(&mut Uuid::encode_buffer()),
+                    //     ),
+                    //     String::from(DOCKER_NAMESPACE_ID),
+                    //     String::from(manifest_name),
+                    //     PackageTypeName::Docker,
+                    //     String::from(manifest_tag),
+                    //     None,
+                    //     None,
+                    //     None,
+                    //     Map::new(), metadata
+                    //     None,
+                    //     None,
+                    //     Vec::new(),
+                    //     None,
+                    //     artifacts,
+                    // )
 }
 
 fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), anyhow::Error> {
@@ -538,7 +549,7 @@ mod tests {
         assert!(package_version.artifacts()[0].size().is_none());
         match package_version.artifacts()[0].mime_type() {
             Some(mime_type) => assert_eq!(MIME_TYPE_BLOB_GZIPPED, mime_type),
-            None => assert!(false)
+            None => assert!(false),
         }
         assert!(package_version.artifacts()[0].metadata().is_empty());
         assert!(package_version.artifacts()[0].source_url().is_none());

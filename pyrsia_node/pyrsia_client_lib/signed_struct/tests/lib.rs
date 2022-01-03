@@ -37,8 +37,10 @@ mod tests {
             foo: String,
             bar: u32,
             zot: &'a str,
-            zing: Option<u64>,
+            zing: Option<u64>, // All option types are defaulted to None if the builder is not given a value.
             omega: Option<String>,
+            #[builder(default = "Vec::new()")] // Putting a default makes it optional to set this in the builder.
+            gonkulators: Vec<u128>
         }
     }
     use foo::*;
