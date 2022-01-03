@@ -53,8 +53,8 @@ pub struct Artifact {
     source_url: Option<String>,
 }
 
+#[allow(unused)]
 impl Artifact {
-    #[allow(dead_code)]
     pub fn hash(&self) -> &Vec<u8> {
         &self.hash
     }
