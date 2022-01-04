@@ -238,7 +238,7 @@ fn store_manifest_in_artifact_manager(bytes: &Bytes) -> anyhow::Result<(HashAlgo
     Ok((HashAlgorithm::SHA512, sha512))
 }
 
-fn manifest_hash(manifest_vec: &Vec<u8>) -> _Data {
+fn manifest_hash(manifest_vec: &Vec<u8>) -> Vec<u8> {
     raw_sha512(manifest_vec.clone()).to_vec()
 }
 
@@ -321,12 +321,12 @@ fn package_version_from_schema1(
     artifacts.push(
         ArtifactBuilder::default()
             .algorithm(HashAlgorithm::SHA512)
-            .hash(manifest_hash)
-            .mime_type(MIME_TYPE_MANIFEST_SCHEMA_1)
+            .hash(manifest_hash.to_vec())
+            .mime_type(MIME_TYPE_MANIFEST_SCHEMA_1.to_string())
             .build()?,
     );
     for fslayer in fslayers {
-        add_fslayers(&mut artifacts, fslayer)?;
+        add_fslayer(&mut artifacts, fslayer)?;
     }
     Ok(PackageVersion::new(
         String::from(
@@ -350,7 +350,7 @@ fn package_version_from_schema1(
     ))
 }
 
-fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), anyhow::Error> {
+fn add_fslayer(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), anyhow::Error> {
     let hex_digest = fslayer
         .as_object()
         .context("invalid fslayer")?
@@ -358,19 +358,26 @@ fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), an
         .context("missing blobSum")?
         .as_str()
         .context("invalid blobSum")?;
-    if !hex_digest.starts_with("sha256:") {
-        return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
-    }
-    let digest = hex::decode(&hex_digest["sha256:".len()..])?;
+    let digest = digest_string_to_vec(&hex_digest)?;
     artifacts.push(
         ArtifactBuilder::default()
             .algorithm(HashAlgorithm::SHA256)
             .hash(digest)
-            .mime_type(MIME_TYPE_BLOB_GZIPPED)
+            .mime_type(MIME_TYPE_BLOB_GZIPPED.to_string())
             .build()?,
     );
     Ok(())
 }
+
+fn digest_string_to_vec(hex_digest: &str) -> Result<Vec<u8>, anyhow::Error> {
+    if !hex_digest.starts_with("sha256:") {
+        return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
+    }
+    let digest = hex::decode(&hex_digest["sha256:".len()..])?;
+    Ok(digest)
+}
+
+const MEDIA_TYPE: &'static str = "mediaType";
 
 fn package_version_from_schema2(
     manifest_hash: &[u8],
@@ -379,7 +386,7 @@ fn package_version_from_schema2(
     docker_reference: &str,
 ) -> Result<PackageVersion, anyhow::Error> {
     let media_type = json_object
-        .get("mediaType")
+        .get(MEDIA_TYPE)
         .context("missing mediaType field")?
         .as_str()
         .context("invalid mediaType")?;
@@ -387,12 +394,21 @@ fn package_version_from_schema2(
         MIME_TYPE_IMAGE_MANIFEST => {
             Err(anyhow!("Manifest lists are not supported yet")) //TODO
         }
-        MIME_TYPE_MANIFEST_LIST => {
-            package_version_from_image_manifest(manifest_hash, json_object, docker_name, docker_reference)
-        }
+        MIME_TYPE_MANIFEST_LIST => package_version_from_image_manifest(
+            manifest_hash,
+            json_object,
+            docker_name,
+            docker_reference,
+        ),
         _ => Err(anyhow!("Unexpected meditType {}", media_type)),
     }
 }
+
+const DIGEST: &str = "digest";
+const CONFIG: &str = "config";
+const LAYERS: &'static str = "layers";
+
+const SIZE: &'static str = "size";
 
 fn package_version_from_image_manifest(
     manifest_hash: &[u8],
@@ -400,9 +416,104 @@ fn package_version_from_image_manifest(
     docker_name: &str,
     docker_reference: &str,
 ) -> Result<PackageVersion, anyhow::Error> {
-
+    let mut artifacts: Vec<Artifact> = Vec::new();
+    artifacts.push(
+        ArtifactBuilder::default()
+            .algorithm(HashAlgorithm::SHA512)
+            .hash(manifest_hash.to_vec())
+            .mime_type(MIME_TYPE_MANIFEST_SCHEMA_1.to_string())
+            .build()?,
+    );
+    extract_config(json_object, &mut artifacts)?;
+    let layers = json_object
+        .get(LAYERS)
+        .context("Missing Layers")?
+        .as_array()
+        .context("Layers should be an array")?;
+    for layer in layers {
+        let digest_string = layer
+            .get(DIGEST)
+            .context("Missing digest in layer")?
+            .as_str()
+            .context("Invalid digest in layer")?;
+        let mut artifact_builder = ArtifactBuilder::default();
+        artifact_builder
+            .algorithm(HashAlgorithm::SHA256)
+            .hash(digest_string_to_vec(digest_string)?)
+            .mime_type(get_media_type(layer)?.to_string())
+            .size(
+                layer
+                    .get(SIZE)
+                    .context("Missing size in layer")?
+                    .as_u64()
+                    .context("Invalid size in layer")?,
+            );
+        extract_urls(layer, &mut artifact_builder);
+        artifacts.push(artifact_builder.build()?);
+    }
+    Ok(PackageVersion::new(
+        String::from(
+            Uuid::new_v4()
+                .to_simple()
+                .encode_lower(&mut Uuid::encode_buffer()),
+        ),
+        String::from(DOCKER_NAMESPACE_ID),
+        String::from(docker_name),
+        PackageTypeName::Docker,
+        String::from(docker_reference),
+        None,
+        None,
+        None,
+        Map::new(),
+        None,
+        None,
+        Vec::new(),
+        None,
+        artifacts,
+    ))
 }
 
+fn extract_config(
+    json_object: &Map<String, Value>,
+    artifacts: &mut Vec<Artifact>,
+) -> Result<(), anyhow::Error> {
+    if let Some(config) = json_object.get(CONFIG) {
+        let digest_string = config
+            .get(DIGEST)
+            .context("Missing digest in config")?
+            .as_str()
+            .context("Invalid digest in config")?;
+        artifacts.push(
+            ArtifactBuilder::default()
+                .algorithm(HashAlgorithm::SHA256)
+                .hash(digest_string_to_vec(digest_string)?)
+                .mime_type(get_media_type(config)?.to_string())
+                .build()?,
+        );
+    };
+    Ok(())
+}
+
+fn extract_urls(layer: &Value, artifact_builder: &mut ArtifactBuilder) {
+    if let Some(urls) = layer.get("urls") {
+        match urls.as_array() {
+            Some(url_vec) => {
+                artifact_builder.urls(url_vec.iter().map(|value| value.to_string()).collect());
+            }
+            None => {
+                warn!("Manifest layer contains layer with a urls field that is not an array.");
+            }
+        }
+    }
+}
+
+fn get_media_type(json_object: &Value) -> Result<&str, anyhow::Error> {
+    json_object
+        .get(MEDIA_TYPE)
+        .context("Missing mediaType in config")?
+        .as_str()
+        .context("Invalid mediaType in context")
+}
 
 fn manifest_schema_version(
     json_object: &Map<String, Value>,
@@ -564,7 +675,7 @@ mod tests {
     fn package_version_from_manifest1() -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V1_JSON);
         let package_version = package_version_from_manifest_bytes(
-            manifest_hash(&json_bytes.as_bytes().to_vec()),
+            &manifest_hash(&json_bytes.to_vec()),
             &json_bytes,
             "test_pkg",
             "v1.4",
@@ -589,7 +700,7 @@ mod tests {
         );
         assert!(package_version.artifacts()[0].name().is_none());
         assert!(package_version.artifacts()[0].creation_time().is_none());
-        assert!(package_version.artifacts()[0].url().is_none());
+        assert!(package_version.artifacts()[0].urls().is_empty());
         assert!(package_version.artifacts()[0].size().is_none());
         assert!(package_version.artifacts()[0].mime_type().is_none());
         assert!(package_version.artifacts()[0].metadata().is_empty());
@@ -601,7 +712,7 @@ mod tests {
     fn package_version_from_manifest2() -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V2_IMAGE_JSON);
         let package_version = package_version_from_manifest_bytes(
-            manifest_hash(&json_bytes.as_bytes().to_vec()),
+            &manifest_hash(&json_bytes.to_vec()),
             &json_bytes,
             "test_pkg",
             "v1.4",
@@ -626,7 +737,7 @@ mod tests {
         );
         assert!(package_version.artifacts()[0].name().is_none());
         assert!(package_version.artifacts()[0].creation_time().is_none());
-        assert!(package_version.artifacts()[0].url().is_none());
+        assert!(package_version.artifacts()[0].urls().is_empty());
         assert!(package_version.artifacts()[0].size().is_none());
         assert!(package_version.artifacts()[0].mime_type().is_none());
         assert!(package_version.artifacts()[0].metadata().is_empty());
