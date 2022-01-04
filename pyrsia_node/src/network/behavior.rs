@@ -32,6 +32,7 @@ use libp2p::{gossipsub, identity, swarm::SwarmEvent, Multiaddr};
 use log::{debug, error, info};
 
 use std::collections::HashSet;
+use super::torrent::add_torrent;
 
 // We create a custom network behaviour that combines floodsub and mDNS.
 // The derive generates a delegating `NetworkBehaviour` impl which in turn
@@ -107,10 +108,12 @@ impl NetworkBehaviourEventProcess<gossipsub::GossipsubEvent> for MyBehaviour {
             message,
         } = message
         {
+
             let msg_data: String = String::from_utf8(message.data).unwrap();
             if msg_data.starts_with("magnet:") {
                 // Synapse RPC Integration point
                 info!("Start downloading {}", msg_data);
+
                 // This should kick-off the download
             } else {
                 info!(
