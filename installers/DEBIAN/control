@@ -4,5 +4,5 @@ Section: custom
 Priority: optional
 Architecture: amd64
 Essential: no
-Maintainer: pyrsia.org
+Maintainer: pyrsia.io
 Description: Pyrsia Node and CLI

@@ -14,5 +14,20 @@
    limitations under the License.
 */
 
-pub mod config;
-pub mod node;
+extern crate serde;
+extern crate signed_struct;
+
+use serde::{Deserialize, Serialize};
+use signed::signed::Signed;
+use signed_struct::signed_struct;
+
+#[signed_struct]
+pub struct PackageType {
+    name: PackageTypeName,
+    description: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub enum PackageTypeName {
+    Docker,
+}

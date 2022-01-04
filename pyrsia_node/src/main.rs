@@ -14,55 +14,43 @@
    limitations under the License.
 */
 
-extern crate bytes;
 extern crate clap;
-extern crate easy_hasher;
-extern crate lazy_static;
+extern crate futures;
+extern crate libp2p;
 extern crate log;
 extern crate pretty_env_logger;
-extern crate serde;
+extern crate pyrsia;
 extern crate tokio;
-extern crate uuid;
 extern crate warp;
-//local module imports
-mod artifact_manager;
-mod block_chain;
-mod docker;
-mod document_store;
-mod metadata_manager;
-mod network;
-mod node_api;
-mod node_manager;
-mod utils;
 
-use block_chain::block::Block;
-use block_chain::block_chain::BlockChain;
-use docker::error_util::*;
-use document_store::document_store::DocumentStore;
-use document_store::document_store::IndexSpec;
-use network::swarm::{new as new_swarm, MyBehaviourSwarm};
-use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
+use pyrsia::block_chain::*;
+use pyrsia::docker::error_util::*;
+use pyrsia::docker::v2::routes::*;
+use pyrsia::document_store::document_store::DocumentStore;
+use pyrsia::document_store::document_store::IndexSpec;
+use pyrsia::logging::*;
+use pyrsia::network::swarm::{self, MyBehaviourSwarm};
+use pyrsia::network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
+use pyrsia::node_api::routes::make_node_routes;
 
 use clap::{App, Arg, ArgMatches};
 use futures::StreamExt;
 use libp2p::{
+    core::identity,
     floodsub::{self, Topic},
-    identity,
     swarm::SwarmEvent,
     Multiaddr, PeerId,
 };
 use log::{debug, error, info};
-use tokio::sync::mpsc;
-
-use crate::docker::v2::routes::*;
-use crate::node_api::routes::*;
-use std::sync::Arc;
 use std::{
     env,
     net::{IpAddr, Ipv4Addr, SocketAddr},
+    sync::Arc,
 };
-use tokio::io::{self, AsyncBufReadExt};
-use tokio::sync::Mutex;
+use tokio::{
+    io::{self, AsyncBufReadExt},
+    sync::{mpsc, Mutex},
+};
 use warp::Filter;
 
 const DEFAULT_PORT: &str = "7878";
@@ -73,7 +61,7 @@ async fn main() {
 
     // create the connection to the documentStore.
     let index_one = "index_one";
-    let field1 = "mostSignificantField";
+    let field1 = "most_significant_field";
     let idx1 = IndexSpec::new(index_one, vec![field1]);
 
     DocumentStore::create("document_store", vec![idx1]).expect("Failed to create DocumentStore");
@@ -85,8 +73,8 @@ async fn main() {
         .author(clap::crate_authors!(", "))
         .about("Application to connect to and participate in the Pyrsia network")
         .arg(
-            Arg::with_name("port")
-                .short("p")
+            Arg::new("port")
+                .short('p')
                 .long("port")
                 .value_name("PORT")
                 .default_value(DEFAULT_PORT)
@@ -96,7 +84,7 @@ async fn main() {
                 .help("Sets the port to listen to for the Docker API"),
         )
         .arg(
-            Arg::with_name("peer")
+            Arg::new("peer")
                 //.short("p")
                 .long("peer")
                 .takes_value(true)
@@ -106,19 +94,25 @@ async fn main() {
         )
         .get_matches();
 
-    let local_key = identity::Keypair::generate_ed25519();
-
+    let local_key: identity::Keypair = identity::Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
-
     let transport: TcpTokioTransport = new_tokio_tcp_transport(&local_key); // Create a tokio-based TCP transport using noise for authenticated
-                                                                            //let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation"); // Create a Floodsub topic
+
     let (respond_tx, respond_rx) = mpsc::channel(32);
-    let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation");
+    let floodsub_topic: Topic = floodsub::Topic::new("pyrsia_node_converstation");
+    let gossip_topic: libp2p::gossipsub::IdentTopic =
+        libp2p::gossipsub::IdentTopic::new("pyrsia_file_share_topic");
+
     // Create a Swarm to manage peers and events.
-    let mut swarm: MyBehaviourSwarm =
-        new_swarm(floodsub_topic.clone(), transport, local_peer_id, respond_tx)
-            .await
-            .unwrap();
+    let mut swarm: MyBehaviourSwarm = swarm::new(
+        gossip_topic.clone(),
+        floodsub_topic.clone(),
+        transport,
+        local_key,
+        respond_tx,
+    )
+    .await
+    .unwrap();
 
     // Reach out to another node if specified
     if let Some(to_dial) = matches.value_of("peer") {
@@ -160,7 +154,7 @@ async fn main() {
 
     let (addr, server) = warp::serve(
         routes
-            .and(utils::log::log_headers())
+            .and(http::log_headers())
             .recover(custom_recover)
             .with(warp::log("pyrsia_registry")),
     )
@@ -171,7 +165,7 @@ async fn main() {
     tokio::spawn(server);
     let tx4 = tx.clone();
 
-    let mut bc = BlockChain::new();
+    let mut bc = block_chain::BlockChain::new();
     bc.genesis();
     // Kick it off
     loop {
@@ -202,6 +196,16 @@ async fn main() {
                 }
                 EventType::Input(line) => match line.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers_cmd().await,
+                    cmd if cmd.starts_with("magnet:") => {
+                        info!(
+                            "{}",
+                            swarm
+                                .behaviour_mut()
+                                .gossipsub_mut()
+                                .publish(gossip_topic.clone(), cmd)
+                                .unwrap()
+                        )
+                    }
                     _ => match tx4.send(line).await {
                         Ok(_) => debug!("line sent"),
                         Err(_) => error!("failed to send stdin input"),
@@ -217,7 +221,7 @@ async fn main() {
                     "block" => {
                         // assuming the message is a json version of the block
 
-                        let block = Block {
+                        let block = block::Block {
                             id: 0,
                             hash: "".to_string(),
                             previous_hash: "".to_string(),
