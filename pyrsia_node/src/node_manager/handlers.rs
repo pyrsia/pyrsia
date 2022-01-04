@@ -18,7 +18,10 @@ use super::ArtifactManager;
 use super::HashAlgorithm;
 
 use super::Hash;
+
 use anyhow::{Context, Result};
+use lazy_static::lazy_static;
+use log::info;
 use std::fs;
 use std::fs::File;
 use std::io::BufReader;
@@ -27,7 +30,7 @@ use std::str;
 const ART_MGR_DIR: &str = "pyrsia";
 
 lazy_static! {
-    static ref ART_MGR: ArtifactManager = {
+    pub static ref ART_MGR: ArtifactManager = {
         fs::create_dir_all(ART_MGR_DIR).expect("Error creating dir for artifacts");
         ArtifactManager::new(ART_MGR_DIR).unwrap()
     };
@@ -55,6 +58,14 @@ pub fn put_artifact(artifact_hash: &[u8], artifact_path: &str) -> Result<bool, a
         .context("Error from put_artifact")
 }
 
+pub fn get_arts_count() -> Result<usize, anyhow::Error> {
+    info!("get_pyrsia_status started");
+
+    ART_MGR
+        .artifacts_count(ART_MGR_DIR)
+        .context("Error while getting artifacts count")
+}
+
 #[cfg(test)]
 
 mod tests {
@@ -75,7 +86,7 @@ mod tests {
     fn put_and_get_artifact_test() -> Result<(), anyhow::Error> {
         println!("put_and_get_artifact_test started !!");
 
-        // tetst artifact file in resources/test dir
+        // test artifact file in resources/test dir
         let mut curr_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         curr_dir.push("resources/test/artifact_test.txt");
         println!("curr_dir is: {}", curr_dir.display());

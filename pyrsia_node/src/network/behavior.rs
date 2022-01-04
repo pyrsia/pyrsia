@@ -28,6 +28,7 @@ use libp2p::{
     swarm::NetworkBehaviourEventProcess,
     NetworkBehaviour, PeerId,
 };
+use libp2p::{gossipsub, identity, swarm::SwarmEvent, Multiaddr};
 use log::{debug, error, info};
 
 use std::collections::HashSet;
@@ -39,6 +40,7 @@ use std::collections::HashSet;
 #[derive(NetworkBehaviour)]
 #[behaviour(event_process = true)]
 pub struct MyBehaviour {
+    gossipsub: gossipsub::Gossipsub,
     floodsub: Floodsub,
     kademlia: Kademlia<MemoryStore>,
     mdns: Mdns,
@@ -48,17 +50,23 @@ pub struct MyBehaviour {
 
 impl MyBehaviour {
     pub fn new(
+        gossipsub: gossipsub::Gossipsub,
         floodsub: Floodsub,
         kademlia: Kademlia<MemoryStore>,
         mdns: Mdns,
         response_sender: tokio::sync::mpsc::Sender<String>,
     ) -> Self {
         MyBehaviour {
+            gossipsub,
             floodsub,
             kademlia,
             mdns,
             response_sender,
         }
+    }
+
+    pub fn gossipsub_mut(&mut self) -> &mut gossipsub::Gossipsub {
+        &mut self.gossipsub
     }
 
     pub fn floodsub_mut(&mut self) -> &mut Floodsub {
@@ -87,6 +95,30 @@ impl MyBehaviour {
         let num = std::num::NonZeroUsize::new(2).ok_or(Error::ValueTooLarge)?;
         self.kademlia
             .put_record(Record::new(Key::new(&hash), value), Quorum::N(num))
+    }
+}
+
+impl NetworkBehaviourEventProcess<gossipsub::GossipsubEvent> for MyBehaviour {
+    // Called when `gossipsub` produces an event.
+    fn inject_event(&mut self, message: gossipsub::GossipsubEvent) {
+        if let gossipsub::GossipsubEvent::Message {
+            propagation_source,
+            message_id,
+            message,
+        } = message
+        {
+            let msg_data: String = String::from_utf8(message.data).unwrap();
+            if msg_data.starts_with("magnet:") {
+                // Synapse RPC Integration point
+                info!("Start downloading {}", msg_data);
+                // This should kick-off the download
+            } else {
+                info!(
+                    "Got message: {} with id: {} from peer: {:?}",
+                    msg_data, message_id, propagation_source
+                );
+            }
+        }
     }
 }
 
@@ -142,7 +174,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
 
                 QueryResult::GetClosestPeers(Ok(ok)) => {
                     println!("GetClosestPeers result {:?}", ok.peers);
-                    let connected_peers = itertools::join(ok.peers, ", ");
+                    let connected_peers = itertools::join(ok.peers, ",");
                     respond_send(self.response_sender.clone(), connected_peers);
                 }
 

@@ -17,15 +17,13 @@
 extern crate bytes;
 extern crate clap;
 extern crate easy_hasher;
+extern crate lazy_static;
 extern crate log;
 extern crate pretty_env_logger;
 extern crate serde;
 extern crate tokio;
 extern crate uuid;
 extern crate warp;
-#[macro_use]
-extern crate lazy_static;
-
 //local module imports
 mod artifact_manager;
 mod block_chain;
@@ -43,7 +41,7 @@ use block_chain::block_chain::Ledger;
 use docker::error_util::*;
 use document_store::document_store::DocumentStore;
 use document_store::document_store::IndexSpec;
-use network::swarm::{new as new_swarm, MyBehaviourSwarm};
+use network::swarm::MyBehaviourSwarm;
 use network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 
 use clap::{App, Arg, ArgMatches};
@@ -116,16 +114,23 @@ async fn main() {
 
     let (respond_tx, respond_rx) = mpsc::channel(32);
     let floodsub_topic: Topic = floodsub::Topic::new("pyrsia-node-converstation");
+    let gossip_topic: libp2p::gossipsub::IdentTopic =
+        libp2p::gossipsub::IdentTopic::new("pyrsia-file-share-topic");
     // Create a Swarm to manage peers and events.
-    let mut swarm: MyBehaviourSwarm =
-        new_swarm(floodsub_topic.clone(), transport, local_peer_id, respond_tx)
-            .await
-            .unwrap();
+    let mut swarm: MyBehaviourSwarm = network::swarm::new(
+        gossip_topic.clone(),
+        floodsub_topic.clone(),
+        transport,
+        local_key,
+        respond_tx,
+    )
+    .await
+    .unwrap();
 
     // Reach out to another node if specified
     if let Some(to_dial) = matches.value_of("peer") {
         let addr: Multiaddr = to_dial.parse().unwrap();
-        swarm.dial_addr(addr).unwrap();
+        swarm.dial(addr).unwrap();
         info!("Dialed {:?}", to_dial)
     }
 
@@ -150,6 +155,7 @@ async fn main() {
     //swarm specific tx,rx
     // need better handling of all these channel resources
     let shared_stats = Arc::new(Mutex::new(respond_rx));
+
     let my_stats = shared_stats.clone();
     let tx2 = tx.clone();
 
@@ -179,7 +185,7 @@ async fn main() {
     info!("Pyrsia Docker Node is now running on port {}!", addr.port());
 
     tokio::spawn(server);
-    let tx2 = tx.clone();
+    let tx4 = tx.clone();
 
     let raw_chain = BlockChain::new();
     let bc = Arc::new(Mutex::new(raw_chain));
@@ -225,13 +231,25 @@ async fn main() {
                 }
                 EventType::Input(line) => match line.as_str() {
                     "peers" => swarm.behaviour_mut().list_peers_cmd().await,
-                    _ => match tx2.send(line).await {
+                    cmd if cmd.starts_with("magnet:") => {
+                        info!(
+                            "{}",
+                            swarm
+                                .behaviour_mut()
+                                .gossipsub_mut()
+                                .publish(gossip_topic.clone(), cmd)
+                                .unwrap()
+                        )
+                    }
+                    _ => match tx4.send(line).await {
                         Ok(_) => debug!("line sent"),
                         Err(_) => error!("failed to send stdin input"),
                     },
                 },
                 EventType::Message(message) => match message.as_str() {
-                    "peers" => swarm.behaviour_mut().list_peers(local_peer_id).await,
+                    cmd if cmd.starts_with("peers") || cmd.starts_with("status") => {
+                        swarm.behaviour_mut().list_peers(local_peer_id).await
+                    }
                     cmd if cmd.starts_with("get_blobs") => {
                         swarm.behaviour_mut().lookup_blob(message).await
                     }

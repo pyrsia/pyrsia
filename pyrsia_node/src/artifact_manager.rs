@@ -31,6 +31,13 @@ use std::io::{BufWriter, Read, Write};
 use std::path;
 use std::path::Path;
 use std::str::FromStr;
+///
+/// # Artifact Manager
+/// Module for managing artifacts. It manages a local collection of artifacts and is responsible
+/// getting artifacts from other nodes when they are not present locally.
+/// An artifact is a file that is identified by a hash algorithm and a hash code. To know more about
+/// an artifact, we must consult the metadata that refers to the artifact.
+use walkdir::{DirEntry, WalkDir};
 
 use anyhow::{anyhow, Context, Error, Result};
 use serde::{Deserialize, Serialize};
@@ -275,6 +282,29 @@ impl<'a> ArtifactManager {
         Err(anyhow!("Not an accessible directory: {}", repository_path))
     }
 
+    pub fn artifacts_count(&self, repository_path: &str) -> Result<usize, Error> {
+        let mut total_files = 0;
+
+        for file in WalkDir::new(repository_path)
+            .into_iter()
+            .filter_entry(|path| Self::is_not_hidden(path))
+            .filter_map(|file| file.ok())
+        {
+            if file.metadata().unwrap().is_file() {
+                total_files += 1;
+            }
+        }
+        Ok(total_files)
+    }
+
+    fn is_not_hidden(entry: &DirEntry) -> bool {
+        entry
+            .file_name()
+            .to_str()
+            .map(|s| entry.depth() == 0 || !s.starts_with('.'))
+            .unwrap_or(false)
+    }
+
     /// Push an artifact to this node's local repository.
     /// Parameters are:
     /// * reader — An object that this method will use to read the bytes of the artifact being
@@ -296,7 +326,7 @@ impl<'a> ArtifactManager {
         let tmp_path = tmp_path_from_base(&base_path);
 
         match Self::create_artifact_file(&tmp_path) {
-            Err(error) => Self::file_creation_error(&tmp_path, error),
+            Err(error) => file_creation_error(&tmp_path, error),
             Ok(out) => {
                 println!("hash is {}", expected_hash);
                 let mut hash_buffer: [u8; 128] = [0; 128];
@@ -346,7 +376,7 @@ impl<'a> ArtifactManager {
             )
         })?;
         debug!(
-            "Artifact has the expected hash and is available locally {}",
+            "Artifact has the expected hash available locally {}",
             expected_hash
         );
         Ok(true)
@@ -357,14 +387,6 @@ impl<'a> ArtifactManager {
         // for now all artifacts are unstructured
         base_path.set_extension("file");
         base_path
-    }
-
-    fn file_creation_error(base_path: &Path, error: std::io::Error) -> Result<bool, Error> {
-        match error.kind() {
-            io::ErrorKind::AlreadyExists => Ok(false),
-            _ => Err(anyhow!(error)),
-        }
-        .with_context(|| format!("Error creating file {}", base_path.display()))
     }
 
     fn do_push<'b>(
@@ -426,6 +448,17 @@ impl<'a> ArtifactManager {
         File::open(base_path.as_path())
             .with_context(|| format!("{} not found.", base_path.display()))
     }
+}
+
+fn file_creation_error(base_path: &Path, error: std::io::Error) -> Result<bool, Error> {
+    error!("I/O error {} on {}", error, base_path.display());
+    let result = match error.kind() {
+        io::ErrorKind::AlreadyExists => Ok(false),
+        _ => Err(anyhow!(error.to_string())),
+    }
+    .with_context(|| format!("Error creating file {}", base_path.display()));
+
+    result
 }
 
 // Return a temporary file name to use for the file until we have verified that the hash is correct.

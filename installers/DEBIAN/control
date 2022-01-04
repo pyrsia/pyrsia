@@ -1,0 +1,8 @@
+Package: pyrsia
+Version: 0.1.0
+Section: custom
+Priority: optional
+Architecture: amd64
+Essential: no
+Maintainer: pyrsia.io
+Description: Pyrsia Node and CLI

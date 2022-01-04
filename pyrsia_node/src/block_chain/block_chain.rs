@@ -169,7 +169,7 @@ fn calculate_hash(
 fn hash_to_binary_representation(hash: &[u8]) -> String {
     hash.iter()
         .map(|c| format!("{:b}", c))
-        .fold("".to_string(), |cur, nxt| cur + &nxt)
+        .fold("".to_string(), |cur, nxt| format!("{}{}", cur, nxt))
 }
 
 impl Ledger for BlockChain {

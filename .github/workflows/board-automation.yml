@@ -1,44 +1,77 @@
-name: Project Board Automation - Pyrsia Develop
+name: Project Board Automation - Pyrsia Development
 
 on:
   issues:
-    types: [created, reopend, labeled]
-  project_card:
-    types: [moved]
+    types: [opened, reopened, labeled]
+  pull_request_target:
+    types: [opened, reopened, labeled, converted_to_draft, ready_for_review, review_requested]
 
 jobs:
   triage-new-issues:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'issues' &&
-      github.event.action == 'created' && github.event.action == 'reopend'
+      (github.event.action == 'opened' || github.event.action == 'reopened')
     steps:
       - uses: actions-ecosystem/action-add-labels@v1
         with:
           labels: triage
       - uses: alex-page/github-project-automation-plus@v0.8.1
         with:
-          project: Pyrsia Develop
-          column: Backlog for them Demo
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-    
-  label-blocked:
+          project: Pyrsia Development
+          column: Backlog for the Demo
+          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
+
+  in-progress-new-prs:
     runs-on: ubuntu-latest
-    if: github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'blocked'
+    if: |
+      github.event_name == 'pull_request_target' &&
+      (github.event.action == 'opened' || github.event.action == 'reopened')
     steps:
       - uses: alex-page/github-project-automation-plus@v0.8.1
         with:
-          project: Pyrsia Develop
-          column: Blocked
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-  
-  move-to-blocked:
+          project: Pyrsia Development
+          column: In Progress
+          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
+    
+  darfting-pr:
     runs-on: ubuntu-latest
-    # Blocked column ID --> https://github.com/orgs/pyrsia/projects/2#column-16583791
-    if: |
-      github.event_name == 'project_card' && github.event.action == 'moved' &&
-      github.event.project_card.column_id == '16583791'
+    if: github.event_name == 'pull_request_target' && github.event.action == 'converted_to_draft'
     steps:
-      - uses: andymckay/labeler@1.0.4
+      - uses: alex-page/github-project-automation-plus@v0.8.1
         with:
-          add-labels: blocked
+          project: Pyrsia Development
+          column: In Progress
+          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
+
+  pr-request-review:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request_target' &&
+      (github.event.action == 'ready_for_review' || github.event.action == 'review_requested')
+    steps:
+      - uses: alex-page/github-project-automation-plus@v0.8.1
+        with:
+          project: Pyrsia Development
+          column: Review
+          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
+
+  label-blocked:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'issues' ||  github.event_name == 'pull_request_target') &&
+      github.event.action == 'labeled' && github.event.label.name == 'blocked'
+    steps:
+      - uses: alex-page/github-project-automation-plus@v0.8.1
+        with:
+          project: Pyrsia Development
+          column: Blocked
+          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
+
+  assign-author:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request_target' &&
+      (github.event.action == 'opened'  || github.event.action == 'reopened' || github.event.action == 'ready_for_review')
+    steps:
+      - uses: toshimaru/auto-author-assign@v1.4.0
