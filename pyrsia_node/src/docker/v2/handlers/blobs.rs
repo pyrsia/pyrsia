@@ -15,7 +15,9 @@
 */
 
 use bytes::{Buf, Bytes};
-use log::{debug, error};
+use log::{debug, error, info};
+use reqwest::{get, header};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::io::prelude::*;
@@ -39,17 +41,24 @@ pub async fn handle_get_blobs(
     debug!("Searching for blob: {}", blob);
     let blob_path = Path::new(&blob);
     if !blob_path.exists() {
-        let mut send_message: String = "get_blobs | ".to_owned();
-        let hash_clone: String = hash.clone();
-        send_message.push_str(&hash_clone);
+        match get_blob_from_docker_hub(&_name, &hash).await {
+            Ok(_) => {
+                info!("Downloaded content from docker.io for {}", _name);
+            }
+            Err(_) => {
+                let mut send_message: String = "get_blobs | ".to_owned();
+                let hash_clone: String = hash.clone();
+                send_message.push_str(&hash_clone);
 
-        match tx.send(send_message).await {
-            Ok(_) => debug!("hash sent"),
-            Err(_) => error!("failed to send stdin input"),
+                match tx.send(send_message).await {
+                    Ok(_) => debug!("hash sent"),
+                    Err(_) => error!("failed to send stdin input"),
+                }
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::BlobDoesNotExist(hash),
+                }));
+            }
         }
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobDoesNotExist(hash),
-        }));
     }
 
     if !blob_path.is_file() {
@@ -58,20 +67,21 @@ pub async fn handle_get_blobs(
         }));
     }
 
-    debug!("Reading blob: {}", blob);
-    let blob_content = fs::read(blob_path);
-    if blob_content.is_err() {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobUnknown,
-        }));
+    info!("Reading blob from local Pyrsia storage: {}", blob);
+    match fs::read(blob_path) {
+        Ok(content) => {
+            return Ok(warp::http::response::Builder::new()
+                .header("Content-Type", "application/octet-stream")
+                .status(StatusCode::OK)
+                .body(content)
+                .unwrap());
+        }
+        Err(_) => {
+            return Err(warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::BlobUnknown,
+            }));
+        }
     }
-
-    let content = blob_content.unwrap();
-    Ok(warp::http::response::Builder::new()
-        .header("Content-Type", "application/octet-stream")
-        .status(StatusCode::OK)
-        .body(content)
-        .unwrap())
 }
 
 pub async fn handle_post_blob(name: String) -> Result<impl Reply, Rejection> {
@@ -221,4 +231,114 @@ pub fn append_to_blob(blob: &str, mut bytes: Bytes) -> Result<(u64, u64), std::i
     }
 
     Ok((initial_file_length, total_bytes_read))
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+struct Bearer {
+    token: String,
+    expires_in: u64,
+}
+
+async fn get_blob_from_docker_hub(name: &str, hash: &str) -> Result<String, Rejection> {
+    let token = get_docker_hub_auth_token(name).await?;
+
+    get_blob_from_docker_hub_with_token(name, hash, token).await
+}
+
+async fn get_docker_hub_auth_token(name: &str) -> Result<Bearer, Rejection> {
+    let auth_url = format!("https://auth.docker.io/token?client_id=Pyrsia&service=registry.docker.io&scope=repository:library/{}:pull", name);
+
+    match reqwest::get(auth_url).await {
+        Ok(response) => match response.json().await {
+            Ok(token) => Ok(token),
+            Err(e) => {
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::Unknown(e.to_string()),
+                }));
+            }
+        },
+        Err(e) => {
+            return Err(warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::Unknown(e.to_string()),
+            }));
+        }
+    }
+}
+
+async fn get_blob_from_docker_hub_with_token(
+    name: &str,
+    hash: &str,
+    token: Bearer,
+) -> Result<String, Rejection> {
+    let url = format!(
+        "https://registry-1.docker.io/v2/library/{}/blobs/{}",
+        name, hash
+    );
+    debug!("Reading blob from docker.io with url: {}", url);
+    match reqwest::Client::new()
+        .get(url)
+        .header(header::AUTHORIZATION, format!("Bearer {}", token.token))
+        .send()
+        .await
+    {
+        Ok(response) => {
+            debug!("Got blob from docker.io with status {}", response.status());
+            let contents = response.bytes().await.unwrap();
+
+            let id = Uuid::new_v4();
+
+            if let Err(e) = fs::create_dir_all(format!(
+                "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
+                name, id
+            )) {
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::Unknown(e.to_string()),
+                }));
+            }
+
+            let blob_upload_dest_dir = format!(
+                "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
+                name, id
+            );
+
+            let mut blob_upload_dest_data = blob_upload_dest_dir.clone();
+            blob_upload_dest_data.push_str("/data");
+            if let Err(e) = append_to_blob(&blob_upload_dest_data, contents) {
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::Unknown(e.to_string()),
+                }));
+            }
+
+            let mut blob_dest = String::from(format!(
+                "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}",
+                hash.get(7..9).unwrap(),
+                hash.get(7..).unwrap()
+            ));
+            if let Err(e) = fs::create_dir_all(&blob_dest) {
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::Unknown(e.to_string()),
+                }));
+            }
+
+            blob_dest.push_str("/data");
+            if let Err(e) = fs::copy(&blob_upload_dest_data, &blob_dest) {
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::Unknown(e.to_string()),
+                }));
+            }
+
+            if let Err(e) = fs::remove_dir_all(&blob_upload_dest_dir) {
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::Unknown(e.to_string()),
+                }));
+            }
+
+            return Ok(blob_dest);
+        }
+        Err(e) => {
+            return Err(warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::Unknown(e.to_string()),
+            }));
+        }
+    }
 }
