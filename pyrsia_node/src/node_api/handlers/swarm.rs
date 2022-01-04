@@ -14,16 +14,15 @@
    limitations under the License.
 */
 
-// this is to handle calls from cli that needs access info swarm specific from  kad dht
-
+use crate::node_manager::{model::cli::Status, handlers::get_arts_count};
+use super::{RegistryError, RegistryErrorCode};
 use crate::block_chain::block_chain::BlockChain;
 
-use log::{debug, info, error};
+use log::{debug, error, info};
 use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
-use warp::http::StatusCode;
-use warp::{Rejection, Reply};
+use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_peers(
     tx: Sender<String>,
@@ -35,7 +34,7 @@ pub async fn handle_get_peers(
     }
 
     let peers = rx.lock().await.recv().await.unwrap();
-    info!("Got received_peers: {}", peers);
+    println!("Got received_peers: {}", peers);
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
         .status(StatusCode::OK)
@@ -43,8 +42,44 @@ pub async fn handle_get_peers(
         .unwrap())
 }
 
-// TODO Move to block chain module
+pub async fn handle_get_status(
+    tx: Sender<String>,
+    rx: Arc<Mutex<Receiver<String>>>,
+) -> Result<impl Reply, Rejection> {
+    match tx.send(String::from("peers")).await {
+        Ok(_) => debug!("request for peers sent"),
+        Err(_) => error!("failed to send stdin input"),
+    }
 
+    let peers = rx.lock().await.recv().await.unwrap();
+    let split = peers.split(',');
+    let vec: Vec<&str> = split.collect();
+    debug!("peers count: {}", vec.len());
+
+    let art_count_result = get_arts_count();
+    if art_count_result.is_err() {
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown(art_count_result.err().unwrap().to_string()),
+        }));
+    }
+
+    let status = Status {
+        artifact_count: art_count_result.unwrap(),
+        peers_count: vec.len(),
+        // TODO: dummy disk space value, need implementation in upstream
+        disk_space_available: String::from("983112"),
+    };
+
+    let ser_status = serde_json::to_string(&status).unwrap();
+
+    Ok(warp::http::response::Builder::new()
+        .header("Content-Type", "application/json")
+        .status(StatusCode::OK)
+        .body(ser_status)
+        .unwrap())
+}
+
+// TODO Move to block chain module
 
 // replace string with Block
 pub async fn handle_get_blocks(
@@ -68,8 +103,6 @@ pub async fn handle_get_blocks(
         .body(blocks)
         .unwrap())
 }
-
-
 
 // Next Step:
 // handle_get_block_id
