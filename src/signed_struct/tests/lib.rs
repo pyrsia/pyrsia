@@ -27,6 +27,8 @@ mod tests {
     // Create a signed struct in its own module to prevent direct access to its fields. They should
     // be access through the generated getters and setters.
     pub mod foo {
+        // These always need to be included in the same scope the macro is bing used
+        use signed::signed::Signed;
         use signed_struct::signed_struct;
 
         #[signed_struct]
