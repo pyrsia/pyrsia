@@ -24,7 +24,7 @@ extern crate tokio;
 extern crate warp;
 
 use pyrsia::block_chain::*;
-use pyrsia::block_chain::block::Block;
+use pyrsia::block_chain::block_chain::Ledger;
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::*;
 use pyrsia::document_store::document_store::DocumentStore;
@@ -175,7 +175,7 @@ async fn main() {
     tokio::spawn(server);
     let tx4 = tx.clone();
 
-    let raw_chain = BlockChain::new();
+    let raw_chain = block_chain::BlockChain::new();
     let bc = Arc::new(Mutex::new(raw_chain));
     // Kick it off
     loop {
