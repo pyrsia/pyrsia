@@ -1222,10 +1222,15 @@ mod tests {
         let attestations = foo.verify_signature()?;
         assert_eq!(1, attestations.len());
         assert!(attestations[0].signature_is_valid);
+        info!("signature is valid");
+
         let json = foo.json();
         assert!(json.is_some());
+
+        info!("Creating a copy of the struct by deserializing its JSON");
         let json_string = json.unwrap();
         let foo2: Foo = Foo::from_json_string(&json_string).unwrap();
+
         assert_eq!(foo, foo2);
         foo2.verify_signature()?;
         Ok(())
