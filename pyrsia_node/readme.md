@@ -2,12 +2,7 @@
 
 The daemon running everything.
 
-## Terminology
-
-- **Artifact Manager**: A component of the node responsible for tracking software components and other artifacts on the local machine and finding it on other nodes.
-- **Metadata**: The information surrounding and describing the "data"
-
-### Generating Test Coverage Report
+## Generating Test Coverage Report
 
 1. From the root directory of the repository
 2. Run `sh ./tests/test_code_coverage.sh`

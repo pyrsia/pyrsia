@@ -14,6 +14,8 @@
    limitations under the License.
 */
 
+extern crate anyhow;
+
 use anyhow::{Context, Result};
 
 const CONF_FILE: &str = "pyrsia-cli.conf";
