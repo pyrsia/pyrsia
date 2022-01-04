@@ -238,8 +238,8 @@ fn store_manifest_in_artifact_manager(bytes: &Bytes) -> anyhow::Result<(HashAlgo
     Ok((HashAlgorithm::SHA512, sha512))
 }
 
-fn manifest_hash(manifest_vec: &Vec<u8>) -> Vec<u8> {
-    raw_sha512(manifest_vec.clone()).to_vec()
+fn manifest_hash(manifest_vec: &[u8]) -> Vec<u8> {
+    raw_sha512(manifest_vec.to_owned()).to_vec()
 }
 
 // This is the TEMPORARY source of the id for the DOCKER namespace. When the metadata manager is
@@ -295,8 +295,9 @@ const FS_LAYERS: &str = "fsLayers";
 
 const MIME_TYPE_MANIFEST_SCHEMA_1: &str = "application/vnd.docker.distribution.manifest.v1+json";
 const MIME_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.tar.gzip";
-const MIME_TYPE_IMAGE_MANIFEST: &str = "application/vnd.docker.distribution.manifest.list.v2+json";
-const MIME_TYPE_MANIFEST_LIST: &str = "application/vnd.docker.distribution.manifest.v2+json";
+const MIME_TYPE_IMAGE_MANIFEST: &str = "application/vnd.docker.distribution.manifest.v2+json";
+const MIME_TYPE_MANIFEST_LIST: &str = "application/vnd.docker.distribution.manifest.list.v2+json";
+const MIME_TYPE_CONTAINER_CONFIG: &str = "application/vnd.docker.container.image.v1+json";
 
 fn package_version_from_schema1(
     manifest_hash: &[u8],
@@ -317,14 +318,11 @@ fn package_version_from_schema1(
         .context("missing fsLayers field")?
         .as_array()
         .context("invalid fsLayers")?;
-    let mut artifacts: Vec<Artifact> = Vec::new();
-    artifacts.push(
-        ArtifactBuilder::default()
-            .algorithm(HashAlgorithm::SHA512)
-            .hash(manifest_hash.to_vec())
-            .mime_type(MIME_TYPE_MANIFEST_SCHEMA_1.to_string())
-            .build()?,
-    );
+    let mut artifacts: Vec<Artifact> = vec![ArtifactBuilder::default()
+        .algorithm(HashAlgorithm::SHA512)
+        .hash(manifest_hash.to_vec())
+        .mime_type(MIME_TYPE_MANIFEST_SCHEMA_1.to_string())
+        .build()?];
     for fslayer in fslayers {
         add_fslayer(&mut artifacts, fslayer)?;
     }
@@ -358,7 +356,7 @@ fn add_fslayer(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), any
         .context("missing blobSum")?
         .as_str()
         .context("invalid blobSum")?;
-    let digest = digest_string_to_vec(&hex_digest)?;
+    let digest = digest_string_to_vec(hex_digest)?;
     artifacts.push(
         ArtifactBuilder::default()
             .algorithm(HashAlgorithm::SHA256)
@@ -391,16 +389,16 @@ fn package_version_from_schema2(
         .as_str()
         .context("invalid mediaType")?;
     match media_type {
-        MIME_TYPE_IMAGE_MANIFEST => {
-            Err(anyhow!("Manifest lists are not supported yet")) //TODO
-        }
-        MIME_TYPE_MANIFEST_LIST => package_version_from_image_manifest(
+        MIME_TYPE_IMAGE_MANIFEST => package_version_from_image_manifest(
             manifest_hash,
             json_object,
             docker_name,
             docker_reference,
         ),
-        _ => Err(anyhow!("Unexpected meditType {}", media_type)),
+        MIME_TYPE_MANIFEST_LIST => {
+            Err(anyhow!("Manifest lists are not supported yet")) //TODO
+        }
+        _ => Err(anyhow!("Unexpected mediaType {}", media_type)),
     }
 }
 
@@ -416,14 +414,11 @@ fn package_version_from_image_manifest(
     docker_name: &str,
     docker_reference: &str,
 ) -> Result<PackageVersion, anyhow::Error> {
-    let mut artifacts: Vec<Artifact> = Vec::new();
-    artifacts.push(
-        ArtifactBuilder::default()
-            .algorithm(HashAlgorithm::SHA512)
-            .hash(manifest_hash.to_vec())
-            .mime_type(MIME_TYPE_MANIFEST_SCHEMA_1.to_string())
-            .build()?,
-    );
+    let mut artifacts: Vec<Artifact> = vec![ArtifactBuilder::default()
+        .algorithm(HashAlgorithm::SHA512)
+        .hash(manifest_hash.to_vec())
+        .mime_type(MIME_TYPE_IMAGE_MANIFEST.to_string())
+        .build()?];
     extract_config(json_object, &mut artifacts)?;
     let layers = json_object
         .get(LAYERS)
@@ -543,6 +538,8 @@ mod tests {
     use bytes::Bytes;
     use futures::executor;
     use serde::de::StdError;
+
+    const TEST_PKG: &str = "test_pkg";
 
     const MANIFEST_V1_JSON: &str = r##"{
    "name": "hello-world",
@@ -677,7 +674,7 @@ mod tests {
         let package_version = package_version_from_manifest_bytes(
             &manifest_hash(&json_bytes.to_vec()),
             &json_bytes,
-            "test_pkg",
+            TEST_PKG,
             "v1.4",
         )?;
         assert_eq!(32, package_version.id().len());
@@ -692,21 +689,38 @@ mod tests {
         assert!(package_version.modified_time().is_none());
         assert!(package_version.tags().is_empty());
         assert!(package_version.description().is_none());
-        assert_eq!(4, package_version.artifacts().len());
-        assert_eq!(32, package_version.artifacts()[0].hash().len());
+        assert_eq!(5, package_version.artifacts().len()); // 5 = 1 manifest artifact + 4 blob artifacts
+        assert_eq!(64, package_version.artifacts()[0].hash().len());
+        assert_eq!(32, package_version.artifacts()[1].hash().len());
+        assert_eq!(
+            HashAlgorithm::SHA512,
+            *package_version.artifacts()[0].algorithm()
+        );
         assert_eq!(
             HashAlgorithm::SHA256,
-            *package_version.artifacts()[0].algorithm()
+            *package_version.artifacts()[1].algorithm()
         );
         assert!(package_version.artifacts()[0].name().is_none());
         assert!(package_version.artifacts()[0].creation_time().is_none());
         assert!(package_version.artifacts()[0].urls().is_empty());
         assert!(package_version.artifacts()[0].size().is_none());
-        assert!(package_version.artifacts()[0].mime_type().is_none());
+        assert_eq!(
+            MIME_TYPE_MANIFEST_SCHEMA_1,
+            unwrap(package_version.artifacts()[0].mime_type())
+        );
         assert!(package_version.artifacts()[0].metadata().is_empty());
         assert!(package_version.artifacts()[0].source_url().is_none());
         Ok(())
     }
+
+    fn unwrap<T>(os: &Option<T>) -> &T {
+        match os {
+            Some(s) => &s,
+            None => panic!("Tried to unwrap None"),
+        }
+    }
+
+    const V1_4: &'static str = "v1.4";
 
     #[test]
     fn package_version_from_manifest2() -> Result<(), anyhow::Error> {
@@ -714,14 +728,14 @@ mod tests {
         let package_version = package_version_from_manifest_bytes(
             &manifest_hash(&json_bytes.to_vec()),
             &json_bytes,
-            "test_pkg",
-            "v1.4",
+            TEST_PKG,
+            V1_4,
         )?;
         assert_eq!(32, package_version.id().len());
         assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
-        assert_eq!("hello-world", package_version.name());
+        assert_eq!(TEST_PKG, package_version.name());
         assert_eq!(PackageTypeName::Docker, *package_version.pkg_type());
-        assert_eq!("latest", package_version.version());
+        assert_eq!(V1_4, package_version.version());
         assert!(package_version.license_text().is_none());
         assert!(package_version.license_text_mimetype().is_none());
         assert!(package_version.license_url().is_none());
@@ -729,17 +743,33 @@ mod tests {
         assert!(package_version.modified_time().is_none());
         assert!(package_version.tags().is_empty());
         assert!(package_version.description().is_none());
-        assert_eq!(4, package_version.artifacts().len());
-        assert_eq!(32, package_version.artifacts()[0].hash().len());
+        assert_eq!(9, package_version.artifacts().len());
+        assert_eq!(64, package_version.artifacts()[0].hash().len());
+        assert_eq!(32, package_version.artifacts()[1].hash().len());
+        assert_eq!(
+            HashAlgorithm::SHA512,
+            *package_version.artifacts()[0].algorithm()
+        );
         assert_eq!(
             HashAlgorithm::SHA256,
-            *package_version.artifacts()[0].algorithm()
+            *package_version.artifacts()[1].algorithm()
         );
         assert!(package_version.artifacts()[0].name().is_none());
         assert!(package_version.artifacts()[0].creation_time().is_none());
         assert!(package_version.artifacts()[0].urls().is_empty());
         assert!(package_version.artifacts()[0].size().is_none());
-        assert!(package_version.artifacts()[0].mime_type().is_none());
+        assert_eq!(
+            MIME_TYPE_IMAGE_MANIFEST,
+            unwrap(package_version.artifacts()[0].mime_type())
+        );
+        assert_eq!(
+            MIME_TYPE_CONTAINER_CONFIG,
+            unwrap(package_version.artifacts()[1].mime_type())
+        );
+        assert_eq!(
+            MIME_TYPE_BLOB_GZIPPED,
+            unwrap(package_version.artifacts()[2].mime_type())
+        );
         assert!(package_version.artifacts()[0].metadata().is_empty());
         assert!(package_version.artifacts()[0].source_url().is_none());
         Ok(())

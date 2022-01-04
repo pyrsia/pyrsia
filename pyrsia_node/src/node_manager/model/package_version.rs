@@ -22,7 +22,7 @@ use pyrsia_client_lib::signed::Signed;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use signed_struct::signed_struct;
-use strum_macros::{EnumIter, EnumString};
+use strum_macros::{Display, EnumIter};
 
 #[signed_struct]
 #[derive(Debug)]
@@ -57,7 +57,7 @@ pub struct PackageVersion {
     artifacts: Vec<Artifact>,
 }
 
-#[derive(EnumIter, Debug, PartialEq, EnumString, Serialize, Deserialize)]
+#[derive(EnumIter, Clone, Debug, PartialEq, Display, Serialize, Deserialize)]
 pub enum LicenseTextMimeType {
     Text,
     Html,

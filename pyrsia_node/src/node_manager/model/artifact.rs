@@ -17,8 +17,8 @@ extern crate pyrsia_client_lib;
 extern crate serde;
 extern crate serde_json;
 
-use derive_builder::Builder;
 use super::super::HashAlgorithm;
+use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
