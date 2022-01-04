@@ -41,7 +41,6 @@ pub struct Artifact {
     /// The size of the artifact.
     #[builder(setter(strip_option), default)]
     size: Option<u64>,
-    size: Option<u64>,
     /// The mime type of the artifact
     #[builder(setter(strip_option), default)]
     mime_type: Option<String>,
