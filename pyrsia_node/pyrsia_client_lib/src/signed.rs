@@ -1211,6 +1211,7 @@ mod tests {
             zot: "🦽is 32 bit unicode",
             _json: None,
         };
+        debug!("Initial contents of struct is {:?}", foo);
         assert!(foo.json().is_none());
         foo.sign_json(
             JwsSignatureAlgorithms::RS512,
