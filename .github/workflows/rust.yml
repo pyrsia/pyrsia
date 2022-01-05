@@ -29,69 +29,73 @@ jobs:
     - run: cargo build --workspace --verbose --locked
     - run: cargo test --workspace --verbose
 
-# save the pyrsia_node binary for the package creation
+    # save the pyrsia_node binary for the package creation
     - uses: actions/upload-artifact@v2
-      if: ${{ github.repository_owner == 'pyrsia' && runner.os == 'Linux' && github.event_name == 'push' }}
+      if: runner.os == 'Linux'
       with:
         name: pyrsia_node
         path: target/debug/pyrsia_node
+        if-no-files-found: error
 
-# save the pyrsia binary for the package creation
+    # save the pyrsia binary for the package creation
     - uses: actions/upload-artifact@v2
-      if: ${{ github.repository_owner == 'pyrsia' && runner.os == 'Linux' && github.event_name == 'push' }} 
+      if: runner.os == 'Linux'
       with:
         name: pyrsia
         path: target/debug/pyrsia
+        if-no-files-found: error
 
-# save the DEBIAN control files to be used with the deb packager
+    # save the DEBIAN control files to be used with the deb packager
     - uses: actions/upload-artifact@v2
-      if: ${{ github.repository_owner == 'pyrsia' && runner.os == 'Linux' && github.event_name == 'push' }} 
+      if: runner.os == 'Linux'
       with:
         name: DEBIAN
-        path: DEBIAN
+        path: installers/DEBIAN
+        if-no-files-found: error
 
-# Create the .deb file, add it to the apt repo and
-# push the changes to the website github repo
+  # Create the .deb file, add it to the apt repo and
+  # push the changes to the website github repo
   apt-package:
-      if: ${{ github.repository_owner == 'pyrsia' && github.event_name == 'push' }}
       needs: [build]
       runs-on: ubuntu-latest
       steps:
 
-# grab the pyrsia_node from the build step
+      # grab the pyrsia_node from the build step
       - uses: actions/download-artifact@v2
         with:
           name: pyrsia_node
           path: target/debug
 
-# grab the pyrsia from the build step
+      # grab the pyrsia from the build step
       - uses: actions/download-artifact@v2
         with:
           name: pyrsia
           path: target/debug
 
-# grab the control file from the build step
+      # grab the control file from the build step
       - uses: actions/download-artifact@v2
         with:
           name: DEBIAN
           path: pyrsia/DEBIAN
 
-# create the pyrsia.deb file
+      # create the pyrsia.deb file
       - name:  Package for apt-get
         run: |
-            mkdir -p pyrsia/usr/local/bin; \
-            cp target/debug/pyrsia_node pyrsia/usr/local/bin; \
-            cp target/debug/pyrsia pyrsia/usr/local/bin; \
-            echo "Installed-Size: $(echo "$(stat -c%s pyrsia/usr/local/bin/pyrsia) + $(stat -c%s pyrsia/usr/local/bin/pyrsia_node)" | bc)" >> pyrsia/DEBIAN/control; \
+            mkdir -p pyrsia/usr/local/bin
+            cp target/debug/pyrsia_node pyrsia/usr/local/bin
+            cp target/debug/pyrsia pyrsia/usr/local/bin
+            echo "Installed-Size: $(echo "$(stat -c%s pyrsia/usr/local/bin/pyrsia) + $(stat -c%s pyrsia/usr/local/bin/pyrsia_node)" | bc)" >> pyrsia/DEBIAN/control
             sed -i.bak "/Version:/s/\$/-$GITHUB_RUN_NUMBER/" pyrsia/DEBIAN/control
-            cat pyrsia/DEBIAN/control; \
-            dpkg-deb --build pyrsia; \
-            ls -la pyrsia.deb;
+            cat pyrsia/DEBIAN/control
+            dpkg-deb --build pyrsia
+            ls -la pyrsia.deb
         shell: bash
 
-# add the prysia.deb file to the apt repo which is part of
-# the github website repo
+      # add the prysia.deb file to the apt repo which is part of
+      # the github website repo
       - uses: sbtaylor15/apt-repo-action@v2.0.4
+        # Only when we push on the main repository should we upload the results
+        if: github.repository_owner == 'pyrsia' && github.event_name == 'push'
         with:
           github_token: ${{ secrets.APT }}
           repo_supported_version: |
@@ -106,7 +110,6 @@ jobs:
           key_passphrase: ${{ secrets.GPG_SECRET }}
           github_repository: pyrsia/website
 
-# Start Code Coverage
   coverage:
     needs: [build]
     runs-on: ubuntu-latest
@@ -124,9 +127,9 @@ jobs:
 
     - run: cargo install cargo-tarpaulin
     - run: cargo tarpaulin --workspace
-    - run: cat target/tarpaulin/coverage.json # debug test
+    - run: cat target/tarpaulin/pyrsia-coverage.json # debug test
 
     - uses: codecov/codecov-action@v2
       with:
-        files: target/tarpaulin/coverage.json
+        files: target/tarpaulin/pyrsia-coverage.json
         fail_ci_if_error: ${{ github.repository_owner == 'pyrsia' }}

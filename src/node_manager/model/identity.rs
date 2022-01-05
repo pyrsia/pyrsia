@@ -14,8 +14,21 @@
    limitations under the License.
 */
 
-<<<<<<< HEAD:pyrsia_node/src/logging.rs
-pub mod headers;
-=======
-pub mod http;
->>>>>>> upstream/main:src/logging.rs
+extern crate serde;
+extern crate serde_json;
+extern crate signed;
+extern crate signed_struct;
+
+use signed::signed::{JwsSignatureAlgorithms, Signed};
+use signed_struct::signed_struct;
+
+#[signed_struct]
+struct Identity {
+    public_key: Vec<u8>,
+    identity_algorithm: JwsSignatureAlgorithms,
+    name: String,
+    description: Option<String>,
+    email: Option<String>,
+    web_url: Option<String>,
+    phone_number: Option<String>,
+}

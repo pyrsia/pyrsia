@@ -16,4 +16,3 @@
 
 pub mod config;
 pub mod node;
-use pyrsia_node::node_manager::model;

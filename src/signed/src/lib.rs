@@ -14,8 +14,4 @@
    limitations under the License.
 */
 
-<<<<<<< HEAD:pyrsia_node/src/logging.rs
-pub mod headers;
-=======
-pub mod http;
->>>>>>> upstream/main:src/logging.rs
+pub mod signed;
