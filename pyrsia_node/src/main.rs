@@ -26,6 +26,7 @@ extern crate warp;
 use pyrsia::block_chain::*;
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::*;
+use pyrsia::docker::v2::handlers::blobs::GetBlobsHandle;
 use pyrsia::document_store::document_store::DocumentStore;
 use pyrsia::document_store::document_store::IndexSpec;
 use pyrsia::logging::*;
