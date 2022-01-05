@@ -26,7 +26,7 @@ The daemon running everything.
 ### Manually interacting with Docker API
 
 1. Open a terminal and start a pyrsia node with: `RUST_LOG=pyrsia cargo run -q`
-2. Start 2 more nodes with different ports
+2. Start 2 more nodes with different ports by adding `-p ####` to the command above
 3. Try running the following commands:
 
    ```sh
