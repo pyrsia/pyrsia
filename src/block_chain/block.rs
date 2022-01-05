@@ -14,8 +14,8 @@
    limitations under the License.
 */
 
-use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
