@@ -84,7 +84,7 @@ pub async fn handle_get_status(
 // replace string with Block
 pub async fn handle_get_blocks(
     tx: Sender<String>,
-    rx: Arc<Mutex<Receiver<BlockChain>>>, // TODO: Make this a struct that can be serialized to JSON
+    rx: Arc<Mutex<Receiver<BlockChain>>>,
 ) -> Result<impl Reply, Rejection> {
     // Send "digested" request data to main
     match tx.send(String::from("blocks")).await {
