@@ -33,13 +33,7 @@ impl Display for Block {
         write!(f, "{}", json)
     }
 }
-/*
-impl std::fmt::Display for HashAlgorithm {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(HashAlgorithm::hash_algorithm_to_str(self))
-    }
-}
- */
+
 impl PartialEq<Self> for Block {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
