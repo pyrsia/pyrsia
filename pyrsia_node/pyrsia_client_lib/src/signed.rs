@@ -89,6 +89,7 @@ use openssl::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use syn::Lit::Str;
 
 /// An enumeration of the supported signature algorithms used by this module to sign structs and
 /// JSON.
@@ -472,8 +473,8 @@ fn verify_one_signature(
     this_jws: &[u32],
     after_signatures: &[u32],
 ) -> Attestation {
-    trace!(
-        "verify_one_signature: before=\"{}\"; after=\"{}\"; jws=\"{}\"",
+    debug!(
+        "verify_one_signature: before={}\n; after={}\n; jws={}",
         unicode_32_bit_to_string(before_signatures),
         unicode_32_bit_to_string(after_signatures),
         unicode_32_bit_to_string(this_jws)
@@ -484,6 +485,7 @@ fn verify_one_signature(
         Some(string) => string,
         None => return EMPTY_ATTESTATION,
     };
+    debug!("validating JWS with header: \"{}\"", jws_header);
     let mut attestation = Attestation::from_json(&jws_header);
     attestation.signature_is_valid = attestation.public_key.as_ref().map_or(false, |public_key| {
         attestation
@@ -634,6 +636,7 @@ fn create_jws(
     after: &str,
     header: Map<String, Value>,
 ) -> Result<Vec<u8>, anyhow::Error> {
+    debug!("Signing: SignatureAlgorithm={:?}\nbefore={}\nafter={}\nheader{:?}", signature_algorithm, before, after, header);
     let mut writer = SerializeJwsWriter::new(
         Vec::new(),
         signature_algorithm.to_jws_name(),
@@ -643,6 +646,7 @@ fn create_jws(
     writer.write_all(before.as_bytes())?;
     writer.write_all(after.as_bytes())?;
     let jws = writer.finish()?;
+    debug!("Encoded jws:{}", &String::from_utf8(jws.clone())?);
     Ok(jws)
 }
 
@@ -1290,7 +1294,7 @@ mod tests {
             &key_pair.public_key,
         )
         .context("Error signing struct")?;
-        info!("Signed json from foo {}", foo.json().unwrap());
+        info!("Signed json from struct foo {}", foo.json().unwrap());
         let attestations = foo.verify_signature()?;
         assert_eq!(1, attestations.len());
         assert!(attestations[0].signature_is_valid);
