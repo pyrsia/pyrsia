@@ -178,9 +178,9 @@ async fn main() {
                 message = rx.recv() => Some(EventType::Message(message.expect("message exists"))),
 
                 new_hash = blobs_need_hash.select_next_some() => {
-                    swarm.behaviour_mut().lookup_blob(new_hash).await;
                     debug!("Looking for {}", new_hash);
-                    Some(EventType::Response(new_hash))
+                    swarm.behaviour_mut().lookup_blob(new_hash).await;
+                    None
                 },
 
                 event = swarm.select_next_some() =>  {

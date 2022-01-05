@@ -21,9 +21,7 @@ use futures::task::{Context, Poll};
 use log::{debug, error, trace};
 use std::collections::HashMap;
 use std::fs;
-use std::fs::File;
 use std::io::prelude::*;
-use std::path::Path;
 use std::pin::Pin;
 use std::result::Result;
 use std::str;
@@ -79,34 +77,10 @@ pub async fn handle_get_blobs(
     _name: String,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
-    /*let blob = format!(
-        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
-        hash.get(7..9).unwrap(),
-        hash.get(7..).unwrap()
-    );
-
     let mut send_message: String = "get_blobs | ".to_owned();
     let hash_clone: String = hash.clone();
     send_message.push_str(&hash_clone);
     tx.send(send_message.clone());
-    // match tx.send(hash.clone()).await {
-    //     Ok(_) => debug!("hash sent"),
-    //     Err(_) => error!("failed to send stdin input"),
-    // }
-
-    trace!("Searching for blob: {}", blob);
-    let blob_path = Path::new(&blob);
-    if !blob_path.exists() {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobDoesNotExist(hash),
-        }));
-    }
-
-    if !blob_path.is_file() {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown("ITS_NOT_A_FILE".to_string()),
-        }));
-    }*/
 
     debug!("Getting blob with hash : {:?}", hash);
 
@@ -150,10 +124,6 @@ pub async fn handle_post_blob(
     match tx.send(name.clone()).await {
         Ok(_) => debug!("name sent"),
         Err(_) => error!("failed to send name"),
-    }
-    match tx.send(id.to_string()).await {
-        Ok(_) => debug!("id sent"),
-        Err(_) => error!("failed to send id"),
     }
 
     trace!(
