@@ -140,7 +140,7 @@ async fn main() {
     //docker node specific tx
     let tx1 = tx.clone();
 
-    //swarm specific tx,rx
+    // swarm specific tx,rx
     // need better handling of all these channel resources
     let shared_stats = Arc::new(Mutex::new(respond_rx));
 
@@ -152,11 +152,6 @@ async fn main() {
     // 2. main to API
     let (blocks_get_tx_to_main, mut blocks_get_rx) = mpsc::channel(32); // Request Channel
     let (blocks_get_tx_answer, blocks_get_rx_answers_from_main) = mpsc::channel(32); // Response Channel
-
-    // We Can do one channel
-    // Instead of strings
-    // Channel<GetBlocksApiMessage>
-    // enum GetBlocksApiMessage { Request, Answer }
 
     let docker_routes = make_docker_routes(tx1);
     let routes = docker_routes
