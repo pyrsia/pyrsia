@@ -25,8 +25,8 @@ extern crate warp;
 
 use pyrsia::block_chain::*;
 use pyrsia::docker::error_util::*;
-use pyrsia::docker::v2::routes::*;
 use pyrsia::docker::v2::handlers::blobs::GetBlobsHandle;
+use pyrsia::docker::v2::routes::*;
 use pyrsia::document_store::document_store::DocumentStore;
 use pyrsia::document_store::document_store::IndexSpec;
 use pyrsia::logging::*;
@@ -178,6 +178,7 @@ async fn main() {
                 message = rx.recv() => Some(EventType::Message(message.expect("message exists"))),
 
                 new_hash = blobs_need_hash.select_next_some() => {
+                    swarm.behaviour_mut().lookup_blob(new_hash).await;
                     debug!("Looking for {}", new_hash);
                     Some(EventType::Response(new_hash))
                 },
