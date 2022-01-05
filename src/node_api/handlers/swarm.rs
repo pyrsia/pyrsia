@@ -14,9 +14,9 @@
    limitations under the License.
 */
 
-use crate::node_manager::{model::cli::Status, handlers::get_arts_count};
 use super::{RegistryError, RegistryErrorCode};
 use crate::block_chain::block_chain::BlockChain;
+use crate::node_manager::{handlers::get_arts_count, model::cli::Status};
 
 use log::{debug, error, info};
 use std::sync::Arc;
@@ -80,8 +80,6 @@ pub async fn handle_get_status(
 }
 
 // TODO Move to block chain module
-
-// replace string with Block
 pub async fn handle_get_blocks(
     tx: Sender<String>,
     rx: Arc<Mutex<Receiver<BlockChain>>>,
@@ -93,7 +91,8 @@ pub async fn handle_get_blocks(
     }
 
     // get result from main ( where the block chain lives )
-    let blocks = rx.lock().await.recv().await.unwrap().dump().unwrap();
+    let block_chain = rx.lock().await.recv().await.unwrap();
+    let blocks = format!("{}", block_chain);
     info!("Got receive_blocks: {}", blocks);
 
     // format the response

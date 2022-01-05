@@ -13,16 +13,17 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::anyhow;
 use log::{error, info};
-use serde_json::error::Error;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::fmt::{Display, Formatter};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::block::Block;
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockChain {
     blocks: Vec<Block>,
 }
@@ -42,13 +43,6 @@ impl BlockChain {
                     .to_string(),
             }]),
         }
-    }
-
-    pub fn dump(&self) -> Result<String, Error> {
-        serde_json::to_string_pretty(&self.blocks).map(|pretty_json| {
-            info!("{}", pretty_json);
-            pretty_json
-        })
     }
 
     pub fn mk_block(&mut self, data: String) -> Option<Block> {
@@ -115,6 +109,13 @@ impl BlockChain {
             };
         }
         true
+    }
+}
+
+impl Display for BlockChain {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let json = serde_json::to_string_pretty(&self).expect("json format error");
+        write!(f, "{}", json)
     }
 }
 

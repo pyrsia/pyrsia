@@ -14,6 +14,6 @@
    limitations under the License.
 */
 
+pub mod api_handlers;
 pub mod block;
 pub mod block_chain;
-pub mod api_handlers;

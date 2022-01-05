@@ -16,7 +16,7 @@
 
 use crate::block_chain::block_chain::BlockChain;
 
-use log::{debug, info, error};
+use log::{debug, error, info};
 use std::sync::Arc;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::sync::Mutex;
@@ -25,15 +25,19 @@ use warp::{Rejection, Reply};
 
 // Types of API requests
 struct GetAllBlocks {}
-struct GetBlockWithId { id: u32}
-struct PutNewData { data: String}
+struct GetBlockWithId {
+    id: u32,
+}
+struct PutNewData {
+    data: String,
+}
 
 // enum ApiMessage { Request(GetAllBlocks, GetAllBlocks, PutNewData), Answer([]Block, Block) }
 
 // Just one Channel
-struct MessageHandler<Request, Answer>{
+struct MessageHandler<Request, Answer> {
     tx: Sender<Request>,
-    rx: Arc<Mutex<Receiver<Answer>>>
+    rx: Arc<Mutex<Receiver<Answer>>>,
 }
 
 // 1. GET /blocks (processing) /// Async Block 1

@@ -23,8 +23,8 @@ extern crate pyrsia;
 extern crate tokio;
 extern crate warp;
 
-use pyrsia::block_chain::*;
 use pyrsia::block_chain::block_chain::Ledger;
+use pyrsia::block_chain::*;
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::*;
 use pyrsia::document_store::document_store::DocumentStore;
@@ -50,7 +50,7 @@ use std::{
 };
 use tokio::{
     io::{self, AsyncBufReadExt},
-    sync::{mpsc, Mutex},
+    sync::{mpsc, Mutex, MutexGuard},
 };
 use warp::Filter;
 
@@ -154,8 +154,12 @@ async fn main() {
     let (blocks_get_tx_answer, blocks_get_rx_answers_from_main) = mpsc::channel(32); // Response Channel
 
     let docker_routes = make_docker_routes(tx1);
-    let routes = docker_routes
-        .or(make_node_routes(tx2, my_stats, blocks_get_tx_to_main.clone(), blocks_get_rx_answers_from_main));
+    let routes = docker_routes.or(make_node_routes(
+        tx2,
+        my_stats,
+        blocks_get_tx_to_main.clone(),
+        blocks_get_rx_answers_from_main,
+    ));
 
     let (addr, server) = warp::serve(
         routes
@@ -237,23 +241,16 @@ async fn main() {
                         swarm.behaviour_mut().lookup_blob(message).await
                     }
                     "blocks" => {
-                        // assuming the message is a json version of the block
+                        let bc_state: Arc<_> = bc.clone();
+                        let mut bc_instance: MutexGuard<_> = bc_state.lock().await;
+                        let new_block =
+                            bc_instance.mk_block("happy_new_block".to_string()).unwrap();
 
-                        let block = block::Block {
-                            id: 0,
-                            hash: "".to_string(),
-                            previous_hash: "".to_string(),
-                            timestamp: 0,
-                            data: "".to_string(),
-                            nonce: 0,
-                        };
-
-                        let bc1 = bc.clone();
-                        let mut bc2 = bc1.lock().await;
-                        // Crashing here -- we are adding in a get, still WIP
-                        let new_chain = bc2.clone().add_entry(block.clone()).expect("should have added");
-                        *bc2 = new_chain;
-
+                        let new_chain = bc_instance
+                            .clone()
+                            .add_entry(new_block)
+                            .expect("should have added");
+                        *bc_instance = new_chain;
                     }
                     _ => info!("message received from peers: {}", message),
                 },
