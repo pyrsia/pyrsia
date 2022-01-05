@@ -325,7 +325,17 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
         private_key: &[u8],
         public_key: &[u8],
     ) -> Result<(), anyhow::Error> {
-        let target_json = string_to_unicode_32(&serde_jcs::to_string(self)?);
+        let existing_json = &self.json();
+        let new_json: String ;
+        let starting_json: &String ;
+        if existing_json.is_some() {
+            starting_json = unwrap(existing_json);
+        } else {
+            new_json = serde_jcs::to_string(self)?;
+            starting_json = &new_json;
+        };
+        debug!("Adding signature to json: {}", starting_json);
+        let target_json = string_to_unicode_32(starting_json);
         let signed_json = with_signer(
             signature_algorithm,
             private_key,
@@ -353,6 +363,13 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     /// Return the signature information in the signed JSON associated with this struct.
     fn signatures(&self) -> Option<&str> {
         todo!()
+    }
+}
+
+fn unwrap<'a, T>(o: &'a Option<T>) -> &'a T {
+    match o {
+        Some(t) => &t,
+        None => panic!("unwrapped None"),
     }
 }
 
@@ -1048,20 +1065,20 @@ mod tests {
         bar: u32,
         zot: &'a str,
         #[serde(skip)]
-        _json: Option<String>,
+        _json0: Option<String>,
     }
 
     impl<'a> Signed<'a> for Foo<'a> {
         fn json(&self) -> Option<String> {
-            self._json.to_owned()
+            self._json0.to_owned()
         }
 
         fn clear_json(&mut self) {
-            self._json = None;
+            self._json0 = None;
         }
 
         fn set_json(&mut self, json: &str) {
-            self._json = Option::Some(json.to_string())
+            self._json0 = Option::Some(json.to_string())
         }
     }
 
@@ -1209,7 +1226,7 @@ mod tests {
             foo: "π is 16 bit unicode",
             bar: 23894,
             zot: "🦽is 32 bit unicode",
-            _json: None,
+            _json0: None,
         };
         debug!("Initial contents of struct is {:?}", foo);
         assert!(foo.json().is_none());
@@ -1230,10 +1247,55 @@ mod tests {
 
         info!("Creating a copy of the struct by deserializing its JSON");
         let json_string = json.unwrap();
-        let foo2: Foo = Foo::from_json_string(&json_string).unwrap();
+        let mut foo2: Foo = Foo::from_json_string(&json_string).unwrap();
 
         assert_eq!(foo, foo2);
         foo2.verify_signature()?;
+
+        info!("Clearing JSON and its signatures");
+        foo2.clear_json();
+        assert!(foo2._json0.is_none());
+
+        // foo2.foo = "first";
+        // foo2.bar = 873;
+        // foo2.sign_json(
+        //     JwsSignatureAlgorithms::RS512,
+        //     &key_pair.private_key,
+        //     &key_pair.public_key,
+        // );
+        //
+        // foo2.verify_signature()?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn content_based_failure() -> Result<(), anyhow::Error> {
+        env_logger::try_init().unwrap_or_default();
+        // create a key pair for other signing types to see that they succeed
+        let key_pair = super::create_key_pair(JwsSignatureAlgorithms::RS512)?;
+        info!("Created key pair");
+
+        let mut foo = Foo {
+            foo: "π is 16 bit unicode",
+            bar: 873,
+            zot: "🦽is 32 bit unicode",
+            _json0: None,
+        };
+        debug!("Initial contents of struct is {:?}", foo);
+        assert!(foo.json().is_none());
+        foo.sign_json(
+            JwsSignatureAlgorithms::RS512,
+            &key_pair.private_key,
+            &key_pair.public_key,
+        )
+        .context("Error signing struct")?;
+        info!("Signed json from foo {}", foo.json().unwrap());
+        let attestations = foo.verify_signature()?;
+        assert_eq!(1, attestations.len());
+        assert!(attestations[0].signature_is_valid);
+        info!("signature is valid");
+
         Ok(())
     }
 }
