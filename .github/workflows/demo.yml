@@ -10,8 +10,8 @@ jobs:
     - run: | 
       apt-get update
       apt-get install -y wget gnupg
-      wget -qO - https://pyrsia.github.io/website/public.key | apt-key add -
-      echo "deb https://pyrsia.github.io/website/repo bionic main" >> /etc/apt/sources.list
+      wget -qO - https://pyrsia.github.io/public.key | apt-key add -
+      echo "deb https://pyrsia.github.io/repo bionic main" >> /etc/apt/sources.list
       apt-get update
       apt-get install -y pyrsia
     - run: |
