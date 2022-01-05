@@ -24,7 +24,7 @@ use lazy_static::lazy_static;
 use log::info;
 use std::fs;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Read};
 use std::str;
 
 const ART_MGR_DIR: &str = "pyrsia";
@@ -38,20 +38,25 @@ lazy_static! {
 
 //get_artifact: given artifact_hash(artifactName) pulls artifact for  artifact_manager and
 //              returns read object to read the bytes of artifact
-pub fn get_artifact(art_hash: &[u8], art_algorithm: HashAlgorithm) -> Result<File, anyhow::Error> {
+pub fn get_artifact(
+    art_hash: &[u8],
+    art_algorithm: HashAlgorithm,
+) -> Result<Box<dyn Read>, anyhow::Error> {
     let hash = Hash::new(art_algorithm, art_hash)?;
-    ART_MGR
-        .pull_artifact(&hash)
-        .context("Error from get_artifact")
+    let result = ART_MGR.pull_artifact(&hash)?;
+    let buf_reader: BufReader<File> = BufReader::new(result);
+    Ok(Box::new(buf_reader))
 }
 
 //put_artifact: given artifact_hash(artifactName) & artifact_path push artifact to artifact_manager
 //              and returns the boolean as true or false if it was able to create or not
-pub fn put_artifact(artifact_hash: &[u8], artifact_path: &str) -> Result<bool, anyhow::Error> {
+pub fn put_artifact(
+    artifact_hash: &[u8],
+    art_reader: Box<dyn Read>,
+) -> Result<bool, anyhow::Error> {
     let hash = Hash::new(HashAlgorithm::SHA256, artifact_hash)?;
-    let file =
-        File::open(artifact_path).with_context(|| format!("{} not found.", artifact_path))?;
-    let mut buf_reader = BufReader::new(file);
+    info!("put_artifact hash: {}", hash);
+    let mut buf_reader = BufReader::new(art_reader);
 
     ART_MGR
         .push_artifact(&mut buf_reader, &hash)
@@ -72,7 +77,6 @@ mod tests {
     use super::*;
     use anyhow::Context;
     use std::env;
-    use std::io::prelude::*;
     use std::io::BufReader;
     use std::{fs, path::PathBuf};
 
@@ -92,9 +96,9 @@ mod tests {
         println!("curr_dir is: {}", curr_dir.display());
 
         let path = String::from(curr_dir.to_string_lossy());
-
+        let reader = File::open(path.as_str()).unwrap();
         //put the artifact
-        put_artifact(&GOOD_ART_HASH, path.as_str()).context("Error from put_artifact")?;
+        put_artifact(&GOOD_ART_HASH, Box::new(reader)).context("Error from put_artifact")?;
 
         //validate pushed artifact with actual data
         let mut push_art_path = PathBuf::from(ART_MGR_DIR);
