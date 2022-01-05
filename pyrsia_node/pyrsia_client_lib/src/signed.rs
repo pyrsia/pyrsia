@@ -80,7 +80,7 @@ use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, SecondsFormat, Utc};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
-use log::{debug, trace, warn};
+use log::{debug, trace, warn, log_enabled};
 use openssl::pkey::{PKey, Private};
 use openssl::{
     hash::MessageDigest,
@@ -327,8 +327,8 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
         public_key: &[u8],
     ) -> Result<(), anyhow::Error> {
         let existing_json = &self.json();
-        let new_json: String ;
-        let starting_json: &String ;
+        let new_json: String;
+        let starting_json: &String;
         if existing_json.is_some() {
             starting_json = unwrap(existing_json);
         } else {
@@ -473,12 +473,16 @@ fn verify_one_signature(
     this_jws: &[u32],
     after_signatures: &[u32],
 ) -> Attestation {
+    let before_signatures_string = unicode_32_bit_to_string(before_signatures);
+    let after_signatures_string = unicode_32_bit_to_string(after_signatures);
     debug!(
         "verify_one_signature: before={}\n; after={}\n; jws={}",
-        unicode_32_bit_to_string(before_signatures),
-        unicode_32_bit_to_string(after_signatures),
+        &before_signatures_string,
+        &after_signatures_string,
         unicode_32_bit_to_string(this_jws)
     );
+    let before_signatures_bytes = before_signatures_string.as_bytes();
+    let after_signatures_bytes = after_signatures_string.as_bytes();
     // this_signature is a json string that contains a JWS. We will ignore the enclosing quotes and get the content as a string that is a JWS.
     let jws = unicode_32_bit_to_string(&this_jws[1..this_jws.len() - 1]);
     let jws_header = match header_from_jws(&jws) {
@@ -487,50 +491,43 @@ fn verify_one_signature(
     };
     debug!("validating JWS with header: \"{}\"", jws_header);
     let mut attestation = Attestation::from_json(&jws_header);
-    attestation.signature_is_valid = attestation.public_key.as_ref().map_or(false, |public_key| {
-        attestation
-            .signature_algorithm
-            // This is RSA specific. This should be generalized to support other types of signatures.
-            .map_or(false, |alg| {
-                Rsa::public_key_from_der(public_key).map_or(false, |rsa_key| {
-                    PKey::from_rsa(rsa_key).map_or(false, |pkey| {
-                        Verifier::new(alg.as_message_digest(), &pkey).map_or(
-                            false,
-                            |mut verifier| {
-                                verifier
-                                    .set_rsa_padding(Padding::PKCS1_PSS)
-                                    .map_or(false, |_| {
-                                        DeserializeJwsWriter::new(&jws, |_| Some(verifier)).map_or(
-                                            false,
-                                            |mut writer| {
-                                                writer
-                                                    .write(
-                                                        unicode_32_bit_to_string(before_signatures)
-                                                            .as_bytes(),
+    attestation.signature_is_valid =
+        attestation.public_key.as_ref().map_or(false, |public_key| {
+            attestation
+                .signature_algorithm
+                // This is RSA specific. This should be generalized to support other types of signatures.
+                .map_or(false, |alg| {
+                    Rsa::public_key_from_der(public_key).map_or(false, |rsa_key| {
+                        PKey::from_rsa(rsa_key).map_or(false, |pkey| {
+                            Verifier::new(alg.as_message_digest(), &pkey).map_or(
+                                false,
+                                |mut verifier| {
+                                    verifier.set_rsa_padding(Padding::PKCS1_PSS).map_or(
+                                        false,
+                                        |_| {
+                                            DeserializeJwsWriter::new(&jws, |_| Some(verifier))
+                                                .map_or(false, |mut writer| {
+                                                    writer.write(before_signatures_bytes).map_or(
+                                                        false,
+                                                        |_| {
+                                                            writer
+                                                                .write(after_signatures_bytes)
+                                                                .map_or(false, |_| {
+                                                                    writer
+                                                                        .finish()
+                                                                        .map_or(false, |_| true)
+                                                                })
+                                                        },
                                                     )
-                                                    .map_or(false, |_| {
-                                                        writer
-                                                            .write(
-                                                                unicode_32_bit_to_string(
-                                                                    after_signatures,
-                                                                )
-                                                                .as_bytes(),
-                                                            )
-                                                            .map_or(false, |_| {
-                                                                writer
-                                                                    .finish()
-                                                                    .map_or(false, |_| true)
-                                                            })
-                                                    })
-                                            },
-                                        )
-                                    })
-                            },
-                        )
+                                                })
+                                        },
+                                    )
+                                },
+                            )
+                        })
                     })
                 })
-            })
-    });
+        });
     attestation
 }
 
@@ -636,7 +633,10 @@ fn create_jws(
     after: &str,
     header: Map<String, Value>,
 ) -> Result<Vec<u8>, anyhow::Error> {
-    debug!("Signing: SignatureAlgorithm={:?}\nbefore={}\nafter={}\nheader{:?}", signature_algorithm, before, after, header);
+    debug!(
+        "Signing: SignatureAlgorithm={:?}\nbefore={}\nafter={}\nheader{:?}",
+        signature_algorithm, before, after, header
+    );
     let mut writer = SerializeJwsWriter::new(
         Vec::new(),
         signature_algorithm.to_jws_name(),
