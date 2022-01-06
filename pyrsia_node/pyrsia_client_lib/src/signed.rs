@@ -73,12 +73,13 @@ extern crate serde_jcs;
 extern crate serde_json;
 
 use std::char::REPLACEMENT_CHARACTER;
-use std::io::{BufRead, Write};
+use std::io::Write;
 use std::option::Option;
 
 use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
 use base64::read::DecoderReader;
+use base64::write::EncoderWriter;
 use chrono::{DateTime, SecondsFormat, Utc};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
 use log::Level::Trace;
@@ -492,55 +493,59 @@ fn verify_one_signature(
     };
     debug!("validating JWS with header: \"{}\"", jws_header);
     let mut attestation = Attestation::from_json(&jws_header);
-    attestation.signature_is_valid =
-        attestation.public_key.as_ref().map_or(false, |public_key| {
-            attestation
-                .signature_algorithm
-                // This is RSA specific. This should be generalized to support other types of signatures.
-                .map_or(false, |alg| {
-                    Rsa::public_key_from_der(public_key).map_or(false, |rsa_key| {
-                        PKey::from_rsa(rsa_key).map_or(false, |pkey| {
-                            Verifier::new(alg.as_message_digest(), &pkey).map_or(
-                                false,
-                                |mut verifier| {
-                                    verifier.set_rsa_padding(Padding::PKCS1_PSS).map_or(
-                                        false,
-                                        |_| {
-                                            trace_u8_slice_output("jws", 0, jws.as_bytes());
-                                            DeserializeJwsWriter::new(&jws.as_bytes(), |_| Some(verifier))
-                                                .map_or(false, |mut writer| {
-                                                    trace_u8_slice_output(
-                                                        "before",
-                                                        jws.len(),
-                                                        before_signatures_bytes,
-                                                    );
-                                                    writer.write(before_signatures_bytes).map_or(
-                                                        false,
-                                                        |_| {
-                                                            trace_u8_slice_output(
-                                                                "after",
-                                                                jws.len()
-                                                                    + before_signatures_bytes.len(),
-                                                                after_signatures_bytes,
-                                                            );
-                                                            writer
-                                                                .write(after_signatures_bytes)
-                                                                .map_or(false, |_| {
-                                                                    writer
-                                                                        .finish()
-                                                                        .map_or(false, |_| true)
-                                                                })
-                                                        },
-                                                    )
-                                                })
-                                        },
-                                    )
-                                },
-                            )
-                        })
+    attestation.signature_is_valid = attestation.public_key.as_ref().map_or(false, |public_key| {
+        attestation
+            .signature_algorithm
+            // This is RSA specific. This should be generalized to support other types of signatures.
+            .map_or(false, |alg| {
+                Rsa::public_key_from_der(public_key).map_or(false, |rsa_key| {
+                    PKey::from_rsa(rsa_key).map_or(false, |pkey| {
+                        Verifier::new(alg.as_message_digest(), &pkey).map_or(
+                            false,
+                            |mut verifier| {
+                                verifier
+                                    .set_rsa_padding(Padding::PKCS1_PSS)
+                                    .map_or(false, |_| {
+                                        trace_u8_slice_output("jws", 0, jws.as_bytes());
+                                        DeserializeJwsWriter::new(&jws.as_bytes(), |_| {
+                                            Some(verifier)
+                                        })
+                                        .map_or(
+                                            false,
+                                            |mut writer| {
+                                                trace_u8_slice_output(
+                                                    "before",
+                                                    jws.len(),
+                                                    before_signatures_bytes,
+                                                );
+                                                writer.write(before_signatures_bytes).map_or(
+                                                    false,
+                                                    |_| {
+                                                        trace_u8_slice_output(
+                                                            "after",
+                                                            jws.len()
+                                                                + before_signatures_bytes.len(),
+                                                            after_signatures_bytes,
+                                                        );
+                                                        writer.write(after_signatures_bytes).map_or(
+                                                            false,
+                                                            |_| {
+                                                                writer
+                                                                    .finish()
+                                                                    .map_or(false, |_| true)
+                                                            },
+                                                        )
+                                                    },
+                                                )
+                                            },
+                                        )
+                                    })
+                            },
+                        )
                     })
                 })
-        });
+            })
+    });
     attestation
 }
 
@@ -674,17 +679,37 @@ fn create_jws(
         "Signing: SignatureAlgorithm={:?}\nbefore={}\nafter={}\nheader{:?}",
         signature_algorithm, before, after, header
     );
+    let mut encoded_header_length: usize = 0;
+    if log_enabled!(Trace) {
+        let encoded_header = encode_header(header.clone(), signature_algorithm.to_jws_name())?;
+        trace_u8_slice_output("Signing header", 0, &encoded_header);
+        encoded_header_length = encoded_header.len();
+    }
     let mut writer = SerializeJwsWriter::new(
         Vec::new(),
         signature_algorithm.to_jws_name(),
         header,
         signer,
     )?;
+    trace_u8_slice_output("signing before", encoded_header_length, before.as_bytes());
     writer.write_all(before.as_bytes())?;
+    trace_u8_slice_output(
+        "signing after",
+        encoded_header_length + before.as_bytes().len(),
+        after.as_bytes(),
+    );
     writer.write_all(after.as_bytes())?;
     let jws = writer.finish()?;
     debug!("Encoded jws:{}", &String::from_utf8(jws.clone())?);
     Ok(jws)
+}
+
+fn encode_header(mut header: Map<String, Value>, algorithm: String) -> Result<Vec<u8>> {
+    header.insert("alg".to_owned(), Value::String(algorithm));
+
+    let mut encoder = EncoderWriter::new(Vec::new(), base64::URL_SAFE_NO_PAD);
+    serde_json::to_writer(&mut encoder, &header)?;
+    Ok(encoder.finish()?)
 }
 
 fn unicode_32_bit_to_string(u: &[u32]) -> String {
