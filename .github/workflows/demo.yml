@@ -1,0 +1,22 @@
+name: Demo Script
+
+on:
+  push:
+  
+jobs:
+  installation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Install
+        run: | 
+          apt-get update
+          apt-get install -y wget gnupg
+          wget -qO - https://pyrsia.github.io/public.key | apt-key add -
+          echo "deb https://pyrsia.github.io/repo bionic main" >> /etc/apt/sources.list
+          apt-get update
+          apt-get install -y pyrsia
+        shell: bash 
+      - name: Run Pyrsia         
+        run: |
+          pyrsia --help
+        shell: bash 
