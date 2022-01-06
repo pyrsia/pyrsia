@@ -78,6 +78,7 @@ use std::option::Option;
 
 use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
+use base64::decode_config;
 use base64::write::EncoderWriter;
 use chrono::{DateTime, SecondsFormat, Utc};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
@@ -507,17 +508,22 @@ fn verify_one_signature(
                                     .set_rsa_padding(Padding::PKCS1_PSS)
                                     .map_or(false, |_| {
                                         if log_enabled!(Trace) {
-                                            let decoded_jws_header =
-                                                match decode_jws_header(jws.as_bytes()) {
+                                            let encoded_jws_header =
+                                                match encoded_header(jws.as_bytes()) {
                                                     Ok(header_vec) => header_vec,
                                                     Err(_) => return false,
                                                 };
+                                            let verification_header_as_string = match String::from_utf8(encoded_jws_header.clone()) {
+                                                Ok(string) => string,
+                                                Err(_) => return false,
+                                            };
+                                            trace!("Verification header: {}", verification_header_as_string);
                                             trace_u8_slice_output(
                                                 "jws header",
                                                 0,
-                                                &decoded_jws_header[..],
+                                                &encoded_jws_header[..],
                                             );
-                                            decoded_jws_header_length = decoded_jws_header.len();
+                                            decoded_jws_header_length = encoded_jws_header.len();
                                         }
                                         DeserializeJwsWriter::new(&jws.as_bytes(), |_| {
                                             Some(verifier)
@@ -561,13 +567,10 @@ fn verify_one_signature(
     attestation
 }
 
-fn decode_jws_header(jws: &[u8]) -> Result<Vec<u8>> {
+fn encoded_header(jws: &[u8]) -> Result<Vec<u8>> {
     let mut splits = jws.split(|e| *e == b'.');
 
-    let encoded_header = splits.next().context("wrong jws format")?.to_vec();
-
-    let mut slice = encoded_header.as_slice();
-    Ok(base64::decode_config(&mut slice, base64::URL_SAFE_NO_PAD)?)
+    Ok(splits.next().context("wrong jws format")?.to_vec())
 }
 
 fn trace_u8_slice_output(label: &str, offset: usize, slice: &[u8]) {
@@ -690,6 +693,8 @@ fn create_jws(
     let mut encoded_header_length: usize = 0;
     if log_enabled!(Trace) {
         let encoded_header = encode_header(header.clone(), signature_algorithm.to_jws_name())?;
+        trace!("Signing header: {}", String::from_utf8(encoded_header.clone())?);
+        trace!("Decoded header: {}", String::from_utf8(decode_config(encoded_header.clone(), base64::URL_SAFE_NO_PAD)?)?);
         trace_u8_slice_output("Signing header", 0, &encoded_header);
         encoded_header_length = encoded_header.len();
     }
