@@ -14,5 +14,22 @@
    limitations under the License.
 */
 
-pub mod config;
-pub mod node;
+#![allow(mixed_script_confusables)] // This is to allow structs created by a derive macro to have private fields that begin with the grek letter π
+
+#[macro_use]
+extern crate lazy_static; // Must be done in crate root
+
+pub mod artifact_manager;
+pub mod block_chain;
+pub mod docker;
+pub mod document_store;
+pub mod metadata_manager;
+pub mod network;
+pub mod node_api;
+pub mod node_manager;
+pub use node_manager::model; // Expose nested module at the crate level
+pub mod logging;
+
+// re-expose nested crates that need to be used together
+pub use signed;
+pub use signed_struct;
