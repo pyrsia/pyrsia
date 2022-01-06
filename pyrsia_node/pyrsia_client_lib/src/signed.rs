@@ -65,15 +65,12 @@
 extern crate anyhow;
 extern crate base64;
 extern crate chrono;
-extern crate detached_jws;
 extern crate log;
 extern crate openssl;
 extern crate serde;
-extern crate serde_jcs;
 extern crate serde_json;
 
 use std::char::REPLACEMENT_CHARACTER;
-use std::io::Write;
 use std::option::Option;
 
 use crate::signed::json_parser::{parse, JsonPathElement};
@@ -81,7 +78,6 @@ use anyhow::{anyhow, Context, Result};
 use base64::decode_config;
 use base64::write::EncoderWriter;
 use chrono::{DateTime, SecondsFormat, Utc};
-use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
 use log::Level::Trace;
 use log::{debug, log_enabled, trace, warn};
 use openssl::pkey::{PKey, Private};
@@ -334,7 +330,7 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
         if existing_json.is_some() {
             starting_json = unwrap(existing_json);
         } else {
-            new_json = serde_jcs::to_string(self)?;
+            new_json = serde_json::to_string(self)?;
             starting_json = &new_json;
         };
         debug!("Adding signature to json: {}", starting_json);
@@ -405,7 +401,8 @@ fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> 
                     unicode_32_bit_to_string(this_signature)
                 );
                 let this_attestation =
-                    verify_one_signature(before_signatures, this_signature, after_signatures);
+                    verify_one_signature(before_signatures, this_signature, after_signatures)
+                        .unwrap_or_else(|_| EMPTY_ATTESTATION);
                 if this_attestation.signature_is_valid {
                     valid_signature_count += 1;
                 }
@@ -474,7 +471,7 @@ fn verify_one_signature(
     before_signatures: &[u32],
     this_jws: &[u32],
     after_signatures: &[u32],
-) -> Attestation {
+) -> Result<Attestation> {
     let before_signatures_string = unicode_32_bit_to_string(before_signatures);
     let after_signatures_string = unicode_32_bit_to_string(after_signatures);
     debug!(
@@ -487,95 +484,62 @@ fn verify_one_signature(
     let after_signatures_bytes = after_signatures_string.as_bytes();
     // this_signature is a json string that contains a JWS. We will ignore the enclosing quotes and get the content as a string that is a JWS.
     let jws = unicode_32_bit_to_string(&this_jws[1..this_jws.len() - 1]);
-    let jws_header = match header_from_jws(&jws) {
-        Some(string) => string,
-        None => return EMPTY_ATTESTATION,
+    let (encoded_jws_header, encoded_signature) = match split_jws(&jws) {
+        Some((encoded_jws_header, encoded_signature)) => (encoded_jws_header, encoded_signature),
+        None => return Ok(EMPTY_ATTESTATION),
     };
-    debug!("validating JWS with header: \"{}\"", jws_header);
-    let mut attestation = Attestation::from_json(&jws_header);
-    let mut decoded_jws_header_length: usize = 0;
+    let decoded_signature = base64::decode_config(encoded_signature, base64::STANDARD_NO_PAD)?;
+    let decoded_jws_header = base64::decode_config(&encoded_jws_header, base64::STANDARD_NO_PAD)?;
+    let decoded_jws_header_string = String::from_utf8(decoded_jws_header.clone())?;
+    debug!(
+        "validating JWS with header: \"{}\"",
+        decoded_jws_header_string
+    );
+    let mut attestation = Attestation::from_json(&decoded_jws_header_string);
     attestation.signature_is_valid = attestation.public_key.as_ref().map_or(false, |public_key| {
         attestation
             .signature_algorithm
             // This is RSA specific. This should be generalized to support other types of signatures.
             .map_or(false, |alg| {
-                Rsa::public_key_from_der(public_key).map_or(false, |rsa_key| {
-                    PKey::from_rsa(rsa_key).map_or(false, |pkey| {
-                        Verifier::new(alg.as_message_digest(), &pkey).map_or(
-                            false,
-                            |mut verifier| {
-                                verifier
-                                    .set_rsa_padding(Padding::PKCS1_PSS)
-                                    .map_or(false, |_| {
-                                        if log_enabled!(Trace) {
-                                            let encoded_jws_header =
-                                                match encoded_header(jws.as_bytes()) {
-                                                    Ok(header_vec) => header_vec,
-                                                    Err(_) => return false,
-                                                };
-                                            let verification_header_as_string = match String::from_utf8(encoded_jws_header.clone()) {
-                                                Ok(string) => string,
-                                                Err(_) => return false,
-                                            };
-                                            trace!("Verification header: {}", verification_header_as_string);
-                                            trace_u8_slice_output(
-                                                "jws header",
-                                                0,
-                                                &encoded_jws_header[..],
-                                            );
-                                            decoded_jws_header_length = encoded_jws_header.len();
-                                        }
-                                        DeserializeJwsWriter::new(&jws.as_bytes(), |_| {
-                                            Some(verifier)
-                                        })
-                                        .map_or(
-                                            false,
-                                            |mut writer| {
-                                                trace_u8_slice_output(
-                                                    "Verification before",
-                                                    decoded_jws_header_length,
-                                                    before_signatures_bytes,
-                                                );
-                                                writer.write(before_signatures_bytes).map_or(
-                                                    false,
-                                                    |_| {
-                                                        trace_u8_slice_output(
-                                                            "after",
-                                                            decoded_jws_header_length
-                                                                + before_signatures_bytes.len(),
-                                                            after_signatures_bytes,
-                                                        );
-                                                        writer.write(after_signatures_bytes).map_or(
-                                                            false,
-                                                            |_| {
-                                                                writer
-                                                                    .finish()
-                                                                    .map_or(false, |_| true)
-                                                            },
-                                                        )
-                                                    },
-                                                )
-                                            },
-                                        )
-                                    })
-                            },
-                        )
-                    })
-                })
+                let rsa_key = match Rsa::public_key_from_der(public_key) {
+                    Ok(rsa_key) => rsa_key,
+                    Err(_) => return false,
+                };
+                let pkey = match PKey::from_rsa(rsa_key) {
+                    Ok(pkey) => pkey,
+                    Err(_) => return false,
+                };
+                let mut verifier = match Verifier::new(alg.as_message_digest(), &pkey) {
+                    Ok(verifier) => verifier,
+                    Err(_) => return false,
+                };
+                if let Err(_) = verifier.set_rsa_padding(Padding::PKCS1_PSS) {
+                    return false;
+                }
+                if log_enabled!(Trace) {
+                    trace!("Verification header: {}", encoded_jws_header);
+                    trace_u8_slice_output("jws header", &decoded_jws_header[..]);
+                }
+                if let Err(_) = verifier.update(encoded_jws_header.as_bytes()) {
+                    return false;
+                }
+                trace_u8_slice_output("Verification before", before_signatures_bytes);
+                if let Err(_) = verifier.update(before_signatures_bytes) {
+                    return false;
+                }
+                trace_u8_slice_output("after", after_signatures_bytes);
+                if let Err(_) = verifier.update(after_signatures_bytes) {
+                    return false;
+                }
+                verifier.verify(&decoded_signature).is_ok()
             })
     });
-    attestation
+    Ok(attestation)
 }
 
-fn encoded_header(jws: &[u8]) -> Result<Vec<u8>> {
-    let mut splits = jws.split(|e| *e == b'.');
-
-    Ok(splits.next().context("wrong jws format")?.to_vec())
-}
-
-fn trace_u8_slice_output(label: &str, offset: usize, slice: &[u8]) {
+fn trace_u8_slice_output(label: &str, slice: &[u8]) {
     if log_enabled!(Trace) {
-        let mut i = offset;
+        let mut i = 0;
         trace!("{} size={}", label, slice.len());
         for byte in slice {
             trace!("[{}] = {}", i, byte);
@@ -584,19 +548,14 @@ fn trace_u8_slice_output(label: &str, offset: usize, slice: &[u8]) {
     }
 }
 
-fn header_from_jws(jws: &str) -> Option<String> {
+fn split_jws(jws: &str) -> Option<(String, String)> {
     let first_dot_index = match jws.find('.') {
         Some(i) => i,
         None => return None,
     };
-    // if decode fails treat it as a missing signature. Because this is security, we don't want to be helpful if the JWS is not correctly formatted.
-    match base64::decode_config(&jws[..first_dot_index], base64::STANDARD_NO_PAD) {
-        Ok(decoded_json) => match String::from_utf8(decoded_json) {
-            Ok(string) => Some(string),
-            Err(_) => None,
-        },
-        Err(_) => None,
-    }
+    let encoded_header = &jws[..first_dot_index];
+    let encoded_signature = &jws[first_dot_index + 2..];
+    Some((encoded_header.to_string(), encoded_signature.to_string()))
 }
 
 // preprocess a json string to a Vec<32> whose elements each contain exactly one unicode character.
@@ -651,7 +610,7 @@ fn add_signature(
         target_json,
         &[json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)],
     )?;
-    let header = create_jsw_header(der_public_key);
+    let header = create_jsw_header(der_public_key, signature_algorithm)?;
     let mut before_string = unicode_32_bit_to_string(before_target);
     before_string.push(',');
     let after_string = unicode_32_bit_to_string(after_target);
@@ -681,7 +640,7 @@ fn add_signature(
 
 fn create_jws(
     signature_algorithm: JwsSignatureAlgorithms,
-    signer: Signer,
+    mut signer: Signer,
     before: &str,
     after: &str,
     header: Map<String, Value>,
@@ -690,37 +649,39 @@ fn create_jws(
         "Signing: SignatureAlgorithm={:?}\nbefore={}\nafter={}\nheader{:?}",
         signature_algorithm, before, after, header
     );
-    let mut encoded_header_length: usize = 0;
+    let encoded_header = encode_header(header.clone())?;
     if log_enabled!(Trace) {
-        let encoded_header = encode_header(header.clone(), signature_algorithm.to_jws_name())?;
-        trace!("Signing header: {}", String::from_utf8(encoded_header.clone())?);
-        trace!("Decoded header: {}", String::from_utf8(decode_config(encoded_header.clone(), base64::URL_SAFE_NO_PAD)?)?);
-        trace_u8_slice_output("Signing header", 0, &encoded_header);
-        encoded_header_length = encoded_header.len();
+        trace!(
+            "Signing header: {}",
+            String::from_utf8(encoded_header.clone())?
+        );
+        trace!(
+            "Decoded header: {}",
+            String::from_utf8(decode_config(
+                encoded_header.clone(),
+                base64::STANDARD_NO_PAD
+            )?)?
+        );
+        trace_u8_slice_output("Signing header", &encoded_header);
     }
-    let mut writer = SerializeJwsWriter::new(
-        Vec::new(),
-        signature_algorithm.to_jws_name(),
-        header,
-        signer,
-    )?;
-    trace_u8_slice_output("signing before", encoded_header_length, before.as_bytes());
-    writer.write_all(before.as_bytes())?;
-    trace_u8_slice_output(
-        "signing after",
-        encoded_header_length + before.as_bytes().len(),
-        after.as_bytes(),
-    );
-    writer.write_all(after.as_bytes())?;
-    let jws = writer.finish()?;
+    signer.update(&encoded_header)?;
+
+    trace_u8_slice_output("signing before", before.as_bytes());
+    signer.update(before.as_bytes())?;
+    trace_u8_slice_output("signing after", after.as_bytes());
+    signer.update(after.as_bytes())?;
+    let signature = signer.sign_to_vec()?;
+    let mut jws = vec![];
+    jws.extend(encoded_header);
+    jws.push(b'.');
+    jws.push(b'.');
+    jws.extend(base64::encode_config(signature, base64::STANDARD_NO_PAD).as_bytes());
     debug!("Encoded jws:{}", &String::from_utf8(jws.clone())?);
     Ok(jws)
 }
 
-fn encode_header(mut header: Map<String, Value>, algorithm: String) -> Result<Vec<u8>> {
-    header.insert("alg".to_owned(), Value::String(algorithm));
-
-    let mut encoder = EncoderWriter::new(Vec::new(), base64::URL_SAFE_NO_PAD);
+fn encode_header(header: Map<String, Value>) -> Result<Vec<u8>> {
+    let mut encoder = EncoderWriter::new(Vec::new(), base64::STANDARD_NO_PAD);
     serde_json::to_writer(&mut encoder, &header)?;
     Ok(encoder.finish()?)
 }
@@ -737,8 +698,14 @@ fn now_as_iso8601_string() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
-fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
+fn create_jsw_header(
+    public_key: &[u8],
+    signature_algorithm: JwsSignatureAlgorithms,
+) -> Result<Map<String, Value>> {
     let mut header = Map::new();
+    let jws_algorithm = signature_algorithm.to_jws_name();
+
+    header.insert(ALG_FIELD_NAME.to_owned(), json!(jws_algorithm));
     header.insert(
         SIGNER_FIELD_NAME.to_owned(),
         json!(base64::encode_config(public_key, base64::STANDARD_NO_PAD)),
@@ -749,7 +716,7 @@ fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
         TIMESTAMP_FIELD_NAME.to_owned(),
         json!(format!("{:?}", now_string)),
     );
-    header
+    Ok(header)
 }
 
 /// Lightweight JSON parser to identify the portion of a slice before and after a value, so that the

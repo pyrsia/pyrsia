@@ -838,18 +838,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "detached-jws"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f44c9ea49c400d93071f8180cbd64d13e3783d38944f267f895e58475d69e918"
-dependencies = [
- "anyhow",
- "base64",
- "openssl",
- "serde_json",
-]
-
-[[package]]
 name = "digest"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2897,12 +2885,10 @@ dependencies = [
  "anyhow",
  "base64",
  "chrono",
- "detached-jws",
  "env_logger 0.9.0",
  "log",
  "openssl",
  "serde",
- "serde_jcs",
  "serde_json",
  "syn",
 ]
@@ -3211,12 +3197,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73b4b750c782965c211b42f022f59af1fbceabdd026623714f104152f1ec149f"
 
 [[package]]
-name = "ryu-js"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6518fc26bced4d53678a22d6e423e9d8716377def84545fe328236e3af070e7f"
-
-[[package]]
 name = "salsa20"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3337,17 +3317,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "serde_jcs"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cacecf649bc1a7c5f0e299cc813977c6a78116abda2b93b1ee01735b71ead9a8"
-dependencies = [
- "ryu-js",
- "serde",
- "serde_json",
 ]
 
 [[package]]
