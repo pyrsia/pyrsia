@@ -73,15 +73,16 @@ extern crate serde_jcs;
 extern crate serde_json;
 
 use std::char::REPLACEMENT_CHARACTER;
-use std::io::Write;
+use std::io::{BufRead, Write};
 use std::option::Option;
 
 use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
+use base64::read::DecoderReader;
 use chrono::{DateTime, SecondsFormat, Utc};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
-use log::{debug, trace, warn, log_enabled};
 use log::Level::Trace;
+use log::{debug, log_enabled, trace, warn};
 use openssl::pkey::{PKey, Private};
 use openssl::{
     hash::MessageDigest,
@@ -505,14 +506,23 @@ fn verify_one_signature(
                                     verifier.set_rsa_padding(Padding::PKCS1_PSS).map_or(
                                         false,
                                         |_| {
-                                            trace_u8_slice_output("jws",0, jws.as_bytes());
-                                            DeserializeJwsWriter::new(&jws, |_| Some(verifier))
+                                            trace_u8_slice_output("jws", 0, jws.as_bytes());
+                                            DeserializeJwsWriter::new(&jws.as_bytes(), |_| Some(verifier))
                                                 .map_or(false, |mut writer| {
-                                                    trace_u8_slice_output("before", jws.len(), before_signatures_bytes);
+                                                    trace_u8_slice_output(
+                                                        "before",
+                                                        jws.len(),
+                                                        before_signatures_bytes,
+                                                    );
                                                     writer.write(before_signatures_bytes).map_or(
                                                         false,
                                                         |_| {
-                                                            trace_u8_slice_output("after",jws.len()+before_signatures_bytes.len(), after_signatures_bytes);
+                                                            trace_u8_slice_output(
+                                                                "after",
+                                                                jws.len()
+                                                                    + before_signatures_bytes.len(),
+                                                                after_signatures_bytes,
+                                                            );
                                                             writer
                                                                 .write(after_signatures_bytes)
                                                                 .map_or(false, |_| {
@@ -534,7 +544,20 @@ fn verify_one_signature(
     attestation
 }
 
-fn trace_u8_slice_output(label: &str, offset: usize, slice:&[u8]) {
+// fn decode_json_header(jws: &[u8]) -> Result<Map<String, Value>> {
+//     let input = jws;
+//
+//     let mut splits = input.split(|e| *e == b'.');
+//
+//     let encoded_header = splits.next().context("wrong jws format")?.to_vec();
+//
+//     let mut slice = encoded_header.as_slice();
+//     let decoder = DecoderReader::new(&mut slice, base64::URL_SAFE_NO_PAD);
+//
+//         serde_json::from_reader(decoder).context("wrong jws header format")?
+// }
+
+fn trace_u8_slice_output(label: &str, offset: usize, slice: &[u8]) {
     if log_enabled!(Trace) {
         let mut i = offset;
         trace!("{} size={}", label, slice.len());
@@ -1295,9 +1318,9 @@ mod tests {
         info!("Created key pair");
 
         let mut foo = Foo {
-            foo: "π is 16 bit unicode",
+            foo: "X  is 16 bit unicode",
             bar: 873,
-            zot: "🦽is 32 bit unicode",
+            zot: "Xis 32 bit unicode",
             _json0: None,
         };
         debug!("Initial contents of struct is {:?}", foo);
