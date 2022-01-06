@@ -14,7 +14,6 @@ use rpc::criterion::{Criterion, Operation, Value};
 use rpc::resource::{CResourceUpdate, Resource, ResourceKind, SResourceUpdate, Server};
 
 use url::Url;
-use error::{ErrorKind, Result, ResultExt};
 use super::client::Client;
 
 pub async fn add_torrent(server: &str, pass: &str, directory: Option<&str>, files: Vec<&str>) -> Result<()> {
