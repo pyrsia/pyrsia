@@ -15,7 +15,6 @@ jobs:
           echo "deb https://pyrsia.github.io/repo bionic main" | sudo tee -a /etc/apt/sources.list > /dev/null
           sudo apt-get update
           sudo apt-get install -y pyrsia
-          sudo chmod 755 /usr/local/bin/pyrsia
         shell: bash
       - name: Run Pyrsia         
         run: |
