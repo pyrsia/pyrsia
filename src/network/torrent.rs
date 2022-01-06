@@ -7,7 +7,6 @@ extern crate url;
 extern crate base64;
 
 use error_chain::bail;
-use super::error;
 use std::process;
 
 use synapse_rpc::message::{self, CMessage, SMessage};
@@ -15,7 +14,6 @@ use rpc::criterion::{Criterion, Operation, Value};
 use rpc::resource::{CResourceUpdate, Resource, ResourceKind, SResourceUpdate, Server};
 
 use url::Url;
-use clap::{App, AppSettings, Arg, SubCommand};
 use error::{ErrorKind, Result, ResultExt};
 use super::client::Client;
 
