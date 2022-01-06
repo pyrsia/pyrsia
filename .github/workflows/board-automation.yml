@@ -19,6 +19,7 @@ jobs:
       - uses: alex-page/github-project-automation-plus@v0.8.1
         with:
           project: Pyrsia Development
+          action: add
           column: Backlog for the Demo
           repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
 
