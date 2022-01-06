@@ -16,7 +16,3 @@
 
 pub mod blobs;
 pub mod manifests;
-
-// functions available from other modules
-pub use crate::docker::docker_hub_util::get_docker_hub_auth_token;
-pub use crate::docker::error_util::{RegistryError, RegistryErrorCode};

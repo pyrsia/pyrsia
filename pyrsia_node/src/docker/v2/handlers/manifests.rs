@@ -14,11 +14,10 @@
    limitations under the License.
 */
 
-use super::{RegistryError, RegistryErrorCode};
-
-use super::get_docker_hub_auth_token;
 use crate::artifact_manager;
 use crate::artifact_manager::HashAlgorithm;
+use crate::docker::docker_hub_util::get_docker_hub_auth_token;
+use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::node_manager::model::artifact::Artifact;
 use crate::node_manager::model::package_type::PackageTypeName;
 use crate::node_manager::model::package_version::PackageVersion;

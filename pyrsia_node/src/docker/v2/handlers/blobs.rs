@@ -14,6 +14,8 @@
    limitations under the License.
 */
 
+use crate::docker::docker_hub_util::get_docker_hub_auth_token;
+use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use bytes::{Buf, Bytes};
 use log::{debug, error, info};
 use reqwest::{header, Client};
@@ -24,8 +26,6 @@ use std::path::Path;
 use uuid::Uuid;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
-
-use super::{get_docker_hub_auth_token, RegistryError, RegistryErrorCode};
 
 pub async fn handle_get_blobs(
     tx: tokio::sync::mpsc::Sender<String>,
