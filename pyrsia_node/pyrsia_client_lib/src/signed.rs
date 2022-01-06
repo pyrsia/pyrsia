@@ -78,7 +78,6 @@ use std::option::Option;
 
 use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
-use base64::read::DecoderReader;
 use base64::write::EncoderWriter;
 use chrono::{DateTime, SecondsFormat, Utc};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
@@ -493,6 +492,7 @@ fn verify_one_signature(
     };
     debug!("validating JWS with header: \"{}\"", jws_header);
     let mut attestation = Attestation::from_json(&jws_header);
+    let mut decoded_jws_header_length: usize = 0;
     attestation.signature_is_valid = attestation.public_key.as_ref().map_or(false, |public_key| {
         attestation
             .signature_algorithm
@@ -506,7 +506,19 @@ fn verify_one_signature(
                                 verifier
                                     .set_rsa_padding(Padding::PKCS1_PSS)
                                     .map_or(false, |_| {
-                                        trace_u8_slice_output("jws", 0, jws.as_bytes());
+                                        if log_enabled!(Trace) {
+                                            let decoded_jws_header =
+                                                match decode_jws_header(jws.as_bytes()) {
+                                                    Ok(header_vec) => header_vec,
+                                                    Err(_) => return false,
+                                                };
+                                            trace_u8_slice_output(
+                                                "jws header",
+                                                0,
+                                                &decoded_jws_header[..],
+                                            );
+                                            decoded_jws_header_length = decoded_jws_header.len();
+                                        }
                                         DeserializeJwsWriter::new(&jws.as_bytes(), |_| {
                                             Some(verifier)
                                         })
@@ -514,8 +526,8 @@ fn verify_one_signature(
                                             false,
                                             |mut writer| {
                                                 trace_u8_slice_output(
-                                                    "before",
-                                                    jws.len(),
+                                                    "Verification before",
+                                                    decoded_jws_header_length,
                                                     before_signatures_bytes,
                                                 );
                                                 writer.write(before_signatures_bytes).map_or(
@@ -523,7 +535,7 @@ fn verify_one_signature(
                                                     |_| {
                                                         trace_u8_slice_output(
                                                             "after",
-                                                            jws.len()
+                                                            decoded_jws_header_length
                                                                 + before_signatures_bytes.len(),
                                                             after_signatures_bytes,
                                                         );
@@ -549,18 +561,14 @@ fn verify_one_signature(
     attestation
 }
 
-// fn decode_json_header(jws: &[u8]) -> Result<Map<String, Value>> {
-//     let input = jws;
-//
-//     let mut splits = input.split(|e| *e == b'.');
-//
-//     let encoded_header = splits.next().context("wrong jws format")?.to_vec();
-//
-//     let mut slice = encoded_header.as_slice();
-//     let decoder = DecoderReader::new(&mut slice, base64::URL_SAFE_NO_PAD);
-//
-//         serde_json::from_reader(decoder).context("wrong jws header format")?
-// }
+fn decode_jws_header(jws: &[u8]) -> Result<Vec<u8>> {
+    let mut splits = jws.split(|e| *e == b'.');
+
+    let encoded_header = splits.next().context("wrong jws format")?.to_vec();
+
+    let mut slice = encoded_header.as_slice();
+    Ok(base64::decode_config(&mut slice, base64::URL_SAFE_NO_PAD)?)
+}
 
 fn trace_u8_slice_output(label: &str, offset: usize, slice: &[u8]) {
     if log_enabled!(Trace) {
