@@ -69,7 +69,7 @@ pub async fn handle_get_blobs(
         })
     })?;
 
-/*     debug!("Getting blob with hash : {:?}", hash);
+    /*     debug!("Getting blob with hash : {:?}", hash);
 
     let mut art_reader =
         match get_artifact(&hex::decode(&hash).unwrap().as_ref(), HashAlgorithm::SHA256) {
