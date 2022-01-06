@@ -7,6 +7,8 @@ extern crate tungstenite as ws;
 extern crate url;
 extern crate base64;
 
+use error_chain::bail;
+use super::error;
 use std::process;
 
 use synapse_rpc::message::{self, CMessage, SMessage};
@@ -15,8 +17,7 @@ use rpc::resource::{CResourceUpdate, Resource, ResourceKind, SResourceUpdate, Se
 
 use url::Url;
 use clap::{App, AppSettings, Arg, SubCommand};
-use ws::error::bail;
-use ws::error::{ErrorKind, Result, ResultExt};
+use error::{ErrorKind, Result, ResultExt};
 use super::client::Client;
 
 pub async fn add_torrent(server: &str, pass: &str, directory: Option<&str>, files: Vec<&str>) -> Result<()> {

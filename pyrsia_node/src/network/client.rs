@@ -1,16 +1,18 @@
+extern crate synapse_rpc as rpc;
 extern crate tungstenite as ws;
-#[macro_use]
 extern crate error_chain;
 
-use ws;
+use error_chain::bail;
+use super::error;
+
 use ws::client::AutoStream;
 use ws::protocol::Message as WSMessage;
 use serde_json;
 use url::Url;
 
-use synapse_rpc::message::{Version, CMessage, SMessage};
+use rpc::message::{CMessage, SMessage, Version};
 
-use ws::error::{ErrorKind, Result, ResultExt};
+use error::{ErrorKind, Result, ResultExt};
 use error_chain::ChainedError;
 
 pub struct Client {

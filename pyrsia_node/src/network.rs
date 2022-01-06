@@ -20,3 +20,4 @@ pub mod swarm;
 pub mod transport;
 pub mod torrent;
 mod client;
+mod error;
