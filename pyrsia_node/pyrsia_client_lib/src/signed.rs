@@ -81,6 +81,7 @@ use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, SecondsFormat, Utc};
 use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
 use log::{debug, trace, warn, log_enabled};
+use log::Level::Trace;
 use openssl::pkey::{PKey, Private};
 use openssl::{
     hash::MessageDigest,
@@ -89,7 +90,6 @@ use openssl::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use syn::Lit::Str;
 
 /// An enumeration of the supported signature algorithms used by this module to sign structs and
 /// JSON.
@@ -505,11 +505,14 @@ fn verify_one_signature(
                                     verifier.set_rsa_padding(Padding::PKCS1_PSS).map_or(
                                         false,
                                         |_| {
+                                            trace_u8_slice_output("jws",0, jws.as_bytes());
                                             DeserializeJwsWriter::new(&jws, |_| Some(verifier))
                                                 .map_or(false, |mut writer| {
+                                                    trace_u8_slice_output("before", jws.len(), before_signatures_bytes);
                                                     writer.write(before_signatures_bytes).map_or(
                                                         false,
                                                         |_| {
+                                                            trace_u8_slice_output("after",jws.len()+before_signatures_bytes.len(), after_signatures_bytes);
                                                             writer
                                                                 .write(after_signatures_bytes)
                                                                 .map_or(false, |_| {
@@ -529,6 +532,17 @@ fn verify_one_signature(
                 })
         });
     attestation
+}
+
+fn trace_u8_slice_output(label: &str, offset: usize, slice:&[u8]) {
+    if log_enabled!(Trace) {
+        let mut i = offset;
+        trace!("{} size={}", label, slice.len());
+        for byte in slice {
+            trace!("[{}] = {}", i, byte);
+            i += 1;
+        }
+    }
 }
 
 fn header_from_jws(jws: &str) -> Option<String> {
