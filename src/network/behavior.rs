@@ -112,7 +112,11 @@ impl NetworkBehaviourEventProcess<gossipsub::GossipsubEvent> for MyBehaviour {
             if msg_data.starts_with("magnet:") {
                 // Synapse RPC Integration point
                 info!("Start downloading {}", msg_data);
-
+                let server = "ws://localhost:8412/";
+                let pass = "donthackme";
+                let directory: Option<&str> = Some("/tmp");
+                let files: Vec<&str> = vec![msg_data.as_str()];
+                super::torrent::add_torrent(server, pass, directory, files);
                 // This should kick-off the download
             } else {
                 info!(
