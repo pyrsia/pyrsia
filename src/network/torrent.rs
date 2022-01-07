@@ -1,23 +1,28 @@
+extern crate base64;
 extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
 extern crate synapse_rpc as rpc;
 extern crate tungstenite as ws;
 extern crate url;
-extern crate base64;
 
 use error_chain::bail;
 use std::process;
 
-use synapse_rpc::message::{self, CMessage, SMessage};
+use super::error::{ErrorKind, Result, ResultExt};
 use rpc::criterion::{Criterion, Operation, Value};
 use rpc::resource::{CResourceUpdate, Resource, ResourceKind, SResourceUpdate, Server};
-use super::error::{ErrorKind, Result, ResultExt};
+use synapse_rpc::message::{self, CMessage, SMessage};
 
-use url::Url;
 use super::client::Client;
+use url::Url;
 
-pub async fn add_torrent(server: &str, pass: &str, directory: Option<&str>, files: Vec<&str>) -> Result<()> {
+pub async fn add_torrent(
+    server: &str,
+    pass: &str,
+    directory: Option<&str>,
+    files: Vec<&str>,
+) -> Result<()> {
     let mut url = match Url::parse(server) {
         Ok(url) => url,
         Err(e) => {
@@ -94,7 +99,7 @@ pub fn get_(c: &mut Client, id: &str, output: &str) -> Result<()> {
         "json" => {
             println!(
                 "{}",
-                serde_json::to_string_pretty(&res[0])?//.chain_err(|| ErrorKind::Serialization)?
+                serde_json::to_string_pretty(&res[0]).chain_err(|| ErrorKind::Serialization)?
             );
         }
         _ => unreachable!(),
