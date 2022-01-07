@@ -2,6 +2,7 @@ extern crate synapse_rpc as rpc;
 extern crate tungstenite as ws;
 extern crate error_chain;
 
+use error_chain::bail;
 use ws::client::AutoStream;
 use ws::protocol::Message as WSMessage;
 use serde_json;
@@ -29,7 +30,7 @@ impl Client {
             c.version = v;
             Ok(c)
         } else {
-            Err("Expected a version message on start!")
+            bail!("Expected a version message on start!");
         }
     }
 
