@@ -225,29 +225,6 @@ pub fn create_key_pair(
 /// confident that it has not been modified since it was signed. Because we are using JSON based
 /// signatures, when we deserialize JSON to a struct, to be considered signed, the struct must
 /// contain a reference to the JSON it was deserialized from, so we can still verify the signature.
-///
-/// Methods that modify the contents of a signed struct should discard its associated JSON by
-/// calling the clear_json method, since the JSON no longer matches that struct.
-///
-/// Given the above description of the purposes of the `Signed` trait, the descriptions of its
-/// methods should be understood in this context.
-///
-/// It is recommended for consistency that structs that implement this trait are declared
-/// like this with a field named `_json` to refer to the struct's json string:
-/// ```
-/// use serde::{Deserialize, Serialize};
-/// //noinspection NonAsciiCharacters
-/// struct Namespace {
-///         id: String,
-///         namespace_path: Vec<String>,
-///         revision_count: u32,
-///         description: Option<String>,
-///         creation_time: String,
-///         // This contains the JSON associated with the struct. It must not be serialized with the rest of the struct.
-///         #[serde(skip)]
-///         _json0: Option<String>,
-///     }
-/// ```
 pub trait Signed<'a>: Deserialize<'a> + Serialize {
     /// Return as a string the signed JSON associated with this struct. Returns None if no
     /// signed JSON is currently associated with the struct.
