@@ -582,7 +582,7 @@ fn add_signature(
         header,
     )?;
     let jws_string = String::from_utf8(jws)?;
-    let mut signed_json_buffer = before_string.clone();
+    let mut signed_json_buffer = before_string;
     if target.is_empty() {
         // No existing signatures
         signed_json_buffer.push_str(r#",""#);

@@ -92,7 +92,7 @@ mod tests {
         // Get the contents of the struct with getters that are generated for you. The getter names are the same as the field names
         assert_eq!("65dfd245-666f-4352-8878-636f1812398c", *namespace.id()); // The * is needed because the getters add a & to the type.
         assert_eq!(PackageTypeName::Docker, *namespace.package_type());
-        assert!(namespace.administrators().is_empty());   // this should have its default value of an empty vector
+        assert!(namespace.administrators().is_empty()); // this should have its default value of an empty vector
 
         // after signing, there should be json.
         assert!(namespace.json().is_some());
