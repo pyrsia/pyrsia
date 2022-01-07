@@ -314,26 +314,7 @@ fn package_version_from_schema1(
         .pkg_type(PackageTypeName::Docker)
         .version(String::from(manifest_tag))
         .artifacts(artifacts)
-        .build()?) //     PackageVersion::new(
-                   //     String::from(
-                   //         Uuid::new_v4()
-                   //             .to_simple()
-                   //             .encode_lower(&mut Uuid::encode_buffer()),
-                   //     ),
-                   //     String::from(DOCKER_NAMESPACE_ID),
-                   //     String::from(manifest_name),
-                   //     PackageTypeName::Docker,
-                   //     String::from(manifest_tag),
-                   //     None,
-                   //     None,
-                   //     None,
-                   //     Map::new(), metadata
-                   //     None,
-                   //     None,
-                   //     Vec::new(),
-                   //     None,
-                   //     artifacts,
-                   // )
+        .build()?)
 }
 
 fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), anyhow::Error> {

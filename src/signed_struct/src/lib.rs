@@ -164,10 +164,6 @@ fn unique_json_field_ident(fields: &mut FieldsNamed) -> Result<Ident, syn::parse
     }
 }
 
-// This just checks for owned types like
-// Option<foo>
-// It does not recognize
-// &Option<foo>
 fn field_type_is_option(field: &Field) -> bool {
     if let Type::Path(TypePath {
         path: Path { segments, .. },
