@@ -1062,16 +1062,20 @@ mod tests {
     use json_parser::*;
     use log::info;
 
+    // This struct is use by the tests
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    struct Foo<'a> {
-        foo: &'a str,
-        bar: u32,
-        zot: &'a str,
+    struct Namespace {
+        id: String,
+        namespace_path: Vec<String>,
+        revision_count: u32,
+        description: Option<String>,
+        creation_time: String,
+        // This contains the JSON associated with the struct. It must not be serialized with the rest of the struct.
         #[serde(skip)]
         _json0: Option<String>,
     }
 
-    impl<'a> Signed<'a> for Foo<'a> {
+    impl Signed<'_> for Namespace {
         fn json(&self) -> Option<String> {
             self._json0.to_owned()
         }
@@ -1097,9 +1101,11 @@ mod tests {
 
     #[test]
     // The purpose of the parse function that this tests is to find a specified object field or
-    // array element in a given JSON string. The parse function returns three slices of the original
-    // string: the target that is was looking for, the portion of the string before the target and
-    // the portion of the string after the target.
+    // array element in a given JSON string. This is called the target.
+    //
+    // The parse function returns three slices of the original string: the target that is was
+    // looking for, the portion of the string before the target and the portion of the string after
+    // the target.
     //
     // This test specifies a piece of JSON that includes all of the cases that need to be tested and
     // then calls the parse method to look for different things in the string. For each search, it
@@ -1218,6 +1224,7 @@ mod tests {
         }
     }
 
+    // Test the signing use case
     #[test]
     fn happy_path_for_signing() -> Result<(), anyhow::Error> {
         env_logger::try_init().unwrap_or_default();
@@ -1225,79 +1232,46 @@ mod tests {
         let key_pair = super::create_key_pair(JwsSignatureAlgorithms::RS512)?;
         info!("Created key pair");
 
-        let mut foo = Foo {
-            foo: "π is 16 bit unicode",
-            bar: 23894,
-            zot: "🦽is 32 bit unicode",
+        // Create the struct instance to be signed
+        let mut namespace = Namespace {
+            id: "61c23c81-5cee-4d93-83fd-10fd60936fdc".to_string(),
+            namespace_path: vec!["docker".to_string()],
+            revision_count: 5,
+            description: Some("Test this with multi-byte characters: π is 16 bit unicode, 🦽is 32 bit unicode".to_string()),
+            creation_time: "2022-01-06T13:24:32.73621Z".to_string(),
             _json0: None,
         };
-        debug!("Initial contents of struct is {:?}", foo);
-        assert!(foo.json().is_none());
-        foo.sign_json(
+        debug!("Initial contents of struct is {:?}", namespace);
+
+        // Sign the struct
+        assert!(namespace.json().is_none());
+        namespace.sign_json(
             JwsSignatureAlgorithms::RS512,
             &key_pair.private_key,
             &key_pair.public_key,
         )
         .context("Error signing struct")?;
-        info!("Signed json from foo {}", foo.json().unwrap());
-        let attestations = foo.verify_signature()?;
+        info!("Signed json from foo {}", namespace.json().unwrap());
+
+        // Verify the signature and check the returned details.
+        let attestations = namespace.verify_signature()?;
         assert_eq!(1, attestations.len());
         assert!(attestations[0].signature_is_valid);
         info!("signature is valid");
 
-        let json = foo.json();
+        let json = namespace.json();
         assert!(json.is_some());
 
         info!("Creating a copy of the struct by deserializing its JSON");
         let json_string = json.unwrap();
-        let mut foo2: Foo = Foo::from_json_string(&json_string).unwrap();
+        let mut namespace2: Namespace = Namespace::from_json_string(&json_string).unwrap();
 
-        assert_eq!(foo, foo2);
-        foo2.verify_signature()?;
+        assert_eq!(namespace, namespace2);
+        namespace2.verify_signature()?;
 
         info!("Clearing JSON and its signatures");
-        foo2.clear_json();
-        assert!(foo2._json0.is_none());
-
-        // foo2.foo = "first";
-        // foo2.bar = 873;
-        // foo2.sign_json(
-        //     JwsSignatureAlgorithms::RS512,
-        //     &key_pair.private_key,
-        //     &key_pair.public_key,
-        // );
-        //
-        // foo2.verify_signature()?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn content_based_failure() -> Result<(), anyhow::Error> {
-        env_logger::try_init().unwrap_or_default();
-        // create a key pair for other signing types to see that they succeed
-        let key_pair = super::create_key_pair(JwsSignatureAlgorithms::RS512)?;
-        info!("Created key pair");
-
-        let mut foo = Foo {
-            foo: "X  is 16 bit unicode",
-            bar: 873,
-            zot: "Xis 32 bit unicode",
-            _json0: None,
-        };
-        debug!("Initial contents of struct is {:?}", foo);
-        assert!(foo.json().is_none());
-        foo.sign_json(
-            JwsSignatureAlgorithms::RS512,
-            &key_pair.private_key,
-            &key_pair.public_key,
-        )
-        .context("Error signing struct")?;
-        info!("Signed json from struct foo {}", foo.json().unwrap());
-        let attestations = foo.verify_signature()?;
-        assert_eq!(1, attestations.len());
-        assert!(attestations[0].signature_is_valid);
-        info!("signature is valid");
+        namespace2.clear_json();
+        assert!(namespace2._json0.is_none());
 
         Ok(())
     }
