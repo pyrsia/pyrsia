@@ -84,8 +84,8 @@ jobs:
             mkdir -p pyrsia/usr/local/bin
             cp target/debug/pyrsia_node pyrsia/usr/local/bin
             cp target/debug/pyrsia pyrsia/usr/local/bin
-            chmod 755 pyrsia/usr/local/bin/pyrsia_node
-            chmod 755 pyrsia/usr/local/bin/pyrsia
+            chmod 777 pyrsia/usr/local/bin/pyrsia_node
+            chmod 777 pyrsia/usr/local/bin/pyrsia
             echo "Installed-Size: $(echo "$(stat -c%s pyrsia/usr/local/bin/pyrsia) + $(stat -c%s pyrsia/usr/local/bin/pyrsia_node)" | bc)" >> pyrsia/DEBIAN/control
             sed -i.bak "/Version:/s/\$/-$GITHUB_RUN_NUMBER/" pyrsia/DEBIAN/control
             cat pyrsia/DEBIAN/control
