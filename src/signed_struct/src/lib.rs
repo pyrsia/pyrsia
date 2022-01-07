@@ -36,7 +36,7 @@ use syn::{
 /// associated with it. A test that shows examples is in the `signed-struct/tests` crate.
 ///
 /// This macro generates additional field(s) to support the signed JSON. The struct implements the
-/// `pyrsia_client_lib::Signed` trait that includes methods for signing the struct, verifying the
+/// `signed::signed::Signed` trait that includes methods for signing the struct, verifying the
 /// signature(s) (multiple signatures are allowed), getting the JSON and creating a new struct
 /// instance from the JSON.
 ///
@@ -216,7 +216,7 @@ pub fn signed_struct_derive(input: TokenStream) -> TokenStream {
                     }) => {
                         let struct_ident = &ast.ident;
                         let output = quote! {
-                                impl #lifetime ::pyrsia_client_lib::signed::Signed #signed_lifetime for #struct_ident #lifetime {
+                                impl #lifetime signed::signed::Signed #signed_lifetime for #struct_ident #lifetime {
                                     fn json(&self) -> Option<String> {
                                         self.#json_field_name.to_owned()
                                     }
