@@ -233,17 +233,20 @@ pub fn create_key_pair(
 /// methods should be understood in this context.
 ///
 /// It is recommended for consistency that structs that implement this trait are declared
-/// like this with a field named `__json` to refer to the struct's json string:
+/// like this with a field named `_json` to refer to the struct's json string:
 /// ```
 /// use serde::{Deserialize, Serialize};
 /// //noinspection NonAsciiCharacters
-/// #[derive(Serialize, Deserialize, Debug)]
-/// struct Foo<'a> {
-///   foo: &'a str,
-///   bar: u32,
-///   #[serde(skip)]
-///   _json: Option<String>
-/// }
+/// struct Namespace {
+///         id: String,
+///         namespace_path: Vec<String>,
+///         revision_count: u32,
+///         description: Option<String>,
+///         creation_time: String,
+///         // This contains the JSON associated with the struct. It must not be serialized with the rest of the struct.
+///         #[serde(skip)]
+///         _json0: Option<String>,
+///     }
 /// ```
 pub trait Signed<'a>: Deserialize<'a> + Serialize {
     /// Return as a string the signed JSON associated with this struct. Returns None if no
@@ -569,8 +572,7 @@ fn add_signature(
         &[json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)],
     )?;
     let header = create_jsw_header(der_public_key, signature_algorithm)?;
-    let mut before_string = unicode_32_bit_to_string(before_target);
-    before_string.push(',');
+    let before_string = unicode_32_bit_to_string(before_target);
     let after_string = unicode_32_bit_to_string(after_target);
     let jws = create_jws(
         signature_algorithm,
@@ -583,7 +585,7 @@ fn add_signature(
     let mut signed_json_buffer = before_string.clone();
     if target.is_empty() {
         // No existing signatures
-        signed_json_buffer.push('"');
+        signed_json_buffer.push_str(r#",""#);
         signed_json_buffer.push_str(SIGNATURE_FIELD_NAME);
         signed_json_buffer.push_str(r#"":[""#);
     } else {
@@ -1237,7 +1239,10 @@ mod tests {
             id: "61c23c81-5cee-4d93-83fd-10fd60936fdc".to_string(),
             namespace_path: vec!["docker".to_string()],
             revision_count: 5,
-            description: Some("Test this with multi-byte characters: π is 16 bit unicode, 🦽is 32 bit unicode".to_string()),
+            description: Some(
+                "Test this with multi-byte characters: π is 16 bit unicode, 🦽is 32 bit unicode"
+                    .to_string(),
+            ),
             creation_time: "2022-01-06T13:24:32.73621Z".to_string(),
             _json0: None,
         };
@@ -1245,13 +1250,14 @@ mod tests {
 
         // Sign the struct
         assert!(namespace.json().is_none());
-        namespace.sign_json(
-            JwsSignatureAlgorithms::RS512,
-            &key_pair.private_key,
-            &key_pair.public_key,
-        )
-        .context("Error signing struct")?;
-        info!("Signed json from foo {}", namespace.json().unwrap());
+        namespace
+            .sign_json(
+                JwsSignatureAlgorithms::RS512,
+                &key_pair.private_key,
+                &key_pair.public_key,
+            )
+            .context("Error signing struct")?;
+        info!("Signed json {}", namespace.json().unwrap());
 
         // Verify the signature and check the returned details.
         let attestations = namespace.verify_signature()?;
