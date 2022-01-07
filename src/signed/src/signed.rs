@@ -654,7 +654,7 @@ fn unicode_32_bit_to_string(u: &[u32]) -> String {
 }
 
 // Now with millisecond precision and time zone "Z"
-fn now_as_iso8601_string() -> String {
+pub fn now_as_iso8601_string() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
