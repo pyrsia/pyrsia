@@ -12,6 +12,7 @@ use std::process;
 use synapse_rpc::message::{self, CMessage, SMessage};
 use rpc::criterion::{Criterion, Operation, Value};
 use rpc::resource::{CResourceUpdate, Resource, ResourceKind, SResourceUpdate, Server};
+use super::error::{ErrorKind, Result, ResultExt};
 
 use url::Url;
 use super::client::Client;
