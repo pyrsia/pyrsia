@@ -69,7 +69,6 @@
 mod tests {
     extern crate anyhow;
     extern crate derive_builder;
-    extern crate pyrsia_client_lib;
     extern crate serde;
     extern crate signed;
 
