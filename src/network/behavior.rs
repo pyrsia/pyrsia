@@ -116,7 +116,11 @@ impl NetworkBehaviourEventProcess<gossipsub::GossipsubEvent> for MyBehaviour {
                 let pass = "donthackme";
                 let directory: Option<&str> = Some("/tmp");
                 let files: Vec<&str> = vec![msg_data.as_str()];
-                super::torrent::add_torrent(server, pass, directory, files);
+                let r = super::torrent::add_torrent(server, pass, directory, files);
+                match futures::executor::block_on(r) {
+                    Err(e) => info!("Error: {}", e),
+                    _ => info!("Added magnet {}", msg_data),
+                };
                 // This should kick-off the download
             } else {
                 info!(
