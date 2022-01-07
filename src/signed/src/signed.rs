@@ -16,52 +16,11 @@
 
 //! This module defines structs and traits that are used to implement _signed structs_. A signed
 //! struct has associated with it a JSON representation of the struct's contents that are signed.
+//! This is our way of signing data and verifying signatures.
 //!
-//! The signed JSON associated with a struct can be stored or sent in a message as a representation
-//! of the contents of the struct. The signatures can be validated to verify that the contents of
-//! the JSON have not been modified since the JSON was signed. Multiple signatures can be applied to
-//! a signed struct.
-//!
-//! The first thing that you will do with this module is to use its `create_key_pair` function to
-//! create a key pair. You will use the private key in the key pair to sign structs. The public key
-//! is used to identify the signer.
-//! ```
-//! // Use adjecent crate (as dictated by Rust)
-//! use signed::signed::{SignatureKeyPair, create_key_pair, JwsSignatureAlgorithms};
-//! let key_pair: SignatureKeyPair = create_key_pair(JwsSignatureAlgorithms::RS512).unwrap();
-//! ```
-//!
-//! The next thing to do is define some signed structs. Signed structs implement the `Signed` trait.
-//! However, it is not recommended that you implement the `Signed` trait directly. Instead, you
-//! should annotate the struct like this <br>
-//! `   #[signed_struct]` <br>
-//! `   struct Foo<'a> {` <br>
-//! `       foo: String,` <br>
-//! `       bar: u32,` <br>
-//! `       zot: &'a str,` <br>
-//! `   }` <br>
-//!
-//! This annotation runs a macro that add some fields to support the Signed trait, implements the
-//! signed trait, and generates getters and setters for the struct. There is not a full example of
-//! its use here to avoid Cargo complaining about a circular dependency. You can see a detailed
-//! example in the source for `signed_struct/tests/lib.rs'. This is the best example of how to use
-//! signed struct. You should read it.
-//!
-//! Getters are generated with the signature `fn field(&self) -> &type`.
-//!
-//! Setters are generated as `fn field(&mut self, val: type)`. In addition to setting their field,
-//! the setters also call the `clear_json()` method provided by the `Signed` trait. This removes
-//! any JSON currently associated with the struct because it is no longer valid after the struct's
-//! field has been modified.
-//!
-//! You should not create instances of the struct directly. Instead, you should use the generated
-//! `new` method. To create an instance of the `Foo` struct shown above, you could write something
-//! like this: <br>
-//! `let foo = Foo::new(foo_value, bar_value, zot_value);`
-//!
-//! It is recommended that signed structs be defined in a separate module that contains just the
-//! signed struct. This is so that nothing but the generated getters and setters can access the
-//! struct's fields.  Note that signed structs are not allowed to have public fields.
+//! This should not be used directly, but using the<br>
+//! #[signed]
+//! macro. This is documented in `src/signed_struct/tests/lib.rs
 
 extern crate anyhow;
 extern crate base64;
@@ -366,9 +325,9 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     }
 }
 
-fn unwrap<'a, T>(o: &'a Option<T>) -> &'a T {
+fn unwrap<T>(o: &Option<T>) -> &T {
     match o {
-        Some(t) => &t,
+        Some(t) => t,
         None => panic!("unwrapped None"),
     }
 }
@@ -403,7 +362,7 @@ fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> 
                 );
                 let this_attestation =
                     verify_one_signature(before_signatures, this_signature, after_signatures)
-                        .unwrap_or_else(|_| EMPTY_ATTESTATION);
+                        .unwrap_or(EMPTY_ATTESTATION);
                 if this_attestation.signature_is_valid {
                     valid_signature_count += 1;
                 }
@@ -514,22 +473,22 @@ fn verify_one_signature(
                     Ok(verifier) => verifier,
                     Err(_) => return false,
                 };
-                if let Err(_) = verifier.set_rsa_padding(Padding::PKCS1_PSS) {
+                if verifier.set_rsa_padding(Padding::PKCS1_PSS).is_err() {
                     return false;
                 }
                 if log_enabled!(Trace) {
                     trace!("Verification header: {}", encoded_jws_header);
                     trace_u8_slice_output("jws header", &decoded_jws_header[..]);
                 }
-                if let Err(_) = verifier.update(encoded_jws_header.as_bytes()) {
+                if verifier.update(encoded_jws_header.as_bytes()).is_err() {
                     return false;
                 }
                 trace_u8_slice_output("Verification before", before_signatures_bytes);
-                if let Err(_) = verifier.update(before_signatures_bytes) {
+                if verifier.update(before_signatures_bytes).is_err() {
                     return false;
                 }
                 trace_u8_slice_output("after", after_signatures_bytes);
-                if let Err(_) = verifier.update(after_signatures_bytes) {
+                if verifier.update(after_signatures_bytes).is_err() {
                     return false;
                 }
                 verifier.verify(&decoded_signature).is_ok()
@@ -540,11 +499,9 @@ fn verify_one_signature(
 
 fn trace_u8_slice_output(label: &str, slice: &[u8]) {
     if log_enabled!(Trace) {
-        let mut i = 0;
         trace!("{} size={}", label, slice.len());
-        for byte in slice {
+        for (i, byte) in slice.iter().enumerate() {
             trace!("[{}] = {}", i, byte);
-            i += 1;
         }
     }
 }
@@ -650,7 +607,7 @@ fn create_jws(
         "Signing: SignatureAlgorithm={:?}\nbefore={}\nafter={}\nheader{:?}",
         signature_algorithm, before, after, header
     );
-    let encoded_header = encode_header(header.clone())?;
+    let encoded_header = encode_header(header)?;
     if log_enabled!(Trace) {
         trace!(
             "Signing header: {}",
@@ -1105,7 +1062,6 @@ mod tests {
     use json_parser::*;
     use log::info;
 
-    //noinspection NonAsciiCharacters
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
     struct Foo<'a> {
         foo: &'a str,

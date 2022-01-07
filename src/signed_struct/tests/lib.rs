@@ -14,6 +14,54 @@
    limitations under the License.
 */
 
+//!
+//! The signed JSON associated with a struct can be stored or sent in a message as a representation
+//! of the contents of the struct. The signatures can be validated to verify that the contents of
+//! the JSON have not been modified since the JSON was signed. Multiple signatures can be applied to
+//! a signed struct.
+//!
+//! The first thing that you will do with this module is to use its `create_key_pair` function to
+//! create a key pair. You will use the private key in the key pair to sign structs. The public key
+//! is used to identify the signer.
+//! ```
+//! // Use adjecent crate (as dictated by Rust)
+//! use signed::signed::{SignatureKeyPair, create_key_pair, JwsSignatureAlgorithms};
+//! let key_pair: SignatureKeyPair = create_key_pair(JwsSignatureAlgorithms::RS512).unwrap();
+//! ```
+//!
+//! The next thing to do is define some signed structs. Signed structs implement the `Signed` trait.
+//! However, it is not recommended that you implement the `Signed` trait directly. Instead, you
+//! should annotate the struct like this <br>
+//! `   #[signed_struct]` <br>
+//! `   struct Foo<'a> {` <br>
+//! `       foo: String,` <br>
+//! `       bar: u32,` <br>
+//! `       zot: &'a str,` <br>
+//! `   }` <br>
+//!
+//! This annotation runs a macro that add some fields to support the Signed trait, implements the
+//! signed trait, and generates getters and setters for the struct. There is not a full example of
+//! its use here to avoid Cargo complaining about a circular dependency. You can see a detailed
+//! example in the source for `signed_struct/tests/lib.rs'. This is the best example of how to use
+//! signed struct. You should read it.
+//!
+//! Getters are generated with the signature `fn field(&self) -> &type`.
+//!
+//! Setters are generated as `fn field(&mut self, val: type)`. In addition to setting their field,
+//! the setters also call the `clear_json()` method provided by the `Signed` trait. This removes
+//! any JSON currently associated with the struct because it is no longer valid after the struct's
+//! field has been modified.
+//!
+//! You should not create instances of the struct directly. Instead, you should use the generated
+//! `new` method. To create an instance of the `Foo` struct shown above, you could write something
+//! like this: <br>
+//! `let foo = Foo::new(foo_value, bar_value, zot_value);`
+//!
+//! It is recommended that signed structs be defined in a separate module that contains just the
+//! signed struct. This is so that nothing but the generated getters and setters can access the
+//! struct's fields.  Note that signed structs are not allowed to have public fields.
+
+
 /// This test shows how to use the <br>
 /// `#[signed_struct]`<br>
 /// macro
@@ -149,7 +197,7 @@ mod tests {
         assert_eq!(attestations2.len(), 1);
 
         // Check that the signature information is as expected.
-        let attestation = &attestations2[0];
+        let attestation = &attestations[0];
         assert!(attestation.signature_is_valid());
         assert!(attestation.signature_algorithm().is_some());
         assert_eq!(

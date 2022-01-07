@@ -181,7 +181,7 @@ fn builder_attribute() -> Attribute {
             leading_colon: None,
             segments: punctuated,
         },
-        tokens: quote! {(setter(into, strip_option), default)}.into(),
+        tokens: quote! {(setter(into, strip_option), default)},
     }
 }
 
