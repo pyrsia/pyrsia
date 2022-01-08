@@ -153,8 +153,8 @@ async fn main() {
     // We need to have two channels (to seperate the handling)
     // 1. API to main
     // 2. main to API
-    let (blocks_get_tx_to_main, mut blocks_get_rx) = mpsc::channel(32); // Request Channel
-    let (blocks_get_tx_answer, blocks_get_rx_answers_from_main) = mpsc::channel(32); // Response Channel
+    let (blocks_get_tx_to_main, mut blocks_get_rx_from_api) = mpsc::channel(32); // Request Channel
+    let (blocks_get_tx_answer_to_api, blocks_get_rx_answers_from_main) = mpsc::channel(32); // Response Channel
 
     let docker_routes = make_docker_routes(b1, tx1);
     let routes = docker_routes.or(make_node_routes(
@@ -200,7 +200,7 @@ async fn main() {
                     //SwarmEvent::Behaviour(e) => panic!("Unexpected event: {:?}", e),
                     None
                 },
-                get_blocks_request_input = blocks_get_rx.recv() => //BlockChain::handle_api_requests(),
+                get_blocks_request_input = blocks_get_rx_from_api.recv() => //BlockChain::handle_api_requests(),
 
                 // Channels are only one type (both tx and rx must match)
                 // We need to have two channel for each API call to send and receive
@@ -210,7 +210,7 @@ async fn main() {
                     info!("Processessing 'GET /blocks' {} request", get_blocks_request_input.unwrap());
                     let bc1 = bc.clone();
                     let block_chaing_instance = bc1.lock().await.clone();
-                    blocks_get_tx_answer.send(block_chaing_instance).await.expect("send to work");
+                    blocks_get_tx_answer_to_api.send(block_chaing_instance).await.expect("send to work");
 
                     None
                 }
