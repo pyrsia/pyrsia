@@ -557,6 +557,7 @@ mod tests {
         );
         assert!(package_version.description().is_none());
         assert_eq!(5, package_version.artifacts().len());
+
         assert_eq!(64, package_version.artifacts()[0].hash().len());
         assert_eq!(
             HashAlgorithm::SHA512,
@@ -589,7 +590,7 @@ mod tests {
         Ok(())
     }
 
-    //#[test]
+    #[test]
     fn package_version_from_image_list() -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V2_IMAGE);
         let hash: Vec<u8> = raw_sha512(json_bytes.to_vec()).to_vec();
@@ -618,21 +619,47 @@ mod tests {
         );
         assert!(package_version.description().is_none());
         assert_eq!(5, package_version.artifacts().len());
-        assert_eq!(32, package_version.artifacts()[0].hash().len());
+
+        assert_eq!(64, package_version.artifacts()[0].hash().len());
         assert_eq!(
-            HashAlgorithm::SHA256,
+            HashAlgorithm::SHA512,
             *package_version.artifacts()[0].algorithm()
         );
         assert!(package_version.artifacts()[0].name().is_none());
         assert!(package_version.artifacts()[0].creation_time().is_none());
         assert!(package_version.artifacts()[0].url().is_none());
-        assert!(package_version.artifacts()[0].size().is_none());
+        assert_eq!(
+            u64::try_from(MANIFEST_V2_IMAGE.len())?,
+            package_version.artifacts()[0].size().unwrap()
+        );
         match package_version.artifacts()[0].mime_type() {
-            Some(mime_type) => assert_eq!(MIME_TYPE_BLOB_GZIPPED, mime_type),
+            Some(mime_type) => assert_eq!(MEDIA_TYPE_IMAGE_MANIFEST, mime_type),
             None => assert!(false),
         }
         assert!(package_version.artifacts()[0].metadata().is_empty());
         assert!(package_version.artifacts()[0].source_url().is_none());
+
+        assert!(package_version.artifacts()[1].name().is_none());
+        assert!(package_version.artifacts()[1].creation_time().is_none());
+        assert!(package_version.artifacts()[1].url().is_none());
+        assert!(package_version.artifacts()[1].size().is_none());
+        match package_version.artifacts()[1].mime_type() {
+            Some(mime_type) => assert_eq!(MIME_TYPE_BLOB_GZIPPED, mime_type),
+            None => assert!(false),
+        }
+        assert!(package_version.artifacts()[1].metadata().is_empty());
+        assert!(package_version.artifacts()[1].source_url().is_none());
+
+        assert!(package_version.artifacts()[2].name().is_none());
+        assert!(package_version.artifacts()[2].creation_time().is_none());
+        assert!(package_version.artifacts()[2].url().is_none());
+        assert!(package_version.artifacts()[2].size().is_none());
+        match package_version.artifacts()[2].mime_type() {
+            Some(mime_type) => assert_eq!(MIME_TYPE_BLOB_GZIPPED, mime_type),
+            None => assert!(false),
+        }
+        assert!(package_version.artifacts()[2].metadata().is_empty());
+        assert!(package_version.artifacts()[2].source_url().is_none());
         Ok(())
     }
 }
