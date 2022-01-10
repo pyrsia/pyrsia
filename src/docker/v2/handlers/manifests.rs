@@ -20,9 +20,9 @@ use super::{RegistryError, RegistryErrorCode};
 
 use crate::artifact_manager;
 use crate::artifact_manager::HashAlgorithm;
-use crate::node_manager::model::artifact::Artifact;
+use crate::node_manager::model::artifact::{Artifact, ArtifactBuilder};
 use crate::node_manager::model::package_type::PackageTypeName;
-use crate::node_manager::model::package_version::PackageVersion;
+use crate::node_manager::model::package_version::{PackageVersion, PackageVersionBuilder};
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
@@ -279,6 +279,8 @@ fn package_version_from_manifest_json(
 
 const FS_LAYERS: &str = "fsLayers";
 
+const MIME_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.tar.gzip";
+
 fn package_version_from_schema1(
     json_object: &Map<String, Value>,
 ) -> Result<PackageVersion, anyhow::Error> {
@@ -299,49 +301,42 @@ fn package_version_from_schema1(
         .context("invalid fsLayers")?;
     let mut artifacts: Vec<Artifact> = Vec::new();
     for fslayer in fslayers {
-        let hex_digest = fslayer
-            .as_object()
-            .context("invalid fslayer")?
-            .get("blobSum")
-            .context("missing blobSum")?
-            .as_str()
-            .context("invalid blobSum")?;
-        if !hex_digest.starts_with("sha256:") {
-            return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
-        }
-        let digest = hex::decode(&hex_digest["sha256:".len()..])?;
-        artifacts.push(Artifact::new(
-            digest,
-            HashAlgorithm::SHA256,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Map::new(),
-            None,
-        ))
+        add_fslayers(&mut artifacts, fslayer)?;
     }
-    Ok(PackageVersion::new(
-        String::from(
+    Ok(PackageVersionBuilder::default()
+        .id(String::from(
             Uuid::new_v4()
                 .to_simple()
                 .encode_lower(&mut Uuid::encode_buffer()),
-        ),
-        String::from(DOCKER_NAMESPACE_ID),
-        String::from(manifest_name),
-        PackageTypeName::Docker,
-        String::from(manifest_tag),
-        None,
-        None,
-        None,
-        Map::new(),
-        None,
-        None,
-        Vec::new(),
-        None,
-        artifacts,
-    ))
+        ))
+        .namespace_id(DOCKER_NAMESPACE_ID.to_string())
+        .name(String::from(manifest_name))
+        .pkg_type(PackageTypeName::Docker)
+        .version(String::from(manifest_tag))
+        .artifacts(artifacts)
+        .build()?)
+}
+
+fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), anyhow::Error> {
+    let hex_digest = fslayer
+        .as_object()
+        .context("invalid fslayer")?
+        .get("blobSum")
+        .context("missing blobSum")?
+        .as_str()
+        .context("invalid blobSum")?;
+    if !hex_digest.starts_with("sha256:") {
+        return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
+    }
+    let digest = hex::decode(&hex_digest["sha256:".len()..])?;
+    artifacts.push(
+        ArtifactBuilder::default()
+            .algorithm(HashAlgorithm::SHA256)
+            .hash(digest)
+            .mime_type(MIME_TYPE_BLOB_GZIPPED.to_string())
+            .build()?,
+    );
+    Ok(())
 }
 
 fn package_version_from_schema2(
@@ -425,51 +420,6 @@ mod tests {
          "protected": "eyJmb3JtYXRMZW5ndGgiOjY2MjgsImZvcm1hdFRhaWwiOiJDbjAiLCJ0aW1lIjoiMjAxNS0wNC0wOFQxODo1Mjo1OVoifQ"
       }]}"##;
 
-    const MANIFEST_V2_IMAGE_JSON: &str = r##"{
-	"schemaVersion": 2,
-	"mediaType": "application/vnd.docker.distribution.manifest.v2+json",
-	"config": {
-		"mediaType": "application/vnd.docker.container.image.v1+json",
-		"size": 5215,
-		"digest": "sha256:b138b9264903f46a43e1c750e07dc06f5d2a1bd5d51f37fb185bc608f61090dd"
-	},
-	"layers": [
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 32034160,
-			"digest": "sha256:473ede7ed136b710ab2dd51579af038b7d00fbbf6a1790c6294c93666203c0a6"
-		},
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 843,
-			"digest": "sha256:c46b5fa4d940569e49988515c1ea0295f56d0a16228d8f854e27613f467ec892"
-		},
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 554,
-			"digest": "sha256:93ae3df89c92cb1d20e9c09f499e693d3a8a8cef161f7158f7a9a3b5d06e4ef2"
-		},
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 162,
-			"digest": "sha256:6b1eed27cadec5de8051d56697b0b67527e4076deedceefb41b7b2ea9b900459"
-		},
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 169218938,
-			"digest": "sha256:0373952b589d2d14782a35c2e67826e80c814e5d3ae41370a6dc89ed43c2e60b"
-		},
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 108979,
-			"digest": "sha256:7b82cd0ee5279a665a15cb61719276284e769e4b980f46709b21e53183974eec"
-		},
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 12803584,
-			"digest": "sha256:a36b2d884a8941918fba8ffd1599b5187de99bd30c8aa112694fc5f8d024f506"
-		}]}"##;
-
     #[test]
     fn happy_put_manifest() -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
@@ -535,7 +485,10 @@ mod tests {
         assert!(package_version.artifacts()[0].creation_time().is_none());
         assert!(package_version.artifacts()[0].url().is_none());
         assert!(package_version.artifacts()[0].size().is_none());
-        assert!(package_version.artifacts()[0].mime_type().is_none());
+        match package_version.artifacts()[0].mime_type() {
+            Some(mime_type) => assert_eq!(MIME_TYPE_BLOB_GZIPPED, mime_type),
+            None => assert!(false),
+        }
         assert!(package_version.artifacts()[0].metadata().is_empty());
         assert!(package_version.artifacts()[0].source_url().is_none());
         Ok(())
