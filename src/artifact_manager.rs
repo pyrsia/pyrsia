@@ -80,7 +80,7 @@ impl Digester for Sha512 {
 
 /// The types of hash algorithms that the artifact manager supports
 
-#[derive(EnumIter, Debug, PartialEq, EnumString, Serialize, Deserialize)]
+#[derive(EnumIter, Clone, Debug, PartialEq, EnumString, Serialize, Deserialize)]
 pub enum HashAlgorithm {
     SHA256,
     SHA512,
@@ -162,6 +162,13 @@ impl<'a> Hash<'a> {
     ) -> Result<(), anyhow::Error> {
         let mut this_buf = path_buf.clone();
         this_buf.push(algorithm.hash_algorithm_to_str());
+        info!(
+            "Creating directory {}",
+            this_buf
+                .as_os_str()
+                .to_str()
+                .unwrap_or("*** Unable to convert artifact directory path to UTF-8!")
+        );
         fs::create_dir_all(this_buf.as_os_str())
             .with_context(|| format!("Error creating directory {}", this_buf.display()))?;
         Ok(())
