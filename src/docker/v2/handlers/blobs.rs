@@ -17,57 +17,71 @@
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use bytes::{Buf, Bytes};
-use log::{debug, error, info};
+use futures::stream::{FusedStream, Stream};
+use futures::task::{Context, Poll};
+use log::{debug, error, info, trace};
 use reqwest::{header, Client};
 use std::collections::HashMap;
 use std::fs;
 use std::io::prelude::*;
 use std::path::Path;
+use std::pin::Pin;
+use std::result::Result;
 use std::str;
 use uuid::Uuid;
-use warp::http::StatusCode;
-use warp::{Rejection, Reply};
+use warp::{http::StatusCode, Rejection, Reply};
 
-pub async fn handle_get_blobs(
-    tx: tokio::sync::mpsc::Sender<String>,
-    _name: String,
-    hash: String,
-) -> Result<impl Reply, Rejection> {
-    let blob = format!(
-        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
-        hash.get(7..9).unwrap(),
-        hash.get(7..).unwrap()
-    );
-    debug!("Searching for blob: {}", blob);
-    let blob_path = Path::new(&blob);
-    if !blob_path.exists() {
-        if let Err(_) = get_blob_from_docker_hub(&_name, &hash).await {
-            let mut send_message: String = "get_blobs | ".to_owned();
-            let hash_clone: String = hash.clone();
-            send_message.push_str(&hash_clone);
+#[derive(Clone, Debug)]
+pub struct GetBlobsHandle {
+    pending_hash_queries: Vec<String>,
+}
 
-            match tx.send(send_message).await {
-                Ok(_) => debug!("hash sent"),
-                Err(_) => error!("failed to send stdin input"),
-            }
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::BlobDoesNotExist(hash),
-            }));
+impl GetBlobsHandle {
+    pub fn new() -> GetBlobsHandle {
+        GetBlobsHandle {
+            pending_hash_queries: vec![],
         }
     }
 
-    if !blob_path.is_file() {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown("ITS_NOT_A_FILE".to_string()),
-        }));
+    pub fn send(mut self, message: String) {
+        self.pending_hash_queries.push(message)
+    }
+}
+
+impl Stream for GetBlobsHandle {
+    type Item = String;
+
+    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if self.pending_hash_queries.len() > 0 {
+            return Poll::Ready(self.pending_hash_queries.pop());
+        }
+
+        Poll::Pending
     }
 
-    info!("Reading blob from local Pyrsia storage: {}", blob);
-    let blob_content = fs::read(blob_path).map_err(|_| {
-        warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobUnknown,
-        })
-    })?;
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (
+            self.pending_hash_queries.len(),
+            Some(self.pending_hash_queries.capacity()),
+        )
+    }
+}
+
+impl FusedStream for GetBlobsHandle {
+    fn is_terminated(&self) -> bool {
+        false
+    }
+}
+
+pub async fn handle_get_blobs(
+    tx: GetBlobsHandle,
+    _name: String,
+    hash: String,
+) -> Result<impl Reply, Rejection> {
+    let mut send_message: String = "get_blobs | ".to_owned();
+    let hash_clone: String = hash.clone();
+    send_message.push_str(&hash_clone);
+    tx.send(send_message.clone());
 
     /*     debug!("Getting blob with hash : {:?}", hash);
 
@@ -94,6 +108,30 @@ pub async fn handle_get_blobs(
     };
     debug!("blob_content : {}", blob_content_len); */
 
+    let blob = format!(
+        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
+        hash.get(7..9).unwrap(),
+        hash.get(7..).unwrap()
+    );
+    debug!("Searching for blob: {}", blob);
+    let blob_path = Path::new(&blob);
+    if !blob_path.exists() {
+        get_blob_from_docker_hub(&_name, &hash).await?;
+    }
+
+    if !blob_path.is_file() {
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown("ITS_NOT_A_FILE".to_string()),
+        }));
+    }
+
+    info!("Reading blob from local Pyrsia storage: {}", blob);
+    let blob_content = fs::read(blob_path).map_err(|_| {
+        warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::BlobUnknown,
+        })
+    })?;
+
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
         .status(StatusCode::OK)
@@ -101,8 +139,23 @@ pub async fn handle_get_blobs(
         .unwrap())
 }
 
-pub async fn handle_post_blob(name: String) -> Result<impl Reply, Rejection> {
+pub async fn handle_post_blob(
+    tx: tokio::sync::mpsc::Sender<String>,
+    name: String,
+) -> Result<impl Reply, Rejection> {
     let id = Uuid::new_v4();
+
+    // These need to be advertised?
+    match tx.send(name.clone()).await {
+        Ok(_) => debug!("name sent"),
+        Err(_) => error!("failed to send name"),
+    }
+
+    trace!(
+        "Getting ready to start new upload for {} - {}",
+        name,
+        id.to_string()
+    );
 
     create_upload_directory(&name, &id.to_string()).map_err(RegistryError::from)?;
 

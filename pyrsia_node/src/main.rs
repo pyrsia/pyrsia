@@ -25,6 +25,7 @@ extern crate warp;
 
 use pyrsia::block_chain::*;
 use pyrsia::docker::error_util::*;
+use pyrsia::docker::v2::handlers::blobs::GetBlobsHandle;
 use pyrsia::docker::v2::routes::*;
 use pyrsia::document_store::document_store::DocumentStore;
 use pyrsia::document_store::document_store::IndexSpec;
@@ -136,6 +137,8 @@ async fn main() {
 
     let (tx, mut rx) = mpsc::channel(32);
 
+    let mut blobs_need_hash = GetBlobsHandle::new();
+    let b1 = blobs_need_hash.clone();
     //docker node specific tx
     let tx1 = tx.clone();
 
@@ -149,7 +152,7 @@ async fn main() {
     let my_stats1 = shared_stats.clone();
     let tx3 = tx.clone();
 
-    let docker_routes = make_docker_routes(tx1);
+    let docker_routes = make_docker_routes(b1, tx1);
     let routes = docker_routes.or(make_node_routes(tx2, my_stats, tx3, my_stats1));
 
     let (addr, server) = warp::serve(
@@ -173,10 +176,16 @@ async fn main() {
             tokio::select! {
                 line = stdin.next_line() => Some(EventType::Input(line.expect("can get line").expect("can read line from stdin"))),
                 message = rx.recv() => Some(EventType::Message(message.expect("message exists"))),
-               // response = rx.recv() => Some(EventType::Response(response.expect("response exists"))),
+
+                new_hash = blobs_need_hash.select_next_some() => {
+                    debug!("Looking for {}", new_hash);
+                    swarm.behaviour_mut().lookup_blob(new_hash).await;
+                    None
+                },
+
                 event = swarm.select_next_some() =>  {
                     if let SwarmEvent::NewListenAddr { address, .. } = event {
-                    info!("Listening on {:?}", address);
+                        info!("Listening on {:?}", address);
                     }
 
                     //SwarmEvent::Behaviour(e) => panic!("Unexpected event: {:?}", e),
