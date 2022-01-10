@@ -27,7 +27,7 @@ use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
 use log::{debug, error, info, warn};
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 use std::fs;
 use uuid::Uuid;
 use warp::http::StatusCode;
@@ -278,8 +278,10 @@ fn package_version_from_manifest_json(
 }
 
 const FS_LAYERS: &str = "fsLayers";
+const MEDIA_TYPE: &str = "mediaType";
 
 const MIME_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.tar.gzip";
+const MEDIA_TYPE_SCHEMA_1: &str = "application/vnd.docker.distribution.manifest.v1+json";
 
 fn package_version_from_schema1(
     json_object: &Map<String, Value>,
@@ -300,6 +302,8 @@ fn package_version_from_schema1(
         .as_array()
         .context("invalid fsLayers")?;
     let mut artifacts: Vec<Artifact> = Vec::new();
+    let mut metadata = Map::new();
+    metadata.insert(MEDIA_TYPE.to_string(),json!(MEDIA_TYPE_SCHEMA_1));
     for fslayer in fslayers {
         add_fslayers(&mut artifacts, fslayer)?;
     }
@@ -313,6 +317,7 @@ fn package_version_from_schema1(
         .name(String::from(manifest_name))
         .pkg_type(PackageTypeName::Docker)
         .version(String::from(manifest_tag))
+        .metadata(metadata)
         .artifacts(artifacts)
         .build()?)
 }
@@ -420,6 +425,33 @@ mod tests {
          "protected": "eyJmb3JtYXRMZW5ndGgiOjY2MjgsImZvcm1hdFRhaWwiOiJDbjAiLCJ0aW1lIjoiMjAxNS0wNC0wOFQxODo1Mjo1OVoifQ"
       }]}"##;
 
+    const MANIFEST_V2_IMAGE: &str = r##"{
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+    "config": {
+        "mediaType": "application/vnd.docker.container.image.v1+json",
+        "size": 7023,
+        "digest": "sha256:b5b2b2c507a0944348e0303114d8d93aaaa081732b86451d9bce1f432a537bc7"
+    },
+    "layers": [
+        {
+            "mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+            "size": 32654,
+            "digest": "sha256:e692418e4cbaf90ca69d05a66403747baa33ee08806650b51fab815ad7fc331f"
+        },
+        {
+            "mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+            "size": 16724,
+            "digest": "sha256:3c3a4604a545cdc127456d94e421cd355bca5b528f4a9c1905b15da2eb4a4c6b"
+        },
+        {
+            "mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+            "size": 73109,
+            "digest": "sha256:ec4b8955958665577945c89419d1af06b5f7636b4ac3da7f12184802ad867736"
+        }
+    ]
+}"##;
+
     #[test]
     fn happy_put_manifest() -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
@@ -462,7 +494,7 @@ mod tests {
     #[test]
     fn package_version_from_manifest() -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V1_JSON);
-        let package_version = package_version_from_manifest_bytes(&json_bytes, "test_pkg", "v1.4")?;
+        let package_version : PackageVersion = package_version_from_manifest_bytes(&json_bytes, "test_pkg", "v1.4")?;
         assert_eq!(32, package_version.id().len());
         assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
         assert_eq!("hello-world", package_version.name());
@@ -474,6 +506,8 @@ mod tests {
         assert!(package_version.creation_time().is_none());
         assert!(package_version.modified_time().is_none());
         assert!(package_version.tags().is_empty());
+        assert!(package_version.metadata().contains_key(MEDIA_TYPE));
+        assert_eq!(MEDIA_TYPE_SCHEMA_1, package_version.metadata()[MEDIA_TYPE].as_str().unwrap());
         assert!(package_version.description().is_none());
         assert_eq!(4, package_version.artifacts().len());
         assert_eq!(32, package_version.artifacts()[0].hash().len());
