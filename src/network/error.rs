@@ -3,28 +3,28 @@ use error_chain::error_chain;
 error_chain! {
     errors {
         FileIO {
-            description("Failed to perform file IO")
-                display("Failed to perform file IO")
+            description("Error performing file IO")
+                display("Unable to perform file IO")
         }
         Serialization {
-            description("Failed to serialize structure")
-                display("Failed to serialize structure")
+            description("Error serializing structure")
+                display("Unable to serialize structure")
         }
         Deserialization {
-            description("Failed to deserialize structure")
-                display("Failed to deserialize structure")
+            description("Error deserializing structure")
+                display("Unable to deserialize structure")
         }
         Websocket {
-            description("Failed to handle websocket client")
-                display("Failed to handle websocket client")
+            description("Failure handling websocket client")
+                display("Unable to handle websocket client")
         }
         HTTP {
-            description("HTTP transfer failed")
-                display("HTTP transfer failed")
+            description("Failure in HTTP transfer")
+                display("Unable to complete HTTP transfer")
         }
         Parse {
-            description("Failed to parse input")
-            display("Failed to parse input")
+            description("Failure parsing input")
+            display("Could not parse input")
         }
     }
 }

@@ -44,7 +44,7 @@ pub async fn add_torrent(
         url.as_str(),
         files,
         directory,
-        false, // paused
+        true, // paused
         false, // imported
     );
     return res;

@@ -13,6 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+extern crate dirs;
 
 use libp2p::{
     floodsub::{Floodsub, FloodsubEvent},
@@ -114,7 +115,8 @@ impl NetworkBehaviourEventProcess<gossipsub::GossipsubEvent> for MyBehaviour {
                 info!("Start downloading {}", msg_data);
                 let server = "ws://localhost:8412/";
                 let pass = "donthackme";
-                let directory: Option<&str> = Some("/tmp");
+                let download_dir = dirs::download_dir().unwrap().into_os_string().into_string().unwrap();
+                let directory: Option<&str> = Some(&download_dir);
                 let files: Vec<&str> = vec![msg_data.as_str()];
                 let r = super::torrent::add_torrent(server, pass, directory, files);
                 match futures::executor::block_on(r) {
