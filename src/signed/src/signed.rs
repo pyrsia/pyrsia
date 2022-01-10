@@ -16,72 +16,30 @@
 
 //! This module defines structs and traits that are used to implement _signed structs_. A signed
 //! struct has associated with it a JSON representation of the struct's contents that are signed.
+//! This is our way of signing data and verifying signatures.
 //!
-//! The signed JSON associated with a struct can be stored or sent in a message as a representation
-//! of the contents of the struct. The signatures can be validated to verify that the contents of
-//! the JSON have not been modified since the JSON was signed. Multiple signatures can be applied to
-//! a signed struct.
-//!
-//! The first thing that you will do with this module is to use its `create_key_pair` function to
-//! create a key pair. You will use the private key in the key pair to sign structs. The public key
-//! is used to identify the signer.
-//! ```
-//! // Use adjecent crate (as dictated by Rust)
-//! use signed::signed::{SignatureKeyPair, create_key_pair, JwsSignatureAlgorithms};
-//! let key_pair: SignatureKeyPair = create_key_pair(JwsSignatureAlgorithms::RS512).unwrap();
-//! ```
-//!
-//! The next thing to do is define some signed structs. Signed structs implement the `Signed` trait.
-//! However, it is not recommended that you implement the `Signed` trait directly. Instead, you
-//! should annotate the struct like this <br>
-//! `   #[signed_struct]` <br>
-//! `   struct Foo<'a> {` <br>
-//! `       foo: String,` <br>
-//! `       bar: u32,` <br>
-//! `       zot: &'a str,` <br>
-//! `   }` <br>
-//!
-//! This annotation runs a macro that add some fields to support the Signed trait, implements the
-//! signed trait, and generates getters and setters for the struct. There is not a full example of
-//! its use here to avoid Cargo complaining about a circular dependency. You can see a detailed
-//! example in the source for `signed_struct/tests/lib.rs'. This is the best example of how to use
-//! signed struct. You should read it.
-//!
-//! Getters are generated with the signature `fn field(&self) -> &type`.
-//!
-//! Setters are generated as `fn field(&mut self, val: type)`. In addition to setting their field,
-//! the setters also call the `clear_json()` method provided by the `Signed` trait. This removes
-//! any JSON currently associated with the struct because it is no longer valid after the struct's
-//! field has been modified.
-//!
-//! You should not create instances of the struct directly. Instead, you should use the generated
-//! `new` method. To create an instance of the `Foo` struct shown above, you could write something
-//! like this: <br>
-//! `let foo = Foo::new(foo_value, bar_value, zot_value);`
-//!
-//! It is recommended that signed structs be defined in a separate module that contains just the
-//! signed struct. This is so that nothing but the generated getters and setters can access the
-//! struct's fields.  Note that signed structs are not allowed to have public fields.
+//! This should not be used directly, but using the<br>
+//! #[signed]
+//! macro. This is documented in `src/signed_struct/tests/lib.rs
 
 extern crate anyhow;
 extern crate base64;
 extern crate chrono;
-extern crate detached_jws;
 extern crate log;
 extern crate openssl;
 extern crate serde;
-extern crate serde_jcs;
 extern crate serde_json;
 
 use std::char::REPLACEMENT_CHARACTER;
-use std::io::Write;
 use std::option::Option;
 
 use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
+use base64::decode_config;
+use base64::write::EncoderWriter;
 use chrono::{DateTime, SecondsFormat, Utc};
-use detached_jws::{DeserializeJwsWriter, SerializeJwsWriter};
-use log::{debug, trace, warn};
+use log::Level::Trace;
+use log::{debug, log_enabled, trace, warn};
 use openssl::pkey::{PKey, Private};
 use openssl::{
     hash::MessageDigest,
@@ -267,26 +225,6 @@ pub fn create_key_pair(
 /// confident that it has not been modified since it was signed. Because we are using JSON based
 /// signatures, when we deserialize JSON to a struct, to be considered signed, the struct must
 /// contain a reference to the JSON it was deserialized from, so we can still verify the signature.
-///
-/// Methods that modify the contents of a signed struct should discard its associated JSON by
-/// calling the clear_json method, since the JSON no longer matches that struct.
-///
-/// Given the above description of the purposes of the `Signed` trait, the descriptions of its
-/// methods should be understood in this context.
-///
-/// It is recommended for consistency that structs that implement this trait are declared
-/// like this with a field named `__json` to refer to the struct's json string:
-/// ```
-/// use serde::{Deserialize, Serialize};
-/// //noinspection NonAsciiCharacters
-/// #[derive(Serialize, Deserialize, Debug)]
-/// struct Foo<'a> {
-///   foo: &'a str,
-///   bar: u32,
-///   #[serde(skip)]
-///   _json: Option<String>
-/// }
-/// ```
 pub trait Signed<'a>: Deserialize<'a> + Serialize {
     /// Return as a string the signed JSON associated with this struct. Returns None if no
     /// signed JSON is currently associated with the struct.
@@ -326,7 +264,17 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
         private_key: &[u8],
         public_key: &[u8],
     ) -> Result<(), anyhow::Error> {
-        let target_json = string_to_unicode_32(&serde_jcs::to_string(self)?);
+        let existing_json = &self.json();
+        let new_json: String;
+        let starting_json: &String;
+        if existing_json.is_some() {
+            starting_json = unwrap(existing_json);
+        } else {
+            new_json = serde_json::to_string(self)?;
+            starting_json = &new_json;
+        };
+        debug!("Adding signature to json: {}", starting_json);
+        let target_json = string_to_unicode_32(starting_json);
         let signed_json = with_signer(
             signature_algorithm,
             private_key,
@@ -357,9 +305,17 @@ pub trait Signed<'a>: Deserialize<'a> + Serialize {
     }
 }
 
+fn unwrap<T>(o: &Option<T>) -> &T {
+    match o {
+        Some(t) => t,
+        None => panic!("unwrapped None"),
+    }
+}
+
 fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> {
     debug!("Verifying signatures: {}", json);
     let mut signature_count = 0;
+    let mut valid_signature_count = 0;
     let json32 = string_to_unicode_32(json);
     let JsonStringSlices {
         before_signatures,
@@ -384,11 +340,13 @@ fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> 
                     "verify_json_signature: this_signature={}",
                     unicode_32_bit_to_string(this_signature)
                 );
-                attestations.push(verify_one_signature(
-                    before_signatures,
-                    this_signature,
-                    after_signatures,
-                ))
+                let this_attestation =
+                    verify_one_signature(before_signatures, this_signature, after_signatures)
+                        .unwrap_or(EMPTY_ATTESTATION);
+                if this_attestation.signature_is_valid {
+                    valid_signature_count += 1;
+                }
+                attestations.push(this_attestation);
             }
             Err(_) => {
                 trace!("No more signatures");
@@ -399,9 +357,12 @@ fn verify_json_signature(json: &str) -> Result<Vec<Attestation>, anyhow::Error> 
     }
     trace!("signature_count={}", signature_count);
     if signature_count == 0 {
-        return Err(anyhow!(NOT_SIGNED));
+        Err(anyhow!(NOT_SIGNED))
+    } else if valid_signature_count == 0 {
+        Err(anyhow!("No valid signatures"))
+    } else {
+        Ok(attestations)
     }
-    Ok(attestations)
 }
 
 // Since the purpose of this function is to find the index of an element in a slice, it really does
@@ -450,80 +411,89 @@ fn verify_one_signature(
     before_signatures: &[u32],
     this_jws: &[u32],
     after_signatures: &[u32],
-) -> Attestation {
-    trace!(
-        "verify_one_signature: before=\"{}\"; after=\"{}\"; jws=\"{}\"",
-        unicode_32_bit_to_string(before_signatures),
-        unicode_32_bit_to_string(after_signatures),
+) -> Result<Attestation> {
+    let before_signatures_string = unicode_32_bit_to_string(before_signatures);
+    let after_signatures_string = unicode_32_bit_to_string(after_signatures);
+    debug!(
+        "verify_one_signature: before={}\n; after={}\n; jws={}",
+        &before_signatures_string,
+        &after_signatures_string,
         unicode_32_bit_to_string(this_jws)
     );
+    let before_signatures_bytes = before_signatures_string.as_bytes();
+    let after_signatures_bytes = after_signatures_string.as_bytes();
     // this_signature is a json string that contains a JWS. We will ignore the enclosing quotes and get the content as a string that is a JWS.
     let jws = unicode_32_bit_to_string(&this_jws[1..this_jws.len() - 1]);
-    let jws_header = match header_from_jws(&jws) {
-        Some(string) => string,
-        None => return EMPTY_ATTESTATION,
+    let (encoded_jws_header, encoded_signature) = match split_jws(&jws) {
+        Some((encoded_jws_header, encoded_signature)) => (encoded_jws_header, encoded_signature),
+        None => return Ok(EMPTY_ATTESTATION),
     };
-    let mut attestation = Attestation::from_json(&jws_header);
+    let decoded_signature = base64::decode_config(encoded_signature, base64::STANDARD_NO_PAD)?;
+    let decoded_jws_header = base64::decode_config(&encoded_jws_header, base64::STANDARD_NO_PAD)?;
+    let decoded_jws_header_string = String::from_utf8(decoded_jws_header.clone())?;
+    debug!(
+        "validating JWS with header: \"{}\"",
+        decoded_jws_header_string
+    );
+    let mut attestation = Attestation::from_json(&decoded_jws_header_string);
     attestation.signature_is_valid = attestation.public_key.as_ref().map_or(false, |public_key| {
         attestation
             .signature_algorithm
             // This is RSA specific. This should be generalized to support other types of signatures.
             .map_or(false, |alg| {
-                Rsa::public_key_from_der(public_key).map_or(false, |rsa_key| {
-                    PKey::from_rsa(rsa_key).map_or(false, |pkey| {
-                        Verifier::new(alg.as_message_digest(), &pkey).map_or(
-                            false,
-                            |mut verifier| {
-                                verifier
-                                    .set_rsa_padding(Padding::PKCS1_PSS)
-                                    .map_or(false, |_| {
-                                        DeserializeJwsWriter::new(&jws, |_| Some(verifier)).map_or(
-                                            false,
-                                            |mut writer| {
-                                                writer
-                                                    .write(
-                                                        unicode_32_bit_to_string(before_signatures)
-                                                            .as_bytes(),
-                                                    )
-                                                    .map_or(false, |_| {
-                                                        writer
-                                                            .write(
-                                                                unicode_32_bit_to_string(
-                                                                    after_signatures,
-                                                                )
-                                                                .as_bytes(),
-                                                            )
-                                                            .map_or(false, |_| {
-                                                                writer
-                                                                    .finish()
-                                                                    .map_or(false, |_| true)
-                                                            })
-                                                    })
-                                            },
-                                        )
-                                    })
-                            },
-                        )
-                    })
-                })
+                let rsa_key = match Rsa::public_key_from_der(public_key) {
+                    Ok(rsa_key) => rsa_key,
+                    Err(_) => return false,
+                };
+                let pkey = match PKey::from_rsa(rsa_key) {
+                    Ok(pkey) => pkey,
+                    Err(_) => return false,
+                };
+                let mut verifier = match Verifier::new(alg.as_message_digest(), &pkey) {
+                    Ok(verifier) => verifier,
+                    Err(_) => return false,
+                };
+                if verifier.set_rsa_padding(Padding::PKCS1_PSS).is_err() {
+                    return false;
+                }
+                if log_enabled!(Trace) {
+                    trace!("Verification header: {}", encoded_jws_header);
+                    trace_u8_slice_output("jws header", &decoded_jws_header[..]);
+                }
+                if verifier.update(encoded_jws_header.as_bytes()).is_err() {
+                    return false;
+                }
+                trace_u8_slice_output("Verification before", before_signatures_bytes);
+                if verifier.update(before_signatures_bytes).is_err() {
+                    return false;
+                }
+                trace_u8_slice_output("after", after_signatures_bytes);
+                if verifier.update(after_signatures_bytes).is_err() {
+                    return false;
+                }
+                verifier.verify(&decoded_signature).is_ok()
             })
     });
-    attestation
+    Ok(attestation)
 }
 
-fn header_from_jws(jws: &str) -> Option<String> {
+fn trace_u8_slice_output(label: &str, slice: &[u8]) {
+    if log_enabled!(Trace) {
+        trace!("{} size={}", label, slice.len());
+        for (i, byte) in slice.iter().enumerate() {
+            trace!("[{}] = {}", i, byte);
+        }
+    }
+}
+
+fn split_jws(jws: &str) -> Option<(String, String)> {
     let first_dot_index = match jws.find('.') {
         Some(i) => i,
         None => return None,
     };
-    // if decode fails treat it as a missing signature. Because this is security, we don't want to be helpful if the JWS is not correctly formatted.
-    match base64::decode_config(&jws[..first_dot_index], base64::STANDARD_NO_PAD) {
-        Ok(decoded_json) => match String::from_utf8(decoded_json) {
-            Ok(string) => Some(string),
-            Err(_) => None,
-        },
-        Err(_) => None,
-    }
+    let encoded_header = &jws[..first_dot_index];
+    let encoded_signature = &jws[first_dot_index + 2..];
+    Some((encoded_header.to_string(), encoded_signature.to_string()))
 }
 
 // preprocess a json string to a Vec<32> whose elements each contain exactly one unicode character.
@@ -578,9 +548,8 @@ fn add_signature(
         target_json,
         &[json_parser::JsonPathElement::Field(SIGNATURE_FIELD_NAME)],
     )?;
-    let header = create_jsw_header(der_public_key);
-    let mut before_string = unicode_32_bit_to_string(before_target);
-    before_string.push(',');
+    let header = create_jsw_header(der_public_key, signature_algorithm)?;
+    let before_string = unicode_32_bit_to_string(before_target);
     let after_string = unicode_32_bit_to_string(after_target);
     let jws = create_jws(
         signature_algorithm,
@@ -590,10 +559,10 @@ fn add_signature(
         header,
     )?;
     let jws_string = String::from_utf8(jws)?;
-    let mut signed_json_buffer = before_string.clone();
+    let mut signed_json_buffer = before_string;
     if target.is_empty() {
         // No existing signatures
-        signed_json_buffer.push('"');
+        signed_json_buffer.push_str(r#",""#);
         signed_json_buffer.push_str(SIGNATURE_FIELD_NAME);
         signed_json_buffer.push_str(r#"":[""#);
     } else {
@@ -608,21 +577,50 @@ fn add_signature(
 
 fn create_jws(
     signature_algorithm: JwsSignatureAlgorithms,
-    signer: Signer,
+    mut signer: Signer,
     before: &str,
     after: &str,
     header: Map<String, Value>,
 ) -> Result<Vec<u8>, anyhow::Error> {
-    let mut writer = SerializeJwsWriter::new(
-        Vec::new(),
-        signature_algorithm.to_jws_name(),
-        header,
-        signer,
-    )?;
-    writer.write_all(before.as_bytes())?;
-    writer.write_all(after.as_bytes())?;
-    let jws = writer.finish()?;
+    debug!(
+        "Signing: SignatureAlgorithm={:?}\nbefore={}\nafter={}\nheader{:?}",
+        signature_algorithm, before, after, header
+    );
+    let encoded_header = encode_header(header)?;
+    if log_enabled!(Trace) {
+        trace!(
+            "Signing header: {}",
+            String::from_utf8(encoded_header.clone())?
+        );
+        trace!(
+            "Decoded header: {}",
+            String::from_utf8(decode_config(
+                encoded_header.clone(),
+                base64::STANDARD_NO_PAD
+            )?)?
+        );
+        trace_u8_slice_output("Signing header", &encoded_header);
+    }
+    signer.update(&encoded_header)?;
+
+    trace_u8_slice_output("signing before", before.as_bytes());
+    signer.update(before.as_bytes())?;
+    trace_u8_slice_output("signing after", after.as_bytes());
+    signer.update(after.as_bytes())?;
+    let signature = signer.sign_to_vec()?;
+    let mut jws = vec![];
+    jws.extend(encoded_header);
+    jws.push(b'.');
+    jws.push(b'.');
+    jws.extend(base64::encode_config(signature, base64::STANDARD_NO_PAD).as_bytes());
+    debug!("Encoded jws:{}", &String::from_utf8(jws.clone())?);
     Ok(jws)
+}
+
+fn encode_header(header: Map<String, Value>) -> Result<Vec<u8>> {
+    let mut encoder = EncoderWriter::new(Vec::new(), base64::STANDARD_NO_PAD);
+    serde_json::to_writer(&mut encoder, &header)?;
+    Ok(encoder.finish()?)
 }
 
 fn unicode_32_bit_to_string(u: &[u32]) -> String {
@@ -633,12 +631,18 @@ fn unicode_32_bit_to_string(u: &[u32]) -> String {
 }
 
 // Now with millisecond precision and time zone "Z"
-fn now_as_iso8601_string() -> String {
+pub fn now_as_iso8601_string() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
-fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
+fn create_jsw_header(
+    public_key: &[u8],
+    signature_algorithm: JwsSignatureAlgorithms,
+) -> Result<Map<String, Value>> {
     let mut header = Map::new();
+    let jws_algorithm = signature_algorithm.to_jws_name();
+
+    header.insert(ALG_FIELD_NAME.to_owned(), json!(jws_algorithm));
     header.insert(
         SIGNER_FIELD_NAME.to_owned(),
         json!(base64::encode_config(public_key, base64::STANDARD_NO_PAD)),
@@ -649,7 +653,7 @@ fn create_jsw_header(public_key: &[u8]) -> Map<String, Value> {
         TIMESTAMP_FIELD_NAME.to_owned(),
         json!(format!("{:?}", now_string)),
     );
-    header
+    Ok(header)
 }
 
 /// Lightweight JSON parser to identify the portion of a slice before and after a value, so that the
@@ -1037,27 +1041,30 @@ mod tests {
     use json_parser::*;
     use log::info;
 
-    //noinspection NonAsciiCharacters
+    // This struct is use by the tests
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    struct Foo<'a> {
-        foo: &'a str,
-        bar: u32,
-        zot: &'a str,
+    struct Namespace {
+        id: String,
+        namespace_path: Vec<String>,
+        revision_count: u32,
+        description: Option<String>,
+        creation_time: String,
+        // This contains the JSON associated with the struct. It must not be serialized with the rest of the struct.
         #[serde(skip)]
-        _json: Option<String>,
+        _json0: Option<String>,
     }
 
-    impl<'a> Signed<'a> for Foo<'a> {
+    impl Signed<'_> for Namespace {
         fn json(&self) -> Option<String> {
-            self._json.to_owned()
+            self._json0.to_owned()
         }
 
         fn clear_json(&mut self) {
-            self._json = None;
+            self._json0 = None;
         }
 
         fn set_json(&mut self, json: &str) {
-            self._json = Option::Some(json.to_string())
+            self._json0 = Option::Some(json.to_string())
         }
     }
 
@@ -1073,9 +1080,11 @@ mod tests {
 
     #[test]
     // The purpose of the parse function that this tests is to find a specified object field or
-    // array element in a given JSON string. The parse function returns three slices of the original
-    // string: the target that is was looking for, the portion of the string before the target and
-    // the portion of the string after the target.
+    // array element in a given JSON string. This is called the target.
+    //
+    // The parse function returns three slices of the original string: the target that is was
+    // looking for, the portion of the string before the target and the portion of the string after
+    // the target.
     //
     // This test specifies a piece of JSON that includes all of the cases that need to be tested and
     // then calls the parse method to look for different things in the string. For each search, it
@@ -1194,6 +1203,7 @@ mod tests {
         }
     }
 
+    // Test the signing use case
     #[test]
     fn happy_path_for_signing() -> Result<(), anyhow::Error> {
         env_logger::try_init().unwrap_or_default();
@@ -1201,29 +1211,51 @@ mod tests {
         let key_pair = super::create_key_pair(JwsSignatureAlgorithms::RS512)?;
         info!("Created key pair");
 
-        let mut foo = Foo {
-            foo: "π is 16 bit unicode",
-            bar: 23894,
-            zot: "🦽is 32 bit unicode",
-            _json: None,
+        // Create the struct instance to be signed
+        let mut namespace = Namespace {
+            id: "61c23c81-5cee-4d93-83fd-10fd60936fdc".to_string(),
+            namespace_path: vec!["docker".to_string()],
+            revision_count: 5,
+            description: Some(
+                "Test this with multi-byte characters: π is 16 bit unicode, 🦽is 32 bit unicode"
+                    .to_string(),
+            ),
+            creation_time: "2022-01-06T13:24:32.73621Z".to_string(),
+            _json0: None,
         };
-        assert!(foo.json().is_none());
-        foo.sign_json(
-            JwsSignatureAlgorithms::RS512,
-            &key_pair.private_key,
-            &key_pair.public_key,
-        )
-        .context("Error signing struct")?;
-        info!("Signed json from foo {}", foo.json().unwrap());
-        let attestations = foo.verify_signature()?;
+        debug!("Initial contents of struct is {:?}", namespace);
+
+        // Sign the struct
+        assert!(namespace.json().is_none());
+        namespace
+            .sign_json(
+                JwsSignatureAlgorithms::RS512,
+                &key_pair.private_key,
+                &key_pair.public_key,
+            )
+            .context("Error signing struct")?;
+        info!("Signed json {}", namespace.json().unwrap());
+
+        // Verify the signature and check the returned details.
+        let attestations = namespace.verify_signature()?;
         assert_eq!(1, attestations.len());
         assert!(attestations[0].signature_is_valid);
-        let json = foo.json();
+        info!("signature is valid");
+
+        let json = namespace.json();
         assert!(json.is_some());
+
+        info!("Creating a copy of the struct by deserializing its JSON");
         let json_string = json.unwrap();
-        let foo2: Foo = Foo::from_json_string(&json_string).unwrap();
-        assert_eq!(foo, foo2);
-        foo2.verify_signature()?;
+        let mut namespace2: Namespace = Namespace::from_json_string(&json_string).unwrap();
+
+        assert_eq!(namespace, namespace2);
+        namespace2.verify_signature()?;
+
+        info!("Clearing JSON and its signatures");
+        namespace2.clear_json();
+        assert!(namespace2._json0.is_none());
+
         Ok(())
     }
 }
