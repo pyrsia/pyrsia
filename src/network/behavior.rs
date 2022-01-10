@@ -32,7 +32,6 @@ use libp2p::{
 };
 use libp2p::{gossipsub, identity, swarm::SwarmEvent, Multiaddr};
 use log::{debug, error, info};
-use super::torrent::add_torrent;
 use std::collections::HashSet;
 
 // We create a custom network behaviour that combines floodsub and mDNS.
@@ -115,7 +114,11 @@ impl NetworkBehaviourEventProcess<gossipsub::GossipsubEvent> for MyBehaviour {
                 info!("Start downloading {}", msg_data);
                 let server = "ws://localhost:8412/";
                 let pass = "donthackme";
-                let download_dir = dirs::download_dir().unwrap().into_os_string().into_string().unwrap();
+                let download_dir = dirs::download_dir()
+                    .unwrap()
+                    .into_os_string()
+                    .into_string()
+                    .unwrap();
                 let directory: Option<&str> = Some(&download_dir);
                 let files: Vec<&str> = vec![msg_data.as_str()];
                 let r = super::torrent::add_torrent(server, pass, directory, files);

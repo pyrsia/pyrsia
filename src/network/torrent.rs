@@ -55,24 +55,23 @@ pub async fn add_torrent(
             process::exit(1);
         }
     };
-    let res: Result<()> = add(
+    add(
         client,
         url.as_str(),
         files,
         directory,
-        true, // paused
+        true,  // paused
         false, // imported
-    );
-    return res;
+    )
 }
 
 fn add(
     mut c: Client,
-    url: &str,
+    _url: &str,
     files: Vec<&str>,
     dir: Option<&str>,
     start: bool,
-    import: bool,
+    _import: bool,
 ) -> Result<()> {
     for file in files {
         if let Ok(magnet) = Url::parse(file) {
@@ -86,7 +85,7 @@ fn add_magnet(c: &mut Client, magnet: Url, dir: Option<&str>, start: bool) -> Re
     let msg = CMessage::UploadMagnet {
         serial: c.next_serial(),
         uri: magnet.as_str().to_owned(),
-        path: dir.as_ref().map(|d| format!("{}", d)),
+        path: dir.as_ref().map(|d| d.to_string()),
         start,
     };
     match c.rr(msg)? {
