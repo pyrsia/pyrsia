@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use signed::signed::Signed;
 use signed_struct::signed_struct;
-use strum_macros::{Display, EnumIter};
+use strum_macros::{EnumIter, EnumString};
 
 #[signed_struct]
 #[derive(Debug)]

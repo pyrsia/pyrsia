@@ -36,9 +36,9 @@ pub struct Artifact {
     /// ISO-8601 creation time
     #[builder(setter(strip_option), default)]
     creation_time: Option<String>,
-    /// URLs associated with the artifact.
-    #[builder(default = "Vec::new()")]
-    urls: Vec<String>,
+    /// A URL associated with the artifact.
+    #[builder(setter(strip_option), default)]
+    url: Option<String>,
     /// The size of the artifact.
     #[builder(setter(strip_option), default)]
     size: Option<u64>,
@@ -71,8 +71,8 @@ impl Artifact {
         &self.creation_time
     }
 
-    pub fn urls(&self) -> &Vec<String> {
-        &self.urls
+    pub fn url(&self) -> &Option<String> {
+        &self.url
     }
 
     pub fn size(&self) -> &Option<u64> {
