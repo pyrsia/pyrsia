@@ -31,7 +31,6 @@ use libp2p::{
 };
 use libp2p::{gossipsub, identity, swarm::SwarmEvent, Multiaddr};
 use log::{debug, error, info};
-
 use super::torrent::add_torrent;
 use std::collections::HashSet;
 
@@ -138,7 +137,7 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for MyBehaviour {
     // Called when `floodsub` produces an event.
     fn inject_event(&mut self, message: FloodsubEvent) {
         if let FloodsubEvent::Message(message) = message {
-            info!(
+            info!(target: "pyrsia_node_comms",
                 "Received: '{:?}' from {:?}",
                 String::from_utf8_lossy(&message.data),
                 message.source
@@ -176,7 +175,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
             KademliaEvent::OutboundQueryCompleted { result, .. } => match result {
                 QueryResult::GetProviders(Ok(ok)) => {
                     for peer in ok.providers {
-                        println!(
+                        debug!(target: "pyrsia_node_comms",
                             "Peer {:?} provides key {:?}",
                             peer,
                             std::str::from_utf8(ok.key.as_ref()).unwrap()
@@ -191,7 +190,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
                 }
 
                 QueryResult::GetProviders(Err(err)) => {
-                    eprintln!("Failed to get providers: {:?}", err);
+                    error!(target: "pyrsia_node_comms", "Failed to get providers: {:?}", err);
                 }
                 QueryResult::GetRecord(Ok(ok)) => {
                     for PeerRecord {
@@ -199,7 +198,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
                         ..
                     } in ok.records
                     {
-                        println!(
+                        debug!(target: "pyrsia_node_comms",
                             "Got record {:?} {:?}",
                             std::str::from_utf8(key.as_ref()).unwrap(),
                             std::str::from_utf8(&value).unwrap(),
@@ -207,25 +206,25 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
                     }
                 }
                 QueryResult::GetRecord(Err(err)) => {
-                    eprintln!("Failed to get record: {:?}", err);
+                    error!(target: "pyrsia_node_comms","Failed to get record: {:?}", err);
                 }
                 QueryResult::PutRecord(Ok(PutRecordOk { key })) => {
-                    println!(
+                    debug!(target: "pyrsia_node_comms",
                         "Successfully put record {:?}",
                         std::str::from_utf8(key.as_ref()).unwrap()
                     );
                 }
                 QueryResult::PutRecord(Err(err)) => {
-                    eprintln!("Failed to put record: {:?}", err);
+                    error!(target: "pyrsia_node_comms","Failed to put record: {:?}", err);
                 }
                 QueryResult::StartProviding(Ok(AddProviderOk { key })) => {
-                    println!(
+                    debug!(target: "pyrsia_node_comms",
                         "Successfully put provider record {:?}",
                         std::str::from_utf8(key.as_ref()).unwrap()
                     );
                 }
                 QueryResult::StartProviding(Err(err)) => {
-                    eprintln!("Failed to put provider record: {:?}", err);
+                    error!(target: "pyrsia_node_comms","Failed to put provider record: {:?}", err);
                 }
                 _ => {}
             },
