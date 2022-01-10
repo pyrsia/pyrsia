@@ -92,17 +92,21 @@ pub async fn handle_put_manifest(
                 artifact_hash.0,
                 hex::encode(artifact_hash.1)
             );
-            let package_version =
-                match package_version_from_manifest_bytes(&bytes, &name, &reference) {
-                    Ok(pv) => pv,
-                    Err(error) => {
-                        let err_string = error.to_string();
-                        error!("{}", err_string);
-                        return Err(warp::reject::custom(RegistryError {
-                            code: RegistryErrorCode::Unknown(err_string),
-                        }));
-                    }
-                };
+            let package_version = match package_version_from_manifest_bytes(
+                &artifact_hash.1,
+                &bytes,
+                &name,
+                &reference,
+            ) {
+                Ok(pv) => pv,
+                Err(error) => {
+                    let err_string = error.to_string();
+                    error!("{}", err_string);
+                    return Err(warp::reject::custom(RegistryError {
+                        code: RegistryErrorCode::Unknown(err_string),
+                    }));
+                }
+            };
             info!(
                 "Created PackageVersion from manifest: {:?}",
                 package_version
@@ -229,16 +233,23 @@ pub async fn handle_put_manifest(
 
 fn store_manifest_in_artifact_manager(bytes: &Bytes) -> anyhow::Result<(HashAlgorithm, Vec<u8>)> {
     let manifest_vec = bytes.to_vec();
-    let sha512: Vec<u8> = raw_sha512(manifest_vec.clone()).to_vec();
+    let sha512: Vec<u8> = manifest_hash(&manifest_vec);
     let artifact_hash = artifact_manager::Hash::new(HashAlgorithm::SHA512, &sha512)?;
     crate::node_manager::handlers::ART_MGR
         .push_artifact(&mut manifest_vec.as_slice(), &artifact_hash)?;
     Ok((HashAlgorithm::SHA512, sha512))
 }
 
+fn manifest_hash(manifest_vec: &[u8]) -> Vec<u8> {
+    raw_sha512(manifest_vec.to_owned()).to_vec()
+}
+
+// This is the TEMPORARY source of the id for the DOCKER namespace. When the metadata manager is
+// fully implemented, this namespace will be pre-installed in it.
 const DOCKER_NAMESPACE_ID: &str = "4658011310974e1bb5c46fd4df7e78b9";
 
 fn package_version_from_manifest_bytes(
+    manifest_hash: &[u8],
     bytes: &Bytes,
     docker_name: &str,
     docker_reference: &str,
@@ -246,6 +257,7 @@ fn package_version_from_manifest_bytes(
     let json_string = String::from_utf8(bytes.to_vec())?;
     match serde_json::from_str::<Value>(&json_string) {
         Ok(Value::Object(json_object)) => package_version_from_manifest_json(
+            manifest_hash,
             &json_object,
             &json_string,
             docker_name,
@@ -261,14 +273,18 @@ fn package_version_from_manifest_bytes(
 }
 
 fn package_version_from_manifest_json(
+    manifest_hash: &[u8],
     json_object: &Map<String, Value>,
     json_string: &str,
     docker_name: &str,
     docker_reference: &str,
 ) -> Result<PackageVersion, anyhow::Error> {
     let result = match manifest_schema_version(json_object, json_string)? {
-        1 => package_version_from_schema1(json_object),
-        2 => package_version_from_schema2(json_object, json_string, docker_name, docker_reference),
+        1 => package_version_from_schema1(manifest_hash, json_object),
+        2 => {
+            package_version_from_schema2(manifest_hash, json_object, docker_name, docker_reference)
+        }
+
         n => Err(anyhow!("Unsupported manifest schema version {}", n)),
     };
     if result.is_err() {
@@ -279,9 +295,14 @@ fn package_version_from_manifest_json(
 
 const FS_LAYERS: &str = "fsLayers";
 
+const MIME_TYPE_MANIFEST_SCHEMA_1: &str = "application/vnd.docker.distribution.manifest.v1+json";
 const MIME_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.tar.gzip";
+const MIME_TYPE_IMAGE_MANIFEST: &str = "application/vnd.docker.distribution.manifest.v2+json";
+const MIME_TYPE_MANIFEST_LIST: &str = "application/vnd.docker.distribution.manifest.list.v2+json";
+const MIME_TYPE_CONTAINER_CONFIG: &str = "application/vnd.docker.container.image.v1+json";
 
 fn package_version_from_schema1(
+    manifest_hash: &[u8],
     json_object: &Map<String, Value>,
 ) -> Result<PackageVersion, anyhow::Error> {
     let manifest_name = json_object
@@ -299,7 +320,11 @@ fn package_version_from_schema1(
         .context("missing fsLayers field")?
         .as_array()
         .context("invalid fsLayers")?;
-    let mut artifacts: Vec<Artifact> = Vec::new();
+    let mut artifacts: Vec<Artifact> = vec![ArtifactBuilder::default()
+        .algorithm(HashAlgorithm::SHA512)
+        .hash(manifest_hash.to_vec())
+        .mime_type(MIME_TYPE_MANIFEST_SCHEMA_1.to_string())
+        .build()?];
     for fslayer in fslayers {
         add_fslayers(&mut artifacts, fslayer)?;
     }
@@ -339,13 +364,46 @@ fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), an
     Ok(())
 }
 
-fn package_version_from_schema2(
-    _json_object: &Map<String, Value>,
-    _json_string: &str,
-    _docker_name: &str,
-    _docker_reference: &str,
-) -> Result<PackageVersion, anyhow::Error> {
-    todo!()
+fn extract_config(
+    json_object: &Map<String, Value>,
+    artifacts: &mut Vec<Artifact>,
+) -> Result<(), anyhow::Error> {
+    if let Some(config) = json_object.get(CONFIG) {
+        let digest_string = config
+            .get(DIGEST)
+            .context("Missing digest in config")?
+            .as_str()
+            .context("Invalid digest in config")?;
+        artifacts.push(
+            ArtifactBuilder::default()
+                .algorithm(HashAlgorithm::SHA256)
+                .hash(digest_string_to_vec(digest_string)?)
+                .mime_type(get_media_type(config)?.to_string())
+                .build()?,
+        );
+    };
+    Ok(())
+}
+
+fn extract_urls(layer: &Value, artifact_builder: &mut ArtifactBuilder) {
+    if let Some(urls) = layer.get("urls") {
+        match urls.as_array() {
+            Some(url_vec) => {
+                artifact_builder.urls(url_vec.iter().map(|value| value.to_string()).collect());
+            }
+            None => {
+                warn!("Manifest layer contains layer with a urls field that is not an array.");
+            }
+        }
+    }
+}
+
+fn get_media_type(json_object: &Value) -> Result<&str, anyhow::Error> {
+    json_object
+        .get(MEDIA_TYPE)
+        .context("Missing mediaType in config")?
+        .as_str()
+        .context("Invalid mediaType in context")
 }
 
 fn manifest_schema_version(
@@ -376,6 +434,8 @@ mod tests {
     use bytes::Bytes;
     use futures::executor;
     use serde::de::StdError;
+
+    const TEST_PKG: &str = "test_pkg";
 
     const MANIFEST_V1_JSON: &str = r##"{
    "name": "hello-world",
@@ -460,9 +520,14 @@ mod tests {
     }
 
     #[test]
-    fn package_version_from_manifest() -> Result<(), anyhow::Error> {
+    fn package_version_from_manifest1() -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V1_JSON);
-        let package_version = package_version_from_manifest_bytes(&json_bytes, "test_pkg", "v1.4")?;
+        let package_version = package_version_from_manifest_bytes(
+            &manifest_hash(&json_bytes.to_vec()),
+            &json_bytes,
+            TEST_PKG,
+            "v1.4",
+        )?;
         assert_eq!(32, package_version.id().len());
         assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
         assert_eq!("hello-world", package_version.name());
@@ -475,20 +540,87 @@ mod tests {
         assert!(package_version.modified_time().is_none());
         assert!(package_version.tags().is_empty());
         assert!(package_version.description().is_none());
-        assert_eq!(4, package_version.artifacts().len());
-        assert_eq!(32, package_version.artifacts()[0].hash().len());
+        assert_eq!(5, package_version.artifacts().len()); // 5 = 1 manifest artifact + 4 blob artifacts
+        assert_eq!(64, package_version.artifacts()[0].hash().len());
+        assert_eq!(32, package_version.artifacts()[1].hash().len());
+        assert_eq!(
+            HashAlgorithm::SHA512,
+            *package_version.artifacts()[0].algorithm()
+        );
         assert_eq!(
             HashAlgorithm::SHA256,
-            *package_version.artifacts()[0].algorithm()
+            *package_version.artifacts()[1].algorithm()
         );
         assert!(package_version.artifacts()[0].name().is_none());
         assert!(package_version.artifacts()[0].creation_time().is_none());
-        assert!(package_version.artifacts()[0].url().is_none());
+        assert!(package_version.artifacts()[0].urls().is_empty());
         assert!(package_version.artifacts()[0].size().is_none());
-        match package_version.artifacts()[0].mime_type() {
-            Some(mime_type) => assert_eq!(MIME_TYPE_BLOB_GZIPPED, mime_type),
-            None => assert!(false),
+        assert_eq!(
+            MIME_TYPE_MANIFEST_SCHEMA_1,
+            unwrap(package_version.artifacts()[0].mime_type())
+        );
+        assert!(package_version.artifacts()[0].metadata().is_empty());
+        assert!(package_version.artifacts()[0].source_url().is_none());
+        Ok(())
+    }
+
+    fn unwrap<T>(os: &Option<T>) -> &T {
+        match os {
+            Some(s) => &s,
+            None => panic!("Tried to unwrap None"),
         }
+    }
+
+    const V1_4: &'static str = "v1.4";
+
+    #[test]
+    fn package_version_from_manifest2() -> Result<(), anyhow::Error> {
+        let json_bytes = Bytes::from(MANIFEST_V2_IMAGE_JSON);
+        let package_version = package_version_from_manifest_bytes(
+            &manifest_hash(&json_bytes.to_vec()),
+            &json_bytes,
+            TEST_PKG,
+            V1_4,
+        )?;
+        assert_eq!(32, package_version.id().len());
+        assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
+        assert_eq!(TEST_PKG, package_version.name());
+        assert_eq!(PackageTypeName::Docker, *package_version.pkg_type());
+        assert_eq!(V1_4, package_version.version());
+        assert!(package_version.license_text().is_none());
+        assert!(package_version.license_text_mimetype().is_none());
+        assert!(package_version.license_url().is_none());
+        assert!(package_version.creation_time().is_none());
+        assert!(package_version.modified_time().is_none());
+        assert!(package_version.tags().is_empty());
+        assert!(package_version.description().is_none());
+        assert_eq!(9, package_version.artifacts().len());
+        assert_eq!(64, package_version.artifacts()[0].hash().len());
+        assert_eq!(32, package_version.artifacts()[1].hash().len());
+        assert_eq!(
+            HashAlgorithm::SHA512,
+            *package_version.artifacts()[0].algorithm()
+        );
+        assert_eq!(
+            HashAlgorithm::SHA256,
+            *package_version.artifacts()[1].algorithm()
+        );
+        assert!(package_version.artifacts()[0].name().is_none());
+        assert!(package_version.artifacts()[0].creation_time().is_none());
+        assert!(package_version.artifacts()[0].urls().is_empty());
+        assert!(package_version.artifacts()[0].size().is_none());
+        assert_eq!(
+            MIME_TYPE_IMAGE_MANIFEST,
+            unwrap(package_version.artifacts()[0].mime_type())
+        );
+        assert_eq!(
+            MIME_TYPE_CONTAINER_CONFIG,
+            unwrap(package_version.artifacts()[1].mime_type())
+        );
+        assert_eq!(
+            MIME_TYPE_BLOB_GZIPPED,
+            unwrap(package_version.artifacts()[2].mime_type())
+        );
         assert!(package_version.artifacts()[0].metadata().is_empty());
         assert!(package_version.artifacts()[0].source_url().is_none());
         Ok(())
