@@ -16,8 +16,3 @@
 
 pub mod blobs;
 pub mod manifests;
-
-// functions available from other modules
-pub use crate::artifact_manager::HashAlgorithm;
-pub use crate::docker::error_util::{RegistryError, RegistryErrorCode};
-pub use crate::node_manager::handlers::*;
