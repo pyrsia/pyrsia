@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use log::debug;
+use log::trace;
 use std::convert::Infallible;
 use warp::http::HeaderMap;
 use warp::Filter;
@@ -24,7 +24,7 @@ pub fn log_headers() -> impl Filter<Extract = (), Error = Infallible> + Copy {
         .map(|headers: HeaderMap| {
             for (k, v) in headers.iter() {
                 // Error from `to_str` should be handled properly
-                debug!(target: "pyrsia_registry", "{}: {}", k, v.to_str().expect("Failed to print header value"))
+                trace!(target: "pyrsia_registry", "{}: {}", k, v.to_str().expect("Failed to print header value"))
             }
         })
         .untuple_one()

@@ -21,6 +21,7 @@ use std::collections::HashMap;
 use warp::Filter;
 
 pub fn make_docker_routes(
+    tx_blobs: GetBlobsHandle,
     tx: tokio::sync::mpsc::Sender<String>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let empty_json = "{}";
@@ -52,10 +53,10 @@ pub fn make_docker_routes(
     let v2_blobs = warp::path!("v2" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(move |name, hash| handle_get_blobs(tx.clone(), name, hash));
+        .and_then(move |name, hash| handle_get_blobs(tx_blobs.clone(), name, hash));
     let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
         .and(warp::post())
-        .and_then(handle_post_blob);
+        .and_then(move |name| handle_post_blob(tx.clone(), name));
     let v2_blobs_patch = warp::path!("v2" / String / "blobs" / "uploads" / String)
         .and(warp::patch())
         .and(warp::body::bytes())

@@ -16,50 +16,71 @@
 
 use super::*;
 use bytes::{Buf, Bytes};
-use log::{debug, error};
+use futures::stream::{FusedStream, Stream};
+use futures::task::{Context, Poll};
+use log::{debug, error, trace};
 use std::collections::HashMap;
 use std::fs;
-use std::fs::File;
 use std::io::prelude::*;
-use std::path::Path;
+use std::pin::Pin;
+use std::result::Result;
 use std::str;
 use uuid::Uuid;
-use warp::http::StatusCode;
-use warp::{Rejection, Reply};
+use warp::{http::StatusCode, Rejection, Reply};
 
 use super::{RegistryError, RegistryErrorCode};
 
+#[derive(Clone, Debug)]
+pub struct GetBlobsHandle {
+    pending_hash_queries: Vec<String>,
+}
+
+impl GetBlobsHandle {
+    pub fn new() -> GetBlobsHandle {
+        GetBlobsHandle {
+            pending_hash_queries: vec![],
+        }
+    }
+
+    pub fn send(mut self, message: String) {
+        self.pending_hash_queries.push(message)
+    }
+}
+
+impl Stream for GetBlobsHandle {
+    type Item = String;
+
+    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if self.pending_hash_queries.len() > 0 {
+            return Poll::Ready(self.pending_hash_queries.pop());
+        }
+
+        Poll::Pending
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (
+            self.pending_hash_queries.len(),
+            Some(self.pending_hash_queries.capacity()),
+        )
+    }
+}
+
+impl FusedStream for GetBlobsHandle {
+    fn is_terminated(&self) -> bool {
+        false
+    }
+}
+
 pub async fn handle_get_blobs(
-    tx: tokio::sync::mpsc::Sender<String>,
+    tx: GetBlobsHandle,
     _name: String,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
-    /*let blob = format!(
-        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
-        hash.get(7..9).unwrap(),
-        hash.get(7..).unwrap()
-    );
-    debug!("Searching for blob: {}", blob);
-    let blob_path = Path::new(&blob);
-    if !blob_path.exists() {
-        let mut send_message: String = "get_blobs | ".to_owned();
-        let hash_clone: String = hash.clone();
-        send_message.push_str(&hash_clone);
-
-        match tx.send(send_message).await {
-            Ok(_) => debug!("hash sent"),
-            Err(_) => error!("failed to send stdin input"),
-        }
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobDoesNotExist(hash),
-        }));
-    }
-
-    if !blob_path.is_file() {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown("ITS_NOT_A_FILE".to_string()),
-        }));
-    }*/
+    let mut send_message: String = "get_blobs | ".to_owned();
+    let hash_clone: String = hash.clone();
+    send_message.push_str(&hash_clone);
+    tx.send(send_message.clone());
 
     debug!("Getting blob with hash : {:?}", hash);
 
@@ -93,9 +114,23 @@ pub async fn handle_get_blobs(
         .unwrap())
 }
 
-pub async fn handle_post_blob(name: String) -> Result<impl Reply, Rejection> {
+pub async fn handle_post_blob(
+    tx: tokio::sync::mpsc::Sender<String>,
+    name: String,
+) -> Result<impl Reply, Rejection> {
     let id = Uuid::new_v4();
 
+    // These need to be advertised?
+    match tx.send(name.clone()).await {
+        Ok(_) => debug!("name sent"),
+        Err(_) => error!("failed to send name"),
+    }
+
+    trace!(
+        "Getting ready to start new upload for {} - {}",
+        name,
+        id.to_string()
+    );
     if let Err(e) = fs::create_dir_all(format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
         name, id
