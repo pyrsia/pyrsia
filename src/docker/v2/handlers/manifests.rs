@@ -37,7 +37,7 @@ use warp::{Rejection, Reply};
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Reply, Rejection> {
     let mut hash = String::from(&tag);
-    if let None = tag.find(':') {
+    if tag.find(':').is_none() {
         let manifest = format!(
             "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current/link",
             name, tag
@@ -190,7 +190,7 @@ fn store_manifest_in_filesystem(
     fs::write(manifest_rev_dest, format!("sha256:{}", hash)).map_err(RegistryError::from)?;
 
     // create manifest link file in tags if reference is a tag (no colon)
-    if let None = reference.find(':') {
+    if reference.find(':').is_none() {
         let mut manifest_tag_dest = format!(
             "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current",
             name, reference
@@ -392,8 +392,8 @@ fn extract_digest(hex_digest: &str) -> Result<Vec<u8>, anyhow::Error> {
     if !hex_digest.starts_with("sha256:") {
         return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
     }
-    Ok(hex::decode(&hex_digest["sha256:".len()..])
-        .context(format!("Badly formatted digest: {}", hex_digest))?)
+    hex::decode(&hex_digest["sha256:".len()..])
+        .context(format!("Badly formatted digest: {}", hex_digest))
 }
 
 fn package_version_from_schema2(
@@ -419,8 +419,7 @@ fn package_version_from_schema2(
             hash,
             size,
         ),
-        MEDIA_TYPE_MANIFEST_LIST => todo!(),
-        _ => package_version_from_manifest_list(
+        MEDIA_TYPE_MANIFEST_LIST => package_version_from_manifest_list(
             json_object,
             docker_name,
             docker_reference,
@@ -428,6 +427,7 @@ fn package_version_from_schema2(
             hash,
             size,
         ),
+        _ => bail!("Manifest has unknown media type: {}", manifest_media_type),
     }
 }
 
@@ -475,7 +475,9 @@ fn package_version_from_image_manifest(
         .as_array()
         .context("Value of layers field is not an array")?;
     for layer in layers {
-        let layer_object = layer.as_object().context("layers array contains an element that is not a JSON object")?;
+        let layer_object = layer
+            .as_object()
+            .context("layers array contains an element that is not a JSON object")?;
         add_artifact(&mut artifacts, layer, "layer")?
     }
 
@@ -490,24 +492,34 @@ fn package_version_from_image_manifest(
         .build()?)
 }
 
-fn add_artifact(artifacts: &mut Vec<Artifact>, json_object: &Value, name: &str) -> Result<(), anyhow::Error> {
+fn add_artifact(
+    artifacts: &mut Vec<Artifact>,
+    json_object: &Value,
+    name: &str,
+) -> Result<(), anyhow::Error> {
     artifacts.push(
         ArtifactBuilder::default()
             .algorithm(HashAlgorithm::SHA256)
             .hash(extract_digest(
                 json_object
-                    .get(DIGEST).with_context(|| format!("{} is missing digest", name))?
-                    .as_str().with_context(|| format!("{} has invalid digest", name))?,
+                    .get(DIGEST)
+                    .with_context(|| format!("{} is missing digest", name))?
+                    .as_str()
+                    .with_context(|| format!("{} has invalid digest", name))?,
             )?)
             .size(
                 json_object
-                    .get(SIZE).with_context(|| format!("{} is missing size", name))?
-                    .as_u64().with_context(|| format!("{} has invalid size", name))?,
+                    .get(SIZE)
+                    .with_context(|| format!("{} is missing size", name))?
+                    .as_u64()
+                    .with_context(|| format!("{} has invalid size", name))?,
             )
             .mime_type(
                 json_object
-                    .get(MEDIA_TYPE).with_context(|| format!("{} is missing mediaType", name))?
-                    .as_str().with_context(|| format!("{} has invalid mediaType", name))?
+                    .get(MEDIA_TYPE)
+                    .with_context(|| format!("{} is missing mediaType", name))?
+                    .as_str()
+                    .with_context(|| format!("{} has invalid mediaType", name))?
                     .to_string(),
             )
             .build()?,
