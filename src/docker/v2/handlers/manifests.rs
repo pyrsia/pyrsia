@@ -619,7 +619,7 @@ mod tests {
         Ok(())
     }
 
-    //#[test]
+    #[test]
     fn package_version_from_image_list() -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V2_IMAGE);
         let hash: Vec<u8> = raw_sha512(json_bytes.to_vec()).to_vec();
@@ -628,7 +628,7 @@ mod tests {
             "test_pkg",
             "v1.4",
             HashAlgorithm::SHA512,
-            hash,
+            hash.clone(),
         )?;
         assert_eq!(32, package_version.id().len());
         assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
