@@ -14,20 +14,25 @@
    limitations under the License.
 */
 
-extern crate serde;
-extern crate signed_struct;
-
+use crate::docker::error_util::RegistryError;
+use reqwest::get;
 use serde::{Deserialize, Serialize};
-use signed::signed::Signed;
-use signed_struct::signed_struct;
 
-#[signed_struct]
-pub struct PackageType {
-    name: PackageTypeName,
-    description: String,
+#[derive(Debug, Deserialize, Serialize)]
+struct Bearer {
+    token: String,
+    expires_in: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum PackageTypeName {
-    Docker,
+pub async fn get_docker_hub_auth_token(name: &str) -> Result<String, warp::Rejection> {
+    let auth_url = format!("https://auth.docker.io/token?client_id=Pyrsia&service=registry.docker.io&scope=repository:library/{}:pull", name);
+
+    let token: Bearer = get(auth_url)
+        .await
+        .map_err(RegistryError::from)?
+        .json()
+        .await
+        .map_err(RegistryError::from)?;
+
+    Ok(token.token)
 }

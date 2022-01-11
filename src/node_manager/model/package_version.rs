@@ -46,12 +46,14 @@ pub struct PackageVersion {
     /// The URL for the license for this package version.
     license_url: Option<String>,
     /// Attributes of a package version that don't fit into one of this struct's fields can go in here as JSON
+    #[builder(default = "serde_json::Map::new()")]
     metadata: Map<String, Value>,
     /// ISO-8601 creation time
     creation_time: Option<String>,
     /// ISO-8601 modification time
     modified_time: Option<String>,
     /// tags associated with this PackageVersion
+    #[builder(default = "Vec::new()")]
     tags: Vec<String>,
     /// A description of this package version.
     description: Option<String>,
@@ -59,7 +61,7 @@ pub struct PackageVersion {
     artifacts: Vec<Artifact>,
 }
 
-#[derive(EnumIter, Debug, PartialEq, EnumString, Serialize, Deserialize)]
+#[derive(EnumIter, Debug, PartialEq, EnumString, Serialize, Deserialize, Clone)]
 pub enum LicenseTextMimeType {
     Text,
     Html,

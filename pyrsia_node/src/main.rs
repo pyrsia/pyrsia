@@ -23,8 +23,10 @@ extern crate pyrsia;
 extern crate tokio;
 extern crate warp;
 
+use pyrsia::block_chain::block_chain::Ledger;
 use pyrsia::block_chain::*;
 use pyrsia::docker::error_util::*;
+use pyrsia::docker::v2::handlers::blobs::GetBlobsHandle;
 use pyrsia::docker::v2::routes::*;
 use pyrsia::document_store::document_store::DocumentStore;
 use pyrsia::document_store::document_store::IndexSpec;
@@ -49,7 +51,7 @@ use std::{
 };
 use tokio::{
     io::{self, AsyncBufReadExt},
-    sync::{mpsc, Mutex},
+    sync::{mpsc, Mutex, MutexGuard},
 };
 use warp::Filter;
 
@@ -136,21 +138,31 @@ async fn main() {
 
     let (tx, mut rx) = mpsc::channel(32);
 
+    let mut blobs_need_hash = GetBlobsHandle::new();
+    let b1 = blobs_need_hash.clone();
     //docker node specific tx
     let tx1 = tx.clone();
 
-    //swarm specific tx,rx
+    // swarm specific tx,rx
     // need better handling of all these channel resources
     let shared_stats = Arc::new(Mutex::new(respond_rx));
 
     let my_stats = shared_stats.clone();
     let tx2 = tx.clone();
 
-    let my_stats1 = shared_stats.clone();
-    let tx3 = tx.clone();
+    // We need to have two channels (to seperate the handling)
+    // 1. API to main
+    // 2. main to API
+    let (blocks_get_tx_to_main, mut blocks_get_rx_from_api) = mpsc::channel(32); // Request Channel
+    let (blocks_get_tx_answer_to_api, blocks_get_rx_answers_from_main) = mpsc::channel(32); // Response Channel
 
-    let docker_routes = make_docker_routes(tx1);
-    let routes = docker_routes.or(make_node_routes(tx2, my_stats, tx3, my_stats1));
+    let docker_routes = make_docker_routes(b1, tx1);
+    let routes = docker_routes.or(make_node_routes(
+        tx2,
+        my_stats,
+        blocks_get_tx_to_main.clone(),
+        blocks_get_rx_answers_from_main,
+    ));
 
     let (addr, server) = warp::serve(
         routes
@@ -165,23 +177,43 @@ async fn main() {
     tokio::spawn(server);
     let tx4 = tx.clone();
 
-    let mut bc = block_chain::BlockChain::new();
-    bc.genesis();
+    let raw_chain = block_chain::BlockChain::new();
+    let bc = Arc::new(Mutex::new(raw_chain));
     // Kick it off
     loop {
         let evt = {
             tokio::select! {
                 line = stdin.next_line() => Some(EventType::Input(line.expect("can get line").expect("can read line from stdin"))),
                 message = rx.recv() => Some(EventType::Message(message.expect("message exists"))),
-               // response = rx.recv() => Some(EventType::Response(response.expect("response exists"))),
+
+                new_hash = blobs_need_hash.select_next_some() => {
+                    debug!("Looking for {}", new_hash);
+                    swarm.behaviour_mut().lookup_blob(new_hash).await;
+                    None
+                },
+
                 event = swarm.select_next_some() =>  {
                     if let SwarmEvent::NewListenAddr { address, .. } = event {
-                    info!("Listening on {:?}", address);
+                        info!("Listening on {:?}", address);
                     }
 
                     //SwarmEvent::Behaviour(e) => panic!("Unexpected event: {:?}", e),
                     None
                 },
+                get_blocks_request_input = blocks_get_rx_from_api.recv() => //BlockChain::handle_api_requests(),
+
+                // Channels are only one type (both tx and rx must match)
+                // We need to have two channel for each API call to send and receive
+                // The request and the response.
+
+                {
+                    info!("Processessing 'GET /blocks' {} request", get_blocks_request_input.unwrap());
+                    let bc1 = bc.clone();
+                    let block_chaing_instance = bc1.lock().await.clone();
+                    blocks_get_tx_answer_to_api.send(block_chaing_instance).await.expect("send to work");
+
+                    None
+                }
             }
         };
 
@@ -218,18 +250,17 @@ async fn main() {
                     cmd if cmd.starts_with("get_blobs") => {
                         swarm.behaviour_mut().lookup_blob(message).await
                     }
-                    "block" => {
-                        // assuming the message is a json version of the block
+                    "blocks" => {
+                        let bc_state: Arc<_> = bc.clone();
+                        let mut bc_instance: MutexGuard<_> = bc_state.lock().await;
+                        let new_block =
+                            bc_instance.mk_block("happy_new_block".to_string()).unwrap();
 
-                        let block = block::Block {
-                            id: 0,
-                            hash: "".to_string(),
-                            previous_hash: "".to_string(),
-                            timestamp: 0,
-                            data: "".to_string(),
-                            nonce: 0,
-                        };
-                        bc.add_block(block);
+                        let new_chain = bc_instance
+                            .clone()
+                            .add_entry(new_block)
+                            .expect("should have added");
+                        *bc_instance = new_chain;
                     }
                     _ => info!("message received from peers: {}", message),
                 },

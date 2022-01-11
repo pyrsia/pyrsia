@@ -17,6 +17,8 @@ use libp2p::{identity, Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use std::fmt::{Display, Formatter};
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
     pub id: u64,
@@ -109,3 +111,20 @@ pub fn get_publickey_from_keypair(
 pub fn verify(pubkey: &identity::ed25519::PublicKey, msg: &[u8], sig: &[u8]) -> bool {
     (*pubkey).verify(msg, sig)
 }
+impl Display for Block {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let json = serde_json::to_string_pretty(&self).expect("json format error");
+        write!(f, "{}", json)
+    }
+}
+
+impl PartialEq<Self> for Block {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.hash == other.hash
+            && self.previous_hash == other.previous_hash
+            && self.nonce == other.nonce
+    }
+}
+
+impl Eq for Block {}

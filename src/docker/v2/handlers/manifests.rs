@@ -14,19 +14,18 @@
    limitations under the License.
 */
 
-extern crate easy_hasher;
-
-use super::{RegistryError, RegistryErrorCode};
-
 use crate::artifact_manager;
 use crate::artifact_manager::HashAlgorithm;
-use crate::node_manager::model::artifact::Artifact;
+use crate::docker::docker_hub_util::get_docker_hub_auth_token;
+use crate::docker::error_util::{RegistryError, RegistryErrorCode};
+use crate::node_manager::model::artifact::{Artifact, ArtifactBuilder};
 use crate::node_manager::model::package_type::PackageTypeName;
-use crate::node_manager::model::package_version::PackageVersion;
+use crate::node_manager::model::package_version::{PackageVersion, PackageVersionBuilder};
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
 use log::{debug, error, info, warn};
+use reqwest::{header, Client};
 use serde_json::{Map, Value};
 use std::fs;
 use uuid::Uuid;
@@ -35,20 +34,17 @@ use warp::{Rejection, Reply};
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Reply, Rejection> {
-    let colon = tag.find(':');
     let mut hash = String::from(&tag);
-    if colon == None {
+    if let None = tag.find(':') {
         let manifest = format!(
             "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current/link",
             name, tag
         );
-        let manifest_content = fs::read_to_string(manifest);
-        if manifest_content.is_err() {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::ManifestUnknown,
-            }));
+
+        match fs::read_to_string(manifest) {
+            Ok(local_hash) => hash = local_hash,
+            Err(_) => hash = get_manifest_from_docker_hub(&name, &tag).await?,
         }
-        hash = manifest_content.unwrap();
     }
 
     let blob = format!(
@@ -83,8 +79,6 @@ pub async fn handle_put_manifest(
     reference: String,
     bytes: Bytes,
 ) -> Result<impl Reply, Rejection> {
-    let id = Uuid::new_v4();
-
     match store_manifest_in_artifact_manager(&bytes) {
         Ok(artifact_hash) => {
             info!(
@@ -111,120 +105,135 @@ pub async fn handle_put_manifest(
         Err(error) => warn!("Error storing manifest in artifact_manager {}", error),
     };
 
+    let hash = store_manifest_in_filesystem(&name, &reference, bytes)?;
+
+    Ok(warp::http::response::Builder::new()
+        .header(
+            LOCATION,
+            format!(
+                "http://localhost:7878/v2/{}/manifests/sha256:{}",
+                name, hash
+            ),
+        )
+        .header("Docker-Content-Digest", format!("sha256:{}", hash))
+        .status(StatusCode::CREATED)
+        .body("")
+        .unwrap())
+}
+
+fn store_manifest_in_filesystem(
+    name: &str,
+    reference: &str,
+    bytes: Bytes,
+) -> Result<String, Rejection> {
+    let id = Uuid::new_v4();
+
     // temporary upload of manifest
     let blob_upload_dest_dir = format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
         name, id
     );
-    if let Err(e) = fs::create_dir_all(&blob_upload_dest_dir) {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown(e.to_string()),
-        }));
-    }
+    fs::create_dir_all(&blob_upload_dest_dir).map_err(RegistryError::from)?;
 
     let blob_upload_dest = format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}/data",
         name, id
     );
-    let append = super::blobs::append_to_blob(&blob_upload_dest, bytes);
-    if let Err(e) = append {
-        Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown(e.to_string()),
-        }))
-    } else {
-        // calculate sha256 checksum on manifest file
-        let file256 = file_hash(raw_sha256, &blob_upload_dest);
-        let digest: Hash;
-        match file256 {
-            Ok(hash) => digest = hash,
-            Err(e) => {
-                return Err(warp::reject::custom(RegistryError {
-                    code: RegistryErrorCode::Unknown(e),
-                }))
-            }
-        }
 
-        let hash = digest.to_hex_string();
-        debug!(
-            "Generated hash for manifest {}/{}: {}",
-            name, reference, hash
-        );
-        let mut blob_dest = format!(
-            "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}",
-            hash.get(0..2).unwrap(),
-            hash
-        );
-        if let Err(e) = fs::create_dir_all(&blob_dest) {
+    super::blobs::append_to_blob(&blob_upload_dest, bytes).map_err(RegistryError::from)?;
+
+    // calculate sha256 checksum on manifest file
+    let file256 = file_hash(raw_sha256, &blob_upload_dest);
+    let digest: Hash;
+    match file256 {
+        Ok(hash) => digest = hash,
+        Err(e) => {
             return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(e.to_string()),
-            }));
+                code: RegistryErrorCode::Unknown(e),
+            }))
         }
-        blob_dest.push_str("/data");
-
-        // copy temporary upload to final blob location
-        if let Err(e) = fs::copy(&blob_upload_dest, &blob_dest) {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(e.to_string()),
-            }));
-        }
-
-        // remove temporary files
-        if let Err(e) = fs::remove_dir_all(blob_upload_dest_dir) {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(e.to_string()),
-            }));
-        }
-
-        // create manifest link file in revisions
-        let mut manifest_rev_dest = format!(
-            "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/revisions/sha256/{}",
-            name, hash
-        );
-        if let Err(e) = fs::create_dir_all(&manifest_rev_dest) {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(e.to_string()),
-            }));
-        }
-        manifest_rev_dest.push_str("/link");
-        if let Err(e) = fs::write(manifest_rev_dest, format!("sha256:{}", hash)) {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(e.to_string()),
-            }));
-        }
-
-        // create manifest link file in tags if reference is a tag (no colon)
-        let colon = reference.find(':');
-        if colon.is_none() {
-            let mut manifest_tag_dest = format!(
-                "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current",
-                name, reference
-            );
-            if let Err(e) = fs::create_dir_all(&manifest_tag_dest) {
-                return Err(warp::reject::custom(RegistryError {
-                    code: RegistryErrorCode::Unknown(e.to_string()),
-                }));
-            }
-            manifest_tag_dest.push_str("/link");
-            if let Err(e) = fs::write(manifest_tag_dest, format!("sha256:{}", hash)) {
-                return Err(warp::reject::custom(RegistryError {
-                    code: RegistryErrorCode::Unknown(e.to_string()),
-                }));
-            }
-        }
-
-        Ok(warp::http::response::Builder::new()
-            .header(
-                LOCATION,
-                format!(
-                    "http://localhost:7878/v2/{}/manifests/sha256:{}",
-                    name, hash
-                ),
-            )
-            .header("Docker-Content-Digest", format!("sha256:{}", hash))
-            .status(StatusCode::CREATED)
-            .body("")
-            .unwrap())
     }
+
+    let hash = digest.to_hex_string();
+    debug!(
+        "Generated hash for manifest {}/{}: {}",
+        name, reference, hash
+    );
+    let mut blob_dest = format!(
+        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}",
+        hash.get(0..2).unwrap(),
+        hash
+    );
+    fs::create_dir_all(&blob_dest).map_err(RegistryError::from)?;
+    blob_dest.push_str("/data");
+
+    // copy temporary upload to final blob location
+    fs::copy(&blob_upload_dest, &blob_dest).map_err(RegistryError::from)?;
+
+    // remove temporary files
+    fs::remove_dir_all(blob_upload_dest_dir).map_err(RegistryError::from)?;
+
+    // create manifest link file in revisions
+    let mut manifest_rev_dest = format!(
+        "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/revisions/sha256/{}",
+        name, hash
+    );
+    fs::create_dir_all(&manifest_rev_dest).map_err(RegistryError::from)?;
+    manifest_rev_dest.push_str("/link");
+    fs::write(manifest_rev_dest, format!("sha256:{}", hash)).map_err(RegistryError::from)?;
+
+    // create manifest link file in tags if reference is a tag (no colon)
+    if let None = reference.find(':') {
+        let mut manifest_tag_dest = format!(
+            "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current",
+            name, reference
+        );
+        fs::create_dir_all(&manifest_tag_dest).map_err(RegistryError::from)?;
+        manifest_tag_dest.push_str("/link");
+        fs::write(manifest_tag_dest, format!("sha256:{}", hash)).map_err(RegistryError::from)?;
+    }
+
+    Ok(hash)
+}
+
+async fn get_manifest_from_docker_hub(name: &str, tag: &str) -> Result<String, Rejection> {
+    let token = get_docker_hub_auth_token(name).await?;
+
+    get_manifest_from_docker_hub_with_token(name, tag, token).await
+}
+
+async fn get_manifest_from_docker_hub_with_token(
+    name: &str,
+    tag: &str,
+    token: String,
+) -> Result<String, Rejection> {
+    let url = format!(
+        "https://registry-1.docker.io/v2/library/{}/manifests/{}",
+        name, tag
+    );
+
+    debug!("Reading manifest from docker.io with url: {}", url);
+    let response = Client::new()
+        .get(url)
+        .header(header::AUTHORIZATION, format!("Bearer {}", token))
+        .header(
+            "Accept",
+            "application/vnd.docker.distribution.manifest.v2+json",
+        )
+        .send()
+        .await
+        .map_err(RegistryError::from)?;
+
+    debug!(
+        "Got manifest from docker.io with status {}",
+        response.status()
+    );
+
+    let bytes = response.bytes().await.map_err(RegistryError::from)?;
+
+    let hash = store_manifest_in_filesystem(name, tag, bytes)?;
+
+    Ok(hash)
 }
 
 fn store_manifest_in_artifact_manager(bytes: &Bytes) -> anyhow::Result<(HashAlgorithm, Vec<u8>)> {
@@ -279,6 +288,8 @@ fn package_version_from_manifest_json(
 
 const FS_LAYERS: &str = "fsLayers";
 
+const MIME_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.tar.gzip";
+
 fn package_version_from_schema1(
     json_object: &Map<String, Value>,
 ) -> Result<PackageVersion, anyhow::Error> {
@@ -299,49 +310,42 @@ fn package_version_from_schema1(
         .context("invalid fsLayers")?;
     let mut artifacts: Vec<Artifact> = Vec::new();
     for fslayer in fslayers {
-        let hex_digest = fslayer
-            .as_object()
-            .context("invalid fslayer")?
-            .get("blobSum")
-            .context("missing blobSum")?
-            .as_str()
-            .context("invalid blobSum")?;
-        if !hex_digest.starts_with("sha256:") {
-            return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
-        }
-        let digest = hex::decode(&hex_digest["sha256:".len()..])?;
-        artifacts.push(Artifact::new(
-            digest,
-            HashAlgorithm::SHA256,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Map::new(),
-            None,
-        ))
+        add_fslayers(&mut artifacts, fslayer)?;
     }
-    Ok(PackageVersion::new(
-        String::from(
+    Ok(PackageVersionBuilder::default()
+        .id(String::from(
             Uuid::new_v4()
                 .to_simple()
                 .encode_lower(&mut Uuid::encode_buffer()),
-        ),
-        String::from(DOCKER_NAMESPACE_ID),
-        String::from(manifest_name),
-        PackageTypeName::Docker,
-        String::from(manifest_tag),
-        None,
-        None,
-        None,
-        Map::new(),
-        None,
-        None,
-        Vec::new(),
-        None,
-        artifacts,
-    ))
+        ))
+        .namespace_id(DOCKER_NAMESPACE_ID.to_string())
+        .name(String::from(manifest_name))
+        .pkg_type(PackageTypeName::Docker)
+        .version(String::from(manifest_tag))
+        .artifacts(artifacts)
+        .build()?)
+}
+
+fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), anyhow::Error> {
+    let hex_digest = fslayer
+        .as_object()
+        .context("invalid fslayer")?
+        .get("blobSum")
+        .context("missing blobSum")?
+        .as_str()
+        .context("invalid blobSum")?;
+    if !hex_digest.starts_with("sha256:") {
+        return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
+    }
+    let digest = hex::decode(&hex_digest["sha256:".len()..])?;
+    artifacts.push(
+        ArtifactBuilder::default()
+            .algorithm(HashAlgorithm::SHA256)
+            .hash(digest)
+            .mime_type(MIME_TYPE_BLOB_GZIPPED.to_string())
+            .build()?,
+    );
+    Ok(())
 }
 
 fn package_version_from_schema2(
@@ -425,51 +429,6 @@ mod tests {
          "protected": "eyJmb3JtYXRMZW5ndGgiOjY2MjgsImZvcm1hdFRhaWwiOiJDbjAiLCJ0aW1lIjoiMjAxNS0wNC0wOFQxODo1Mjo1OVoifQ"
       }]}"##;
 
-    const MANIFEST_V2_IMAGE_JSON: &str = r##"{
-	"schemaVersion": 2,
-	"mediaType": "application/vnd.docker.distribution.manifest.v2+json",
-	"config": {
-		"mediaType": "application/vnd.docker.container.image.v1+json",
-		"size": 5215,
-		"digest": "sha256:b138b9264903f46a43e1c750e07dc06f5d2a1bd5d51f37fb185bc608f61090dd"
-	},
-	"layers": [
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 32034160,
-			"digest": "sha256:473ede7ed136b710ab2dd51579af038b7d00fbbf6a1790c6294c93666203c0a6"
-		},
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 843,
-			"digest": "sha256:c46b5fa4d940569e49988515c1ea0295f56d0a16228d8f854e27613f467ec892"
-		},
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 554,
-			"digest": "sha256:93ae3df89c92cb1d20e9c09f499e693d3a8a8cef161f7158f7a9a3b5d06e4ef2"
-		},
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 162,
-			"digest": "sha256:6b1eed27cadec5de8051d56697b0b67527e4076deedceefb41b7b2ea9b900459"
-		},
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 169218938,
-			"digest": "sha256:0373952b589d2d14782a35c2e67826e80c814e5d3ae41370a6dc89ed43c2e60b"
-		},
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 108979,
-			"digest": "sha256:7b82cd0ee5279a665a15cb61719276284e769e4b980f46709b21e53183974eec"
-		},
-		{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-			"size": 12803584,
-			"digest": "sha256:a36b2d884a8941918fba8ffd1599b5187de99bd30c8aa112694fc5f8d024f506"
-		}]}"##;
-
     #[test]
     fn happy_put_manifest() -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
@@ -535,7 +494,10 @@ mod tests {
         assert!(package_version.artifacts()[0].creation_time().is_none());
         assert!(package_version.artifacts()[0].url().is_none());
         assert!(package_version.artifacts()[0].size().is_none());
-        assert!(package_version.artifacts()[0].mime_type().is_none());
+        match package_version.artifacts()[0].mime_type() {
+            Some(mime_type) => assert_eq!(MIME_TYPE_BLOB_GZIPPED, mime_type),
+            None => assert!(false),
+        }
         assert!(package_version.artifacts()[0].metadata().is_empty());
         assert!(package_version.artifacts()[0].source_url().is_none());
         Ok(())
