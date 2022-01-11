@@ -312,9 +312,11 @@ fn package_version_from_manifest_json(
 const FS_LAYERS: &str = "fsLayers";
 const MEDIA_TYPE: &str = "mediaType";
 
-const MIME_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.tar.gzip";
+const MEDIA_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.tar.gzip";
 const MEDIA_TYPE_SCHEMA_1: &str = "application/vnd.docker.distribution.manifest.v1+json";
 const MEDIA_TYPE_IMAGE_MANIFEST: &str = "application/vnd.docker.distribution.manifest.v2+json";
+const MEDIA_TYPE_MANIFEST_LIST: &str = "application/vnd.docker.distribution.manifest.list.v2+json";
+const MEDIA_TYPE_CONFIG_JSON: &str = "application/vnd.docker.container.image.v1+json";
 
 fn package_version_from_schema1(
     json_object: &Map<String, Value>,
@@ -383,7 +385,7 @@ fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), an
         ArtifactBuilder::default()
             .algorithm(HashAlgorithm::SHA256)
             .hash(digest)
-            .mime_type(MIME_TYPE_BLOB_GZIPPED.to_string())
+            .mime_type(MEDIA_TYPE_BLOB_GZIPPED.to_string())
             .build()?,
     );
     Ok(())
@@ -592,7 +594,7 @@ mod tests {
         assert!(package_version.artifacts()[1].url().is_none());
         assert!(package_version.artifacts()[1].size().is_none());
         match package_version.artifacts()[1].mime_type() {
-            Some(mime_type) => assert_eq!(MIME_TYPE_BLOB_GZIPPED, mime_type),
+            Some(mime_type) => assert_eq!(MEDIA_TYPE_BLOB_GZIPPED, mime_type),
             None => assert!(false),
         }
         assert!(package_version.artifacts()[1].metadata().is_empty());
@@ -639,7 +641,7 @@ mod tests {
         assert!(package_version.artifacts()[0].url().is_none());
         assert!(package_version.artifacts()[0].size().is_none());
         match package_version.artifacts()[0].mime_type() {
-            Some(mime_type) => assert_eq!(MIME_TYPE_BLOB_GZIPPED, mime_type),
+            Some(mime_type) => assert_eq!(MEDIA_TYPE_BLOB_GZIPPED, mime_type),
             None => assert!(false),
         }
         assert!(package_version.artifacts()[0].metadata().is_empty());
