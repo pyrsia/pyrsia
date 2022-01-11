@@ -13,14 +13,17 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use std::time::{SystemTime, UNIX_EPOCH};
 
-use log::{info, warn};
-use serde_json::error::Error;
+use anyhow::anyhow;
+use log::{error, info};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::fmt::{Display, Formatter};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::block::Block;
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockChain {
     blocks: Vec<Block>,
 }
@@ -29,35 +32,19 @@ const DIFFICULTY_PREFIX: &str = "00";
 
 impl BlockChain {
     pub fn new() -> Self {
-        BlockChain { blocks: vec![] }
-    }
-    pub fn genesis(&mut self) -> &mut Self {
-        let genesis_block = Block {
-            id: 0,
-            timestamp: now(),
-            previous_hash: String::from("genesis"),
-            data: String::from("genesis!"),
-            nonce: 2836,
-            hash: "0000f816a87f806bb0073dcf026a64fb40c946b5abee2573702828694d5b4c43".to_string(),
-        };
-        self.blocks.push(genesis_block);
-        self
-    }
-    pub(crate) fn dump(&self) -> Result<String, Error> {
-        serde_json::to_string_pretty(&self.blocks).map(|pretty_json| {
-            info!("{}", pretty_json);
-            pretty_json
-        })
-    }
-    pub fn add_block(&mut self, block: Block) -> Option<&Block> {
-        // let block = self.mk_block( data.clone()).expect("error creating block");
-        let last_block = self.blocks.last().expect("has a block");
-        if self.is_block_valid(&block, last_block) {
-            self.blocks.push(block);
-            return self.blocks.last();
+        BlockChain {
+            blocks: Vec::from([Block {
+                id: 0,
+                timestamp: now(),
+                previous_hash: String::from("genesis"),
+                data: String::from("genesis!"),
+                nonce: 2836,
+                hash: "0000f816a87f806bb0073dcf026a64fb40c946b5abee2573702828694d5b4c43"
+                    .to_string(),
+            }]),
         }
-        None
     }
+
     pub fn mk_block(&mut self, data: String) -> Option<Block> {
         let now = now();
         self.blocks
@@ -76,47 +63,59 @@ impl BlockChain {
             })
     }
 
-    fn is_block_valid(&self, block: &Block, previous_block: &Block) -> bool {
-        if block.previous_hash != previous_block.hash {
-            warn!("block with id: {} has wrong previous hash", block.id);
-            return false;
+    fn are_blocks_sequential(previous_block: &Block, next: Block) -> Result<Block, anyhow::Error> {
+        if next.previous_hash != previous_block.hash {
+            return Err(anyhow!(
+                "block with id: {} has wrong previous hash",
+                next.id
+            ));
         }
-        if !hash_to_binary_representation(&hex::decode(&block.hash).expect("can decode from hex"))
+        if !hash_to_binary_representation(&hex::decode(&next.hash).expect("can decode from hex"))
             .starts_with(DIFFICULTY_PREFIX)
         {
-            warn!("block with id: {} has invalid difficulty", block.id);
-            return false;
+            return Err(anyhow!("block with id: {} has invalid difficulty", next.id));
         }
-        if block.id != previous_block.id + 1 {
-            warn!(
+        if next.id != previous_block.id + 1 {
+            return Err(anyhow!(
                 "block with id: {} is not the next block after the latest: {}",
-                block.id, previous_block.id
-            );
-            return false;
+                next.id,
+                previous_block.id
+            ));
         }
         if hex::encode(calculate_hash(
-            block.id,
-            block.timestamp,
-            &block.previous_hash,
-            &block.data,
-            block.nonce,
-        )) != block.hash
+            next.id,
+            next.timestamp,
+            &next.previous_hash,
+            &next.data,
+            next.nonce,
+        )) != next.hash
         {
-            warn!("block with id: {} has invalid hash", block.id);
-            return false;
+            return Err(anyhow!("block with id: {} has invalid hash", next.id));
         }
-        true
+        Ok(next)
     }
 
     fn is_chain_valid(&self, chain: &[Block]) -> bool {
         for i in 1..chain.len() {
             let first = chain.get(i - 1).expect("has to exist");
             let second = chain.get(i).expect("has to exist");
-            if !self.is_block_valid(second, first) {
-                return false;
-            }
+            match BlockChain::are_blocks_sequential(first, second.clone()) {
+                Err(e) => {
+                    return false;
+                }
+                Ok(_) => {
+                    continue;
+                }
+            };
         }
         true
+    }
+}
+
+impl Display for BlockChain {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let json = serde_json::to_string_pretty(&self).expect("json format error");
+        write!(f, "{}", json)
     }
 }
 
@@ -167,8 +166,55 @@ fn calculate_hash(
     hasher.update(data.to_string().as_bytes());
     hasher.finalize().as_slice().to_owned()
 }
+
 fn hash_to_binary_representation(hash: &[u8]) -> String {
     hash.iter()
         .map(|c| format!("{:b}", c))
         .fold("".to_string(), |cur, nxt| format!("{}{}", cur, nxt))
 }
+
+impl Ledger for BlockChain {
+    fn add_entry(mut self, block: Block) -> Result<BlockChain, anyhow::Error> {
+        // let block = self.mk_block( data.clone()).expect("error creating block");
+        let last_block = self.blocks.last().expect("has a block");
+        match BlockChain::are_blocks_sequential(last_block, block) {
+            Ok(b) => {
+                self.blocks.push(b);
+                Ok(self)
+            }
+            Err(e) => {
+                error!("{}", e);
+                Err(e)
+            }
+        }
+    }
+
+    fn is_valid(self) -> Result<bool, anyhow::Error> {
+        todo!()
+    }
+}
+
+impl Iterator for BlockChain {
+    type Item = ();
+
+    fn next(&mut self) -> Option<Self::Item> {
+        todo!()
+    }
+}
+
+pub trait Ledger {
+    fn add_entry(/*mut*/ self, entry: Block) -> Result<BlockChain, anyhow::Error>;
+
+    fn is_valid(self) -> Result<bool, anyhow::Error>;
+}
+
+// trait Observer<T> {
+//     fn receive_event(event_name: &str, thing: T);
+// }
+//
+// trait Observable {
+//     fn add_observer(observer: dyn Observer<T>) -> dyn Observable;
+// }
+
+// Ledger::validate(ledger)
+// ledger.is_validate()

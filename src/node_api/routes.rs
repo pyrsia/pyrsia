@@ -14,6 +14,8 @@
    limitations under the License.
 */
 
+use crate::block_chain::block_chain::BlockChain;
+
 use super::handlers::swarm::*;
 use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -23,18 +25,25 @@ use warp::Filter;
 pub fn make_node_routes(
     tx: Sender<String>,
     rx: Arc<Mutex<Receiver<String>>>,
-    tx1: Sender<String>,
-    rx1: Arc<Mutex<Receiver<String>>>,
+    get_blocks_tx: Sender<String>,
+    get_blocks_rx: Receiver<BlockChain>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let peers = warp::path!("peers")
         .and(warp::get())
         .and(warp::path::end())
         .and_then(move || handle_get_peers(tx.clone(), rx.clone()));
 
-    /*let status = warp::path!("status")
-    .and(warp::get())
-    .and(warp::path::end())
-    .and_then(move || handle_get_status(tx1.clone(), rx1.clone()));*/
+    let repeatable_get_blocks_receiver = Arc::new(Mutex::new(get_blocks_rx));
+    // The problem was our closure was being invoked "aka made again" so each new call needs to _take ownership_
+    let blocks = warp::path!("blocks")
+        .and(warp::get())
+        .and(warp::path::end())
+        .and_then(move || {
+            handle_get_blocks(
+                get_blocks_tx.clone(),
+                repeatable_get_blocks_receiver.clone(),
+            )
+        });
 
-    warp::any().and(peers)
+    warp::any().and(peers.or(blocks))
 }

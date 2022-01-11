@@ -14,16 +14,15 @@
    limitations under the License.
 */
 
-// this is to handle calls from cli that needs access info swarm specific from  kad dht
-use super::super::*;
-use super::RegistryError;
-use super::RegistryErrorCode;
-use log::{debug, error};
+use super::{RegistryError, RegistryErrorCode};
+use crate::block_chain::block_chain::BlockChain;
+use crate::node_manager::{handlers::get_arts_count, model::cli::Status};
+
+use log::{debug, error, info};
 use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
-use warp::http::StatusCode;
-use warp::{Rejection, Reply};
+use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_peers(
     tx: Sender<String>,
@@ -79,3 +78,31 @@ pub async fn handle_get_status(
         .body(ser_status)
         .unwrap())
 }
+
+// TODO Move to block chain module
+pub async fn handle_get_blocks(
+    tx: Sender<String>,
+    rx: Arc<Mutex<Receiver<BlockChain>>>,
+) -> Result<impl Reply, Rejection> {
+    // Send "digested" request data to main
+    match tx.send(String::from("blocks")).await {
+        Ok(_) => debug!("request for peers sent"),
+        Err(_) => error!("failed to send stdin input"),
+    }
+
+    // get result from main ( where the block chain lives )
+    let block_chain = rx.lock().await.recv().await.unwrap();
+    let blocks = format!("{}", block_chain);
+    info!("Got receive_blocks: {}", blocks);
+
+    // format the response
+    Ok(warp::http::response::Builder::new()
+        .header("Content-Type", "application/json")
+        .status(StatusCode::OK)
+        .body(blocks)
+        .unwrap())
+}
+
+// Next Step:
+// handle_get_block_id
+// hand_put_block
