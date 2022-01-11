@@ -596,6 +596,10 @@ mod tests {
         assert!(package_version.artifacts()[1].url().is_none());
         assert!(package_version.artifacts()[1].size().is_none());
         assert_eq!(
+            HashAlgorithm::SHA256,
+            *package_version.artifacts()[1].algorithm()
+        );
+        assert_eq!(
             &vec![
                 0x5fu8, 0x70u8, 0xbfu8, 0x18u8, 0xa0u8, 0x86u8, 0x00u8, 0x70u8, 0x16u8, 0xe9u8,
                 0x48u8, 0xb0u8, 0x4au8, 0xedu8, 0x3bu8, 0x82u8, 0x10u8, 0x3au8, 0x36u8, 0xbeu8,
@@ -645,7 +649,7 @@ mod tests {
         assert!(package_version.description().is_none());
         assert_eq!(5, package_version.artifacts().len());
 
-        assert_eq!(64, package_version.artifacts()[0].hash().len());
+        assert_eq!(&hash, package_version.artifacts()[0].hash());
         assert_eq!(
             HashAlgorithm::SHA512,
             *package_version.artifacts()[0].algorithm()
@@ -674,6 +678,43 @@ mod tests {
         }
         assert!(package_version.artifacts()[1].metadata().is_empty());
         assert!(package_version.artifacts()[1].source_url().is_none());
+        assert_eq!(
+            HashAlgorithm::SHA256,
+            *package_version.artifacts()[1].algorithm()
+        );
+        assert_eq!(
+            &vec![
+                0xb5u8, 0xb2u8, 0xb2u8, 0xc5u8, 0x07u8, 0xa0u8, 0x94u8, 0x43u8, 0x48u8, 0xe0u8,
+                0x30u8, 0x31u8, 0x14u8, 0xd8u8, 0xd9u8, 0x3au8, 0xaau8, 0xa0u8, 0x81u8, 0x73u8,
+                0x2bu8, 0x86u8, 0x45u8, 0x1du8, 0x9bu8, 0xceu8, 0x1fu8, 0x43u8, 0x2au8, 0x53u8,
+                0x7bu8, 0xc7u8
+            ],
+            package_version.artifacts()[1].hash()
+        );
+
+        assert!(package_version.artifacts()[2].name().is_none());
+        assert!(package_version.artifacts()[2].creation_time().is_none());
+        assert!(package_version.artifacts()[2].url().is_none());
+        assert!(package_version.artifacts()[2].size().is_none());
+        match package_version.artifacts()[2].mime_type() {
+            Some(mime_type) => assert_eq!(MEDIA_TYPE_BLOB_GZIPPED, mime_type),
+            None => assert!(false),
+        }
+        assert!(package_version.artifacts()[2].metadata().is_empty());
+        assert!(package_version.artifacts()[2].source_url().is_none());
+        assert_eq!(
+            HashAlgorithm::SHA256,
+            *package_version.artifacts()[2].algorithm()
+        );
+        assert_eq!(
+            &vec![
+                0xe6u8, 0x92u8, 0x41u8, 0x8eu8, 0x4cu8, 0xbau8, 0xf9u8, 0x0cu8, 0xa6u8, 0x9du8,
+                0x05u8, 0xa6u8, 0x64u8, 0x03u8, 0x74u8, 0x7bu8, 0xaau8, 0x33u8, 0xeeu8, 0x08u8,
+                0x80u8, 0x66u8, 0x50u8, 0xb5u8, 0x1fu8, 0xabu8, 0x81u8, 0x5au8, 0xd7u8, 0xfcu8,
+                0x33u8, 0x1fu8
+            ],
+            package_version.artifacts()[2].hash()
+        );
 
         Ok(())
     }
