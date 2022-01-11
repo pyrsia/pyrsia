@@ -420,8 +420,29 @@ fn package_version_from_schema2(
             size,
         ),
         MEDIA_TYPE_MANIFEST_LIST => todo!(),
-        _ => bail!("Manifest has unknown media type: {}", manifest_media_type),
+        _ => package_version_from_manifest_list(
+            json_object,
+            docker_name,
+            docker_reference,
+            hash_algorithm,
+            hash,
+            size,
+        ),
     }
+}
+
+fn package_version_from_manifest_list(
+    json_object: &Map<String, Value>,
+    docker_name: &str,
+    docker_reference: &str,
+    hash_algorithm: HashAlgorithm,
+    hash: Vec<u8>,
+    size: usize,
+) -> Result<PackageVersion, anyhow::Error> {
+    debug!("Processing manifest list");
+    let mut metadata = Map::new();
+    metadata.insert(MEDIA_TYPE.to_string(), json!(MEDIA_TYPE_IMAGE_MANIFEST));
+    todo!()
 }
 
 fn package_version_from_image_manifest(
@@ -599,6 +620,34 @@ mod tests {
             "digest": "sha256:ec4b8955958665577945c89419d1af06b5f7636b4ac3da7f12184802ad867736"
         }
     ]
+}"##;
+
+    const MANIFEST_V2_LIST: &str = r##"{
+  "schemaVersion": 2,
+  "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+  "manifests": [
+    {
+      "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+      "size": 7143,
+      "digest": "sha256:e692418e4cbaf90ca69d05a66403747baa33ee08806650b51fab815ad7fc331f",
+      "platform": {
+        "architecture": "ppc64le",
+        "os": "linux",
+      }
+    },
+    {
+      "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+      "size": 7682,
+      "digest": "sha256:5b0bcabd1ed22e9fb1310cf6c2dec7cdef19f0ad69efa1f392e94a4333501270",
+      "platform": {
+        "architecture": "amd64",
+        "os": "linux",
+        "features": [
+          "sse4"
+        ]
+      }
+    }
+  ]
 }"##;
 
     #[test]
