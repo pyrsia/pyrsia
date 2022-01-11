@@ -312,6 +312,7 @@ const CONFIG: &str = "config";
 const DIGEST: &str = "digest";
 const FS_LAYERS: &str = "fsLayers";
 const LAYERS: &str = "layers";
+const MANIFESTS: &str = "manifests";
 const MEDIA_TYPE: &str = "mediaType";
 const SIZE: &str = "size";
 
@@ -441,8 +442,34 @@ fn package_version_from_manifest_list(
 ) -> Result<PackageVersion, anyhow::Error> {
     debug!("Processing manifest list");
     let mut metadata = Map::new();
-    metadata.insert(MEDIA_TYPE.to_string(), json!(MEDIA_TYPE_IMAGE_MANIFEST));
-    todo!()
+    metadata.insert(MEDIA_TYPE.to_string(), json!(MEDIA_TYPE_MANIFEST_LIST));
+    let mut artifacts: Vec<Artifact> = Vec::new();
+    let size64 = u64::try_from(size)?;
+    artifacts.push(
+        ArtifactBuilder::default()
+            .algorithm(hash_algorithm)
+            .hash(hash)
+            .mime_type(MEDIA_TYPE_MANIFEST_LIST.to_string())
+            .size(size64)
+            .build()?,
+    );
+    let manifests = json_object
+        .get(MANIFESTS)
+        .context("Manifest list has no manifests field")?
+        .as_array()
+        .context("Value of manifests field is not an array")?;
+    for manifest in manifests {
+        add_artifact(&mut artifacts, manifest, "manifest")?
+    }
+    Ok(PackageVersionBuilder::default()
+        .id(new_uuid_string())
+        .namespace_id(DOCKER_NAMESPACE_ID.to_string())
+        .name(String::from(docker_name))
+        .pkg_type(PackageTypeName::Docker)
+        .version(String::from(docker_reference))
+        .metadata(metadata)
+        .artifacts(artifacts)
+        .build()?)
 }
 
 fn package_version_from_image_manifest(
@@ -471,13 +498,10 @@ fn package_version_from_image_manifest(
     }
     let layers = json_object
         .get(LAYERS)
-        .context("Image manifest has not layers field")?
+        .context("Image manifest has no layers field")?
         .as_array()
         .context("Value of layers field is not an array")?;
     for layer in layers {
-        let layer_object = layer
-            .as_object()
-            .context("layers array contains an element that is not a JSON object")?;
         add_artifact(&mut artifacts, layer, "layer")?
     }
 
@@ -644,7 +668,7 @@ mod tests {
       "digest": "sha256:e692418e4cbaf90ca69d05a66403747baa33ee08806650b51fab815ad7fc331f",
       "platform": {
         "architecture": "ppc64le",
-        "os": "linux",
+        "os": "linux"
       }
     },
     {
