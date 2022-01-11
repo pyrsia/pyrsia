@@ -780,7 +780,7 @@ mod tests {
     }
 
     #[test]
-    fn package_version_from_image_list() -> Result<(), anyhow::Error> {
+    fn package_version_from_image_manifest() -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V2_IMAGE);
         let hash: Vec<u8> = raw_sha512(json_bytes.to_vec()).to_vec();
         let package_version: PackageVersion = package_version_from_manifest_bytes(
@@ -874,6 +874,82 @@ mod tests {
                 0x33u8, 0x1fu8
             ],
             package_version.artifacts()[2].hash()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn package_version_from_manifest_list() -> Result<(), anyhow::Error> {
+        let json_bytes = Bytes::from(MANIFEST_V2_LIST);
+        let hash: Vec<u8> = raw_sha512(json_bytes.to_vec()).to_vec();
+        let package_version: PackageVersion = package_version_from_manifest_bytes(
+            &json_bytes,
+            "test_impls",
+            "v1.5.2",
+            HashAlgorithm::SHA512,
+            hash.clone(),
+        )?;
+        assert_eq!(32, package_version.id().len());
+        assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
+        assert_eq!("test_impls", package_version.name());
+        assert_eq!(PackageTypeName::Docker, *package_version.pkg_type());
+        assert_eq!("v1.5.2", package_version.version());
+        assert!(package_version.license_text().is_none());
+        assert!(package_version.license_text_mimetype().is_none());
+        assert!(package_version.license_url().is_none());
+        assert!(package_version.creation_time().is_none());
+        assert!(package_version.modified_time().is_none());
+        assert!(package_version.tags().is_empty());
+        assert!(package_version.metadata().contains_key(MEDIA_TYPE));
+        assert_eq!(
+            MEDIA_TYPE_MANIFEST_LIST,
+            package_version.metadata()[MEDIA_TYPE].as_str().unwrap()
+        );
+        assert!(package_version.description().is_none());
+        assert_eq!(3, package_version.artifacts().len());
+
+        assert_eq!(&hash, package_version.artifacts()[0].hash());
+        assert_eq!(
+            HashAlgorithm::SHA512,
+            *package_version.artifacts()[0].algorithm()
+        );
+        assert!(package_version.artifacts()[0].name().is_none());
+        assert!(package_version.artifacts()[0].creation_time().is_none());
+        assert!(package_version.artifacts()[0].url().is_none());
+        assert_eq!(
+            u64::try_from(MANIFEST_V2_LIST.len())?,
+            package_version.artifacts()[0].size().unwrap()
+        );
+        match package_version.artifacts()[0].mime_type() {
+            Some(mime_type) => assert_eq!(MEDIA_TYPE_MANIFEST_LIST, mime_type),
+            None => assert!(false),
+        }
+        assert!(package_version.artifacts()[0].metadata().is_empty());
+        assert!(package_version.artifacts()[0].source_url().is_none());
+
+        assert!(package_version.artifacts()[1].name().is_none());
+        assert!(package_version.artifacts()[1].creation_time().is_none());
+        assert!(package_version.artifacts()[1].url().is_none());
+        assert_eq!(7143u64, package_version.artifacts()[1].size().unwrap());
+        match package_version.artifacts()[1].mime_type() {
+            Some(mime_type) => assert_eq!(MEDIA_TYPE_IMAGE_MANIFEST, mime_type),
+            None => assert!(false),
+        }
+        assert!(package_version.artifacts()[1].metadata().is_empty());
+        assert!(package_version.artifacts()[1].source_url().is_none());
+        assert_eq!(
+            HashAlgorithm::SHA256,
+            *package_version.artifacts()[1].algorithm()
+        );
+        assert_eq!(
+            &vec![
+                0xe6u8, 0x92u8, 0x41u8, 0x8eu8, 0x4cu8, 0xbau8, 0xf9u8, 0x0cu8, 0xa6u8, 0x9du8,
+                0x05u8, 0xa6u8, 0x64u8, 0x03u8, 0x74u8, 0x7bu8, 0xaau8, 0x33u8, 0xeeu8, 0x08u8,
+                0x80u8, 0x66u8, 0x50u8, 0xb5u8, 0x1fu8, 0xabu8, 0x81u8, 0x5au8, 0xd7u8, 0xfcu8,
+                0x33u8, 0x1fu8
+            ],
+            package_version.artifacts()[1].hash()
         );
 
         Ok(())
