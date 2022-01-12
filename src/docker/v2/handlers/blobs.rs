@@ -23,8 +23,11 @@ use log::{debug, error, info, trace};
 use reqwest::{header, Client};
 use std::collections::HashMap;
 use std::fs;
+use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+
+use super::*;
 use std::pin::Pin;
 use std::result::Result;
 use std::str;
@@ -83,38 +86,33 @@ pub async fn handle_get_blobs(
     send_message.push_str(&hash_clone);
     tx.send(send_message.clone());
 
-    /*     debug!("Getting blob with hash : {:?}", hash);
-
-    let mut art_reader =
-        match get_artifact(&hex::decode(&hash).unwrap().as_ref(), HashAlgorithm::SHA256) {
-            Ok(reader) => reader,
-            Err(error) => {
-                return Err(warp::reject::custom(RegistryError {
-                    code: RegistryErrorCode::BlobDoesNotExist(error.to_string()),
-                }))
-            }
-        };
-
-    debug!("Reading blob contents..");
-
+    debug!("Getting blob with hash : {:?}", hash);
     let mut blob_content = Vec::new();
-    let blob_content_len = match art_reader.read_to_end(&mut blob_content) {
-        Ok(content) => content,
-        Err(error) => {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(error.to_string()),
-            }))
-        }
-    };
-    debug!("blob_content : {}", blob_content_len); */
 
-    let blob = format!(
+         let mut art_reader: Option<Box<dyn Read>> = None;
+      match get_artifact(&hex::decode(&hash).unwrap().as_ref(), HashAlgorithm::SHA256) {
+        Ok(reader) => {art_reader = Some(reader);},
+        Err(error) => {
+           { get_blob_from_docker_hub(&_name, &hash).await?;}
+
+        }
+    };  
+
+        let blob_content_len = art_reader.unwrap().read_to_end(&mut blob_content).map_err(|_| {
+            warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::BlobUnknown,
+            })
+        })?;
+        debug!("blob_content : {}", blob_content_len);
+
+    /*let blob = format!(
         "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
         hash.get(7..9).unwrap(),
         hash.get(7..).unwrap()
     );
     debug!("Searching for blob: {}", blob);
     let blob_path = Path::new(&blob);
+
     if !blob_path.exists() {
         get_blob_from_docker_hub(&_name, &hash).await?;
     }
@@ -130,7 +128,7 @@ pub async fn handle_get_blobs(
         warp::reject::custom(RegistryError {
             code: RegistryErrorCode::BlobUnknown,
         })
-    })?;
+    })?;*/
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
@@ -263,6 +261,16 @@ fn store_blob_in_filesystem(
     let mut blob_upload_dest_data = blob_upload_dest_dir.clone();
     blob_upload_dest_data.push_str("/data");
     append_to_blob(&blob_upload_dest_data, bytes)?;
+
+    //put blob in artifact manager
+    let reader = File::open(blob_upload_dest_data.as_str()).unwrap();
+
+    let push_result = put_artifact(&hex::decode(&digest).unwrap().as_ref(), Box::new(reader))
+        .map_err(|_| {
+            warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::BlobUnknown,
+            })
+        });
 
     let mut blob_dest = String::from(format!(
         "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}",
