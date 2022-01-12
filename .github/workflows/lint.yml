@@ -49,7 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: get-woke/woke-action@v0
-        with:
-          # Cause the check to fail on any broke rules
-          fail-on-error: true
+      - name: Run Woke for Inclusive Linting
+        run: |
+            curl -sSfL https://git.io/getwoke | bash -s --
+            bin/woke
+        shell: bash
