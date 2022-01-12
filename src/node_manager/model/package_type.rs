@@ -22,6 +22,7 @@ use signed::signed::Signed;
 use signed_struct::signed_struct;
 
 #[signed_struct]
+#[derive(PartialEq)]
 pub struct PackageType {
     name: PackageTypeName,
     description: String,

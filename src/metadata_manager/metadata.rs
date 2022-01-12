@@ -15,6 +15,13 @@
 */
 extern crate anyhow;
 
+use std::collections::HashMap;
+use std::fmt::Debug;
+use crate::document_store::document_store::{DocumentStore, IndexSpec};
+
+use anyhow::{bail, Error, Result};
+use log::{error, info, warn};
+use signed::signed::Signed;
 use super::model::namespace::Namespace;
 use super::model::package::Package;
 use super::model::package_type::{PackageType, PackageTypeName};
@@ -29,105 +36,11 @@ pub trait MetadataApi {
     /// signatures are associated with a public key that does not identify an identity in the blockchain.
     ///
     /// Also returns an error if there is already package_type with the same name.
-    fn create_package_type(&self, pkg_type: &PackageType) -> Result<(), anyhow::Error>;
+    fn create_package_type(&self, pkg_type: &PackageType) -> Result<()>;
 
     /// Return a PackageType struct that describes the named package type.
     fn get_package_type(&self, name: PackageTypeName)
-        -> Result<Option<PackageType>, anyhow::Error>;
-
-    /// Define the namespace described by the given `Namespace` struct.
-    ///
-    /// Returns an error if there is already a namespace with the same id or the same package_type and namespace_path.
-    ///
-    /// There may be rules associated with some package types about what a valid namespace path can be. If the namespace
-    /// path violates such rules, an error will be returned.
-    ///
-    /// Returns an error if `namespace` does not have any valid signatures or if any of the valid
-    /// signatures are associated with a public key that does not identify an identity in the blockchain.
-    fn create_namespace(&self, namespace: &Namespace) -> Result<(), anyhow::Error>;
-
-    /// Get the namespace identified by the given package type and namespace path.
-    fn get_namespace(
-        &self,
-        package_type: PackageTypeName,
-        namespace_path: &[&str],
-    ) -> Result<Option<Namespace>, anyhow::Error>;
-
-    /// Get the namespace identified by the given id.
-    fn get_namespace_by_id(&self, id: &str) -> Result<Option<Namespace>, anyhow::Error>;
-
-    /// Get an iterator over the namespaces associated with the specified package type.
-    fn get_namespaces_by_package_type(
-        &self,
-        package_type: PackageTypeName,
-    ) -> Result<NamespaceIterator, anyhow::Error>;
-
-    /// Define the package described by the given `Package` struct.
-    ///
-    /// Returns an error if there is already a package with the same package_type, namespace and
-    /// package_name.
-    ///
-    /// Returns an error if `package` does not have any valid signatures or if any of the valid
-    /// signatures are associated with a public key that does not identify an identity in the blockchain.
-    fn create_package(&self, package: &Package) -> Result<(), anyhow::Error>;
-
-    /// Get the package identified by the combination of the given package type, namespace id and
-    /// package name.
-    fn get_package(
-        &self,
-        package_type: PackageTypeName,
-        namespace_id: &str,
-        package_name: &str,
-    ) -> Result<Option<Package>, anyhow::Error>;
-
-    /// Get the package identified by the combination of the given package type, namespace path and
-    /// package name.
-    fn get_package_by_namespace_path(
-        &self,
-        package_type: PackageTypeName,
-        namespace_path: &[&str],
-        package_name: &str,
-    ) -> Result<Option<Package>, anyhow::Error>;
-
-    /// Get an iterator over the packages associated with the namespace identified by the given
-    /// namespace ID.
-    fn get_packages_by_namespace_id(
-        &self,
-        namespace_id: &str,
-    ) -> Result<PackageIterator, anyhow::Error>;
-
-    /// Update the package described by the given `Package` struct with the information in the
-    /// struct.
-    ///
-    /// The value of the `previous_signature` parameter must be equal to the contents of the
-    /// `__signature` field of the json of the existing package record (available by calling the
-    /// signed structs `signatures` method). If it is not, the update is assumed to be based on a
-    /// stale version of the package record (someone else updated the package first) and an error is
-    /// returned.
-    ///
-    /// The values of the `name`, `package_type`, `namespace_id` and `creation_time` fields must be
-    /// the same as the values in the existing record. Updates to these fields are not allowed.
-    ///
-    /// The value of the `modified_time` field must be greater than or equal to the existing record.
-    /// If the value of `modified_time` is greater than in the existing record, its value is updated
-    /// to the new later value. If the value of the `modified_time` field is equal to the existing
-    /// record, then this method updates the `modified_time` field with the current time.
-    ///
-    /// The `Vec` that is the value of the `versions` field must include all of the values in the
-    /// existing record or an error is returned.
-    ///
-    /// Returns an error if `package` does not have any valid signatures or if any of the valid
-    /// signatures are associated with a public key that does not identify an identity in the
-    /// blockchain.
-    ///
-    /// If the values of the `administrators` field in the existing record is not an empty `Vec`,
-    /// then the public key of at least one of the signers of this `Package` must be one of the
-    /// public keys in the `administrators` field. Otherwise an error is returned.
-    fn update_package(
-        &self,
-        package: &Package,
-        previous_signature: &str,
-    ) -> Result<(), anyhow::Error>;
+        -> Result<Option<PackageType>>;
 
     /// Define the package version described by the given `PackageVersion` struct.
     ///
@@ -137,7 +50,7 @@ pub trait MetadataApi {
     /// Returns an error if `package_version` does not have any valid signatures or if any of the valid
     /// signatures are associated with a public key that does not identify an identity in the blockchain.
     fn create_package_version(&self, package_version: &PackageVersion)
-        -> Result<(), anyhow::Error>;
+        -> Result<()>;
 
     /// Get the package_version that matches the given namespace_id, package_name and version.
     fn get_package_version(
@@ -145,10 +58,7 @@ pub trait MetadataApi {
         namespace_id: &str,
         package_name: &str,
         version: &str,
-    ) -> Result<Option<PackageVersion>, anyhow::Error>;
-
-    /// Get the package_version that has the given id.
-    fn get_package_version_by_id(&self, id: &str) -> Result<Option<PackageVersion>, anyhow::Error>;
+    ) -> Result<Option<PackageVersion>>;
 }
 
 /// Used to iterate over a collection of namespaces without requiring the collection to fit in memory.
@@ -170,5 +80,365 @@ impl Iterator for PackageIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         todo!()
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// The first time that a node is run, its metadata manager needs to create the document stores that
+// it will used to hold metadata. Below are sets of definitions used to create the document stores.
+//
+// Each set of definitions has some const declarations followed by one or two function definitions.
+// The first const is for the name of the document store. The names of these follow the pattern
+// DS_documentStoreName. For example the const for the name of the document store named
+// "package_versions" is DS_PACKAGE_VERSIONS.
+//
+// Each document store will have at least one index. Each index has a name. The pattern for const
+// names that define the name of an index is IX_documentStoreName_indexName. For example, the name
+// of the const for an index named "ids" for a document store named "package_versions" is
+// IX_PACKAGE_VERSION_IDS. There will be one of these IX consts for each index that a document store
+// will have.
+//
+// Since we need to specify which fields an index will refer to, there are also const names defined
+// for each field that is covered by an index. The pattern for these names is
+// FLD_documentStoreName_fieldName. For example the const name for the field named "name" in the
+// document store named "package_versions" is FLD_PACKAGE_VERSIONS_NAME.
+//
+// For each document store to be created, there is a function named with the pattern
+// ix_documentStoreName. For example, for the document store named "package_versions" the name of
+// this function is ix_package_versions. This function uses the const values defined for the
+// document store to create and return a Vec of index definitions.
+//
+// For some of the document stores there is a second function named with the pattern
+// init_documentStoreName. For example, there is one of these functions for the document store named
+// "package_types". The name of the function is init_package_types. This method creates a Vec of
+// JSON strings that the document store will be pre-populated with.
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Definitions for package types
+const DS_PACKAGE_TYPES: &str = "package_types";
+const IX_PACKAGE_TYPES_NAMES: &str = "names";
+const FLD_PACKAGE_TYPES_NAME: &str = "name";
+fn ix_package_types() -> Vec<IndexSpec> {
+    vec![IndexSpec::new(
+        String::from(IX_PACKAGE_TYPES_NAMES),
+        vec![String::from(FLD_PACKAGE_TYPES_NAME)],
+    )]
+}
+fn init_package_types() -> Vec<String> {
+    init_empty() // TODO This should be replaced by code to insert a signed json string that defines the Docker package type.
+}
+
+
+// Definitions for package-versions
+const DS_PACKAGE_VERSIONS: &str = "package_versions";
+const IX_PACKAGE_VERSIONS_ID: &str = "id";
+const IX_PACKAGE_VERSIONS_VERSION: &str = "version";
+const FLD_PACKAGE_VERSIONS_ID: &str = "id";
+const FLD_PACKAGE_VERSIONS_NAMESPACE_ID: &str = "namespace_id";
+const FLD_PACKAGE_VERSIONS_NAME: &str = "name";
+const FLD_PACKAGE_VERSIONS_VERSION: &str = "version";
+fn ix_package_versions() -> Vec<IndexSpec> {
+    vec![
+        IndexSpec::new(
+            String::from(IX_PACKAGE_VERSIONS_ID),
+            vec![String::from(FLD_PACKAGE_VERSIONS_ID)],
+        ),
+        IndexSpec::new(
+            String::from(IX_PACKAGE_VERSIONS_VERSION),
+            vec![
+                String::from(FLD_PACKAGE_VERSIONS_NAMESPACE_ID),
+                String::from(FLD_PACKAGE_VERSIONS_NAME),
+                String::from(FLD_PACKAGE_VERSIONS_VERSION),
+            ],
+        ),
+    ]
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// End of definitions to support creation of document stores
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug)]
+pub struct Metadata {
+    //TODO Add a trust manager to decide if metadata is trust-worthy
+    package_type_docs: DocumentStore,
+    package_version_docs: DocumentStore,
+}
+
+impl Metadata {
+    pub fn new() -> Result<Metadata, anyhow::Error> {
+        info!("Creating new instance of metadata manager");
+        let package_type_docs =
+            open_document_store(DS_PACKAGE_TYPES, ix_package_types, init_package_types)?;
+        let namespace_docs = open_document_store(DS_NAMESPACES, ix_namespaces, init_empty)?;
+        let package_docs = open_document_store(DS_PACKAGES, ix_packages, init_empty)?;
+        let package_version_docs =
+            open_document_store(DS_PACKAGE_VERSIONS, ix_package_versions, init_empty)?;
+        Ok(Metadata {
+            package_type_docs,
+            package_version_docs,
+        })
+    }
+}
+
+
+// Open the specified document store. If that fails, try creating it.
+// * `ds_name` ― The name of the document store.
+// * `index_specs` ― If creating the document store, call this method to get a description of the indexes it will have.
+// * `initial_records` ― When creating the document store, call this method to get JSON strings to inserted as a records.
+fn open_document_store(
+    ds_name: &str,
+    index_specs: fn() -> Vec<IndexSpec>,
+    initial_records: fn() -> Vec<String>,
+) -> anyhow::Result<DocumentStore> {
+    info!("Opening document store: {}", ds_name);
+    match DocumentStore::get(ds_name) {
+        Ok(ds) => Ok(ds),
+        Err(error) => {
+            warn!(
+                "Failed to open document store {}; error was {}",
+                ds_name, error
+            );
+            info!("Attempting to create document store {}", ds_name);
+            match DocumentStore::create(ds_name, index_specs()) {
+                Ok(ds) => {
+                    info!("Created document store {}", ds_name);
+                    populate_with_initial_records(&ds, initial_records)?;
+                    Ok(ds)
+                }
+                Err(error) => failed_to_create_document_store(ds_name, error),
+            }
+        }
+    }
+}
+
+// Most types of metadata come from the Pyrsia network or the node's clients. However, a few types
+// of metadata such as package type will need to be at partially pre-populated in new nodes.
+fn populate_with_initial_records(
+    ds: &DocumentStore,
+    initial_records: fn() -> Vec<String>,
+) -> Result<()> {
+    for record in initial_records() {
+        if let Err(error) = ds.insert(&record) {
+            error!(
+                "Failed to insert initial record into document store {}: {}\nError was {}",
+                ds.name, record, error
+            );
+            todo!("If an attempt to insert an initial record into document store fails, then we need to do something so that we will know that the document store is missing necessary information")
+        }
+    }
+    Ok(())
+}
+
+fn failed_to_create_document_store(ds_name: &str, error: Box<dyn std::error::Error>) -> Result<DocumentStore> {
+    let msg = format!(
+        "Failed to create document store {} due to error {}",
+        ds_name, error
+    );
+    error!("{}", msg);
+    bail!(msg)
+}
+
+
+impl MetadataApi for Metadata {
+    fn create_package_type(&self, pkg_type: &PackageType) -> anyhow::Result<()> {
+        match self.trust_manager.trust_package_type(pkg_type) {
+            Ok(_) => insert_metadata(&self.package_type_docs, pkg_type),
+            Err(error) => untrusted_metadata_error(pkg_type, &error.to_string()),
+        }
+    }
+
+    fn get_package_type(&self, name: PackageTypeName) -> anyhow::Result<Option<PackageType>> {
+        let name_as_string = name.to_string();
+        let filter = hashmap! {
+            FLD_PACKAGE_TYPES_NAME => name_as_string.as_str()
+        };
+        match self.package_type_docs.fetch(IX_PACKAGE_TYPES_NAMES, filter) {
+            Err(error) => bail!("Error fetching package type: {}", error),
+            Ok(Some(json)) => Ok(Some(PackageType::from_json_string(&json)?)),
+            Ok(None) => Ok(None),
+        }
+    }
+
+    fn create_package_version(&self, package_version: &PackageVersion) -> anyhow::Result<()> {
+        match self.trust_manager.trust_package_version(package_version) {
+            Ok(_) => insert_metadata(&self.package_version_docs, package_version),
+            Err(error) => untrusted_metadata_error(package_version, &error.to_string()),
+        }
+    }
+
+    fn get_package_version(
+        &self,
+        namespace_id: &str,
+        package_name: &str,
+        version: &str,
+    ) -> Result<Option<PackageVersion>> {
+        let filter = hashmap! {
+            FLD_PACKAGE_VERSIONS_NAMESPACE_ID => namespace_id,
+            FLD_PACKAGE_VERSIONS_NAME => package_name,
+            FLD_PACKAGE_VERSIONS_VERSION => version,
+        };
+        fetch_package_version(self, IX_PACKAGE_VERSIONS_VERSION, filter)
+    }
+}
+
+fn fetch_package_version(
+    md: &Metadata,
+    index_name: &str,
+    filter: HashMap<&str, &str>,
+) -> anyhow::Result<Option<PackageVersion>> {
+    match md.package_version_docs.fetch(index_name, filter) {
+        Err(error) => bail!("Error fetching package version: {}", error),
+        Ok(Some(json)) => Ok(Some(PackageVersion::from_json_string(&json)?)),
+        Ok(None) => Ok(None),
+    }
+}
+
+fn insert_metadata<'a, T: Signed<'a> + Debug>(
+    ds: &DocumentStore,
+    signed: &T,
+) -> anyhow::Result<()> {
+    match signed.json() {
+        Some(json) => match ds.insert(&json) {
+            Ok(_) => Ok(()),
+            Err(error) => bail!(
+                "Failed to create package_type record: {:?}\nError is {}",
+                signed,
+                error.to_string()
+            ),
+        },
+        None => bail!(
+            "A supposedly trusted metadata struct is missing its JSON: {:?}",
+            signed
+        ),
+    }
+}
+
+fn untrusted_metadata_error<'a, T: Signed<'a>>(signed: &T, error: &str) -> anyhow::Result<()> {
+    bail!(
+        "New metadata is not trusted: JSON is {}\nError is{}",
+        signed.json().unwrap_or_else(|| "None".to_string()),
+        error
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{env, fs};
+    use super::*;
+    use crate::artifact_manager::HashAlgorithm;
+    use crate::node_manager::model::artifact::Artifact;
+    use crate::node_manager::model::package_version::LicenseTextMimeType;
+    use pyrsia_client_lib::signed::{create_key_pair, JwsSignatureAlgorithms};
+    use rand::Rng;
+    use serde_json::{Map, Value};
+    use serial_test::serial;
+    use std::path::Path;
+
+    const DIR_PREFIX: &str = "metadata_test_";
+
+    // Used to run a test in a randomly named directory and then clean up by deleting the directory.
+    fn do_in_temp_directory(runner: fn() -> anyhow::Result<()>) -> anyhow::Result<()> {
+        let mut rng = rand::thread_rng();
+        let n: u32 = rng.gen();
+        let mut dir_name = String::from(DIR_PREFIX);
+        dir_name.push_str(&n.to_string());
+        let dir_path = Path::new(&dir_name);
+        let prev_dir = env::current_dir()?;
+        info!("Creating temp directory {}", dir_path.to_str().unwrap());
+        fs::create_dir_all(dir_path)?;
+        env::set_current_dir(dir_path)?;
+        let result = runner();
+        env::set_current_dir(prev_dir)?;
+        info!("Removing temp directory {}", dir_path.to_str().unwrap());
+        fs::remove_dir_all(dir_path)?;
+        result
+    }
+
+    #[test]
+    #[serial]
+    fn package_type_test() -> Result<()> {
+        do_in_temp_directory(|| {
+            let metadata = Metadata::new()?;
+            info!("Created metadata instance: {:?}", metadata);
+
+            let mut package_type =
+                PackageType::new(PackageTypeName::Docker, String::from("docker packages"));
+
+            metadata.create_package_type(&package_type)?;
+            let package_type2 = metadata.get_package_type(PackageTypeName::Docker)?.unwrap();
+            assert_eq!(package_type2, package_type);
+            Ok(())
+        })
+    }
+
+    #[test]
+    #[serial]
+    fn package_version_test() -> Result<()> {
+        let metadata = Metadata::new()?;
+
+        let hash1: Vec<u8> = vec![
+            0xa3, 0x3f, 0x49, 0x64, 0x00, 0xa5, 0x67, 0xe1, 0xb4, 0xe5, 0xbe, 0x4c, 0x81, 0x30,
+            0xd7, 0xd3, 0x5f, 0x67, 0x7a, 0x41, 0xff, 0xca, 0x25, 0xe5, 0x5c, 0x66, 0xde, 0xbf,
+            0x42, 0xfe, 0xc5, 0xc0,
+        ];
+        let name1 = Some("roadRunner".to_string());
+        let creation_time1 = Some(iso8601::now_as_utc_iso8601_string());
+        let url1 = Some("https://example.com".to_string());
+        let size1: u64 = 12345678;
+        let mime_type1 = Some("application/binary".to_string());
+        let source1 = Some("https://info.com".to_string());
+        let artifacts = vec![Artifact::new(
+            hash1,
+            HashAlgorithm::SHA256,
+            name1,
+            creation_time1,
+            url1,
+            size1,
+            mime_type1,
+            Map::new(),
+            source1,
+        )];
+
+        let id = "wi238rugs".to_string();
+        let namespace_id = "asd928374".to_string();
+        let name = "acme".to_string();
+        let package_type = PackageTypeName::Docker;
+        let version = "1.0".to_string();
+        let license_text = Some("Do as you will.".to_string());
+        let license_text_mimetype = Some(LicenseTextMimeType::Text);
+        let license_url = Some("https://example.com".to_string());
+        let pv_metadata: serde_json::Map<String, Value> = serde_json::Map::new();
+        let creation_time = Some(iso8601::now_as_utc_iso8601_string());
+        let modified_time = Some(iso8601::now_as_utc_iso8601_string());
+        let tags: Vec<String> = vec![];
+        let description = Some("Roses are red".to_string());
+
+        let mut package_version = PackageVersion::new(
+            id.clone(),
+            namespace_id.clone(),
+            name.clone(),
+            package_type,
+            version.clone(),
+            license_text,
+            license_text_mimetype,
+            license_url,
+            pv_metadata,
+            creation_time,
+            modified_time,
+            tags,
+            description,
+            artifacts,
+        );
+
+        metadata.create_package_version(&package_version)?;
+        let package_version2 = metadata.get_package_version(&namespace_id, &name, &version)?;
+        assert!(package_version2.is_some());
+        assert_eq!(package_version, package_version2.unwrap());
+
+        Ok(())
     }
 }
