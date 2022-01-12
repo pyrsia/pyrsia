@@ -57,6 +57,22 @@ pub struct RegistryError {
     pub code: RegistryErrorCode,
 }
 
+impl From<reqwest::Error> for RegistryError {
+    fn from(err: reqwest::Error) -> RegistryError {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(err.to_string()),
+        }
+    }
+}
+
+impl From<std::io::Error> for RegistryError {
+    fn from(err: std::io::Error) -> RegistryError {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(err.to_string()),
+        }
+    }
+}
+
 impl Reject for RegistryError {}
 
 pub async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
