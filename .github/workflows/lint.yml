@@ -52,5 +52,5 @@ jobs:
       - name: Run Woke for Inclusive Linting
         run: |
             curl -sSfL https://git.io/getwoke | bash -s --
-            bin/woke
+            bin/woke --exit-1-on-failure 
         shell: bash
