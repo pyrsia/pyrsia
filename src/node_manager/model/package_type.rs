@@ -20,15 +20,16 @@ extern crate signed_struct;
 use serde::{Deserialize, Serialize};
 use signed::signed::Signed;
 use signed_struct::signed_struct;
+use strum_macros::Display;
 
 #[signed_struct]
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct PackageType {
     name: PackageTypeName,
     description: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, Display, PartialEq, Clone)]
 pub enum PackageTypeName {
     Docker,
 }

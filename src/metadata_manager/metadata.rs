@@ -15,17 +15,18 @@
 */
 extern crate anyhow;
 
+use crate::document_store::document_store::{DocumentStore, IndexSpec};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use crate::document_store::document_store::{DocumentStore, IndexSpec};
 
-use anyhow::{bail, Error, Result};
-use log::{error, info, warn};
-use signed::signed::Signed;
 use super::model::namespace::Namespace;
 use super::model::package::Package;
-use super::model::package_type::{PackageType, PackageTypeName};
-use super::model::package_version::PackageVersion;
+use super::model::package_type::{PackageType, PackageTypeBuilder, PackageTypeName};
+use super::model::package_version::{PackageVersion, PackageVersionBuilder};
+use anyhow::{bail, Result};
+use log::{error, info, warn};
+use maplit::hashmap;
+use signed::signed::Signed;
 
 // create package version
 
@@ -39,8 +40,7 @@ pub trait MetadataApi {
     fn create_package_type(&self, pkg_type: &PackageType) -> Result<()>;
 
     /// Return a PackageType struct that describes the named package type.
-    fn get_package_type(&self, name: PackageTypeName)
-        -> Result<Option<PackageType>>;
+    fn get_package_type(&self, name: PackageTypeName) -> Result<Option<PackageType>>;
 
     /// Define the package version described by the given `PackageVersion` struct.
     ///
@@ -49,8 +49,7 @@ pub trait MetadataApi {
     ///
     /// Returns an error if `package_version` does not have any valid signatures or if any of the valid
     /// signatures are associated with a public key that does not identify an identity in the blockchain.
-    fn create_package_version(&self, package_version: &PackageVersion)
-        -> Result<()>;
+    fn create_package_version(&self, package_version: &PackageVersion) -> Result<()>;
 
     /// Get the package_version that matches the given namespace_id, package_name and version.
     fn get_package_version(
@@ -116,7 +115,6 @@ impl Iterator for PackageIterator {
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
 // Definitions for package types
 const DS_PACKAGE_TYPES: &str = "package_types";
 const IX_PACKAGE_TYPES_NAMES: &str = "names";
@@ -131,6 +129,9 @@ fn init_package_types() -> Vec<String> {
     init_empty() // TODO This should be replaced by code to insert a signed json string that defines the Docker package type.
 }
 
+fn init_empty() -> Vec<String> {
+    vec![]
+}
 
 // Definitions for package-versions
 const DS_PACKAGE_VERSIONS: &str = "package_versions";
@@ -173,8 +174,6 @@ impl Metadata {
         info!("Creating new instance of metadata manager");
         let package_type_docs =
             open_document_store(DS_PACKAGE_TYPES, ix_package_types, init_package_types)?;
-        let namespace_docs = open_document_store(DS_NAMESPACES, ix_namespaces, init_empty)?;
-        let package_docs = open_document_store(DS_PACKAGES, ix_packages, init_empty)?;
         let package_version_docs =
             open_document_store(DS_PACKAGE_VERSIONS, ix_package_versions, init_empty)?;
         Ok(Metadata {
@@ -183,7 +182,6 @@ impl Metadata {
         })
     }
 }
-
 
 // Open the specified document store. If that fails, try creating it.
 // * `ds_name` ― The name of the document store.
@@ -233,7 +231,10 @@ fn populate_with_initial_records(
     Ok(())
 }
 
-fn failed_to_create_document_store(ds_name: &str, error: Box<dyn std::error::Error>) -> Result<DocumentStore> {
+fn failed_to_create_document_store(
+    ds_name: &str,
+    error: Box<dyn std::error::Error>,
+) -> Result<DocumentStore> {
     let msg = format!(
         "Failed to create document store {} due to error {}",
         ds_name, error
@@ -242,17 +243,13 @@ fn failed_to_create_document_store(ds_name: &str, error: Box<dyn std::error::Err
     bail!(msg)
 }
 
-
 impl MetadataApi for Metadata {
     fn create_package_type(&self, pkg_type: &PackageType) -> anyhow::Result<()> {
-        match self.trust_manager.trust_package_type(pkg_type) {
-            Ok(_) => insert_metadata(&self.package_type_docs, pkg_type),
-            Err(error) => untrusted_metadata_error(pkg_type, &error.to_string()),
-        }
+        insert_metadata(&self.package_type_docs, pkg_type)
     }
 
     fn get_package_type(&self, name: PackageTypeName) -> anyhow::Result<Option<PackageType>> {
-        let name_as_string = name.to_string();
+        let name_as_string = format!("{}", name);
         let filter = hashmap! {
             FLD_PACKAGE_TYPES_NAME => name_as_string.as_str()
         };
@@ -264,10 +261,7 @@ impl MetadataApi for Metadata {
     }
 
     fn create_package_version(&self, package_version: &PackageVersion) -> anyhow::Result<()> {
-        match self.trust_manager.trust_package_version(package_version) {
-            Ok(_) => insert_metadata(&self.package_version_docs, package_version),
-            Err(error) => untrusted_metadata_error(package_version, &error.to_string()),
-        }
+        insert_metadata(&self.package_version_docs, package_version)
     }
 
     fn get_package_version(
@@ -327,16 +321,15 @@ fn untrusted_metadata_error<'a, T: Signed<'a>>(signed: &T, error: &str) -> anyho
 
 #[cfg(test)]
 mod tests {
-    use std::{env, fs};
     use super::*;
     use crate::artifact_manager::HashAlgorithm;
-    use crate::node_manager::model::artifact::Artifact;
+    use crate::node_manager::model::artifact::ArtifactBuilder;
     use crate::node_manager::model::package_version::LicenseTextMimeType;
-    use pyrsia_client_lib::signed::{create_key_pair, JwsSignatureAlgorithms};
     use rand::Rng;
     use serde_json::{Map, Value};
-    use serial_test::serial;
+    use signed::signed;
     use std::path::Path;
+    use std::{env, fs};
 
     const DIR_PREFIX: &str = "metadata_test_";
 
@@ -359,14 +352,15 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn package_type_test() -> Result<()> {
         do_in_temp_directory(|| {
             let metadata = Metadata::new()?;
             info!("Created metadata instance: {:?}", metadata);
 
-            let mut package_type =
-                PackageType::new(PackageTypeName::Docker, String::from("docker packages"));
+            let mut package_type = PackageTypeBuilder::default()
+                .name(PackageTypeName::Docker)
+                .description("docker packages".to_string())
+                .build()?;
 
             metadata.create_package_type(&package_type)?;
             let package_type2 = metadata.get_package_type(PackageTypeName::Docker)?.unwrap();
@@ -376,7 +370,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn package_version_test() -> Result<()> {
         let metadata = Metadata::new()?;
 
@@ -385,54 +378,50 @@ mod tests {
             0xd7, 0xd3, 0x5f, 0x67, 0x7a, 0x41, 0xff, 0xca, 0x25, 0xe5, 0x5c, 0x66, 0xde, 0xbf,
             0x42, 0xfe, 0xc5, 0xc0,
         ];
-        let name1 = Some("roadRunner".to_string());
-        let creation_time1 = Some(iso8601::now_as_utc_iso8601_string());
-        let url1 = Some("https://example.com".to_string());
+        let name1 = "roadRunner".to_string();
+        let creation_time1 = signed::now_as_iso8601_string();
+        let url1 = "https://example.com".to_string();
         let size1: u64 = 12345678;
-        let mime_type1 = Some("application/binary".to_string());
-        let source1 = Some("https://info.com".to_string());
-        let artifacts = vec![Artifact::new(
-            hash1,
-            HashAlgorithm::SHA256,
-            name1,
-            creation_time1,
-            url1,
-            size1,
-            mime_type1,
-            Map::new(),
-            source1,
-        )];
+        let mime_type1 = "application/binary".to_string();
+        let source1 = "https://info.com".to_string();
+        let artifacts = vec![ArtifactBuilder::default()
+            .hash(hash1)
+            .algorithm(HashAlgorithm::SHA256)
+            .name(name1)
+            .creation_time(creation_time1)
+            .url(url1)
+            .size(size1)
+            .mime_type(mime_type1)
+            .metadata(Map::new())
+            .source_url(source1)
+            .build()?];
 
         let id = "wi238rugs".to_string();
         let namespace_id = "asd928374".to_string();
         let name = "acme".to_string();
         let package_type = PackageTypeName::Docker;
         let version = "1.0".to_string();
-        let license_text = Some("Do as you will.".to_string());
-        let license_text_mimetype = Some(LicenseTextMimeType::Text);
-        let license_url = Some("https://example.com".to_string());
+        let license_text = "Do as you will.".to_string();
+        let license_text_mimetype = LicenseTextMimeType::Text;
+        let license_url = "https://example.com".to_string();
         let pv_metadata: serde_json::Map<String, Value> = serde_json::Map::new();
-        let creation_time = Some(iso8601::now_as_utc_iso8601_string());
-        let modified_time = Some(iso8601::now_as_utc_iso8601_string());
+        let creation_time = signed::now_as_iso8601_string();
+        let modified_time = signed::now_as_iso8601_string();
         let tags: Vec<String> = vec![];
-        let description = Some("Roses are red".to_string());
+        let description = "Roses are red".to_string();
 
-        let mut package_version = PackageVersion::new(
-            id.clone(),
-            namespace_id.clone(),
-            name.clone(),
-            package_type,
-            version.clone(),
-            license_text,
-            license_text_mimetype,
-            license_url,
-            pv_metadata,
-            creation_time,
-            modified_time,
-            tags,
-            description,
-            artifacts,
-        );
+        let mut package_version: PackageVersion = PackageVersionBuilder::default().id(id).namespace_id(namespace_id).name(name).pkg_type(package_type).version(version)
+            .license_text(license_text)
+            .license_text_mimetype(license_text_mimetype)
+            .license_url(license_url)
+            .metadata(pv_metadata)
+            .creation_time(creation_time)
+            .modified_time(modified_time)
+            .tags(tags)
+            .description(description)
+            .artifacts(artifacts)
+            .build()?
+        ;
 
         metadata.create_package_version(&package_version)?;
         let package_version2 = metadata.get_package_version(&namespace_id, &name, &version)?;
