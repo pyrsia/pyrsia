@@ -398,8 +398,10 @@ impl<'a> DocumentStore {
         let mut raw_data_key;
         loop {
             raw_data_key = bincode::serialize(&DataKey::new(rng.gen()))?;
-            if !data_store.kv_contains(&raw_data_key) {
-                data_store
+            if !self.unqlite.as_ref().unwrap().kv_contains(&raw_data_key) {
+                self.unqlite
+                    .as_ref()
+                    .unwrap()
                     .kv_store(&raw_data_key, document)
                     .map_err(DocumentStoreError::UnQLite)?;
                 debug!("Document stored!");
