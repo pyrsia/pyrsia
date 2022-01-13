@@ -31,36 +31,6 @@ use signed::signed::Signed;
 
 // create package version
 
-pub trait MetadataApi {
-    /// Create a new package type with the information specified in the `pkg_type` parameter.
-    ///
-    /// Returns an error if `pkg_type` does not have any valid signatures or i any of the valid
-    /// signatures are associated with a public key that does not identify an identity in the blockchain.
-    ///
-    /// Also returns an error if there is already package_type with the same name.
-    fn create_package_type(&mut self, pkg_type: &PackageType) -> Result<()>;
-
-    /// Return a PackageType struct that describes the named package type.
-    fn get_package_type(&mut self, name: PackageTypeName) -> Result<Option<PackageType>>;
-
-    /// Define the package version described by the given `PackageVersion` struct.
-    ///
-    /// Returns an error if there is already a package version with the same id or the same
-    /// combination of package_type, namespace_id, package_name and version.
-    ///
-    /// Returns an error if `package_version` does not have any valid signatures or if any of the valid
-    /// signatures are associated with a public key that does not identify an identity in the blockchain.
-    fn create_package_version(&mut self, package_version: &PackageVersion) -> Result<()>;
-
-    /// Get the package_version that matches the given namespace_id, package_name and version.
-    fn get_package_version(
-        &mut self,
-        namespace_id: &str,
-        package_name: &str,
-        version: &str,
-    ) -> Result<Option<PackageVersion>>;
-}
-
 /// Used to iterate over a collection of namespaces without requiring the collection to fit in memory.
 pub struct NamespaceIterator {}
 
@@ -181,6 +151,40 @@ impl Metadata {
             package_version_docs,
         })
     }
+
+    pub fn create_package_type(&mut self, pkg_type: &PackageType) -> anyhow::Result<()> {
+        insert_metadata(&mut self.package_type_docs, pkg_type)
+    }
+
+    pub fn get_package_type(&mut self, name: PackageTypeName) -> anyhow::Result<Option<PackageType>> {
+        let name_as_string = format!("{}", name.to_string());
+        let filter = hashmap! {
+            FLD_PACKAGE_TYPES_NAME => name_as_string.as_str()
+        };
+        match self.package_type_docs.fetch(IX_PACKAGE_TYPES_NAMES, filter) {
+            Err(error) => bail!("Error fetching package type: {}", error),
+            Ok(Some(json)) => Ok(Some(PackageType::from_json_string(&json)?)),
+            Ok(None) => Ok(None),
+        }
+    }
+
+    pub fn create_package_version(&mut self, package_version: &PackageVersion) -> anyhow::Result<()> {
+        insert_metadata(&mut self.package_version_docs, package_version)
+    }
+
+    pub fn get_package_version(
+        &mut self,
+        namespace_id: &str,
+        package_name: &str,
+        version: &str,
+    ) -> Result<Option<PackageVersion>> {
+        let filter = hashmap! {
+            FLD_PACKAGE_VERSIONS_NAMESPACE_ID => namespace_id,
+            FLD_PACKAGE_VERSIONS_NAME => package_name,
+            FLD_PACKAGE_VERSIONS_VERSION => version,
+        };
+        fetch_package_version(self, IX_PACKAGE_VERSIONS_VERSION, filter)
+    }
 }
 
 // Open the specified document store. If that fails, try creating it.
@@ -240,42 +244,6 @@ fn failed_to_create_document_store(ds_name: &str, error: anyhow::Error) -> Resul
     );
     error!("{}", msg);
     bail!(msg)
-}
-
-impl MetadataApi for Metadata {
-    fn create_package_type(&mut self, pkg_type: &PackageType) -> anyhow::Result<()> {
-        insert_metadata(&mut self.package_type_docs, pkg_type)
-    }
-
-    fn get_package_type(&mut self, name: PackageTypeName) -> anyhow::Result<Option<PackageType>> {
-        let name_as_string = format!("{}", name.to_string());
-        let filter = hashmap! {
-            FLD_PACKAGE_TYPES_NAME => name_as_string.as_str()
-        };
-        match self.package_type_docs.fetch(IX_PACKAGE_TYPES_NAMES, filter) {
-            Err(error) => bail!("Error fetching package type: {}", error),
-            Ok(Some(json)) => Ok(Some(PackageType::from_json_string(&json)?)),
-            Ok(None) => Ok(None),
-        }
-    }
-
-    fn create_package_version(&mut self, package_version: &PackageVersion) -> anyhow::Result<()> {
-        insert_metadata(&mut self.package_version_docs, package_version)
-    }
-
-    fn get_package_version(
-        &mut self,
-        namespace_id: &str,
-        package_name: &str,
-        version: &str,
-    ) -> Result<Option<PackageVersion>> {
-        let filter = hashmap! {
-            FLD_PACKAGE_VERSIONS_NAMESPACE_ID => namespace_id,
-            FLD_PACKAGE_VERSIONS_NAME => package_name,
-            FLD_PACKAGE_VERSIONS_VERSION => version,
-        };
-        fetch_package_version(self, IX_PACKAGE_VERSIONS_VERSION, filter)
-    }
 }
 
 fn fetch_package_version(
