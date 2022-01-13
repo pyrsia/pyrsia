@@ -87,7 +87,6 @@ pub async fn handle_get_blobs(
     debug!("Getting blob with hash : {:?}", hash);
     let mut blob_content = Vec::new();
 
-    //let mut art_reader: Option<Box<dyn Read>> = None;
     match get_artifact(
         hex::decode(&hash.get(7..).unwrap()).unwrap().as_ref(),
         HashAlgorithm::SHA256,
@@ -105,17 +104,22 @@ pub async fn handle_get_blobs(
                 "Error while fetching artifact from Pyrsia, so fetching from dockerhub: {}",
                 error.to_string()
             );
-            get_blob_from_docker_hub(&_name, &hash).await?;
-
-            blob_content = get_artifact(
-                hex::decode(&hash.get(7..).unwrap()).unwrap().as_ref(),
-                HashAlgorithm::SHA256,
-            )
-            .map_err(|_| {
-                warp::reject::custom(RegistryError {
-                    code: RegistryErrorCode::BlobUnknown,
-                })
-            })?;
+            let blob_push = get_blob_from_docker_hub(&_name, &hash).await?;
+            if blob_push == true {
+                blob_content = get_artifact(
+                    hex::decode(&hash.get(7..).unwrap()).unwrap().as_ref(),
+                    HashAlgorithm::SHA256,
+                )
+                .map_err(|_| {
+                    warp::reject::custom(RegistryError {
+                        code: RegistryErrorCode::BlobUnknown,
+                    })
+                })?;
+            } else {
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::Unknown("PYSIA_STORAGE_ERROR".to_string()),
+                }));
+            }
         }
     };
 
