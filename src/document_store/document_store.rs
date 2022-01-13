@@ -265,12 +265,12 @@ impl<'a> DocumentStore {
         debug!("DocumentStore is alive");
     }
 
-    fn get_data_store(name: &str) -> UnQLite {
-        UnQLite::create(format!("{}.unql", name))
+    fn get_data_store(&mut self) -> &UnQLite {
+        self.get_unqlite(unqlite_create)
     }
 
-    fn open_data_store(name: &str) -> UnQLite {
-        UnQLite::open_mmap(format!("{}.unql", &name))
+    fn open_data_store(&mut self) -> &UnQLite {
+        self.get_unqlite(|name| UnQLite::open_mmap(format!("{}.unql", name)))
     }
 
     /// Creates the persistent data store for a DocumentStore and
@@ -285,7 +285,7 @@ impl<'a> DocumentStore {
     pub fn create(
         name: &str,
         indexes: Vec<IndexSpec>,
-    ) -> Result<DocumentStore, anyhow::Result<DocumentStore>> {
+    ) -> anyhow::Result<DocumentStore> {
         info!("Creating DataStore for DocumentStore with name {}", name);
 
         let raw_key = bincode::serialize(&CatalogKey::new())?;
