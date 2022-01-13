@@ -15,6 +15,9 @@
 */
 
 pub mod behavior;
+mod client;
+pub mod error;
 pub mod http;
 pub mod swarm;
+pub mod torrent;
 pub mod transport;
