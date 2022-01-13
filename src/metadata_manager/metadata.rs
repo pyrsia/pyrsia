@@ -26,6 +26,7 @@ use super::model::package_version::{PackageVersion, PackageVersionBuilder};
 use anyhow::{bail, Result};
 use log::{error, info, warn};
 use maplit::hashmap;
+use serial_test::serial;
 use signed::signed::Signed;
 
 // create package version
@@ -37,10 +38,10 @@ pub trait MetadataApi {
     /// signatures are associated with a public key that does not identify an identity in the blockchain.
     ///
     /// Also returns an error if there is already package_type with the same name.
-    fn create_package_type(&self, pkg_type: &PackageType) -> Result<()>;
+    fn create_package_type(&mut self, pkg_type: &PackageType) -> Result<()>;
 
     /// Return a PackageType struct that describes the named package type.
-    fn get_package_type(&self, name: PackageTypeName) -> Result<Option<PackageType>>;
+    fn get_package_type(&mut self, name: PackageTypeName) -> Result<Option<PackageType>>;
 
     /// Define the package version described by the given `PackageVersion` struct.
     ///
@@ -49,11 +50,11 @@ pub trait MetadataApi {
     ///
     /// Returns an error if `package_version` does not have any valid signatures or if any of the valid
     /// signatures are associated with a public key that does not identify an identity in the blockchain.
-    fn create_package_version(&self, package_version: &PackageVersion) -> Result<()>;
+    fn create_package_version(&mut self, package_version: &PackageVersion) -> Result<()>;
 
     /// Get the package_version that matches the given namespace_id, package_name and version.
     fn get_package_version(
-        &self,
+        &mut self,
         namespace_id: &str,
         package_name: &str,
         version: &str,
@@ -162,7 +163,6 @@ fn ix_package_versions() -> Vec<IndexSpec> {
 // End of definitions to support creation of document stores
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug)]
 pub struct Metadata {
     //TODO Add a trust manager to decide if metadata is trust-worthy
     package_type_docs: DocumentStore,
@@ -202,9 +202,9 @@ fn open_document_store(
             );
             info!("Attempting to create document store {}", ds_name);
             match DocumentStore::create(ds_name, index_specs()) {
-                Ok(ds) => {
+                Ok(mut ds) => {
                     info!("Created document store {}", ds_name);
-                    populate_with_initial_records(&ds, initial_records)?;
+                    populate_with_initial_records(&mut ds, initial_records)?;
                     Ok(ds)
                 }
                 Err(error) => failed_to_create_document_store(ds_name, error),
@@ -216,14 +216,16 @@ fn open_document_store(
 // Most types of metadata come from the Pyrsia network or the node's clients. However, a few types
 // of metadata such as package type will need to be at partially pre-populated in new nodes.
 fn populate_with_initial_records(
-    ds: &DocumentStore,
+    ds: &mut DocumentStore,
     initial_records: fn() -> Vec<String>,
 ) -> Result<()> {
     for record in initial_records() {
         if let Err(error) = ds.insert(&record) {
             error!(
                 "Failed to insert initial record into document store {}: {}\nError was {}",
-                ds.name, record, error
+                ds.name(),
+                record,
+                error
             );
             todo!("If an attempt to insert an initial record into document store fails, then we need to do something so that we will know that the document store is missing necessary information")
         }
@@ -231,10 +233,7 @@ fn populate_with_initial_records(
     Ok(())
 }
 
-fn failed_to_create_document_store(
-    ds_name: &str,
-    error: Box<dyn std::error::Error>,
-) -> Result<DocumentStore> {
+fn failed_to_create_document_store(ds_name: &str, error: anyhow::Error) -> Result<DocumentStore> {
     let msg = format!(
         "Failed to create document store {} due to error {}",
         ds_name, error
@@ -244,12 +243,12 @@ fn failed_to_create_document_store(
 }
 
 impl MetadataApi for Metadata {
-    fn create_package_type(&self, pkg_type: &PackageType) -> anyhow::Result<()> {
-        insert_metadata(&self.package_type_docs, pkg_type)
+    fn create_package_type(&mut self, pkg_type: &PackageType) -> anyhow::Result<()> {
+        insert_metadata(&mut self.package_type_docs, pkg_type)
     }
 
-    fn get_package_type(&self, name: PackageTypeName) -> anyhow::Result<Option<PackageType>> {
-        let name_as_string = format!("{}", name);
+    fn get_package_type(&mut self, name: PackageTypeName) -> anyhow::Result<Option<PackageType>> {
+        let name_as_string = format!("{}", name.to_string());
         let filter = hashmap! {
             FLD_PACKAGE_TYPES_NAME => name_as_string.as_str()
         };
@@ -260,12 +259,12 @@ impl MetadataApi for Metadata {
         }
     }
 
-    fn create_package_version(&self, package_version: &PackageVersion) -> anyhow::Result<()> {
-        insert_metadata(&self.package_version_docs, package_version)
+    fn create_package_version(&mut self, package_version: &PackageVersion) -> anyhow::Result<()> {
+        insert_metadata(&mut self.package_version_docs, package_version)
     }
 
     fn get_package_version(
-        &self,
+        &mut self,
         namespace_id: &str,
         package_name: &str,
         version: &str,
@@ -280,7 +279,7 @@ impl MetadataApi for Metadata {
 }
 
 fn fetch_package_version(
-    md: &Metadata,
+    md: &mut Metadata,
     index_name: &str,
     filter: HashMap<&str, &str>,
 ) -> anyhow::Result<Option<PackageVersion>> {
@@ -292,7 +291,7 @@ fn fetch_package_version(
 }
 
 fn insert_metadata<'a, T: Signed<'a> + Debug>(
-    ds: &DocumentStore,
+    ds: &mut DocumentStore,
     signed: &T,
 ) -> anyhow::Result<()> {
     match signed.json() {
@@ -352,16 +351,17 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn package_type_test() -> Result<()> {
         do_in_temp_directory(|| {
-            let metadata = Metadata::new()?;
-            info!("Created metadata instance: {:?}", metadata);
+            let mut metadata = Metadata::new()?;
+            info!("Created metadata instance");
 
-            let mut package_type = PackageTypeBuilder::default()
+            let package_type = PackageTypeBuilder::default()
                 .name(PackageTypeName::Docker)
                 .description("docker packages".to_string())
                 .build()?;
-
+//            package_type.sign_json();
             metadata.create_package_type(&package_type)?;
             let package_type2 = metadata.get_package_type(PackageTypeName::Docker)?.unwrap();
             assert_eq!(package_type2, package_type);
@@ -370,8 +370,9 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn package_version_test() -> Result<()> {
-        let metadata = Metadata::new()?;
+        let mut metadata = Metadata::new()?;
 
         let hash1: Vec<u8> = vec![
             0xa3, 0x3f, 0x49, 0x64, 0x00, 0xa5, 0x67, 0xe1, 0xb4, 0xe5, 0xbe, 0x4c, 0x81, 0x30,
@@ -410,7 +411,12 @@ mod tests {
         let tags: Vec<String> = vec![];
         let description = "Roses are red".to_string();
 
-        let mut package_version: PackageVersion = PackageVersionBuilder::default().id(id).namespace_id(namespace_id).name(name).pkg_type(package_type).version(version)
+        let mut package_version: PackageVersion = PackageVersionBuilder::default()
+            .id(id)
+            .namespace_id(namespace_id.clone())
+            .name(name.clone())
+            .pkg_type(package_type)
+            .version(version.clone())
             .license_text(license_text)
             .license_text_mimetype(license_text_mimetype)
             .license_url(license_url)
@@ -420,8 +426,7 @@ mod tests {
             .tags(tags)
             .description(description)
             .artifacts(artifacts)
-            .build()?
-        ;
+            .build()?;
 
         metadata.create_package_version(&package_version)?;
         let package_version2 = metadata.get_package_version(&namespace_id, &name, &version)?;
