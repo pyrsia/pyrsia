@@ -67,7 +67,7 @@ pub async fn handle_get_status(
     let status = Status {
         artifact_count: art_count_result.unwrap(),
         peers_count: vec.len(),
-        // TODO: dummy disk space value, need implementation in upstream
+        // TODO: sample disk space value, need implementation in upstream
         disk_space_available: String::from("983112"),
     };
 
