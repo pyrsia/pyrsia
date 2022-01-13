@@ -147,7 +147,7 @@ impl Metadata {
             open_document_store(DS_PACKAGE_TYPES, ix_package_types, init_package_types)?;
         let package_version_docs =
             open_document_store(DS_PACKAGE_VERSIONS, ix_package_versions, init_empty)?;
-        let untrusted_key_pair = signed::create_key_pair(JwsSignatureAlgorithms::RS512);
+        let untrusted_key_pair = signed::signed::create_key_pair(JwsSignatureAlgorithms::RS512)?;
         Ok(Metadata {
             package_type_docs,
             package_version_docs,

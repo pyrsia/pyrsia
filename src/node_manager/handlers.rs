@@ -22,6 +22,7 @@ use super::Hash;
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
 use log::info;
+use crate::metadata_manager::metadata::Metadata;
 use std::fs;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -32,8 +33,10 @@ const ART_MGR_DIR: &str = "pyrsia";
 lazy_static! {
     pub static ref ART_MGR: ArtifactManager = {
         fs::create_dir_all(ART_MGR_DIR).expect("Error creating dir for artifacts");
-        ArtifactManager::new(ART_MGR_DIR).unwrap()
+        ArtifactManager::new(ART_MGR_DIR).expect("Error creating artifact manager")
     };
+
+    pub static ref METADATA_MGR: Metadata = Metadata::new().expect("Error creating Metadata manager");
 }
 
 //get_artifact: given artifact_hash(artifactName) pulls artifact for  artifact_manager and
@@ -135,5 +138,13 @@ mod tests {
 
         println!("put_and_get_artifact_test ended !!");
         Ok(())
+    }
+
+    #[test]
+    fn metadata_test() {
+        // Verify that a metadata manager has been created and made accessible.
+        let untrusted_key_pair = METADATA_MGR.untrusted_key_pair();
+        assert!(!untrusted_key_pair.public_key.is_empty());
+        assert!(!untrusted_key_pair.private_key.is_empty());
     }
 }
