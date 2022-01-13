@@ -26,10 +26,10 @@ use error_chain::bail;
 use std::process;
 
 use super::error::{ErrorKind, Result, ResultExt};
+use log::{error, info};
 use rpc::criterion::{Criterion, Operation, Value};
 use rpc::resource::{CResourceUpdate, Resource, ResourceKind, SResourceUpdate, Server};
 use synapse_rpc::message::{self, CMessage, SMessage};
-use log::{info, error};
 
 use super::client::Client;
 use url::Url;
