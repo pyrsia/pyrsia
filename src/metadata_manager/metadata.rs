@@ -357,11 +357,13 @@ mod tests {
             let mut metadata = Metadata::new()?;
             info!("Created metadata instance");
 
-            let package_type = PackageTypeBuilder::default()
+            let mut package_type = PackageTypeBuilder::default()
                 .name(PackageTypeName::Docker)
                 .description("docker packages".to_string())
                 .build()?;
-//            package_type.sign_json();
+            let algorithm = signed::JwsSignatureAlgorithms::RS384;
+            let key_pair = signed::create_key_pair(algorithm)?;
+            package_type.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key);
             metadata.create_package_type(&package_type)?;
             let package_type2 = metadata.get_package_type(PackageTypeName::Docker)?.unwrap();
             assert_eq!(package_type2, package_type);
@@ -427,6 +429,9 @@ mod tests {
             .description(description)
             .artifacts(artifacts)
             .build()?;
+        let algorithm = signed::JwsSignatureAlgorithms::RS384;
+        let key_pair = signed::create_key_pair(algorithm)?;
+        package_version.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key);
 
         metadata.create_package_version(&package_version)?;
         let package_version2 = metadata.get_package_version(&namespace_id, &name, &version)?;
