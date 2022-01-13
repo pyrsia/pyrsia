@@ -1871,7 +1871,7 @@ dependencies = [
  "prost-build",
  "rand 0.7.3",
  "regex 1.5.4",
- "sha2 0.10.1",
+ "sha2 0.9.9",
  "smallvec",
  "unsigned-varint",
 ]

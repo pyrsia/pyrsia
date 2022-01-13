@@ -29,6 +29,7 @@ use super::error::{ErrorKind, Result, ResultExt};
 use rpc::criterion::{Criterion, Operation, Value};
 use rpc::resource::{CResourceUpdate, Resource, ResourceKind, SResourceUpdate, Server};
 use synapse_rpc::message::{self, CMessage, SMessage};
+use log::{info, error};
 
 use super::client::Client;
 use url::Url;
@@ -42,7 +43,7 @@ pub async fn add_torrent(
     let mut url = match Url::parse(server) {
         Ok(url) => url,
         Err(e) => {
-            eprintln!("Server URL {} is not valid: {}", server, e);
+            error!("Server URL {} is not valid: {}", server, e);
             process::exit(1);
         }
     };
@@ -51,7 +52,7 @@ pub async fn add_torrent(
     let client = match Client::new(url.clone()) {
         Ok(c) => c,
         Err(_) => {
-            eprintln!("Failed to connect to synapse, ensure your URI and password are correct");
+            error!("Failed to connect to synapse, ensure your URI and password are correct");
             process::exit(1);
         }
     };
@@ -109,10 +110,10 @@ pub fn get_(c: &mut Client, id: &str, output: &str) -> Result<()> {
     }
     match output {
         "text" => {
-            println!("{}", res[0]);
+            info!("{}", res[0]);
         }
         "json" => {
-            println!(
+            info!(
                 "{}",
                 serde_json::to_string_pretty(&res[0]).chain_err(|| ErrorKind::Serialization)?
             );
