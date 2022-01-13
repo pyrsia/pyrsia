@@ -20,9 +20,11 @@ use crate::artifact_manager;
 use crate::artifact_manager::HashAlgorithm;
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
+use crate::node_manager::handlers::{ART_MGR, METADATA_MGR};
 use crate::node_manager::model::artifact::{Artifact, ArtifactBuilder};
 use crate::node_manager::model::package_type::PackageTypeName;
 use crate::node_manager::model::package_version::{PackageVersion, PackageVersionBuilder};
+use crate::signed::signed::Signed;
 use anyhow::{anyhow, bail, Context};
 use bytes::Bytes;
 use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
@@ -108,6 +110,9 @@ pub async fn handle_put_manifest(
                 "Created PackageVersion from manifest: {:?}",
                 package_version
             );
+            let key_pair = METADATA_MGR.untrusted_key_pair();
+            // package_version.sign_json(key_pair.signature_algorithm, &key_pair.private_key, &key_pair.public_key)?;
+            // METADATA_MGR.create_package_version(&package_version)?;
         }
         Err(error) => warn!("Error storing manifest in artifact_manager {}", error),
     };
@@ -247,8 +252,7 @@ fn store_manifest_in_artifact_manager(bytes: &Bytes) -> anyhow::Result<(HashAlgo
     let manifest_vec = bytes.to_vec();
     let sha512: Vec<u8> = raw_sha512(manifest_vec.clone()).to_vec();
     let artifact_hash = artifact_manager::Hash::new(HashAlgorithm::SHA512, &sha512)?;
-    crate::node_manager::handlers::ART_MGR
-        .push_artifact(&mut manifest_vec.as_slice(), &artifact_hash)?;
+    ART_MGR.push_artifact(&mut manifest_vec.as_slice(), &artifact_hash)?;
     Ok((HashAlgorithm::SHA512, sha512))
 }
 
