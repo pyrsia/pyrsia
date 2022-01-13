@@ -17,5 +17,4 @@ test-log = "0.2.8"
 tokio = { version = "1", features = [ "macros", "rt-multi-thread", "io-std" ] }
 warp = { version = "0.3.1", default-features = false }
 futures = "0.3.19"
-#libp2p = "0.42.0"
-libp2p = {git = "https://github.com/libp2p/rust-libp2p.git", rev = "e15dad5f45a9ae804b7a27bd6f885a1b00e0525a", features=["tcp-tokio"]}
+libp2p = { version = "0.41.1", features=["tcp-tokio"]}
