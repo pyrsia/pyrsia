@@ -27,7 +27,7 @@ use anyhow::{bail, Result};
 use log::{error, info, warn};
 use maplit::hashmap;
 use serial_test::serial;
-use signed::signed::Signed;
+use signed::signed::{Signed, JwsSignatureAlgorithms, SignatureKeyPair};
 
 // create package version
 
@@ -137,6 +137,7 @@ pub struct Metadata {
     //TODO Add a trust manager to decide if metadata is trust-worthy
     package_type_docs: DocumentStore,
     package_version_docs: DocumentStore,
+    untrusted_key_pair: SignatureKeyPair,
 }
 
 impl Metadata {
@@ -146,17 +147,29 @@ impl Metadata {
             open_document_store(DS_PACKAGE_TYPES, ix_package_types, init_package_types)?;
         let package_version_docs =
             open_document_store(DS_PACKAGE_VERSIONS, ix_package_versions, init_empty)?;
+        let untrusted_key_pair = signed::create_key_pair(JwsSignatureAlgorithms::RS512);
         Ok(Metadata {
             package_type_docs,
             package_version_docs,
+            untrusted_key_pair,
         })
+    }
+
+    /// The key pair returned by this method is intended for testing only. It is generated at node
+    /// start-up and will never be registered with the block chain.  Anything signed by this will be
+    /// considered to be signed by an unknown party.
+    pub fn untrusted_key_pair(&self) -> &SignatureKeyPair {
+        &self.untrusted_key_pair
     }
 
     pub fn create_package_type(&mut self, pkg_type: &PackageType) -> anyhow::Result<()> {
         insert_metadata(&mut self.package_type_docs, pkg_type)
     }
 
-    pub fn get_package_type(&mut self, name: PackageTypeName) -> anyhow::Result<Option<PackageType>> {
+    pub fn get_package_type(
+        &mut self,
+        name: PackageTypeName,
+    ) -> anyhow::Result<Option<PackageType>> {
         let name_as_string = format!("{}", name.to_string());
         let filter = hashmap! {
             FLD_PACKAGE_TYPES_NAME => name_as_string.as_str()
@@ -168,7 +181,10 @@ impl Metadata {
         }
     }
 
-    pub fn create_package_version(&mut self, package_version: &PackageVersion) -> anyhow::Result<()> {
+    pub fn create_package_version(
+        &mut self,
+        package_version: &PackageVersion,
+    ) -> anyhow::Result<()> {
         insert_metadata(&mut self.package_version_docs, package_version)
     }
 
