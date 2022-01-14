@@ -49,13 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: get-woke/woke-action-reviewdog@v0
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Change reviewdog reporter if you need [github-pr-check,github-check,github-pr-review].
-          reporter: github-pr-review
-          # Change reporter level if you need.
-          # GitHub Status Check won't become failure with warning.
-          level: warning
-          # Enable this to fail the check when violations are found
-          # fail-on-error: true
+      - name: Run Woke for Inclusive Linting
+        run: |
+            curl -sSfL https://git.io/getwoke | bash -s --
+            bin/woke --exit-1-on-failure 
+        shell: bash
