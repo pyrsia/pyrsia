@@ -113,15 +113,13 @@ fn create_document_store(name: &str, indexes: &Vec<IndexSpec>) -> DocumentStore 
     DocumentStore {
         catalog: Catalog {
             name: name.to_string(),
-            indexes: (0..index_count_u16)
-                .zip(indexes.iter().map(|ix| ix.clone()))
-                .collect(),
+            indexes: (0..index_count_u16).zip(indexes.iter().cloned()).collect(),
         },
         unqlite: UnQLite::create(collection_name_to_file_name(name)),
     }
 }
 
-fn check_index_specs_valid(indexes: &Vec<IndexSpec>) -> anyhow::Result<()> {
+fn check_index_specs_valid(indexes: &[IndexSpec]) -> anyhow::Result<()> {
     if indexes.is_empty() {
         bail!("At least one index specification is required when creating a DocumentStore.")
     } else {
@@ -333,7 +331,7 @@ impl DocumentStore {
     ///  * the JSON object doesn't contain all the specified index fields
     ///  * the document or its index values could not be persisted in the data store
     pub fn insert(&self, document: &str) -> anyhow::Result<()> {
-        let json_document = serde_json::from_str::<Value>(&document)?;
+        let json_document = serde_json::from_str::<Value>(document)?;
         if !json_document.is_object() {
             return Err(From::from(DocumentStoreError::Custom(
                 "Provided JSON document must represent a JSON Object".to_string(),
@@ -429,7 +427,7 @@ fn build_compound_key(
 ) -> anyhow::Result<Vec<String>> {
     let mut compound_key: Vec<String> = vec![];
     for field_name in &index_to_use.field_names {
-        if let Some(value) = filter.get(&field_name as &str) {
+        if let Some(value) = filter.get(field_name as &str) {
             compound_key.push(value.to_string());
         } else {
             return Err(From::from(DocumentStoreError::Custom(format!(
@@ -470,7 +468,7 @@ fn fetch_indexed_record(
 fn process_index(
     data_store: &UnQLite,
     json_document: &Value,
-    raw_data_key: &Vec<u8>,
+    raw_data_key: &[u8],
     index: u16,
     index_spec: &IndexSpec,
 ) -> anyhow::Result<()> {
@@ -485,21 +483,21 @@ fn process_index(
 // `index_values`. The value will be the `raw_data_key` itself.
 fn store_index(
     unqlite: &UnQLite,
-    raw_data_key: &Vec<u8>,
+    raw_data_key: &[u8],
     index: u16,
     index_values: Vec<String>,
 ) -> anyhow::Result<()> {
     let index_key: IndexKey = IndexKey::new(index, index_values);
     let raw_index_key = bincode::serialize(&index_key).context("Failed to serialize index key")?;
     if unqlite.kv_fetch_length(&raw_index_key).is_ok() {
-        return bail!("Attempted to insert duplicate record in index {}", index);
+        bail!("Attempted to insert duplicate record in index {}", index);
+    } else {
+        unqlite
+            .kv_store(&raw_index_key, raw_data_key)
+            .map_err(DocumentStoreError::UnQLite)
+            .with_context(|| format!("Failed to store index record for index {}", index))?;
+        Ok(())
     }
-    unqlite
-        .kv_store(&raw_index_key, raw_data_key)
-        .map_err(DocumentStoreError::UnQLite)
-        .with_context(|| format!("Failed to store index record for index {}", index))?;
-
-    Ok(())
 }
 
 #[cfg(test)]

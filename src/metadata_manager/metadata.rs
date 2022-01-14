@@ -170,7 +170,7 @@ impl Metadata {
         &mut self,
         name: PackageTypeName,
     ) -> anyhow::Result<Option<PackageType>> {
-        let name_as_string = format!("{}", name.to_string());
+        let name_as_string = name.to_string();
         let filter = hashmap! {
             FLD_PACKAGE_TYPES_NAME => name_as_string.as_str()
         };
