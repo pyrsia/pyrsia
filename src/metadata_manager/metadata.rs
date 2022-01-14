@@ -27,7 +27,7 @@ use anyhow::{bail, Result};
 use log::{error, info, warn};
 use maplit::hashmap;
 use serial_test::serial;
-use signed::signed::{Signed, JwsSignatureAlgorithms, SignatureKeyPair};
+use signed::signed::{JwsSignatureAlgorithms, SignatureKeyPair, Signed};
 
 // create package version
 
@@ -212,31 +212,15 @@ fn open_document_store(
     index_specs: fn() -> Vec<IndexSpec>,
     initial_records: fn() -> Vec<String>,
 ) -> anyhow::Result<DocumentStore> {
-    info!("Opening document store: {}", ds_name);
-    match DocumentStore::get(ds_name) {
-        Ok(ds) => Ok(ds),
-        Err(error) => {
-            warn!(
-                "Failed to open document store {}; error was {}",
-                ds_name, error
-            );
-            info!("Attempting to create document store {}", ds_name);
-            match DocumentStore::create(ds_name, index_specs()) {
-                Ok(mut ds) => {
-                    info!("Created document store {}", ds_name);
-                    populate_with_initial_records(&mut ds, initial_records)?;
-                    Ok(ds)
-                }
-                Err(error) => failed_to_create_document_store(ds_name, error),
-            }
-        }
-    }
+    let ds = DocumentStore::open(ds_name, index_specs())?;
+    populate_with_initial_records(&ds, initial_records)?;
+    Ok(ds)
 }
 
 // Most types of metadata come from the Pyrsia network or the node's clients. However, a few types
 // of metadata such as package type will need to be at partially pre-populated in new nodes.
 fn populate_with_initial_records(
-    ds: &mut DocumentStore,
+    ds: &DocumentStore,
     initial_records: fn() -> Vec<String>,
 ) -> Result<()> {
     for record in initial_records() {
