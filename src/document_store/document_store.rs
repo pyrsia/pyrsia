@@ -227,7 +227,9 @@ impl IndexSpec {
                 } else {
                     return bail!(
                         "Document has required index key {}.{}, but is not a JSON string: {}.",
-                        self.name, field_name, value
+                        self.name,
+                        field_name,
+                        value
                     );
                 }
             } else {

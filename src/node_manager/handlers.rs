@@ -19,10 +19,10 @@ use super::HashAlgorithm;
 
 use super::Hash;
 
+use crate::metadata_manager::metadata::Metadata;
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
 use log::info;
-use crate::metadata_manager::metadata::Metadata;
 use std::fs;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -35,8 +35,8 @@ lazy_static! {
         fs::create_dir_all(ART_MGR_DIR).expect("Error creating dir for artifacts");
         ArtifactManager::new(ART_MGR_DIR).expect("Error creating artifact manager")
     };
-
-    pub static ref METADATA_MGR: Metadata = Metadata::new().expect("Error creating Metadata manager");
+    pub static ref METADATA_MGR: Metadata =
+        Metadata::new().expect("Error creating Metadata manager");
 }
 
 //get_artifact: given artifact_hash(artifactName) pulls artifact for  artifact_manager and
