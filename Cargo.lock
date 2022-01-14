@@ -2883,6 +2883,7 @@ dependencies = [
  "strum_macros",
  "tempfile",
  "test-log",
+ "thiserror",
  "tokio",
  "unqlite",
  "uuid",

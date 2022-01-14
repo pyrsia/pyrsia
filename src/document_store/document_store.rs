@@ -40,6 +40,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt;
 use std::str;
+use thiserror::Error;
 use unqlite::{Transaction, UnQLite, KV};
 
 /// Defines the sorting order when storing the values associated
@@ -158,20 +159,6 @@ struct Catalog {
     indexes: Vec<(u16, IndexSpec)>,
 }
 
-/// The DocumentStoreError acts as a wrapper around all types of
-/// errors that can occur while working with a document store.
-#[derive(Debug)]
-pub enum DocumentStoreError {
-    /// Errors mapped to [bincode::Error]
-    Bincode(bincode::Error),
-    /// Errors mapped to [serde_json::Error]
-    Json(serde_json::Error),
-    /// Errors mapped to [unqlite::Error]
-    UnQLite(unqlite::Error),
-    /// Custom errors specific to the document store
-    Custom(String),
-}
-
 const KEYTYPE_CATALOG: u8 = 0b00000001;
 const KEYTYPE_DATA: u8 = 0b00000010;
 const KEYTYPE_INDEX: u8 = 0b00000011;
@@ -223,19 +210,19 @@ impl IndexSpec {
                 if let Some(json_string) = value.as_str() {
                     values.push(json_string.to_string())
                 } else {
-                    return bail!(
+                    return Err(anyhow!(
                         "Document has required index key {}.{}, but is not a JSON string: {}.",
                         self.name,
                         field_name,
                         value
-                    )
+                    ))
                 }
             } else {
-                return bail!(
+                return Err(anyhow!(
                     "Document is missing required index key: {}.{}",
                     self.name,
                     field_name
-                )
+                ))
             }
         }
 
@@ -243,33 +230,18 @@ impl IndexSpec {
     }
 }
 
-impl fmt::Display for DocumentStoreError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &*self {
-            DocumentStoreError::Bincode(ref err) => write!(f, "Bincode Error: {}", err),
-            DocumentStoreError::Json(ref err) => write!(f, "Json Error: {}", err),
-            DocumentStoreError::UnQLite(ref err) => write!(f, "UnQLite Error: {}", err),
-            DocumentStoreError::Custom(ref message) => {
-                write!(f, "DocumentStore Error: {}", message)
-            }
-        }
-    }
-}
-
-/// Implementation of the [std::error::Error] trait for the
-/// DocumentStoreError.
-impl std::error::Error for DocumentStoreError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match *self {
-            DocumentStoreError::Bincode(ref err) => Some(err),
-            DocumentStoreError::Json(ref err) => Some(err),
-            DocumentStoreError::UnQLite(ref err) => match *err {
-                unqlite::Error::Custom(ref custom) => Some(custom),
-                unqlite::Error::Other(ref other) => Some(other.as_ref()),
-            },
-            _ => None,
-        }
-    }
+/// The DocumentStoreError acts as a wrapper around all types of
+/// errors that can occur while working with a document store.
+#[derive(Debug, Error)]
+pub enum DocumentStoreError {
+    #[error("Bincode Error: {0}")]
+    Bincode(bincode::Error),
+    #[error("Json Error: {0}")]
+    Json(serde_json::Error),
+    #[error("UnQLite Error: {0}")]
+    UnQLite(unqlite::Error),
+    #[error("DocumentStore Error: {0}")]
+    Custom(String),
 }
 
 impl From<bincode::Error> for DocumentStoreError {
@@ -334,7 +306,7 @@ impl DocumentStore {
         let json_document = serde_json::from_str::<Value>(document)?;
         if !json_document.is_object() {
             return Err(From::from(DocumentStoreError::Custom(
-                "Provided JSON document must represent a JSON Object".to_string(),
+                "Provided JSON document must represent a JSON Object rather than an array or other type of JSON data.".to_string(),
             )));
         }
         self.unqlite.begin().map_err(DocumentStoreError::UnQLite)?;
