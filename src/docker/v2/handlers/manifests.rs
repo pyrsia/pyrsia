@@ -23,7 +23,7 @@ use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::node_manager::model::artifact::{Artifact, ArtifactBuilder};
 use crate::node_manager::model::package_type::PackageTypeName;
 use crate::node_manager::model::package_version::{PackageVersion, PackageVersionBuilder};
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, bail, Context};
 use bytes::Bytes;
 use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
 use log::{debug, error, info, warn};
@@ -37,7 +37,7 @@ use warp::{Rejection, Reply};
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Reply, Rejection> {
     let mut hash = String::from(&tag);
-    if let None = tag.find(':') {
+    if tag.find(':').is_none() {
         let manifest = format!(
             "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current/link",
             name, tag
@@ -190,7 +190,7 @@ fn store_manifest_in_filesystem(
     fs::write(manifest_rev_dest, format!("sha256:{}", hash)).map_err(RegistryError::from)?;
 
     // create manifest link file in tags if reference is a tag (no colon)
-    if let None = reference.find(':') {
+    if reference.find(':').is_none() {
         let mut manifest_tag_dest = format!(
             "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current",
             name, reference
@@ -294,7 +294,6 @@ fn package_version_from_manifest_json(
         1 => package_version_from_schema1(json_object, hash_algorithm, hash, size),
         2 => package_version_from_schema2(
             json_object,
-            json_string,
             docker_name,
             docker_reference,
             hash_algorithm,
@@ -309,12 +308,19 @@ fn package_version_from_manifest_json(
     result
 }
 
+const CONFIG: &str = "config";
+const DIGEST: &str = "digest";
 const FS_LAYERS: &str = "fsLayers";
+const LAYERS: &str = "layers";
+const MANIFESTS: &str = "manifests";
 const MEDIA_TYPE: &str = "mediaType";
+const SIZE: &str = "size";
 
-const MIME_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.tar.gzip";
+const MEDIA_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.tar.gzip";
 const MEDIA_TYPE_SCHEMA_1: &str = "application/vnd.docker.distribution.manifest.v1+json";
 const MEDIA_TYPE_IMAGE_MANIFEST: &str = "application/vnd.docker.distribution.manifest.v2+json";
+const MEDIA_TYPE_MANIFEST_LIST: &str = "application/vnd.docker.distribution.manifest.list.v2+json";
+const MEDIA_TYPE_CONFIG_JSON: &str = "application/vnd.docker.container.image.v1+json";
 
 fn package_version_from_schema1(
     json_object: &Map<String, Value>,
@@ -322,6 +328,7 @@ fn package_version_from_schema1(
     hash: Vec<u8>,
     size: usize,
 ) -> Result<PackageVersion, anyhow::Error> {
+    debug!("Processing schema 1 manifest");
     let manifest_name = json_object
         .get("name")
         .context("missing name field")?
@@ -353,11 +360,7 @@ fn package_version_from_schema1(
         add_fslayers(&mut artifacts, fslayer)?;
     }
     Ok(PackageVersionBuilder::default()
-        .id(String::from(
-            Uuid::new_v4()
-                .to_simple()
-                .encode_lower(&mut Uuid::encode_buffer()),
-        ))
+        .id(new_uuid_string())
         .namespace_id(DOCKER_NAMESPACE_ID.to_string())
         .name(String::from(manifest_name))
         .pkg_type(PackageTypeName::Docker)
@@ -375,30 +378,185 @@ fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), an
         .context("missing blobSum")?
         .as_str()
         .context("invalid blobSum")?;
-    if !hex_digest.starts_with("sha256:") {
-        return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
-    }
-    let digest = hex::decode(&hex_digest["sha256:".len()..])?;
+    let digest = extract_digest(hex_digest)?;
     artifacts.push(
         ArtifactBuilder::default()
             .algorithm(HashAlgorithm::SHA256)
             .hash(digest)
-            .mime_type(MIME_TYPE_BLOB_GZIPPED.to_string())
+            .mime_type(MEDIA_TYPE_BLOB_GZIPPED.to_string())
             .build()?,
     );
     Ok(())
 }
 
+fn extract_digest(hex_digest: &str) -> Result<Vec<u8>, anyhow::Error> {
+    if !hex_digest.starts_with("sha256:") {
+        return Err(anyhow!("Only sha256 digests are supported: {}", hex_digest));
+    }
+    hex::decode(&hex_digest["sha256:".len()..])
+        .context(format!("Badly formatted digest: {}", hex_digest))
+}
+
 fn package_version_from_schema2(
-    _json_object: &Map<String, Value>,
-    _json_string: &str,
-    _docker_name: &str,
-    _docker_reference: &str,
-    _hash_algorithm: HashAlgorithm,
-    _hash: Vec<u8>,
-    _size: usize,
+    json_object: &Map<String, Value>,
+    docker_name: &str,
+    docker_reference: &str,
+    hash_algorithm: HashAlgorithm,
+    hash: Vec<u8>,
+    size: usize,
 ) -> Result<PackageVersion, anyhow::Error> {
-    todo!()
+    debug!("Processing schema version 2 manifest");
+    let manifest_media_type = json_object
+        .get(MEDIA_TYPE)
+        .context("Missing mediaType")?
+        .as_str()
+        .context("Invalid mediaType")?;
+    match manifest_media_type {
+        MEDIA_TYPE_IMAGE_MANIFEST => package_version_from_image_manifest(
+            json_object,
+            docker_name,
+            docker_reference,
+            hash_algorithm,
+            hash,
+            size,
+        ),
+        MEDIA_TYPE_MANIFEST_LIST => package_version_from_manifest_list(
+            json_object,
+            docker_name,
+            docker_reference,
+            hash_algorithm,
+            hash,
+            size,
+        ),
+        _ => bail!("Manifest has unknown media type: {}", manifest_media_type),
+    }
+}
+
+fn package_version_from_manifest_list(
+    json_object: &Map<String, Value>,
+    docker_name: &str,
+    docker_reference: &str,
+    hash_algorithm: HashAlgorithm,
+    hash: Vec<u8>,
+    size: usize,
+) -> Result<PackageVersion, anyhow::Error> {
+    debug!("Processing manifest list");
+    let mut metadata = Map::new();
+    metadata.insert(MEDIA_TYPE.to_string(), json!(MEDIA_TYPE_MANIFEST_LIST));
+    let mut artifacts: Vec<Artifact> = Vec::new();
+    let size64 = u64::try_from(size)?;
+    artifacts.push(
+        ArtifactBuilder::default()
+            .algorithm(hash_algorithm)
+            .hash(hash)
+            .mime_type(MEDIA_TYPE_MANIFEST_LIST.to_string())
+            .size(size64)
+            .build()?,
+    );
+    let manifests = json_object
+        .get(MANIFESTS)
+        .context("Manifest list has no manifests field")?
+        .as_array()
+        .context("Value of manifests field is not an array")?;
+    for manifest in manifests {
+        add_artifact(&mut artifacts, manifest, "manifest")?
+    }
+    Ok(PackageVersionBuilder::default()
+        .id(new_uuid_string())
+        .namespace_id(DOCKER_NAMESPACE_ID.to_string())
+        .name(String::from(docker_name))
+        .pkg_type(PackageTypeName::Docker)
+        .version(String::from(docker_reference))
+        .metadata(metadata)
+        .artifacts(artifacts)
+        .build()?)
+}
+
+fn package_version_from_image_manifest(
+    json_object: &Map<String, Value>,
+    docker_name: &str,
+    docker_reference: &str,
+    hash_algorithm: HashAlgorithm,
+    hash: Vec<u8>,
+    size: usize,
+) -> Result<PackageVersion, anyhow::Error> {
+    debug!("Processing image manifest");
+    let mut metadata = Map::new();
+    metadata.insert(MEDIA_TYPE.to_string(), json!(MEDIA_TYPE_IMAGE_MANIFEST));
+    let mut artifacts: Vec<Artifact> = Vec::new();
+    let size64 = u64::try_from(size)?;
+    artifacts.push(
+        ArtifactBuilder::default()
+            .algorithm(hash_algorithm)
+            .hash(hash)
+            .mime_type(MEDIA_TYPE_IMAGE_MANIFEST.to_string())
+            .size(size64)
+            .build()?,
+    );
+    if let Some(config) = json_object.get(CONFIG) {
+        add_artifact(&mut artifacts, config, "config")?
+    }
+    let layers = json_object
+        .get(LAYERS)
+        .context("Image manifest has no layers field")?
+        .as_array()
+        .context("Value of layers field is not an array")?;
+    for layer in layers {
+        add_artifact(&mut artifacts, layer, "layer")?
+    }
+
+    Ok(PackageVersionBuilder::default()
+        .id(new_uuid_string())
+        .namespace_id(DOCKER_NAMESPACE_ID.to_string())
+        .name(String::from(docker_name))
+        .pkg_type(PackageTypeName::Docker)
+        .version(String::from(docker_reference))
+        .metadata(metadata)
+        .artifacts(artifacts)
+        .build()?)
+}
+
+fn add_artifact(
+    artifacts: &mut Vec<Artifact>,
+    json_object: &Value,
+    name: &str,
+) -> Result<(), anyhow::Error> {
+    artifacts.push(
+        ArtifactBuilder::default()
+            .algorithm(HashAlgorithm::SHA256)
+            .hash(extract_digest(
+                json_object
+                    .get(DIGEST)
+                    .with_context(|| format!("{} is missing digest", name))?
+                    .as_str()
+                    .with_context(|| format!("{} has invalid digest", name))?,
+            )?)
+            .size(
+                json_object
+                    .get(SIZE)
+                    .with_context(|| format!("{} is missing size", name))?
+                    .as_u64()
+                    .with_context(|| format!("{} has invalid size", name))?,
+            )
+            .mime_type(
+                json_object
+                    .get(MEDIA_TYPE)
+                    .with_context(|| format!("{} is missing mediaType", name))?
+                    .as_str()
+                    .with_context(|| format!("{} has invalid mediaType", name))?
+                    .to_string(),
+            )
+            .build()?,
+    );
+    Ok(())
+}
+
+fn new_uuid_string() -> String {
+    String::from(
+        Uuid::new_v4()
+            .to_simple()
+            .encode_lower(&mut Uuid::encode_buffer()),
+    )
 }
 
 fn manifest_schema_version(
@@ -500,6 +658,34 @@ mod tests {
     ]
 }"##;
 
+    const MANIFEST_V2_LIST: &str = r##"{
+  "schemaVersion": 2,
+  "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+  "manifests": [
+    {
+      "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+      "size": 7143,
+      "digest": "sha256:e692418e4cbaf90ca69d05a66403747baa33ee08806650b51fab815ad7fc331f",
+      "platform": {
+        "architecture": "ppc64le",
+        "os": "linux"
+      }
+    },
+    {
+      "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+      "size": 7682,
+      "digest": "sha256:5b0bcabd1ed22e9fb1310cf6c2dec7cdef19f0ad69efa1f392e94a4333501270",
+      "platform": {
+        "architecture": "amd64",
+        "os": "linux",
+        "features": [
+          "sse4"
+        ]
+      }
+    }
+  ]
+}"##;
+
     #[test]
     fn happy_put_manifest() -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
@@ -548,7 +734,7 @@ mod tests {
             "test_pkg",
             "v1.4",
             HashAlgorithm::SHA512,
-            hash,
+            hash.clone(),
         )?;
         assert_eq!(32, package_version.id().len());
         assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
@@ -568,7 +754,9 @@ mod tests {
         );
         assert!(package_version.description().is_none());
         assert_eq!(5, package_version.artifacts().len());
+
         assert_eq!(64, package_version.artifacts()[0].hash().len());
+        assert_eq!(&hash, package_version.artifacts()[0].hash());
         assert_eq!(
             HashAlgorithm::SHA512,
             *package_version.artifacts()[0].algorithm()
@@ -591,8 +779,23 @@ mod tests {
         assert!(package_version.artifacts()[1].creation_time().is_none());
         assert!(package_version.artifacts()[1].url().is_none());
         assert!(package_version.artifacts()[1].size().is_none());
+        assert_eq!(
+            HashAlgorithm::SHA256,
+            *package_version.artifacts()[1].algorithm()
+        );
+        assert_eq!(
+            &vec![
+                0x5fu8, 0x70u8, 0xbfu8, 0x18u8, 0xa0u8, 0x86u8, 0x00u8, 0x70u8, 0x16u8, 0xe9u8,
+                0x48u8, 0xb0u8, 0x4au8, 0xedu8, 0x3bu8, 0x82u8, 0x10u8, 0x3au8, 0x36u8, 0xbeu8,
+                0xa4u8, 0x17u8, 0x55u8, 0xb6u8, 0xcdu8, 0xdfu8, 0xafu8, 0x10u8, 0xacu8, 0xe3u8,
+                0xc6u8, 0xefu8
+            ],
+            package_version.artifacts()[1].hash()
+        );
+
+        //
         match package_version.artifacts()[1].mime_type() {
-            Some(mime_type) => assert_eq!(MIME_TYPE_BLOB_GZIPPED, mime_type),
+            Some(mime_type) => assert_eq!(MEDIA_TYPE_BLOB_GZIPPED, mime_type),
             None => assert!(false),
         }
         assert!(package_version.artifacts()[1].metadata().is_empty());
@@ -600,8 +803,8 @@ mod tests {
         Ok(())
     }
 
-    //#[test]
-    fn package_version_from_image_list() -> Result<(), anyhow::Error> {
+    #[test]
+    fn package_version_from_image_manifest() -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V2_IMAGE);
         let hash: Vec<u8> = raw_sha512(json_bytes.to_vec()).to_vec();
         let package_version: PackageVersion = package_version_from_manifest_bytes(
@@ -609,7 +812,7 @@ mod tests {
             "test_pkg",
             "v1.4",
             HashAlgorithm::SHA512,
-            hash,
+            hash.clone(),
         )?;
         assert_eq!(32, package_version.id().len());
         assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
@@ -629,21 +832,150 @@ mod tests {
         );
         assert!(package_version.description().is_none());
         assert_eq!(5, package_version.artifacts().len());
-        assert_eq!(32, package_version.artifacts()[0].hash().len());
+
+        assert_eq!(&hash, package_version.artifacts()[0].hash());
         assert_eq!(
-            HashAlgorithm::SHA256,
+            HashAlgorithm::SHA512,
             *package_version.artifacts()[0].algorithm()
         );
         assert!(package_version.artifacts()[0].name().is_none());
         assert!(package_version.artifacts()[0].creation_time().is_none());
         assert!(package_version.artifacts()[0].url().is_none());
-        assert!(package_version.artifacts()[0].size().is_none());
+        assert_eq!(
+            u64::try_from(MANIFEST_V2_IMAGE.len())?,
+            package_version.artifacts()[0].size().unwrap()
+        );
         match package_version.artifacts()[0].mime_type() {
-            Some(mime_type) => assert_eq!(MIME_TYPE_BLOB_GZIPPED, mime_type),
+            Some(mime_type) => assert_eq!(MEDIA_TYPE_IMAGE_MANIFEST, mime_type),
             None => assert!(false),
         }
         assert!(package_version.artifacts()[0].metadata().is_empty());
         assert!(package_version.artifacts()[0].source_url().is_none());
+
+        assert!(package_version.artifacts()[1].name().is_none());
+        assert!(package_version.artifacts()[1].creation_time().is_none());
+        assert!(package_version.artifacts()[1].url().is_none());
+        assert_eq!(7023u64, package_version.artifacts()[1].size().unwrap());
+        match package_version.artifacts()[1].mime_type() {
+            Some(mime_type) => assert_eq!(MEDIA_TYPE_CONFIG_JSON, mime_type),
+            None => assert!(false),
+        }
+        assert!(package_version.artifacts()[1].metadata().is_empty());
+        assert!(package_version.artifacts()[1].source_url().is_none());
+        assert_eq!(
+            HashAlgorithm::SHA256,
+            *package_version.artifacts()[1].algorithm()
+        );
+        assert_eq!(
+            &vec![
+                0xb5u8, 0xb2u8, 0xb2u8, 0xc5u8, 0x07u8, 0xa0u8, 0x94u8, 0x43u8, 0x48u8, 0xe0u8,
+                0x30u8, 0x31u8, 0x14u8, 0xd8u8, 0xd9u8, 0x3au8, 0xaau8, 0xa0u8, 0x81u8, 0x73u8,
+                0x2bu8, 0x86u8, 0x45u8, 0x1du8, 0x9bu8, 0xceu8, 0x1fu8, 0x43u8, 0x2au8, 0x53u8,
+                0x7bu8, 0xc7u8
+            ],
+            package_version.artifacts()[1].hash()
+        );
+
+        assert!(package_version.artifacts()[2].name().is_none());
+        assert!(package_version.artifacts()[2].creation_time().is_none());
+        assert!(package_version.artifacts()[2].url().is_none());
+        assert_eq!(32654u64, package_version.artifacts()[2].size().unwrap());
+        match package_version.artifacts()[2].mime_type() {
+            Some(mime_type) => assert_eq!(MEDIA_TYPE_BLOB_GZIPPED, mime_type),
+            None => assert!(false),
+        }
+        assert!(package_version.artifacts()[2].metadata().is_empty());
+        assert!(package_version.artifacts()[2].source_url().is_none());
+        assert_eq!(
+            HashAlgorithm::SHA256,
+            *package_version.artifacts()[2].algorithm()
+        );
+        assert_eq!(
+            &vec![
+                0xe6u8, 0x92u8, 0x41u8, 0x8eu8, 0x4cu8, 0xbau8, 0xf9u8, 0x0cu8, 0xa6u8, 0x9du8,
+                0x05u8, 0xa6u8, 0x64u8, 0x03u8, 0x74u8, 0x7bu8, 0xaau8, 0x33u8, 0xeeu8, 0x08u8,
+                0x80u8, 0x66u8, 0x50u8, 0xb5u8, 0x1fu8, 0xabu8, 0x81u8, 0x5au8, 0xd7u8, 0xfcu8,
+                0x33u8, 0x1fu8
+            ],
+            package_version.artifacts()[2].hash()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn package_version_from_manifest_list() -> Result<(), anyhow::Error> {
+        let json_bytes = Bytes::from(MANIFEST_V2_LIST);
+        let hash: Vec<u8> = raw_sha512(json_bytes.to_vec()).to_vec();
+        let package_version: PackageVersion = package_version_from_manifest_bytes(
+            &json_bytes,
+            "test_impls",
+            "v1.5.2",
+            HashAlgorithm::SHA512,
+            hash.clone(),
+        )?;
+        assert_eq!(32, package_version.id().len());
+        assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
+        assert_eq!("test_impls", package_version.name());
+        assert_eq!(PackageTypeName::Docker, *package_version.pkg_type());
+        assert_eq!("v1.5.2", package_version.version());
+        assert!(package_version.license_text().is_none());
+        assert!(package_version.license_text_mimetype().is_none());
+        assert!(package_version.license_url().is_none());
+        assert!(package_version.creation_time().is_none());
+        assert!(package_version.modified_time().is_none());
+        assert!(package_version.tags().is_empty());
+        assert!(package_version.metadata().contains_key(MEDIA_TYPE));
+        assert_eq!(
+            MEDIA_TYPE_MANIFEST_LIST,
+            package_version.metadata()[MEDIA_TYPE].as_str().unwrap()
+        );
+        assert!(package_version.description().is_none());
+        assert_eq!(3, package_version.artifacts().len());
+
+        assert_eq!(&hash, package_version.artifacts()[0].hash());
+        assert_eq!(
+            HashAlgorithm::SHA512,
+            *package_version.artifacts()[0].algorithm()
+        );
+        assert!(package_version.artifacts()[0].name().is_none());
+        assert!(package_version.artifacts()[0].creation_time().is_none());
+        assert!(package_version.artifacts()[0].url().is_none());
+        assert_eq!(
+            u64::try_from(MANIFEST_V2_LIST.len())?,
+            package_version.artifacts()[0].size().unwrap()
+        );
+        match package_version.artifacts()[0].mime_type() {
+            Some(mime_type) => assert_eq!(MEDIA_TYPE_MANIFEST_LIST, mime_type),
+            None => assert!(false),
+        }
+        assert!(package_version.artifacts()[0].metadata().is_empty());
+        assert!(package_version.artifacts()[0].source_url().is_none());
+
+        assert!(package_version.artifacts()[1].name().is_none());
+        assert!(package_version.artifacts()[1].creation_time().is_none());
+        assert!(package_version.artifacts()[1].url().is_none());
+        assert_eq!(7143u64, package_version.artifacts()[1].size().unwrap());
+        match package_version.artifacts()[1].mime_type() {
+            Some(mime_type) => assert_eq!(MEDIA_TYPE_IMAGE_MANIFEST, mime_type),
+            None => assert!(false),
+        }
+        assert!(package_version.artifacts()[1].metadata().is_empty());
+        assert!(package_version.artifacts()[1].source_url().is_none());
+        assert_eq!(
+            HashAlgorithm::SHA256,
+            *package_version.artifacts()[1].algorithm()
+        );
+        assert_eq!(
+            &vec![
+                0xe6u8, 0x92u8, 0x41u8, 0x8eu8, 0x4cu8, 0xbau8, 0xf9u8, 0x0cu8, 0xa6u8, 0x9du8,
+                0x05u8, 0xa6u8, 0x64u8, 0x03u8, 0x74u8, 0x7bu8, 0xaau8, 0x33u8, 0xeeu8, 0x08u8,
+                0x80u8, 0x66u8, 0x50u8, 0xb5u8, 0x1fu8, 0xabu8, 0x81u8, 0x5au8, 0xd7u8, 0xfcu8,
+                0x33u8, 0x1fu8
+            ],
+            package_version.artifacts()[1].hash()
+        );
+
         Ok(())
     }
 }
