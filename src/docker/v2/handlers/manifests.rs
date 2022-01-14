@@ -24,7 +24,6 @@ use crate::node_manager::handlers::{ART_MGR, METADATA_MGR};
 use crate::node_manager::model::artifact::{Artifact, ArtifactBuilder};
 use crate::node_manager::model::package_type::PackageTypeName;
 use crate::node_manager::model::package_version::{PackageVersion, PackageVersionBuilder};
-use crate::signed::signed::Signed;
 use anyhow::{anyhow, bail, Context};
 use bytes::Bytes;
 use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};

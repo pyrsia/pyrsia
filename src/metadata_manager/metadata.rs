@@ -24,9 +24,8 @@ use super::model::package::Package;
 use super::model::package_type::{PackageType, PackageTypeBuilder, PackageTypeName};
 use super::model::package_version::{PackageVersion, PackageVersionBuilder};
 use anyhow::{bail, Result};
-use log::{error, info, warn};
+use log::{error, info};
 use maplit::hashmap;
-use serial_test::serial;
 use signed::signed::{JwsSignatureAlgorithms, SignatureKeyPair, Signed};
 
 // create package version
@@ -162,12 +161,12 @@ impl Metadata {
         &self.untrusted_key_pair
     }
 
-    pub fn create_package_type(&mut self, pkg_type: &PackageType) -> anyhow::Result<()> {
-        insert_metadata(&mut self.package_type_docs, pkg_type)
+    pub fn create_package_type(&self, pkg_type: &PackageType) -> anyhow::Result<()> {
+        insert_metadata(&self.package_type_docs, pkg_type)
     }
 
     pub fn get_package_type(
-        &mut self,
+        &self,
         name: PackageTypeName,
     ) -> anyhow::Result<Option<PackageType>> {
         let name_as_string = name.to_string();
@@ -182,14 +181,14 @@ impl Metadata {
     }
 
     pub fn create_package_version(
-        &mut self,
+        &self,
         package_version: &PackageVersion,
     ) -> anyhow::Result<()> {
-        insert_metadata(&mut self.package_version_docs, package_version)
+        insert_metadata(&self.package_version_docs, package_version)
     }
 
     pub fn get_package_version(
-        &mut self,
+        &self,
         namespace_id: &str,
         package_name: &str,
         version: &str,
@@ -237,17 +236,8 @@ fn populate_with_initial_records(
     Ok(())
 }
 
-fn failed_to_create_document_store(ds_name: &str, error: anyhow::Error) -> Result<DocumentStore> {
-    let msg = format!(
-        "Failed to create document store {} due to error {}",
-        ds_name, error
-    );
-    error!("{}", msg);
-    bail!(msg)
-}
-
 fn fetch_package_version(
-    md: &mut Metadata,
+    md: &Metadata,
     index_name: &str,
     filter: HashMap<&str, &str>,
 ) -> anyhow::Result<Option<PackageVersion>> {
@@ -259,7 +249,7 @@ fn fetch_package_version(
 }
 
 fn insert_metadata<'a, T: Signed<'a> + Debug>(
-    ds: &mut DocumentStore,
+    ds: &DocumentStore,
     signed: &T,
 ) -> anyhow::Result<()> {
     match signed.json() {
@@ -278,51 +268,19 @@ fn insert_metadata<'a, T: Signed<'a> + Debug>(
     }
 }
 
-fn untrusted_metadata_error<'a, T: Signed<'a>>(signed: &T, error: &str) -> anyhow::Result<()> {
-    bail!(
-        "New metadata is not trusted: JSON is {}\nError is{}",
-        signed.json().unwrap_or_else(|| "None".to_string()),
-        error
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::artifact_manager::HashAlgorithm;
+    use crate::node_manager::handlers::METADATA_MGR;
     use crate::node_manager::model::artifact::ArtifactBuilder;
     use crate::node_manager::model::package_version::LicenseTextMimeType;
-    use rand::Rng;
     use serde_json::{Map, Value};
     use signed::signed;
-    use std::path::Path;
-    use std::{env, fs};
-
-    const DIR_PREFIX: &str = "metadata_test_";
-
-    // Used to run a test in a randomly named directory and then clean up by deleting the directory.
-    fn do_in_temp_directory(runner: fn() -> anyhow::Result<()>) -> anyhow::Result<()> {
-        let mut rng = rand::thread_rng();
-        let n: u32 = rng.gen();
-        let mut dir_name = String::from(DIR_PREFIX);
-        dir_name.push_str(&n.to_string());
-        let dir_path = Path::new(&dir_name);
-        let prev_dir = env::current_dir()?;
-        info!("Creating temp directory {}", dir_path.to_str().unwrap());
-        fs::create_dir_all(dir_path)?;
-        env::set_current_dir(dir_path)?;
-        let result = runner();
-        env::set_current_dir(prev_dir)?;
-        info!("Removing temp directory {}", dir_path.to_str().unwrap());
-        fs::remove_dir_all(dir_path)?;
-        result
-    }
 
     #[test]
-    #[serial]
     fn package_type_test() -> Result<()> {
-        do_in_temp_directory(|| {
-            let mut metadata = Metadata::new()?;
+            let metadata = &METADATA_MGR;
             info!("Created metadata instance");
 
             let mut package_type = PackageTypeBuilder::default()
@@ -331,18 +289,16 @@ mod tests {
                 .build()?;
             let algorithm = signed::JwsSignatureAlgorithms::RS384;
             let key_pair = signed::create_key_pair(algorithm)?;
-            package_type.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key);
+            package_type.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key)?;
             metadata.create_package_type(&package_type)?;
             let package_type2 = metadata.get_package_type(PackageTypeName::Docker)?.unwrap();
             assert_eq!(package_type2, package_type);
             Ok(())
-        })
     }
 
     #[test]
-    #[serial]
     fn package_version_test() -> Result<()> {
-        let mut metadata = Metadata::new()?;
+        let metadata = &METADATA_MGR;
 
         let hash1: Vec<u8> = vec![
             0xa3, 0x3f, 0x49, 0x64, 0x00, 0xa5, 0x67, 0xe1, 0xb4, 0xe5, 0xbe, 0x4c, 0x81, 0x30,
@@ -399,7 +355,7 @@ mod tests {
             .build()?;
         let algorithm = signed::JwsSignatureAlgorithms::RS384;
         let key_pair = signed::create_key_pair(algorithm)?;
-        package_version.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key);
+        package_version.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key)?;
 
         metadata.create_package_version(&package_version)?;
         let package_version2 = metadata.get_package_version(&namespace_id, &name, &version)?;

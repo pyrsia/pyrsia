@@ -221,21 +221,21 @@ impl IndexSpec {
         for field_name in &self.field_names {
             if let Some(value) = json_document.get(&field_name) {
                 if let Some(json_string) = value.as_str() {
-                    values.push(json_string.to_string());
+                    values.push(json_string.to_string())
                 } else {
                     return bail!(
                         "Document has required index key {}.{}, but is not a JSON string: {}.",
                         self.name,
                         field_name,
                         value
-                    );
+                    )
                 }
             } else {
                 return bail!(
                     "Document is missing required index key: {}.{}",
                     self.name,
                     field_name
-                );
+                )
             }
         }
 
@@ -550,7 +550,7 @@ mod tests {
     #[test]
     fn test_insert() -> anyhow::Result<()> {
         let tmp_dir = tempfile::tempdir().unwrap();
-        let path = tmp_dir.path().join("test_store");
+        let path = tmp_dir.path().join("test_insert");
         let name = path.to_str().unwrap();
         let index_one = "index_one";
         let index_two = "index_two";
