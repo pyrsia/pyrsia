@@ -408,7 +408,7 @@ fn package_version_from_schema2(
     hash: Vec<u8>,
     size: usize,
 ) -> Result<PackageVersion, anyhow::Error> {
-    debug!("Processing schema 2 manifest");
+    debug!("Processing schema version 2 manifest");
     let manifest_media_type = json_object
         .get(MEDIA_TYPE)
         .context("Missing mediaType")?
