@@ -46,7 +46,7 @@ use unqlite::{Transaction, UnQLite, KV};
 /// with an index.
 /// Note: This is currently not yet implemented and at the moment,
 /// all IndexSpec will default to IndexOrder::Asc.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum IndexOrder {
     /// Fetching a range of values using the index returns
     /// the lowest value first and the highest value last.
@@ -57,7 +57,7 @@ pub enum IndexOrder {
 }
 
 /// The definition of an index in the document store.
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct IndexSpec {
     pub name: String,
     pub field_names: Vec<String>,
@@ -84,7 +84,7 @@ impl DocumentStore {
                 document_store.catalog.name
             ),
             Err(error) => {
-                info!("Failed to get catalog record. Assuming that collection {} is new. Creating catalog record.", document_store.catalog.name);
+                info!("Failed to get catalog record. Assuming that collection {} is new. Creating catalog record. Error was {}", document_store.catalog.name, error);
                 let serialized_catalog = bincode::serialize(&document_store.catalog)?;
                 document_store
                     .unqlite
@@ -135,7 +135,7 @@ fn collection_name_to_file_name(name: &str) -> String {
     s
 }
 
-pub fn get_catalog_record(document_store: &DocumentStore) -> anyhow::Result<Catalog> {
+fn get_catalog_record(document_store: &DocumentStore) -> anyhow::Result<Catalog> {
     let raw_key = serialized_catalog_key()?;
     let raw_doc_store = document_store
         .unqlite
@@ -395,7 +395,7 @@ impl DocumentStore {
     /// index and the values represent the associated values of the keys
     /// in the document to fetch.
     pub fn fetch(
-        &mut self,
+        &self,
         index_name: &str,
         filter: HashMap<&str, &str>,
     ) -> anyhow::Result<Option<String>> {
@@ -403,7 +403,6 @@ impl DocumentStore {
         let compound_key = build_compound_key(index_name, filter, index_to_use.1)?;
 
         let index_key = IndexKey::new(index_to_use.0, compound_key);
-        let name = &self.catalog.name.clone();
         debug!("Opened db with name {}", &self.catalog.name);
         fetch_indexed_record(index_name, &self.unqlite, &index_key)
     }
@@ -422,10 +421,6 @@ impl DocumentStore {
             )))),
         }
     }
-}
-
-fn unqlite_create(name: &str) -> UnQLite {
-    UnQLite::create(format!("{}.unql", name))
 }
 
 fn build_compound_key(
@@ -518,7 +513,7 @@ mod tests {
         let path = tmp_dir.path().join("test_create_without_indexes");
         let name = path.to_str().unwrap();
         assert!(
-            DocumentStore::create(name, vec![]).is_err(),
+            DocumentStore::open(name, vec![]).is_err(),
             "should not have been created"
         );
     }
@@ -537,9 +532,7 @@ mod tests {
         let idx2 = IndexSpec::new(index_two, vec![field2]);
         let indexes = vec![idx1, idx2];
 
-        DocumentStore::create(name, indexes).expect("should not result in error");
-
-        let doc_store = DocumentStore::get(name).expect("should not result in error");
+        let doc_store = DocumentStore::open(name, indexes).expect("should not result in error");
         assert_eq!(doc_store.catalog.indexes[0].1.name, "index_one".to_string());
         assert_eq!(
             doc_store.catalog.indexes[0].1.field_names,
@@ -555,17 +548,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_unknown_name() {
-        let tmp_dir = tempfile::tempdir().unwrap();
-        let path = tmp_dir.path().join("test_get_unknown_name");
-        let name = path.to_str().unwrap();
-        assert!(
-            DocumentStore::get(name).is_err(),
-            "should not have been found"
-        );
-    }
-
-    #[test]
     fn test_store() {
         let tmp_dir = tempfile::tempdir().unwrap();
         let path = tmp_dir.path().join("test_store");
@@ -578,9 +560,7 @@ mod tests {
         let i2 = IndexSpec::new(index_two, vec![field2]);
         let indexes = vec![i1, i2];
 
-        DocumentStore::create(name, indexes).expect("should not result in error");
-
-        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
+        let doc_store = DocumentStore::open(name, indexes).expect("should not result in error");
 
         let doc = json!({
             "mostSignificantField": "msf1",
@@ -594,10 +574,8 @@ mod tests {
         let tmp_dir = tempfile::tempdir().unwrap();
         let path = tmp_dir.path().join("test_store_invalid_json");
         let name = path.to_str().unwrap();
-        DocumentStore::create(name, vec![IndexSpec::new("index", vec!["index_field"])])
+        let doc_store = DocumentStore::open(name, vec![IndexSpec::new("index", vec!["index_field"])])
             .expect("should not result in error");
-
-        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
 
         let doc = json!({
             "mostSignificantField": "msf1",
@@ -613,10 +591,8 @@ mod tests {
         let tmp_dir = tempfile::tempdir().unwrap();
         let path = tmp_dir.path().join("test_store_invalid_json");
         let name = path.to_str().unwrap();
-        DocumentStore::create(name, vec![IndexSpec::new("index", vec!["field"])])
+        let doc_store = DocumentStore::open(name, vec![IndexSpec::new("index", vec!["field"])])
             .expect("should not result in error");
-
-        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
 
         doc_store
             .insert(&String::from("{\"mostSignificantField\":\"value\""))
@@ -628,10 +604,8 @@ mod tests {
         let tmp_dir = tempfile::tempdir().unwrap();
         let path = tmp_dir.path().join("test_store_non_json_object");
         let name = path.to_str().unwrap();
-        DocumentStore::create(name, vec![IndexSpec::new("index", vec!["field"])])
+        let doc_store = DocumentStore::open(name, vec![IndexSpec::new("index", vec!["field"])])
             .expect("should not result in error");
-
-        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
 
         doc_store
             .insert(&String::from("[{\"mostSignificantField\":\"value\"}]"))
@@ -648,9 +622,7 @@ mod tests {
         let i = IndexSpec::new(index, vec![field]);
         let indexes = vec![i];
 
-        DocumentStore::create(name, indexes).expect("should not result in error");
-
-        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
+        let doc_store = DocumentStore::open(name, indexes).expect("should not result in error");
 
         let doc = json!({
             "foo": "bar",
@@ -677,9 +649,7 @@ mod tests {
         let i = IndexSpec::new(index, vec![field]);
         let indexes = vec![i];
 
-        DocumentStore::create(name, indexes).expect("should not result in error");
-
-        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
+        let doc_store = DocumentStore::open(name, indexes).expect("should not result in error");
 
         let doc = json!({
             "foo": "bar",
@@ -703,7 +673,7 @@ mod tests {
         let name = path.to_str().unwrap();
         let index1 = "index_one";
         let index2 = "index_two";
-        DocumentStore::create(
+        let doc_store = DocumentStore::open(
             name,
             vec![
                 IndexSpec::new(index1, vec!["index1_field"]),
@@ -711,8 +681,6 @@ mod tests {
             ],
         )
         .expect("should not result in error");
-
-        let mut doc_store = DocumentStore::get(name).expect("should not result in error");
 
         let doc = json!({
             "index1_field": "msf1",
