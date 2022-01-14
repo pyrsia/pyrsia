@@ -75,7 +75,10 @@ pub struct DocumentStore {
 impl DocumentStore {
     /// Open/create a DocumentStore for a collection of records with the given `name` and a Vec of
     /// `indexes` that is used to create.
-    pub fn open(name: &str, indexes: Vec<IndexSpec>) -> anyhow::Result<DocumentStore> {
+    pub fn open(
+        name: &str,
+        indexes: Vec<IndexSpec>,
+    ) -> anyhow::Result<DocumentStore, DocumentStoreError> {
         info!("Opening DocumentStore with name {}", name);
         check_index_specs_valid(&indexes)?;
         let document_store = create_document_store(name, &indexes);
@@ -85,7 +88,7 @@ impl DocumentStore {
                 document_store.catalog.name
             ),
             Err(error) => {
-                info!("Failed to get catalog record. Assuming that collection {} is new. Creating catalog record. Error was {}", document_store.catalog.name, error);
+                info!("Failed to get catalog record. Assuming that collection {} is new. Creating catalog record. Error was {}", document_store.catalog.name, error.to_string());
                 let serialized_catalog = bincode::serialize(&document_store.catalog)?;
                 document_store
                     .unqlite
@@ -120,9 +123,12 @@ fn create_document_store(name: &str, indexes: &Vec<IndexSpec>) -> DocumentStore 
     }
 }
 
-fn check_index_specs_valid(indexes: &[IndexSpec]) -> anyhow::Result<()> {
+fn check_index_specs_valid(indexes: &[IndexSpec]) -> anyhow::Result<(), DocumentStoreError> {
     if indexes.is_empty() {
-        bail!("At least one index specification is required when creating a DocumentStore.")
+        Err(DocumentStoreError::Custom(
+            "At least one index specification is required when creating a DocumentStore."
+                .to_string(),
+        ))
     } else {
         Ok(())
     }
@@ -134,7 +140,9 @@ fn collection_name_to_file_name(name: &str) -> String {
     s
 }
 
-fn get_catalog_record(document_store: &DocumentStore) -> anyhow::Result<Catalog> {
+fn get_catalog_record(
+    document_store: &DocumentStore,
+) -> anyhow::Result<Catalog, DocumentStoreError> {
     let raw_key = serialized_catalog_key()?;
     let raw_doc_store = document_store
         .unqlite
@@ -147,9 +155,9 @@ fn get_catalog_record(document_store: &DocumentStore) -> anyhow::Result<Catalog>
     Ok(catalog)
 }
 
-fn serialized_catalog_key() -> anyhow::Result<Vec<u8>> {
+fn serialized_catalog_key() -> anyhow::Result<Vec<u8>, DocumentStoreError> {
     bincode::serialize(&CatalogKey::new())
-        .context("Failed to create the key for the catalog record")
+        .map_err(|err| DocumentStoreError::KeyCreation(err.to_string()))
 }
 
 // A description of a collection of documents and how they are indexed.
@@ -202,7 +210,10 @@ impl IndexSpec {
     }
 
     // Extracts the index values from the provided JSON object.
-    fn get_index_values(&self, json_document: &Value) -> anyhow::Result<Vec<String>> {
+    fn get_index_values(
+        &self,
+        json_document: &Value,
+    ) -> anyhow::Result<Vec<String>, DocumentStoreError> {
         let mut values: Vec<String> = vec![];
 
         for field_name in &self.field_names {
@@ -210,19 +221,17 @@ impl IndexSpec {
                 if let Some(json_string) = value.as_str() {
                     values.push(json_string.to_string())
                 } else {
-                    return Err(anyhow!(
-                        "Document has required index key {}.{}, but is not a JSON string: {}.",
-                        self.name,
-                        field_name,
-                        value
-                    ))
+                    return Err(DocumentStoreError::KeyValueIsNotAString {
+                        collection_name: self.name.to_string(),
+                        field_name: field_name.to_string(),
+                        value: value.clone(),
+                    });
                 }
             } else {
-                return Err(anyhow!(
-                    "Document is missing required index key: {}.{}",
-                    self.name,
-                    field_name
-                ))
+                return Err(DocumentStoreError::MissingKeyField {
+                    collection_name: self.name.to_string(),
+                    field_name: field_name.to_string(),
+                });
             }
         }
 
@@ -242,6 +251,21 @@ pub enum DocumentStoreError {
     UnQLite(unqlite::Error),
     #[error("DocumentStore Error: {0}")]
     Custom(String),
+    #[error("Attempted to insert duplicate record in index {0}")]
+    DuplicateRecord(u16),
+    #[error("Failed to create the key for the catalog record {0}")]
+    KeyCreation(String),
+    #[error("Document has required index key {collection_name}.{field_name}, but is not a JSON string: {value}.")]
+    KeyValueIsNotAString {
+        collection_name: String,
+        field_name: String,
+        value: Value,
+    },
+    #[error("Document is missing required index key {collection_name}.{field_name}")]
+    MissingKeyField {
+        collection_name: String,
+        field_name: String,
+    },
 }
 
 impl From<bincode::Error> for DocumentStoreError {
@@ -302,7 +326,7 @@ impl DocumentStore {
     ///  * `document` is not a JSON Object
     ///  * the JSON object doesn't contain all the specified index fields
     ///  * the document or its index values could not be persisted in the data store
-    pub fn insert(&self, document: &str) -> anyhow::Result<()> {
+    pub fn insert(&self, document: &str) -> anyhow::Result<(), DocumentStoreError> {
         let json_document = serde_json::from_str::<Value>(document)?;
         if !json_document.is_object() {
             return Err(From::from(DocumentStoreError::Custom(
@@ -350,7 +374,7 @@ impl DocumentStore {
         &self,
         index_name: &str,
         filter: HashMap<&str, &str>,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> anyhow::Result<Option<String>, DocumentStoreError> {
         let index_to_use = find_index(self, index_name)?;
         let compound_key = build_compound_key(index_name, filter, index_to_use.1)?;
 
@@ -359,7 +383,10 @@ impl DocumentStore {
     }
 }
 
-fn find_index<'a>(ds: &'a DocumentStore, index_name: &str) -> anyhow::Result<(u16, &'a IndexSpec)> {
+fn find_index<'a>(
+    ds: &'a DocumentStore,
+    index_name: &str,
+) -> anyhow::Result<(u16, &'a IndexSpec), DocumentStoreError> {
     match ds
         .catalog
         .indexes
@@ -377,7 +404,10 @@ fn find_index<'a>(ds: &'a DocumentStore, index_name: &str) -> anyhow::Result<(u1
 // Store the provided JSON `document` in the provided data store
 // and return the raw data key that was used as the key that
 // uniquely identifies the document.
-fn store_document(ds: &DocumentStore, document: &str) -> anyhow::Result<Vec<u8>> {
+fn store_document(
+    ds: &DocumentStore,
+    document: &str,
+) -> anyhow::Result<Vec<u8>, DocumentStoreError> {
     let mut rng = rand::thread_rng();
 
     loop {
@@ -396,7 +426,7 @@ fn build_compound_key(
     index_name: &str,
     filter: HashMap<&str, &str>,
     index_to_use: &IndexSpec,
-) -> anyhow::Result<Vec<String>> {
+) -> anyhow::Result<Vec<String>, DocumentStoreError> {
     let mut compound_key: Vec<String> = vec![];
     for field_name in &index_to_use.field_names {
         if let Some(value) = filter.get(field_name as &str) {
@@ -415,7 +445,7 @@ fn fetch_indexed_record(
     index_name: &str,
     unqlite: &UnQLite,
     index_key: &IndexKey,
-) -> anyhow::Result<Option<String>> {
+) -> anyhow::Result<Option<String>, DocumentStoreError> {
     let raw_index_key = bincode::serialize(&index_key)?;
     if let Ok(raw_data_key) = unqlite.kv_fetch(&raw_index_key) {
         if let Ok(raw_document) = unqlite.kv_fetch(&raw_data_key) {
@@ -443,7 +473,7 @@ fn process_index(
     raw_data_key: &[u8],
     index: u16,
     index_spec: &IndexSpec,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<(), DocumentStoreError> {
     let index_values = index_spec.get_index_values(json_document)?;
     store_index(data_store, raw_data_key, index, index_values)?;
     Ok(())
@@ -458,11 +488,11 @@ fn store_index(
     raw_data_key: &[u8],
     index: u16,
     index_values: Vec<String>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<(), DocumentStoreError> {
     let index_key: IndexKey = IndexKey::new(index, index_values);
     let raw_index_key = bincode::serialize(&index_key).context("Failed to serialize index key")?;
     if unqlite.kv_fetch_length(&raw_index_key).is_ok() {
-        bail!("Attempted to insert duplicate record in index {}", index);
+        Err(DocumentStoreError::DuplicateRecord(index))
     } else {
         unqlite
             .kv_store(&raw_index_key, raw_data_key)
