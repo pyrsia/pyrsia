@@ -31,7 +31,6 @@
 //! via an index can be done with [`DocumentStore.fetch`].
 //!
 
-use anyhow::bail;
 use bincode;
 use log::{debug, error, info, warn};
 use rand::Rng;
@@ -104,7 +103,7 @@ impl DocumentStore {
     }
 }
 
-fn create_document_store(name: &str, indexes: &Vec<IndexSpec>) -> DocumentStore {
+fn create_document_store(name: &str, indexes: &[IndexSpec]) -> DocumentStore {
     let index_count_u16 = match u16::try_from(indexes.len()) {
         Ok(count) => count,
         Err(_) => panic!(
@@ -186,7 +185,6 @@ struct DataKey {
 }
 
 // A key that is associated with the a stored index in
-// the document store. It is identified by [KEYTYPE_INDEX].
 #[derive(Debug, Deserialize, Serialize, Clone)]
 struct IndexKey {
     key_type: u8,
@@ -340,9 +338,9 @@ impl DocumentStore {
     pub fn insert(&self, document: &str) -> anyhow::Result<(), DocumentStoreError> {
         let json_document = serde_json::from_str::<Value>(document)?;
         if !json_document.is_object() {
-            return Err(From::from(DocumentStoreError::Custom(
+            return Err(DocumentStoreError::Custom(
                 "Provided JSON document must represent a JSON Object rather than an array or other type of JSON data.".to_string(),
-            )));
+            ));
         }
         self.unqlite.begin().map_err(DocumentStoreError::UnQLite)?;
 
@@ -401,10 +399,10 @@ fn find_index<'a>(
         .find(|index| index.1.name == index_name)
     {
         Some((position, index_to_use)) => Ok((*position, index_to_use)),
-        None => Err(From::from(DocumentStoreError::Custom(format!(
+        None => Err(DocumentStoreError::Custom(format!(
             "DocumentStore {} has no index with given name: {}",
             ds.catalog.name, index_name
-        )))),
+        ))),
     }
 }
 
@@ -439,10 +437,10 @@ fn build_compound_key(
         if let Some(value) = filter.get(field_name as &str) {
             compound_key.push(value.to_string());
         } else {
-            return Err(From::from(DocumentStoreError::Custom(format!(
+            return Err(DocumentStoreError::Custom(format!(
                 "Filter is missing value for field {} required by index {}.",
                 field_name, index_name
-            ))));
+            )));
         }
     }
     Ok(compound_key)
@@ -520,6 +518,7 @@ fn store_index(
 
 #[cfg(test)]
 mod tests {
+    use anyhow::bail;
     use super::*;
     use serde_json::json;
     use test_log::test;
@@ -592,10 +591,10 @@ mod tests {
         });
         doc_store.insert(&doc1.to_string())?;
         match doc_store.insert(&doc2.to_string()) {
-            Ok(_) => return bail!("Attempt to add a duplicate record succeeded."),
+            Ok(_) => bail!("Attempt to add a duplicate record succeeded."),
             Err(DocumentStoreError::DuplicateRecord(idx)) =>
                 assert_eq!(0u16, idx),
-            Err(other) => return bail!("Unexpected error from inserting a duplicate record {:?}", other)
+            Err(other) => bail!("Unexpected error from inserting a duplicate record {:?}", other)
         }
         Ok(())
     }
