@@ -31,14 +31,13 @@
 //! via an index can be done with [`DocumentStore.fetch`].
 //!
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::bail;
 use bincode;
 use log::{debug, error, info, warn};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::fmt;
 use std::str;
 use thiserror::Error;
 use unqlite::{Transaction, UnQLite, KV};
@@ -188,7 +187,7 @@ struct DataKey {
 
 // A key that is associated with the a stored index in
 // the document store. It is identified by [KEYTYPE_INDEX].
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct IndexKey {
     key_type: u8,
     index: u16,
@@ -266,6 +265,18 @@ pub enum DocumentStoreError {
         collection_name: String,
         field_name: String,
     },
+    #[error("DocumentStore found an index entry for {values:?} in index {index_name} using raw index key {raw_index_key:?} pointing to record {raw_data_key:?}, but failed to find Document with key {document_key}.")]
+    IndexOrphan {
+        values: Vec<String>,
+        index_name: String,
+        raw_index_key: Vec<u8>,
+        raw_data_key: Vec<u8>,
+        document_key: u128,
+    },
+    #[error("Document string at {0:?} is not valid UTF8: {1}")]
+    NotUtf8(Vec<u8>, String),
+    #[error("Failed to serialize index key {0:?}")]
+    UnserializableIndexKey(Vec<String>),
 }
 
 impl From<bincode::Error> for DocumentStoreError {
@@ -338,17 +349,13 @@ impl DocumentStore {
         match store_document(self, document) {
             Ok(raw_data_key) => {
                 for index in &self.catalog.indexes {
-                    if let Err(e) = process_index(
-                        &self.unqlite,
-                        &json_document,
-                        &raw_data_key,
-                        index.0,
-                        &index.1,
-                    ) {
+                    if let Err(e) =
+                        process_index(&self.unqlite, &json_document, &raw_data_key, index)
+                    {
                         self.unqlite
                             .rollback()
                             .map_err(DocumentStoreError::UnQLite)?;
-                        return Err(anyhow!("{}", e.to_string()));
+                        return Err(e);
                     }
                 }
             }
@@ -356,7 +363,7 @@ impl DocumentStore {
                 self.unqlite
                     .rollback()
                     .map_err(DocumentStoreError::UnQLite)?;
-                return Err(anyhow!("{}", e.to_string()));
+                return Err(e);
             }
         }
 
@@ -450,14 +457,24 @@ fn fetch_indexed_record(
     if let Ok(raw_data_key) = unqlite.kv_fetch(&raw_index_key) {
         if let Ok(raw_document) = unqlite.kv_fetch(&raw_data_key) {
             debug!("Found raw document: {:?}", raw_document);
-            let document = String::from_utf8(raw_document)?;
+            let document = String::from_utf8(raw_document.clone()).map_err(|_| {
+                DocumentStoreError::NotUtf8(
+                    raw_data_key,
+                    String::from_utf8_lossy(&raw_document).to_string(),
+                )
+            })?;
             Ok(Some(document))
         } else {
             let data_key: DataKey = bincode::deserialize(&raw_data_key)?;
-            let message = format!("DocumentStore found an index entry for {:?} in index {} using raw index key {:?} pointing to record {:?}, but failed to find Document with key {}.",
-                                  index_key, index_name, raw_index_key, raw_data_key, data_key.number);
-            error!("{}", message);
-            Err(anyhow!("{}", message))
+            let err = DocumentStoreError::IndexOrphan {
+                values: index_key.values.clone(),
+                index_name: index_name.to_string(),
+                raw_index_key,
+                raw_data_key,
+                document_key: data_key.number,
+            };
+            error!("{:?}", err);
+            Err(err)
         }
     } else {
         Ok(None)
@@ -471,11 +488,10 @@ fn process_index(
     data_store: &UnQLite,
     json_document: &Value,
     raw_data_key: &[u8],
-    index: u16,
-    index_spec: &IndexSpec,
+    index: &(u16, IndexSpec),
 ) -> anyhow::Result<(), DocumentStoreError> {
-    let index_values = index_spec.get_index_values(json_document)?;
-    store_index(data_store, raw_data_key, index, index_values)?;
+    let index_values = index.1.get_index_values(json_document)?;
+    store_index(data_store, raw_data_key, index.0, index_values)?;
     Ok(())
 }
 
@@ -490,14 +506,14 @@ fn store_index(
     index_values: Vec<String>,
 ) -> anyhow::Result<(), DocumentStoreError> {
     let index_key: IndexKey = IndexKey::new(index, index_values);
-    let raw_index_key = bincode::serialize(&index_key).context("Failed to serialize index key")?;
+    let raw_index_key = bincode::serialize(&index_key)
+        .map_err(|_| DocumentStoreError::UnserializableIndexKey(index_key.values))?;
     if unqlite.kv_fetch_length(&raw_index_key).is_ok() {
         Err(DocumentStoreError::DuplicateRecord(index))
     } else {
         unqlite
             .kv_store(&raw_index_key, raw_data_key)
-            .map_err(DocumentStoreError::UnQLite)
-            .with_context(|| format!("Failed to store index record for index {}", index))?;
+            .map_err(DocumentStoreError::UnQLite)?;
         Ok(())
     }
 }
@@ -575,8 +591,11 @@ mod tests {
             "insignificant": 2
         });
         doc_store.insert(&doc1.to_string())?;
-        if doc_store.insert(&doc2.to_string()).is_ok() {
-            bail!("Attempt to add a duplicate record succeeded.")
+        match doc_store.insert(&doc2.to_string()) {
+            Ok(_) => return bail!("Attempt to add a duplicate record succeeded."),
+            Err(DocumentStoreError::DuplicateRecord(idx)) =>
+                assert_eq!(0u16, idx),
+            Err(other) => return bail!("Unexpected error from inserting a duplicate record {:?}", other)
         }
         Ok(())
     }
