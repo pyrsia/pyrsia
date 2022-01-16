@@ -248,8 +248,8 @@ pub enum DocumentStoreError {
     UnQLite(unqlite::Error),
     #[error("DocumentStore Error: {0}")]
     Custom(String),
-    #[error("Attempted to insert duplicate record in index {0}")]
-    DuplicateRecord(u16),
+    #[error("Attempted to insert duplicate of record {0}")]
+    DuplicateRecord(String),
     #[error("Failed to create the key for the catalog record {0}")]
     KeyCreation(String),
     #[error("Document has required index key {collection_name}.{field_name}, but is not a JSON string: {value}.")]
@@ -453,30 +453,40 @@ fn fetch_indexed_record(
 ) -> anyhow::Result<Option<String>, DocumentStoreError> {
     let raw_index_key = bincode::serialize(&index_key)?;
     if let Ok(raw_data_key) = unqlite.kv_fetch(&raw_index_key) {
-        if let Ok(raw_document) = unqlite.kv_fetch(&raw_data_key) {
-            debug!("Found raw document: {:?}", raw_document);
-            let document = String::from_utf8(raw_document.clone()).map_err(|_| {
-                DocumentStoreError::NotUtf8(
-                    raw_data_key,
-                    String::from_utf8_lossy(&raw_document).to_string(),
-                )
-            })?;
-            Ok(Some(document))
-        } else {
-            let data_key: DataKey = bincode::deserialize(&raw_data_key)?;
-            let err = DocumentStoreError::IndexOrphan {
-                values: index_key.values.clone(),
-                index_name: index_name.to_string(),
-                raw_index_key,
-                raw_data_key,
-                document_key: data_key.number,
-            };
-            error!("{:?}", err);
-            Err(err)
-        }
+        fetch_json_record(index_name, unqlite, index_key, raw_index_key, raw_data_key)
     } else {
         Ok(None)
     }
+}
+
+fn fetch_json_record(index_name: &str, unqlite: &UnQLite, index_key: &IndexKey, raw_index_key: Vec<u8>, raw_data_key: Vec<u8>) -> Result<Option<String>, DocumentStoreError> {
+    if let Ok(raw_document) = unqlite.kv_fetch(&raw_data_key) {
+        debug!("Found raw document: {:?}", raw_document);
+        let document = bytes_to_utf8(raw_data_key, raw_document)?;
+        Ok(Some(document))
+    } else {
+        let data_key: DataKey = bincode::deserialize(&raw_data_key)?;
+        let err = DocumentStoreError::IndexOrphan {
+            values: index_key.values.clone(),
+            index_name: index_name.to_string(),
+            raw_index_key,
+            raw_data_key,
+            document_key: data_key.number,
+        };
+        error!("{:?}", err);
+        Err(err)
+    }
+}
+
+fn bytes_to_utf8(raw_key: Vec<u8>, raw_document: Vec<u8>) -> Result<String, DocumentStoreError> {
+    String::from_utf8(raw_document.clone()).map_err(move |_| {
+        let lossy = String::from_utf8_lossy(&raw_document).to_string();
+        warn!("Contents of record with key {:?} is not valid utf8: {:?}", raw_key, &lossy);
+        DocumentStoreError::NotUtf8(
+            raw_key,
+            lossy,
+        )
+    })
 }
 
 // Process the `index` by parsing the index values from the
@@ -506,20 +516,36 @@ fn store_index(
     let index_key: IndexKey = IndexKey::new(index, index_values);
     let raw_index_key = bincode::serialize(&index_key)
         .map_err(|_| DocumentStoreError::UnserializableIndexKey(index_key.values))?;
-    if unqlite.kv_fetch_length(&raw_index_key).is_ok() {
-        Err(DocumentStoreError::DuplicateRecord(index))
-    } else {
-        unqlite
-            .kv_store(&raw_index_key, raw_data_key)
-            .map_err(DocumentStoreError::UnQLite)?;
-        Ok(())
+    match unqlite.kv_fetch(&raw_index_key) {
+        Ok(record_key) => { // handle a duplicate
+            let raw_record = match unqlite.kv_fetch(record_key.clone()) {
+                Ok(raw_record) => raw_record,
+                Err(error) => {
+                    error!("While handling an attempt to insert a record, discovered it would create a duplicate index record. Attempted to retrieve the JSON record referenced by the index record, but failed: {}", error);
+                    "*** JSON record referenced by duplicate record could not be fetched ***".as_bytes().to_owned()
+                }
+            };
+            let record = bytes_to_utf8(record_key, raw_record)?;
+            Err(DocumentStoreError::DuplicateRecord(record))
+        },
+        Err(_) => {
+            store_new_index_record(unqlite, raw_data_key, &raw_index_key)
+        }
     }
+}
+
+fn store_new_index_record(unqlite: &UnQLite, raw_data_key: &[u8], raw_index_key: &Vec<u8>) -> Result<(), DocumentStoreError> {
+    unqlite
+        .kv_store(&raw_index_key, raw_data_key)
+        .map_err(DocumentStoreError::UnQLite)?;
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use anyhow::bail;
     use super::*;
+    use rand::RngCore;
     use serde_json::json;
     use test_log::test;
 
@@ -569,12 +595,12 @@ mod tests {
         let tmp_dir = tempfile::tempdir().unwrap();
         let path = tmp_dir.path().join("test_insert");
         let name = path.to_str().unwrap();
-        let index_one = "index_one";
-        let index_two = "index_two";
+        let forward_index = "forwards";
+        let backwards_index = "backwards";
         let field1 = "mostSignificantField";
         let field2 = "leastSignificantField";
-        let i1 = IndexSpec::new(index_one, vec![field1]);
-        let i2 = IndexSpec::new(index_two, vec![field2]);
+        let i1 = IndexSpec::new(forward_index, vec![field1, field2]);
+        let i2 = IndexSpec::new(backwards_index, vec![field2, field1]);
         let indexes = vec![i1, i2];
 
         let doc_store = DocumentStore::open(name, indexes).expect("should not result in error");
@@ -589,11 +615,17 @@ mod tests {
             "leastSignificantField": "12",
             "insignificant": 2
         });
-        doc_store.insert(&doc1.to_string())?;
+        let doc1_string = doc1.to_string();
+        doc_store.insert(&doc1_string)?;
+        let mut filter = HashMap::new();
+        filter.insert(field1, "msf1");
+        filter.insert(field2, "12");
+        let fetched = doc_store.fetch(forward_index, filter)?.unwrap();
+        assert_eq!(doc1_string, fetched);
         match doc_store.insert(&doc2.to_string()) {
             Ok(_) => bail!("Attempt to add a duplicate record succeeded."),
             Err(DocumentStoreError::DuplicateRecord(idx)) =>
-                assert_eq!(0u16, idx),
+                assert_eq!(doc1_string, idx),
             Err(other) => bail!("Unexpected error from inserting a duplicate record {:?}", other)
         }
         Ok(())
@@ -735,5 +767,10 @@ mod tests {
             .expect("Should have fetched without error.") // expect Ok
             .expect("Should have found a document."); // expect Some
         assert_eq!(doc.to_string(), res);
+    }
+
+    fn append_random(name: &str) -> String {
+        let mut rng = rand::thread_rng();
+        format!("{}{}", name, rng.next_u32())
     }
 }

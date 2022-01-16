@@ -15,7 +15,7 @@
 */
 extern crate anyhow;
 
-use crate::document_store::document_store::{DocumentStore, IndexSpec};
+use crate::document_store::document_store::{DocumentStore, DocumentStoreError, IndexSpec};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
@@ -139,6 +139,15 @@ pub struct Metadata {
     untrusted_key_pair: SignatureKeyPair,
 }
 
+/// Methods that create metadata return this enum. In the case of a duplicate, the returned value
+/// includes the json of the duplicate metadata. It can be converted to a struct by passing it to
+/// `Signed::from_json_string()`
+#[derive(Debug)]
+pub enum MetadataCreationStatus {
+    Created,
+    Duplicate { json: String },
+}
+
 impl Metadata {
     pub fn new() -> Result<Metadata, anyhow::Error> {
         info!("Creating new instance of metadata manager");
@@ -161,14 +170,14 @@ impl Metadata {
         &self.untrusted_key_pair
     }
 
-    pub fn create_package_type(&self, pkg_type: &PackageType) -> anyhow::Result<()> {
+    pub fn create_package_type(
+        &self,
+        pkg_type: &PackageType,
+    ) -> anyhow::Result<MetadataCreationStatus> {
         insert_metadata(&self.package_type_docs, pkg_type)
     }
 
-    pub fn get_package_type(
-        &self,
-        name: PackageTypeName,
-    ) -> anyhow::Result<Option<PackageType>> {
+    pub fn get_package_type(&self, name: PackageTypeName) -> anyhow::Result<Option<PackageType>> {
         let name_as_string = name.to_string();
         let filter = hashmap! {
             FLD_PACKAGE_TYPES_NAME => name_as_string.as_str()
@@ -183,7 +192,7 @@ impl Metadata {
     pub fn create_package_version(
         &self,
         package_version: &PackageVersion,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<MetadataCreationStatus> {
         insert_metadata(&self.package_version_docs, package_version)
     }
 
@@ -251,10 +260,13 @@ fn fetch_package_version(
 fn insert_metadata<'a, T: Signed<'a> + Debug>(
     ds: &DocumentStore,
     signed: &T,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<MetadataCreationStatus> {
     match signed.json() {
         Some(json) => match ds.insert(&json) {
-            Ok(_) => Ok(()),
+            Ok(_) => Ok(MetadataCreationStatus::Created),
+            Err(DocumentStoreError::DuplicateRecord(record)) => {
+                Ok(MetadataCreationStatus::Duplicate { json: record })
+            }
             Err(error) => bail!(
                 "Failed to create package_type record: {:?}\nError is {}",
                 signed,
@@ -275,25 +287,32 @@ mod tests {
     use crate::node_manager::handlers::METADATA_MGR;
     use crate::node_manager::model::artifact::ArtifactBuilder;
     use crate::node_manager::model::package_version::LicenseTextMimeType;
+    use rand::RngCore;
     use serde_json::{Map, Value};
     use signed::signed;
 
     #[test]
     fn package_type_test() -> Result<()> {
-            let metadata = &METADATA_MGR;
-            info!("Created metadata instance");
+        let metadata = &METADATA_MGR;
+        info!("Created metadata instance");
 
-            let mut package_type = PackageTypeBuilder::default()
-                .name(PackageTypeName::Docker)
-                .description("docker packages".to_string())
-                .build()?;
-            let algorithm = signed::JwsSignatureAlgorithms::RS384;
-            let key_pair = signed::create_key_pair(algorithm)?;
-            package_type.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key)?;
-            metadata.create_package_type(&package_type)?;
-            let package_type2 = metadata.get_package_type(PackageTypeName::Docker)?.unwrap();
-            assert_eq!(package_type2, package_type);
-            Ok(())
+        let mut package_type = PackageTypeBuilder::default()
+            .name(PackageTypeName::Docker)
+            .description("docker packages".to_string())
+            .build()?;
+        let algorithm = signed::JwsSignatureAlgorithms::RS384;
+        let key_pair = signed::create_key_pair(algorithm)?;
+        package_type.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key)?;
+        // Because there is no easy way to ensure that we start with a fresh document store in a dev
+        // environment, we need to assume that duplicate package types are normal
+        match metadata.create_package_type(&package_type)? {
+            MetadataCreationStatus::Created => {
+                let package_type2 = metadata.get_package_type(PackageTypeName::Docker)?.unwrap();
+                assert_eq!(package_type2, package_type);
+                Ok(())
+            },
+            MetadataCreationStatus::Duplicate{ json: _} => Ok(())
+        }
     }
 
     #[test]
@@ -323,9 +342,9 @@ mod tests {
             .source_url(source1)
             .build()?];
 
-        let id = "wi238rugs".to_string();
-        let namespace_id = "asd928374".to_string();
-        let name = "acme".to_string();
+        let id = append_random("id");
+        let namespace_id = append_random("NS");
+        let name = append_random("name");
         let package_type = PackageTypeName::Docker;
         let version = "1.0".to_string();
         let license_text = "Do as you will.".to_string();
@@ -357,11 +376,23 @@ mod tests {
         let key_pair = signed::create_key_pair(algorithm)?;
         package_version.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key)?;
 
-        metadata.create_package_version(&package_version)?;
+        match metadata.create_package_version(&package_version)? {
+            MetadataCreationStatus::Created => (),
+            status => panic!("Expected metadata status to be created but found {:?}", status)
+        }
+
         let package_version2 = metadata.get_package_version(&namespace_id, &name, &version)?;
         assert!(package_version2.is_some());
         assert_eq!(package_version, package_version2.unwrap());
 
+
+
         Ok(())
     }
+
+    fn append_random(name: &str) -> String {
+        let mut rng = rand::thread_rng();
+        format!("{}{}", name, rng.next_u32())
+    }
+
 }
