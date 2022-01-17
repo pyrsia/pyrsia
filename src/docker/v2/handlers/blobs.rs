@@ -31,15 +31,9 @@ use std::str;
 use uuid::Uuid;
 use warp::{http::StatusCode, Rejection, Reply};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct GetBlobsHandle {
     pending_hash_queries: Vec<String>,
-}
-
-impl Default for GetBlobsHandle {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl GetBlobsHandle {

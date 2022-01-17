@@ -23,15 +23,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::block::Block;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct BlockChain {
     blocks: Vec<Block>,
-}
-
-impl Default for BlockChain {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 const DIFFICULTY_PREFIX: &str = "00";
@@ -107,7 +101,7 @@ impl BlockChain {
             let first = chain.get(i - 1).expect("has to exist");
             let second = chain.get(i).expect("has to exist");
             match BlockChain::are_blocks_sequential(first, second.clone()) {
-                Err(_e) => {
+                Err(_) => {
                     return false;
                 }
                 Ok(_) => {
