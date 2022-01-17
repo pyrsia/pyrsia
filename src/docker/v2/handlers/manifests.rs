@@ -320,7 +320,6 @@ const MEDIA_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.
 const MEDIA_TYPE_SCHEMA_1: &str = "application/vnd.docker.distribution.manifest.v1+json";
 const MEDIA_TYPE_IMAGE_MANIFEST: &str = "application/vnd.docker.distribution.manifest.v2+json";
 const MEDIA_TYPE_MANIFEST_LIST: &str = "application/vnd.docker.distribution.manifest.list.v2+json";
-const MEDIA_TYPE_CONFIG_JSON: &str = "application/vnd.docker.container.image.v1+json";
 
 fn package_version_from_schema1(
     json_object: &Map<String, Value>,
@@ -804,6 +803,8 @@ mod tests {
     }
 
     #[test]
+    const MEDIA_TYPE_CONFIG_JSON: &str = "application/vnd.docker.container.image.v1+json";
+
     fn package_version_from_image_manifest() -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V2_IMAGE);
         let hash: Vec<u8> = raw_sha512(json_bytes.to_vec()).to_vec();

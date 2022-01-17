@@ -68,7 +68,7 @@ impl Header {
     }
 }
 
-pub struct Block_v1 {
+pub struct BlockV1 {
     pub header: Header,
     pub transactions: Vec<Transaction>,
 }
