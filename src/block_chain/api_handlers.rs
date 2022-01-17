@@ -14,14 +14,9 @@
    limitations under the License.
 */
 
-
-
-
 use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
-
-
 
 // Types of API requests
 #[allow(dead_code)]

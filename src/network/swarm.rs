@@ -17,9 +17,7 @@
 use super::behavior::MyBehaviour;
 use super::transport::TcpTokioTransport;
 use libp2p::gossipsub::MessageId;
-use libp2p::gossipsub::{
-    GossipsubMessage, IdentTopic, MessageAuthenticity, ValidationMode,
-};
+use libp2p::gossipsub::{GossipsubMessage, IdentTopic, MessageAuthenticity, ValidationMode};
 use libp2p::{
     floodsub::{Floodsub, Topic},
     kad::{record::store::MemoryStore, Kademlia},

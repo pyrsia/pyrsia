@@ -455,13 +455,11 @@ impl<'a> ArtifactManager {
 
 fn file_creation_error(base_path: &Path, error: std::io::Error) -> Result<bool, Error> {
     error!("I/O error {} on {}", error, base_path.display());
-    let result = match error.kind() {
+    match error.kind() {
         io::ErrorKind::AlreadyExists => Ok(false),
         _ => Err(anyhow!(error.to_string())),
     }
-    .with_context(|| format!("Error creating file {}", base_path.display()));
-
-    result
+    .with_context(|| format!("Error creating file {}", base_path.display()))
 }
 
 // Return a temporary file name to use for the file until we have verified that the hash is correct.

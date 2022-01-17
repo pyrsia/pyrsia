@@ -28,6 +28,12 @@ pub struct BlockChain {
     blocks: Vec<Block>,
 }
 
+impl Default for BlockChain {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 const DIFFICULTY_PREFIX: &str = "00";
 
 impl BlockChain {
@@ -54,7 +60,7 @@ impl BlockChain {
                 (nonce, hash, last_block)
             })
             .map(|(nonce, hash, last_block)| Block {
-                id: last_block.id.clone() + 1,
+                id: last_block.id + 1,
                 hash,
                 previous_hash: last_block.hash.clone(),
                 timestamp: now,
@@ -141,7 +147,7 @@ fn mine_block(id: u64, timestamp: u128, previous_hash: &str, data: &str) -> (u64
             (
                 nonce,
                 hash.clone(),
-                hash_to_binary_representation(&hash.clone()),
+                hash_to_binary_representation(&hash),
             )
         })
         .find(|(_nonce, _hash, binary_hash)| binary_hash.starts_with(DIFFICULTY_PREFIX))
@@ -190,7 +196,7 @@ impl Ledger for BlockChain {
         }
     }
 
-    fn is_valid(self) -> Result<bool, anyhow::Error> {
+    fn is_valid(&self) -> Result<bool, anyhow::Error> {
         todo!()
     }
 }
@@ -206,7 +212,7 @@ impl Iterator for BlockChain {
 pub trait Ledger {
     fn add_entry(/*mut*/ self, entry: Block) -> Result<BlockChain, anyhow::Error>;
 
-    fn is_valid(self) -> Result<bool, anyhow::Error>;
+    fn is_valid(&self) -> Result<bool, anyhow::Error>;
 }
 
 // trait Observer<T> {

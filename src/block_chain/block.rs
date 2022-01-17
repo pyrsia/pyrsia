@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use libp2p::{identity};
+use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -54,16 +54,16 @@ impl Header {
         signature: BlockSignature,
     ) -> Self {
         Self {
-            parent_hash: parent_hash,
-            committer: committer,
-            transactions_root: transactions_root,
+            parent_hash,
+            committer,
+            transactions_root,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
-            number: number,
-            nonce: nonce,
-            signature: signature,
+            number,
+            nonce,
+            signature,
         }
     }
 }

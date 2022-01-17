@@ -36,6 +36,12 @@ pub struct GetBlobsHandle {
     pending_hash_queries: Vec<String>,
 }
 
+impl Default for GetBlobsHandle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GetBlobsHandle {
     pub fn new() -> GetBlobsHandle {
         GetBlobsHandle {
@@ -52,7 +58,7 @@ impl Stream for GetBlobsHandle {
     type Item = String;
 
     fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        if self.pending_hash_queries.len() > 0 {
+        if !self.pending_hash_queries.is_empty() {
             return Poll::Ready(self.pending_hash_queries.pop());
         }
 
@@ -175,12 +181,12 @@ pub async fn handle_patch_blob(
     id: String,
     bytes: Bytes,
 ) -> Result<impl Reply, Rejection> {
-    let mut blob_upload_dest = format!(
+    let blob_upload_dest = format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}/data",
         name, id
     );
 
-    let append = append_to_blob(&mut blob_upload_dest, bytes).map_err(RegistryError::from)?;
+    let append = append_to_blob(&blob_upload_dest, bytes).map_err(RegistryError::from)?;
 
     let range = format!("{}-{}", append.0, append.0 + append.1 - 1);
     debug!("Patch blob range: {}", range);
@@ -264,11 +270,11 @@ fn store_blob_in_filesystem(
     blob_upload_dest_data.push_str("/data");
     append_to_blob(&blob_upload_dest_data, bytes)?;
 
-    let mut blob_dest = String::from(format!(
+    let mut blob_dest = format!(
         "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}",
         digest.get(7..9).unwrap(),
         digest.get(7..).unwrap()
-    ));
+    );
     fs::create_dir_all(&blob_dest)?;
 
     blob_dest.push_str("/data");
@@ -307,9 +313,9 @@ async fn get_blob_from_docker_hub_with_token(
 
     let id = Uuid::new_v4();
 
-    create_upload_directory(&name, &id.to_string()).map_err(RegistryError::from)?;
+    create_upload_directory(name, &id.to_string()).map_err(RegistryError::from)?;
 
-    let blob_dest = store_blob_in_filesystem(&name, &id.to_string(), &hash, bytes)
+    let blob_dest = store_blob_in_filesystem(name, &id.to_string(), hash, bytes)
         .map_err(RegistryError::from)?;
 
     Ok(blob_dest)
