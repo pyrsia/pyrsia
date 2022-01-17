@@ -100,7 +100,7 @@ impl BlockChain {
             let first = chain.get(i - 1).expect("has to exist");
             let second = chain.get(i).expect("has to exist");
             match BlockChain::are_blocks_sequential(first, second.clone()) {
-                Err(e) => {
+                Err(_e) => {
                     return false;
                 }
                 Ok(_) => {

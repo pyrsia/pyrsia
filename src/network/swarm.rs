@@ -18,7 +18,7 @@ use super::behavior::MyBehaviour;
 use super::transport::TcpTokioTransport;
 use libp2p::gossipsub::MessageId;
 use libp2p::gossipsub::{
-    GossipsubEvent, GossipsubMessage, IdentTopic, MessageAuthenticity, ValidationMode,
+    GossipsubMessage, IdentTopic, MessageAuthenticity, ValidationMode,
 };
 use libp2p::{
     floodsub::{Floodsub, Topic},
@@ -27,9 +27,9 @@ use libp2p::{
     swarm::SwarmBuilder,
     PeerId, Swarm,
 };
-use libp2p::{gossipsub, identity, swarm::SwarmEvent, Multiaddr};
+use libp2p::{gossipsub, identity};
 use std::collections::hash_map::DefaultHasher;
-use std::error::Error;
+
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
 

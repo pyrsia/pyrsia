@@ -14,14 +14,14 @@
    limitations under the License.
 */
 
-use crate::block_chain::block_chain::BlockChain;
 
-use log::{debug, error, info};
+
+
 use std::sync::Arc;
-use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
-use warp::http::StatusCode;
-use warp::{Rejection, Reply};
+
+
 
 // Types of API requests
 struct GetAllBlocks {}

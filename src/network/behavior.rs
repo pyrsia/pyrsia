@@ -30,7 +30,7 @@ use libp2p::{
     swarm::NetworkBehaviourEventProcess,
     NetworkBehaviour, PeerId,
 };
-use libp2p::{gossipsub, identity, swarm::SwarmEvent, Multiaddr};
+use libp2p::{gossipsub};
 use log::{debug, error, info};
 use std::collections::HashSet;
 
