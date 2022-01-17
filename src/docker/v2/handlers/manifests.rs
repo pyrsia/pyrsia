@@ -580,6 +580,7 @@ fn invalid_manifest<T>(json_string: &str) -> Result<T, anyhow::Error> {
 }
 
 #[cfg(test)]
+const MEDIA_TYPE_CONFIG_JSON: &str = "application/vnd.docker.container.image.v1+json";
 mod tests {
     use super::*;
     use crate::node_manager::handlers::ART_MGR;
@@ -803,8 +804,6 @@ mod tests {
     }
 
     #[test]
-    const MEDIA_TYPE_CONFIG_JSON: &str = "application/vnd.docker.container.image.v1+json";
-
     fn package_version_from_image_manifest() -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V2_IMAGE);
         let hash: Vec<u8> = raw_sha512(json_bytes.to_vec()).to_vec();
