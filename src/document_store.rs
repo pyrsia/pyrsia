@@ -14,4 +14,5 @@
    limitations under the License.
 */
 
+#[allow(clippy::module_inception)]
 pub mod document_store;
