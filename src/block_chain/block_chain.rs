@@ -95,6 +95,7 @@ impl BlockChain {
         Ok(next)
     }
 
+    #[allow(dead_code)]
     fn is_chain_valid(&self, chain: &[Block]) -> bool {
         for i in 1..chain.len() {
             let first = chain.get(i - 1).expect("has to exist");

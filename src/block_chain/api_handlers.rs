@@ -24,10 +24,13 @@ use tokio::sync::Mutex;
 
 
 // Types of API requests
+#[allow(dead_code)]
 struct GetAllBlocks {}
+#[allow(dead_code)]
 struct GetBlockWithId {
     id: u32,
 }
+#[allow(dead_code)]
 struct PutNewData {
     data: String,
 }
@@ -35,6 +38,7 @@ struct PutNewData {
 // enum ApiMessage { Request(GetAllBlocks, GetAllBlocks, PutNewData), Answer([]Block, Block) }
 
 // Just one Channel
+#[allow(dead_code)]
 struct MessageHandler<Request, Answer> {
     tx: Sender<Request>,
     rx: Arc<Mutex<Receiver<Answer>>>,

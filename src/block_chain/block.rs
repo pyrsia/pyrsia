@@ -81,6 +81,7 @@ pub struct Transaction {
     pub payload: Vec<u8>,
 }
 
+#[allow(dead_code)]
 pub struct Signature {
     signature: Vec<u8>,
     pubkey: identity::ed25519::PublicKey,
