@@ -143,13 +143,7 @@ fn mine_block(id: u64, timestamp: u128, previous_hash: &str, data: &str) -> (u64
                 calculate_hash(id, timestamp, previous_hash, data, nonce),
             )
         })
-        .map(|(nonce, hash)| {
-            (
-                nonce,
-                hash.clone(),
-                hash_to_binary_representation(&hash),
-            )
-        })
+        .map(|(nonce, hash)| (nonce, hash.clone(), hash_to_binary_representation(&hash)))
         .find(|(_nonce, _hash, binary_hash)| binary_hash.starts_with(DIFFICULTY_PREFIX))
         .map(|(nonce, hash, _bin)| (nonce, hex::encode(hash)))
         .expect("results")

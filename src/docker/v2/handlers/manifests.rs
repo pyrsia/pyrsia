@@ -321,7 +321,6 @@ const MEDIA_TYPE_SCHEMA_1: &str = "application/vnd.docker.distribution.manifest.
 const MEDIA_TYPE_IMAGE_MANIFEST: &str = "application/vnd.docker.distribution.manifest.v2+json";
 const MEDIA_TYPE_MANIFEST_LIST: &str = "application/vnd.docker.distribution.manifest.list.v2+json";
 
-
 fn package_version_from_schema1(
     json_object: &Map<String, Value>,
     hash_algorithm: HashAlgorithm,
