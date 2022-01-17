@@ -183,7 +183,7 @@ impl Metadata {
             FLD_PACKAGE_TYPES_NAME => name_as_string.as_str()
         };
         match self.package_type_docs.fetch(IX_PACKAGE_TYPES_NAMES, filter) {
-            Err(error) => bail!("Error fetching package type: {}", error),
+            Err(error) => bail!("Error fetching package type: {}", error.to_string()),
             Ok(Some(json)) => Ok(Some(PackageType::from_json_string(&json)?)),
             Ok(None) => Ok(None),
         }
@@ -237,7 +237,7 @@ fn populate_with_initial_records(
                 "Failed to insert initial record into document store {}: {}\nError was {}",
                 ds.name(),
                 record,
-                error
+                error.to_string(),
             );
             todo!("If an attempt to insert an initial record into document store fails, then we need to do something so that we will know that the document store is missing necessary information")
         }
@@ -251,7 +251,7 @@ fn fetch_package_version(
     filter: HashMap<&str, &str>,
 ) -> anyhow::Result<Option<PackageVersion>> {
     match md.package_version_docs.fetch(index_name, filter) {
-        Err(error) => bail!("Error fetching package version: {}", error),
+        Err(error) => bail!("Error fetching package version: {}", error.to_string()),
         Ok(Some(json)) => Ok(Some(PackageVersion::from_json_string(&json)?)),
         Ok(None) => Ok(None),
     }
@@ -303,14 +303,10 @@ mod tests {
         let algorithm = signed::JwsSignatureAlgorithms::RS384;
         let key_pair = signed::create_key_pair(algorithm)?;
         package_type.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key)?;
-        // Because there is no easy way to ensure that we start with a fresh document store in a dev
-        // environment, we need to assume that duplicate package types are normal
+        // Because the Docker package type is pre-installed, we expect an attempt to add one to
+        // produce a duplicate result.
         match metadata.create_package_type(&package_type)? {
-            MetadataCreationStatus::Created => {
-                let package_type2 = metadata.get_package_type(PackageTypeName::Docker)?.unwrap();
-                assert_eq!(package_type2, package_type);
-                Ok(())
-            },
+            MetadataCreationStatus::Created => bail!("Docker package type is supposed to be pre-installed, but we were just able to create it!"),
             MetadataCreationStatus::Duplicate{ json: _} => Ok(())
         }
     }
@@ -378,14 +374,16 @@ mod tests {
 
         match metadata.create_package_version(&package_version)? {
             MetadataCreationStatus::Created => (),
-            status => panic!("Expected metadata status to be created but found {:?}", status)
+            status => panic!(
+                "Expected metadata status to be created but found {:?}",
+                status
+            ),
         }
 
-        let package_version2 = metadata.get_package_version(&namespace_id, &name, &version)?;
-        assert!(package_version2.is_some());
-        assert_eq!(package_version, package_version2.unwrap());
-
-
+        let fetched_package_version2 =
+            metadata.get_package_version(&namespace_id, &name, &version)?;
+        assert!(fetched_package_version2.is_some());
+        assert_eq!(package_version, fetched_package_version2.unwrap());
 
         Ok(())
     }
@@ -394,5 +392,4 @@ mod tests {
         let mut rng = rand::thread_rng();
         format!("{}{}", name, rng.next_u32())
     }
-
 }
