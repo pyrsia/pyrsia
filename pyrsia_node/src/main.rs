@@ -23,7 +23,7 @@ extern crate pyrsia;
 extern crate tokio;
 extern crate warp;
 
-use pyrsia::block_chain::block_chain::Ledger;
+//use pyrsia::block_chain::block_chain::Ledger;
 use pyrsia::block_chain::*;
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::handlers::blobs::GetBlobsHandle;
@@ -177,7 +177,7 @@ async fn main() {
     tokio::spawn(server);
     let tx4 = tx.clone();
 
-    let raw_chain = block_chain::BlockChain::new();
+    let raw_chain = block_chain::Blockchain::new();
     let bc = Arc::new(Mutex::new(raw_chain));
     // Kick it off
     loop {
@@ -250,17 +250,18 @@ async fn main() {
                     cmd if cmd.starts_with("get_blobs") => {
                         swarm.behaviour_mut().lookup_blob(message).await
                     }
-                    "blocks" => {
-                        let bc_state: Arc<_> = bc.clone();
-                        let mut bc_instance: MutexGuard<_> = bc_state.lock().await;
-                        let new_block =
-                            bc_instance.mk_block("happy_new_block".to_string()).unwrap();
+                    "blocks" => { /*
+                         let bc_state: Arc<_> = bc.clone();
+                         let mut bc_instance: MutexGuard<_> = bc_state.lock().await;
+                         let new_block =
+                             bc_instance.mk_block("happy_new_block".to_string()).unwrap();
 
-                        let new_chain = bc_instance
-                            .clone()
-                            .add_entry(new_block)
-                            .expect("should have added");
-                        *bc_instance = new_chain;
+                         let new_chain = bc_instance
+                             .clone()
+                             .add_entry(new_block)
+                             .expect("should have added");
+                         *bc_instance = new_chain;
+                         */
                     }
                     _ => info!("message received from peers: {}", message),
                 },
