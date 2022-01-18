@@ -164,10 +164,6 @@ mod tests {
         };
         assert_eq!(s, s1);
 
-        //cleaning up
-        fs::remove_dir_all(ART_MGR_DIR)
-            .context(format!("Error cleaning up directory {}", path.clone()))?;
-
         println!("put_and_get_artifact_test ended !!");
         Ok(())
     }
