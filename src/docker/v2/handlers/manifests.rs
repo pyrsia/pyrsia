@@ -284,9 +284,8 @@ async fn get_manifest_from_docker_hub_with_token(
 
     let bytes = response.bytes().await.map_err(RegistryError::from)?;
 
-    let hash = store_manifest_in_filesystem(name, tag, bytes)?;
-
-    Ok(hash)
+    store_manifest_in_artifact_manager(&bytes);
+    store_manifest_in_filesystem(name, tag, bytes)
 }
 
 fn store_manifest_in_artifact_manager(bytes: &Bytes) -> anyhow::Result<(HashAlgorithm, Vec<u8>)> {
@@ -319,9 +318,9 @@ fn package_version_from_manifest_bytes(
             bytes.len(),
         ),
         Ok(_) => invalid_manifest(&json_string),
-        Err(error) => Err(anyhow!(
+        Err(err) => Err(anyhow!(
             "Error parsing docker manifest JSON: {} in {}",
-            error,
+            err,
             json_string
         )),
     }
@@ -609,8 +608,8 @@ fn manifest_schema_version(
     }
 }
 
-fn invalid_manifest<T>(json_string: &str) -> Result<T, anyhow::Error> {
-    Err(anyhow!("Invalid JSON manifest: {}", json_string))
+fn invalid_manifest<T>(_json_string: &str) -> Result<T, anyhow::Error> {
+    Err(anyhow!("Invalid JSON manifest: {}", _json_string))
 }
 
 #[cfg(test)]
