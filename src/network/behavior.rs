@@ -14,6 +14,8 @@
    limitations under the License.
 */
 
+extern crate dirs;
+
 use libp2p::{
     floodsub::{Floodsub, FloodsubEvent},
     kad::{
@@ -110,6 +112,20 @@ impl NetworkBehaviourEventProcess<gossipsub::GossipsubEvent> for MyBehaviour {
             if msg_data.starts_with("magnet:") {
                 // Synapse RPC Integration point
                 info!("Start downloading {}", msg_data);
+                let server = "ws://localhost:8412/";
+                let pass = "donthackme";
+                let download_dir = dirs::download_dir()
+                    .unwrap()
+                    .into_os_string()
+                    .into_string()
+                    .unwrap();
+                let directory: Option<&str> = Some(&download_dir);
+                let files: Vec<&str> = vec![msg_data.as_str()];
+                let r = super::torrent::add_torrent(server, pass, directory, files);
+                match futures::executor::block_on(r) {
+                    Err(e) => info!("Error: {}", e),
+                    _ => info!("Added magnet {}", msg_data),
+                };
                 // This should kick-off the download
             } else {
                 info!(

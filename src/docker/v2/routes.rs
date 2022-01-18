@@ -38,10 +38,10 @@ pub fn make_docker_routes(
             "application/json",
         ));
 
-    let v2_manifests = warp::path!("v2" / String / "manifests" / String)
+    let v2_manifests = warp::path!("v2" / "library" / String / "manifests" / String)
         .and(warp::get().or(warp::head()).unify())
         .and_then(handle_get_manifests);
-    let v2_manifests_put_docker = warp::path!("v2" / String / "manifests" / String)
+    let v2_manifests_put_docker = warp::path!("v2" / "library" / String / "manifests" / String)
         .and(warp::put())
         .and(warp::header::exact(
             "Content-Type",
@@ -50,18 +50,18 @@ pub fn make_docker_routes(
         .and(warp::body::bytes())
         .and_then(handle_put_manifest);
 
-    let v2_blobs = warp::path!("v2" / String / "blobs" / String)
+    let v2_blobs = warp::path!("v2" / "library" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
         .and_then(move |name, hash| handle_get_blobs(tx_blobs.clone(), name, hash));
-    let v2_blobs_post = warp::path!("v2" / String / "blobs" / "uploads")
+    let v2_blobs_post = warp::path!("v2" / "library" / String / "blobs" / "uploads")
         .and(warp::post())
         .and_then(move |name| handle_post_blob(tx.clone(), name));
-    let v2_blobs_patch = warp::path!("v2" / String / "blobs" / "uploads" / String)
+    let v2_blobs_patch = warp::path!("v2" / "library" / String / "blobs" / "uploads" / String)
         .and(warp::patch())
         .and(warp::body::bytes())
         .and_then(handle_patch_blob);
-    let v2_blobs_put = warp::path!("v2" / String / "blobs" / "uploads" / String)
+    let v2_blobs_put = warp::path!("v2" / "library" / String / "blobs" / "uploads" / String)
         .and(warp::put())
         .and(warp::query::<HashMap<String, String>>())
         .and(warp::body::bytes())

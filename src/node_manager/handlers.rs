@@ -41,11 +41,13 @@ lazy_static! {
 pub fn get_artifact(
     art_hash: &[u8],
     art_algorithm: HashAlgorithm,
-) -> Result<Box<dyn Read>, anyhow::Error> {
+) -> Result<Vec<u8>, anyhow::Error> {
     let hash = Hash::new(art_algorithm, art_hash)?;
     let result = ART_MGR.pull_artifact(&hash)?;
-    let buf_reader: BufReader<File> = BufReader::new(result);
-    Ok(Box::new(buf_reader))
+    let mut buf_reader: BufReader<File> = BufReader::new(result);
+    let mut blob_content = Vec::new();
+    buf_reader.read_to_end(&mut blob_content)?;
+    Ok(blob_content)
 }
 
 //put_artifact: given artifact_hash(artifactName) & artifact_path push artifact to artifact_manager
@@ -118,16 +120,16 @@ mod tests {
             .context("Error from get_artifact")?;
 
         //validate pulled artifact with the actual data
-        let mut buf_reader = BufReader::new(file);
-        let mut content = String::new();
-        buf_reader.read_to_string(&mut content)?;
-
         let s = match str::from_utf8(actual_content_vec.as_slice()) {
             Ok(v) => v,
             Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
         };
 
-        assert_eq!(s, content);
+        let s1 = match str::from_utf8(file.as_slice()) {
+            Ok(v) => v,
+            Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+        };
+        assert_eq!(s, s1);
 
         //cleaning up
         fs::remove_dir_all(ART_MGR_DIR)
