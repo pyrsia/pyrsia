@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use super::*;
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use bytes::{Buf, Bytes};
@@ -23,8 +24,8 @@ use log::{debug, error, info, trace};
 use reqwest::{header, Client};
 use std::collections::HashMap;
 use std::fs;
+use std::fs::File;
 use std::io::prelude::*;
-use std::path::Path;
 use std::pin::Pin;
 use std::result::Result;
 use std::str;
@@ -83,54 +84,44 @@ pub async fn handle_get_blobs(
     send_message.push_str(&hash_clone);
     tx.send(send_message.clone());
 
-    /*     debug!("Getting blob with hash : {:?}", hash);
-
-    let mut art_reader =
-        match get_artifact(&hex::decode(&hash).unwrap().as_ref(), HashAlgorithm::SHA256) {
-            Ok(reader) => reader,
-            Err(error) => {
-                return Err(warp::reject::custom(RegistryError {
-                    code: RegistryErrorCode::BlobDoesNotExist(error.to_string()),
-                }))
-            }
-        };
-
-    debug!("Reading blob contents..");
-
+    debug!("Getting blob with hash : {:?}", hash);
     let mut blob_content = Vec::new();
-    let blob_content_len = match art_reader.read_to_end(&mut blob_content) {
-        Ok(content) => content,
+
+    match get_artifact(
+        hex::decode(&hash.get(7..).unwrap()).unwrap().as_ref(),
+        HashAlgorithm::SHA256,
+    ) {
+        Ok(content) => {
+            info!(
+                "Reading blob from local Pyrsia storage: {}",
+                &hash.get(7..).unwrap()
+            );
+            blob_content = content;
+        }
         Err(error) => {
-            return Err(warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::Unknown(error.to_string()),
-            }))
+            info!("Reading blob from dockerhub: {}", hash.get(7..).unwrap());
+            debug!(
+                "Error while fetching artifact from Pyrsia, so fetching from dockerhub: {}",
+                error.to_string()
+            );
+            let blob_push = get_blob_from_docker_hub(&_name, &hash).await?;
+            if blob_push == true {
+                blob_content = get_artifact(
+                    hex::decode(&hash.get(7..).unwrap()).unwrap().as_ref(),
+                    HashAlgorithm::SHA256,
+                )
+                .map_err(|_| {
+                    warp::reject::custom(RegistryError {
+                        code: RegistryErrorCode::BlobUnknown,
+                    })
+                })?;
+            } else {
+                return Err(warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::Unknown("PYSIA_STORAGE_ERROR".to_string()),
+                }));
+            }
         }
     };
-    debug!("blob_content : {}", blob_content_len); */
-
-    let blob = format!(
-        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
-        hash.get(7..9).unwrap(),
-        hash.get(7..).unwrap()
-    );
-    debug!("Searching for blob: {}", blob);
-    let blob_path = Path::new(&blob);
-    if !blob_path.exists() {
-        get_blob_from_docker_hub(&_name, &hash).await?;
-    }
-
-    if !blob_path.is_file() {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown("ITS_NOT_A_FILE".to_string()),
-        }));
-    }
-
-    info!("Reading blob from local Pyrsia storage: {}", blob);
-    let blob_content = fs::read(blob_path).map_err(|_| {
-        warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobUnknown,
-        })
-    })?;
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
@@ -255,7 +246,7 @@ fn store_blob_in_filesystem(
     id: &str,
     digest: &str,
     bytes: Bytes,
-) -> std::io::Result<String> {
+) -> Result<bool, Box<dyn std::error::Error>> {
     let blob_upload_dest_dir = format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
         name, id
@@ -264,22 +255,20 @@ fn store_blob_in_filesystem(
     blob_upload_dest_data.push_str("/data");
     append_to_blob(&blob_upload_dest_data, bytes)?;
 
-    let mut blob_dest = String::from(format!(
-        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}",
-        digest.get(7..9).unwrap(),
-        digest.get(7..).unwrap()
-    ));
-    fs::create_dir_all(&blob_dest)?;
+    //put blob in artifact manager
+    let reader = File::open(blob_upload_dest_data.as_str()).unwrap();
 
-    blob_dest.push_str("/data");
-    fs::copy(&blob_upload_dest_data, &blob_dest)?;
+    let push_result = put_artifact(
+        hex::decode(&digest.get(7..).unwrap()).unwrap().as_ref(),
+        Box::new(reader),
+    )?;
 
     fs::remove_dir_all(&blob_upload_dest_dir)?;
 
-    Ok(blob_dest)
+    Ok(push_result)
 }
 
-async fn get_blob_from_docker_hub(name: &str, hash: &str) -> Result<String, Rejection> {
+async fn get_blob_from_docker_hub(name: &str, hash: &str) -> Result<bool, Rejection> {
     let token = get_docker_hub_auth_token(name).await?;
 
     get_blob_from_docker_hub_with_token(name, hash, token).await
@@ -289,7 +278,7 @@ async fn get_blob_from_docker_hub_with_token(
     name: &str,
     hash: &str,
     token: String,
-) -> Result<String, Rejection> {
+) -> Result<bool, Rejection> {
     let url = format!(
         "https://registry-1.docker.io/v2/library/{}/blobs/{}",
         name, hash
@@ -307,10 +296,10 @@ async fn get_blob_from_docker_hub_with_token(
 
     let id = Uuid::new_v4();
 
-    create_upload_directory(&name, &id.to_string()).map_err(RegistryError::from)?;
+    create_upload_directory(name, &id.to_string()).map_err(RegistryError::from)?;
 
-    let blob_dest = store_blob_in_filesystem(&name, &id.to_string(), &hash, bytes)
+    let blob_push = store_blob_in_filesystem(name, &id.to_string(), hash, bytes)
         .map_err(RegistryError::from)?;
 
-    Ok(blob_dest)
+    Ok(blob_push)
 }

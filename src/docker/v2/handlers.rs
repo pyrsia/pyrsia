@@ -16,3 +16,5 @@
 
 pub mod blobs;
 pub mod manifests;
+pub use crate::artifact_manager::HashAlgorithm;
+pub use crate::node_manager::handlers::*;

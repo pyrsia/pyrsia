@@ -17,6 +17,7 @@
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
+use std::error::Error;
 use std::fmt;
 use warp::http::StatusCode;
 use warp::reject::Reject;
@@ -67,6 +68,14 @@ impl From<reqwest::Error> for RegistryError {
 
 impl From<std::io::Error> for RegistryError {
     fn from(err: std::io::Error) -> RegistryError {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(err.to_string()),
+        }
+    }
+}
+
+impl From<Box<dyn Error>> for RegistryError {
+    fn from(err: Box<dyn Error>) -> RegistryError {
         RegistryError {
             code: RegistryErrorCode::Unknown(err.to_string()),
         }
