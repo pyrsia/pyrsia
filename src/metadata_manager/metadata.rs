@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use super::model::package_type::{PackageType, PackageTypeBuilder, PackageTypeName};
-use super::model::package_version::{PackageVersion};
+use super::model::package_version::PackageVersion;
 use anyhow::{bail, Result};
 use log::{error, info};
 use maplit::hashmap;
@@ -269,8 +269,8 @@ mod tests {
     use crate::artifact_manager::HashAlgorithm;
     use crate::node_manager::handlers::METADATA_MGR;
     use crate::node_manager::model::artifact::ArtifactBuilder;
-    use crate::node_manager::model::package_version::PackageVersionBuilder;
     use crate::node_manager::model::package_version::LicenseTextMimeType;
+    use crate::node_manager::model::package_version::PackageVersionBuilder;
     use rand::RngCore;
     use serde_json::{Map, Value};
     use signed::signed;

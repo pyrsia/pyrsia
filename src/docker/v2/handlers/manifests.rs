@@ -85,6 +85,7 @@ pub async fn handle_put_manifest(
     reference: String,
     bytes: Bytes,
 ) -> Result<impl Reply, Rejection> {
+    debug!("Storing pushed manifest in artifact manager.");
     match store_manifest_in_artifact_manager(&bytes) {
         Ok(artifact_hash) => {
             info!(
@@ -295,6 +296,7 @@ async fn get_manifest_from_docker_hub_with_token(
 
     let bytes = response.bytes().await.map_err(RegistryError::from)?;
 
+    debug!("Storing manifest pulled from dockerHub in artifact manager");
     store_manifest_in_artifact_manager(&bytes).map_err(|err| RegistryError {
         code: RegistryErrorCode::Unknown(err.to_string()),
     })?;

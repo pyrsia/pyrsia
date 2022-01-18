@@ -761,18 +761,20 @@ mod tests {
         )
         .expect("should not result in error");
 
+        let fld1 = append_random("msf1_");
+        let fld2 = append_random("msf2_");
         let doc = json!({
-            "index1_field": "msf1",
-            "index2_field": "msf2"
+            "index1_field": fld1,
+            "index2_field": fld2
         });
         doc_store
             .insert(&doc.to_string())
             .expect("should not store with missing index fields.");
 
         let mut filter1 = HashMap::new();
-        filter1.insert("index1_field", "msf1");
+        filter1.insert("index1_field", fld1.as_str());
         let mut filter2 = HashMap::new();
-        filter2.insert("index2_field", "msf2");
+        filter2.insert("index2_field", fld2.as_str());
         let res: String = doc_store
             .fetch(index1, filter1)
             .expect("Should have fetched without error.") // expect Ok
