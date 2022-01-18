@@ -297,6 +297,7 @@ fn store_manifest_in_artifact_manager(bytes: &Bytes) -> anyhow::Result<(HashAlgo
     Ok((HashAlgorithm::SHA512, sha512))
 }
 
+// TODO This will eventually be defined in namespace metadata, after namespace metadata is implemented
 const DOCKER_NAMESPACE_ID: &str = "4658011310974e1bb5c46fd4df7e78b9";
 
 fn package_version_from_manifest_bytes(
@@ -734,6 +735,13 @@ mod tests {
         let result = executor::block_on(future);
         check_put_manifest_result(result);
         check_artifact_manager_side_effects()?;
+        check_package_version_metadata()?;
+        Ok(())
+    }
+
+    fn check_package_version_metadata() -> anyhow::Result<()> {
+        let some_package_version = METADATA_MGR.get_package_version(DOCKER_NAMESPACE_ID, "hello-world", "v3.1")?;
+        assert!(some_package_version.is_some());
         Ok(())
     }
 
