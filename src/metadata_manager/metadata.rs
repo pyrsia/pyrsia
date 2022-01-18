@@ -19,7 +19,7 @@ use crate::document_store::document_store::{DocumentStore, DocumentStoreError, I
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use super::model::namespace::{Namespace, NamespaceBuilder};
+use super::model::namespace::Namespace;
 use super::model::package_type::{PackageType, PackageTypeBuilder, PackageTypeName};
 use super::model::package_version::PackageVersion;
 use anyhow::{bail, Result};
@@ -326,6 +326,7 @@ fn insert_metadata<'a, T: Signed<'a> + Debug>(
 mod tests {
     use super::*;
     use crate::artifact_manager::HashAlgorithm;
+    use crate::model::namespace::{Namespace, NamespaceBuilder};
     use crate::node_manager::handlers::METADATA_MGR;
     use crate::node_manager::model::artifact::ArtifactBuilder;
     use crate::node_manager::model::package_version::LicenseTextMimeType;
@@ -381,8 +382,8 @@ mod tests {
                     .get_namespace(PackageTypeName::Docker, &path)?
                     .unwrap();
                 assert_eq!(namespace2, namespace);
-            },
-            MetadataCreationStatus::Duplicate {json: _ } => ()
+            }
+            MetadataCreationStatus::Duplicate { json: _ } => (),
         }
         Ok(())
     }
