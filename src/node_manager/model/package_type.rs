@@ -25,6 +25,7 @@ use strum_macros::Display;
 #[signed_struct]
 #[derive(PartialEq, Debug)]
 pub struct PackageType {
+    id: String,
     name: PackageTypeName,
     description: String,
 }

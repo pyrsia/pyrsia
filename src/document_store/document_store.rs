@@ -77,12 +77,12 @@ impl DocumentStore {
         name: &str,
         indexes: Vec<IndexSpec>,
     ) -> anyhow::Result<DocumentStore, DocumentStoreError> {
-        info!("Opening DocumentStore with name {}", name);
+        info!("Opening DocumentStore with name {} and indexes {:?}", name, indexes);
         check_index_specs_valid(&indexes)?;
         let document_store = create_document_store(name, &indexes);
         match get_catalog_record(&document_store) {
             Ok(_) => info!(
-                "Opened existing document store collection: {}",
+                "Opened document store collection: {}",
                 document_store.catalog.name
             ),
             Err(error) => {

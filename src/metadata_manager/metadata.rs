@@ -19,38 +19,13 @@ use crate::document_store::document_store::{DocumentStore, DocumentStoreError, I
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use super::model::namespace::Namespace;
-use super::model::package::Package;
 use super::model::package_type::{PackageType, PackageTypeBuilder, PackageTypeName};
 use super::model::package_version::{PackageVersion, PackageVersionBuilder};
 use anyhow::{bail, Result};
 use log::{error, info};
 use maplit::hashmap;
 use signed::signed::{JwsSignatureAlgorithms, SignatureKeyPair, Signed};
-
-// create package version
-
-/// Used to iterate over a collection of namespaces without requiring the collection to fit in memory.
-pub struct NamespaceIterator {}
-
-impl Iterator for NamespaceIterator {
-    type Item = Namespace;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        todo!()
-    }
-}
-
-/// Used to iterate over a collection of packages without requiring the collection to fit in memory.
-pub struct PackageIterator {}
-
-impl Iterator for PackageIterator {
-    type Item = Package;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        todo!()
-    }
-}
+use uuid::Uuid;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -95,11 +70,24 @@ fn ix_package_types() -> Vec<IndexSpec> {
         vec![String::from(FLD_PACKAGE_TYPES_NAME)],
     )]
 }
-fn init_package_types() -> Vec<String> {
-    init_empty() // TODO This should be replaced by code to insert a signed json string that defines the Docker package type.
+fn init_package_types(key_pair: &SignatureKeyPair) -> Vec<String> {
+    let mut package_type = PackageTypeBuilder::default()
+        .id(Uuid::new_v4().to_string())
+        .name(PackageTypeName::Docker)
+        .description("docker packages".to_string())
+        .build()
+        .expect("Failed to create package type struct for pre-installation");
+    package_type.sign_json(
+        JwsSignatureAlgorithms::RS512,
+        &key_pair.private_key,
+        &key_pair.public_key,
+    );
+    vec![package_type.json().unwrap_or_else(|| {
+        "package type for pre-installation somehow does not have JSON".to_string()
+    })]
 }
 
-fn init_empty() -> Vec<String> {
+fn init_empty(_key_pair: &SignatureKeyPair) -> Vec<String> {
     vec![]
 }
 
@@ -151,16 +139,20 @@ pub enum MetadataCreationStatus {
 impl Metadata {
     pub fn new() -> Result<Metadata, anyhow::Error> {
         info!("Creating new instance of metadata manager");
-        let package_type_docs =
-            open_document_store(DS_PACKAGE_TYPES, ix_package_types, init_package_types)?;
-        let package_version_docs =
-            open_document_store(DS_PACKAGE_VERSIONS, ix_package_versions, init_empty)?;
         let untrusted_key_pair = signed::signed::create_key_pair(JwsSignatureAlgorithms::RS512)?;
-        Ok(Metadata {
+        let package_type_docs = DocumentStore::open(DS_PACKAGE_TYPES, ix_package_types())?;
+        let package_version_docs = DocumentStore::open(DS_PACKAGE_VERSIONS, ix_package_versions())?;
+        let metadata = Metadata {
             package_type_docs,
             package_version_docs,
-            untrusted_key_pair,
-        })
+            untrusted_key_pair: untrusted_key_pair.clone(),
+        };
+        populate_with_initial_records(
+            &untrusted_key_pair,
+            &metadata.package_type_docs,
+            init_package_types,
+        )?;
+        Ok(metadata)
     }
 
     /// The key pair returned by this method is intended for testing only. It is generated at node
@@ -211,35 +203,30 @@ impl Metadata {
     }
 }
 
-// Open the specified document store. If that fails, try creating it.
-// * `ds_name` ― The name of the document store.
-// * `index_specs` ― If creating the document store, call this method to get a description of the indexes it will have.
-// * `initial_records` ― When creating the document store, call this method to get JSON strings to inserted as a records.
-fn open_document_store(
-    ds_name: &str,
-    index_specs: fn() -> Vec<IndexSpec>,
-    initial_records: fn() -> Vec<String>,
-) -> anyhow::Result<DocumentStore> {
-    let ds = DocumentStore::open(ds_name, index_specs())?;
-    populate_with_initial_records(&ds, initial_records)?;
-    Ok(ds)
-}
-
 // Most types of metadata come from the Pyrsia network or the node's clients. However, a few types
 // of metadata such as package type will need to be at partially pre-populated in new nodes.
 fn populate_with_initial_records(
+    key_pair: &SignatureKeyPair,
     ds: &DocumentStore,
-    initial_records: fn() -> Vec<String>,
+    initial_records: fn(&SignatureKeyPair) -> Vec<String>,
 ) -> Result<()> {
-    for record in initial_records() {
-        if let Err(error) = ds.insert(&record) {
-            error!(
-                "Failed to insert initial record into document store {}: {}\nError was {}",
-                ds.name(),
-                record,
-                error.to_string(),
-            );
-            todo!("If an attempt to insert an initial record into document store fails, then we need to do something so that we will know that the document store is missing necessary information")
+    for record in initial_records(key_pair) {
+        info!(
+            "Inserting in collection {} pre-installed record {}",
+            ds.name(),
+            record
+        );
+        match ds.insert(&record) {
+            Ok(_) | Err(DocumentStoreError::DuplicateRecord(_)) => (), // Duplicates are OK
+            Err(error) => {
+                error!(
+                    "Failed to insert initial record into document store {}: {}\nError was {}",
+                    ds.name(),
+                    record,
+                    error.to_string(),
+                );
+                todo!("If an attempt to insert an initial record into document store fails, then we need to do something so that we will know that the document store is missing necessary information")
+            }
         }
     }
     Ok(())
@@ -294,9 +281,10 @@ mod tests {
     #[test]
     fn package_type_test() -> Result<()> {
         let metadata = &METADATA_MGR;
-        info!("Created metadata instance");
+        info!("Got metadata instance");
 
         let mut package_type = PackageTypeBuilder::default()
+            .id(Uuid::new_v4().to_string())
             .name(PackageTypeName::Docker)
             .description("docker packages".to_string())
             .build()?;
@@ -314,6 +302,7 @@ mod tests {
     #[test]
     fn package_version_test() -> Result<()> {
         let metadata = &METADATA_MGR;
+        info!("Got metadata instance");
 
         let hash1: Vec<u8> = vec![
             0xa3, 0x3f, 0x49, 0x64, 0x00, 0xa5, 0x67, 0xe1, 0xb4, 0xe5, 0xbe, 0x4c, 0x81, 0x30,
