@@ -16,7 +16,6 @@
 
 extern crate easy_hasher;
 
-use std::fmt::Display;
 use crate::artifact_manager;
 use crate::artifact_manager::HashAlgorithm;
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
@@ -33,6 +32,7 @@ use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
 use log::{debug, error, info, warn};
 use reqwest::{header, Client};
 use serde_json::{json, Map, Value};
+use std::fmt::Display;
 use std::fs;
 use uuid::Uuid;
 use warp::http::StatusCode;
@@ -113,7 +113,10 @@ pub async fn handle_put_manifest(
                 package_version
             );
             if let Err(err) = sign_and_save_package_version(&mut package_version) {
-                return Ok(internal_error_response("Failed to sign and same package version from docker manifest", &err))
+                return Ok(internal_error_response(
+                    "Failed to sign and same package version from docker manifest",
+                    &err,
+                ));
             };
         }
         Err(error) => warn!("Error storing manifest in artifact_manager {}", error),
@@ -124,25 +127,33 @@ pub async fn handle_put_manifest(
     put_manifest_response(name, hash)
 }
 
-fn put_manifest_response(name: String, hash: String) -> Result<warp::http::Response<&'static str>, Rejection> {
-    Ok(match warp::http::response::Builder::new()
-        .header(
-            LOCATION,
-            format!(
-                "http://localhost:7878/v2/{}/manifests/sha256:{}",
-                name, hash
-            ),
-        )
-        .header("Docker-Content-Digest", format!("sha256:{}", hash))
-        .status(StatusCode::CREATED)
-        .body("")
-    {
-        Ok(response) => response,
-        Err(err) => internal_error_response("creating put_manifest response", &err)
-    })
+fn put_manifest_response(
+    name: String,
+    hash: String,
+) -> Result<warp::http::Response<&'static str>, Rejection> {
+    Ok(
+        match warp::http::response::Builder::new()
+            .header(
+                LOCATION,
+                format!(
+                    "http://localhost:7878/v2/{}/manifests/sha256:{}",
+                    name, hash
+                ),
+            )
+            .header("Docker-Content-Digest", format!("sha256:{}", hash))
+            .status(StatusCode::CREATED)
+            .body("")
+        {
+            Ok(response) => response,
+            Err(err) => internal_error_response("creating put_manifest response", &err),
+        },
+    )
 }
 
-fn internal_error_response(label: &str, err: &dyn Display) -> warp::http::response::Response<&'static str> {
+fn internal_error_response(
+    label: &str,
+    err: &dyn Display,
+) -> warp::http::response::Response<&'static str> {
     error!("Error {}: {}", label, err);
     warp::http::response::Builder::new()
         .status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -404,10 +415,20 @@ fn package_version_from_schema1(
     for fslayer in fslayers {
         add_fslayers(&mut artifacts, fslayer)?;
     }
-    Ok(build_package_version(manifest_name, manifest_tag, metadata, artifacts)?)
+    Ok(build_package_version(
+        manifest_name,
+        manifest_tag,
+        metadata,
+        artifacts,
+    )?)
 }
 
-fn build_package_version(manifest_name: &str, manifest_tag: &str, mut metadata: Map<String, Value>, mut artifacts: Vec<Artifact>) -> anyhow::Result<PackageVersion> {
+fn build_package_version(
+    manifest_name: &str,
+    manifest_tag: &str,
+    mut metadata: Map<String, Value>,
+    mut artifacts: Vec<Artifact>,
+) -> anyhow::Result<PackageVersion> {
     PackageVersionBuilder::default()
         .id(new_uuid_string())
         .namespace_id(DOCKER_NAMESPACE_ID.to_string())
@@ -416,7 +437,8 @@ fn build_package_version(manifest_name: &str, manifest_tag: &str, mut metadata: 
         .version(String::from(manifest_tag))
         .metadata(metadata)
         .artifacts(artifacts)
-        .build().context("Error building PackageVersion")
+        .build()
+        .context("Error building PackageVersion")
 }
 
 fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), anyhow::Error> {
@@ -510,7 +532,12 @@ fn package_version_from_manifest_list(
     for manifest in manifests {
         add_artifact(&mut artifacts, manifest, "manifest")?
     }
-    Ok(build_package_version(docker_name, docker_reference, metadata, artifacts)?)
+    Ok(build_package_version(
+        docker_name,
+        docker_reference,
+        metadata,
+        artifacts,
+    )?)
 }
 
 fn package_version_from_image_manifest(
@@ -545,7 +572,12 @@ fn package_version_from_image_manifest(
     for layer in layers {
         add_artifact(&mut artifacts, layer, "layer")?
     }
-    Ok(build_package_version(docker_name, docker_reference, metadata, artifacts)?)
+    Ok(build_package_version(
+        docker_name,
+        docker_reference,
+        metadata,
+        artifacts,
+    )?)
 }
 
 fn add_artifact(
@@ -739,7 +771,8 @@ mod tests {
     }
 
     fn check_package_version_metadata() -> anyhow::Result<()> {
-        let some_package_version = METADATA_MGR.get_package_version(DOCKER_NAMESPACE_ID, "hello-world", "v3.1")?;
+        let some_package_version =
+            METADATA_MGR.get_package_version(DOCKER_NAMESPACE_ID, "hello-world", "v3.1")?;
         assert!(some_package_version.is_some());
         Ok(())
     }

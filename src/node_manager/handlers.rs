@@ -23,11 +23,11 @@ use crate::metadata_manager::metadata::Metadata;
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
 use log::{error, info};
-use std::{fs, panic};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::panic::UnwindSafe;
 use std::str;
+use std::{fs, panic};
 
 const ART_MGR_DIR: &str = "pyrsia";
 
@@ -48,14 +48,17 @@ lazy_static! {
         log_static_initialization_failure("Metadata Manager", Metadata::new());
 }
 
-fn log_static_initialization_failure<T: UnwindSafe>(label: &str, result: Result<T, anyhow::Error>) -> T {
+fn log_static_initialization_failure<T: UnwindSafe>(
+    label: &str,
+    result: Result<T, anyhow::Error>,
+) -> T {
     let panic_wrapper = panic::catch_unwind(|| match result {
         Ok(unwrapped) => unwrapped,
         Err(error) => {
             let msg = format!("Error initializing {}, error is: {}", label, error);
             error!("{}", msg);
             panic!("{}", msg)
-        },
+        }
     });
     match panic_wrapper {
         Ok(normal) => normal,
