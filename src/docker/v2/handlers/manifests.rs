@@ -20,16 +20,19 @@ use crate::artifact_manager;
 use crate::artifact_manager::HashAlgorithm;
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
+use crate::metadata_manager::metadata::MetadataCreationStatus;
 use crate::node_manager::handlers::{ART_MGR, METADATA_MGR};
 use crate::node_manager::model::artifact::{Artifact, ArtifactBuilder};
 use crate::node_manager::model::package_type::PackageTypeName;
 use crate::node_manager::model::package_version::{PackageVersion, PackageVersionBuilder};
+use crate::signed::signed::Signed;
 use anyhow::{anyhow, bail, Context};
 use bytes::Bytes;
 use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
 use log::{debug, error, info, warn};
 use reqwest::{header, Client};
 use serde_json::{json, Map, Value};
+use std::fmt::{Display, Error};
 use std::fs;
 use uuid::Uuid;
 use warp::http::StatusCode;
@@ -89,7 +92,7 @@ pub async fn handle_put_manifest(
                 artifact_hash.0,
                 hex::encode(artifact_hash.1.clone())
             );
-            let package_version = match package_version_from_manifest_bytes(
+            let mut package_version = match package_version_from_manifest_bytes(
                 &bytes,
                 &name,
                 &reference,
@@ -109,16 +112,21 @@ pub async fn handle_put_manifest(
                 "Created PackageVersion from manifest: {:?}",
                 package_version
             );
-            let key_pair = METADATA_MGR.untrusted_key_pair();
-            // package_version.sign_json(key_pair.signature_algorithm, &key_pair.private_key, &key_pair.public_key)?;
-            // METADATA_MGR.create_package_version(&package_version)?;
+            // if let Err(err) = sign_and_save_package_version(&mut package_version) {
+            //     error!("Failed to sign and same package version from docker manifest: {}", err);
+            //     return Ok(warp::reply::with_status("INTERNAL_SERVER_ERROR", StatusCode::INTERNAL_SERVER_ERROR))
+            // };
         }
         Err(error) => warn!("Error storing manifest in artifact_manager {}", error),
     };
 
     let hash = store_manifest_in_filesystem(&name, &reference, bytes)?;
 
-    Ok(warp::http::response::Builder::new()
+    put_manifest_response(name, hash)
+}
+
+fn put_manifest_response(name: String, hash: String) -> Result<impl Reply, Rejection> {
+    Ok(match warp::http::response::Builder::new()
         .header(
             LOCATION,
             format!(
@@ -129,7 +137,42 @@ pub async fn handle_put_manifest(
         .header("Docker-Content-Digest", format!("sha256:{}", hash))
         .status(StatusCode::CREATED)
         .body("")
-        .unwrap())
+    {
+        Ok(response) => response,
+        Err(err) => internal_error_response("creating put_manifest response", &err)
+    })
+}
+
+fn internal_error_response(label: &str, err: &dyn Display) -> warp::http::response::Response<&'static str> {
+    error!("Error {}: {}", label, err);
+    warp::http::response::Builder::new()
+        .status(StatusCode::INTERNAL_SERVER_ERROR)
+        .body("Internal server error")
+        .unwrap() // I couldn't find a way to return an internal server error that does not use unwrap or somethign else that can panic
+}
+
+fn sign_and_save_package_version(
+    package_version: &mut PackageVersion,
+) -> Result<(), anyhow::Error> {
+    let key_pair = METADATA_MGR.untrusted_key_pair();
+    package_version.sign_json(
+        key_pair.signature_algorithm,
+        &key_pair.private_key,
+        &key_pair.public_key,
+    )?;
+    let pv_json = package_version
+        .json()
+        .unwrap_or_else(|| "*** missing JSON ***".to_string());
+    match METADATA_MGR.create_package_version(&package_version)? {
+        MetadataCreationStatus::Created => {
+            info!("Saved package version from docker manifest: {}", pv_json)
+        }
+        MetadataCreationStatus::Duplicate { json } => info!(
+            "Package version from docker manifest {}\nwas a duplicate of previously stored {}",
+            pv_json, json
+        ),
+    };
+    Ok(())
 }
 
 fn store_manifest_in_filesystem(
@@ -362,7 +405,11 @@ fn package_version_from_schema1(
     for fslayer in fslayers {
         add_fslayers(&mut artifacts, fslayer)?;
     }
-    Ok(PackageVersionBuilder::default()
+    Ok(build_package_version(manifest_name, manifest_tag, metadata, artifacts)?)
+}
+
+fn build_package_version(manifest_name: &str, manifest_tag: &str, mut metadata: Map<String, Value>, mut artifacts: Vec<Artifact>) -> anyhow::Result<PackageVersion> {
+    PackageVersionBuilder::default()
         .id(new_uuid_string())
         .namespace_id(DOCKER_NAMESPACE_ID.to_string())
         .name(String::from(manifest_name))
@@ -370,7 +417,7 @@ fn package_version_from_schema1(
         .version(String::from(manifest_tag))
         .metadata(metadata)
         .artifacts(artifacts)
-        .build()?)
+        .build().context("Error building PackageVersion")
 }
 
 fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), anyhow::Error> {
@@ -464,15 +511,7 @@ fn package_version_from_manifest_list(
     for manifest in manifests {
         add_artifact(&mut artifacts, manifest, "manifest")?
     }
-    Ok(PackageVersionBuilder::default()
-        .id(new_uuid_string())
-        .namespace_id(DOCKER_NAMESPACE_ID.to_string())
-        .name(String::from(docker_name))
-        .pkg_type(PackageTypeName::Docker)
-        .version(String::from(docker_reference))
-        .metadata(metadata)
-        .artifacts(artifacts)
-        .build()?)
+    Ok(build_package_version(docker_name, docker_reference, metadata, artifacts)?)
 }
 
 fn package_version_from_image_manifest(
@@ -507,16 +546,7 @@ fn package_version_from_image_manifest(
     for layer in layers {
         add_artifact(&mut artifacts, layer, "layer")?
     }
-
-    Ok(PackageVersionBuilder::default()
-        .id(new_uuid_string())
-        .namespace_id(DOCKER_NAMESPACE_ID.to_string())
-        .name(String::from(docker_name))
-        .pkg_type(PackageTypeName::Docker)
-        .version(String::from(docker_reference))
-        .metadata(metadata)
-        .artifacts(artifacts)
-        .build()?)
+    Ok(build_package_version(docker_name, docker_reference, metadata, artifacts)?)
 }
 
 fn add_artifact(
