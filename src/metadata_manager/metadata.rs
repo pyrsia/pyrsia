@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use super::model::package_type::{PackageType, PackageTypeBuilder, PackageTypeName};
-use super::model::package_version::{PackageVersion, PackageVersionBuilder};
+use super::model::package_version::{PackageVersion};
 use anyhow::{bail, Result};
 use log::{error, info};
 use maplit::hashmap;
@@ -70,7 +70,7 @@ fn ix_package_types() -> Vec<IndexSpec> {
         vec![String::from(FLD_PACKAGE_TYPES_NAME)],
     )]
 }
-fn init_package_types(key_pair: &SignatureKeyPair) -> Vec<String> {
+fn init_package_types(key_pair: &SignatureKeyPair) -> Result<Vec<String>> {
     let mut package_type = PackageTypeBuilder::default()
         .id(Uuid::new_v4().to_string())
         .name(PackageTypeName::Docker)
@@ -81,14 +81,10 @@ fn init_package_types(key_pair: &SignatureKeyPair) -> Vec<String> {
         JwsSignatureAlgorithms::RS512,
         &key_pair.private_key,
         &key_pair.public_key,
-    );
-    vec![package_type.json().unwrap_or_else(|| {
+    )?;
+    Ok(vec![package_type.json().unwrap_or_else(|| {
         "package type for pre-installation somehow does not have JSON".to_string()
-    })]
-}
-
-fn init_empty(_key_pair: &SignatureKeyPair) -> Vec<String> {
-    vec![]
+    })])
 }
 
 // Definitions for package-versions
@@ -208,9 +204,9 @@ impl Metadata {
 fn populate_with_initial_records(
     key_pair: &SignatureKeyPair,
     ds: &DocumentStore,
-    initial_records: fn(&SignatureKeyPair) -> Vec<String>,
+    initial_records: fn(&SignatureKeyPair) -> Result<Vec<String>>,
 ) -> Result<()> {
-    for record in initial_records(key_pair) {
+    for record in initial_records(key_pair)? {
         info!(
             "Inserting in collection {} pre-installed record {}",
             ds.name(),
@@ -273,6 +269,7 @@ mod tests {
     use crate::artifact_manager::HashAlgorithm;
     use crate::node_manager::handlers::METADATA_MGR;
     use crate::node_manager::model::artifact::ArtifactBuilder;
+    use crate::node_manager::model::package_version::PackageVersionBuilder;
     use crate::node_manager::model::package_version::LicenseTextMimeType;
     use rand::RngCore;
     use serde_json::{Map, Value};

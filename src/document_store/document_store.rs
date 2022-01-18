@@ -547,7 +547,7 @@ fn store_index(
 fn store_new_index_record(
     unqlite: &UnQLite,
     raw_data_key: &[u8],
-    raw_index_key: &Vec<u8>,
+    raw_index_key: &[u8],
 ) -> Result<(), DocumentStoreError> {
     unqlite
         .kv_store(&raw_index_key, raw_data_key)

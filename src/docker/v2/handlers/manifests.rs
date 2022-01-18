@@ -173,7 +173,7 @@ fn sign_and_save_package_version(
     let pv_json = package_version
         .json()
         .unwrap_or_else(|| "*** missing JSON ***".to_string());
-    match METADATA_MGR.create_package_version(&package_version)? {
+    match METADATA_MGR.create_package_version(package_version)? {
         MetadataCreationStatus::Created => {
             info!("Saved package version from docker manifest: {}", pv_json)
         }
@@ -295,7 +295,9 @@ async fn get_manifest_from_docker_hub_with_token(
 
     let bytes = response.bytes().await.map_err(RegistryError::from)?;
 
-    store_manifest_in_artifact_manager(&bytes);
+    store_manifest_in_artifact_manager(&bytes).map_err(|err| RegistryError {
+        code: RegistryErrorCode::Unknown(err.to_string()),
+    })?;
     store_manifest_in_filesystem(name, tag, bytes)
 }
 
@@ -376,7 +378,6 @@ const MEDIA_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.
 const MEDIA_TYPE_SCHEMA_1: &str = "application/vnd.docker.distribution.manifest.v1+json";
 const MEDIA_TYPE_IMAGE_MANIFEST: &str = "application/vnd.docker.distribution.manifest.v2+json";
 const MEDIA_TYPE_MANIFEST_LIST: &str = "application/vnd.docker.distribution.manifest.list.v2+json";
-const MEDIA_TYPE_CONFIG_JSON: &str = "application/vnd.docker.container.image.v1+json";
 
 fn package_version_from_schema1(
     json_object: &Map<String, Value>,
@@ -415,19 +416,14 @@ fn package_version_from_schema1(
     for fslayer in fslayers {
         add_fslayers(&mut artifacts, fslayer)?;
     }
-    Ok(build_package_version(
-        manifest_name,
-        manifest_tag,
-        metadata,
-        artifacts,
-    )?)
+    build_package_version(manifest_name, manifest_tag, metadata, artifacts)
 }
 
 fn build_package_version(
     manifest_name: &str,
     manifest_tag: &str,
-    mut metadata: Map<String, Value>,
-    mut artifacts: Vec<Artifact>,
+    metadata: Map<String, Value>,
+    artifacts: Vec<Artifact>,
 ) -> anyhow::Result<PackageVersion> {
     PackageVersionBuilder::default()
         .id(new_uuid_string())
@@ -532,12 +528,7 @@ fn package_version_from_manifest_list(
     for manifest in manifests {
         add_artifact(&mut artifacts, manifest, "manifest")?
     }
-    Ok(build_package_version(
-        docker_name,
-        docker_reference,
-        metadata,
-        artifacts,
-    )?)
+    build_package_version(docker_name, docker_reference, metadata, artifacts)
 }
 
 fn package_version_from_image_manifest(
@@ -572,12 +563,7 @@ fn package_version_from_image_manifest(
     for layer in layers {
         add_artifact(&mut artifacts, layer, "layer")?
     }
-    Ok(build_package_version(
-        docker_name,
-        docker_reference,
-        metadata,
-        artifacts,
-    )?)
+    build_package_version(docker_name, docker_reference, metadata, artifacts)
 }
 
 fn add_artifact(
@@ -651,6 +637,8 @@ mod tests {
     use bytes::Bytes;
     use futures::executor;
     use serde::de::StdError;
+
+    const MEDIA_TYPE_CONFIG_JSON: &str = "application/vnd.docker.container.image.v1+json";
 
     const MANIFEST_V1_JSON: &str = r##"{
    "name": "hello-world",
