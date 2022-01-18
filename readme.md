@@ -33,3 +33,13 @@ There are two components of this project
 ### Setting Up Visual Studio Code Debugger
 
 [How to Debug Rust with Visual Studio Code](https://www.forrestthewoods.com/blog/how-to-debug-rust-with-visual-studio-code/)
+
+### Building and running the Pyrsia Node with Docker
+
+1. Install [Docker](https://www.docker.com/get-started)
+2. Run `docker compose up`
+    * macOS and Windows: Compose is included in Docker Desktop
+    * Linux: [Downloaded Compose](https://github.com/docker/compose#linux)
+
+The Pyrsia node will then be running on localhost:7878 both on the host and 
+inside the VM, available to Docker Engine, in the case of Docker Desktop.
