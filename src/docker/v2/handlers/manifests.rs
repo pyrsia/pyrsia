@@ -16,6 +16,7 @@
 
 extern crate easy_hasher;
 
+use std::fmt::Display;
 use crate::artifact_manager;
 use crate::artifact_manager::HashAlgorithm;
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
@@ -32,7 +33,6 @@ use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
 use log::{debug, error, info, warn};
 use reqwest::{header, Client};
 use serde_json::{json, Map, Value};
-use std::fmt::{Display, Error};
 use std::fs;
 use uuid::Uuid;
 use warp::http::StatusCode;
@@ -112,10 +112,9 @@ pub async fn handle_put_manifest(
                 "Created PackageVersion from manifest: {:?}",
                 package_version
             );
-            // if let Err(err) = sign_and_save_package_version(&mut package_version) {
-            //     error!("Failed to sign and same package version from docker manifest: {}", err);
-            //     return Ok(warp::reply::with_status("INTERNAL_SERVER_ERROR", StatusCode::INTERNAL_SERVER_ERROR))
-            // };
+            if let Err(err) = sign_and_save_package_version(&mut package_version) {
+                return Ok(internal_error_response("Failed to sign and same package version from docker manifest", &err))
+            };
         }
         Err(error) => warn!("Error storing manifest in artifact_manager {}", error),
     };
@@ -125,7 +124,7 @@ pub async fn handle_put_manifest(
     put_manifest_response(name, hash)
 }
 
-fn put_manifest_response(name: String, hash: String) -> Result<impl Reply, Rejection> {
+fn put_manifest_response(name: String, hash: String) -> Result<warp::http::Response<&'static str>, Rejection> {
     Ok(match warp::http::response::Builder::new()
         .header(
             LOCATION,
