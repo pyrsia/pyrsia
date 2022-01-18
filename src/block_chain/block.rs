@@ -13,92 +13,34 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use libp2p::{identity, Multiaddr, PeerId};
+use super::header::*;
+use libp2p::identity;
 use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use std::fmt::{Display, Formatter};
-
+use std::time::{SystemTime, UNIX_EPOCH};
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Block {
-    pub id: u64,
-    pub hash: String,
-    pub previous_hash: String,
-    pub timestamp: u128,
-    pub data: String,
-    pub nonce: u64,
+pub enum TransactionType {
+    Create,
 }
-
-pub struct H256(pub [u8; 32]); //Unformatted binary data of fixed length
-pub struct Address(pub [u8; 20]); //Unformatted binary data of fixed length
-pub struct U256(pub [u64; 4]); //Little-endian large integer type
-
-pub struct Header {
-    pub parent_hash: H256,       //256bit Keccak Hash of the Parent Block
-    pub committer: Address,      //commit node PeerID
-    pub transactions_root: H256, //256bit Keccak Hash of the root node of Transaction Tries
-    //    pub state_root: H256,   //256bit Keccak Hash of the root node of state Tries
-    pub timestamp: u64,
-    pub number: U256,
-    pub nonce: U256,
-    pub signature: BlockSignature,
-}
-
-impl Header {
-    pub fn new(
-        parent_hash: H256,
-        committer: Address,
-        transactions_root: H256,
-        number: U256,
-        nonce: U256,
-        signature: BlockSignature,
-    ) -> Self {
-        Self {
-            parent_hash: parent_hash,
-            committer: committer,
-            transactions_root: transactions_root,
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            number: number,
-            nonce: nonce,
-            signature: signature,
-        }
-    }
-}
-
-pub struct Block_v1 {
-    pub header: Header,
-    pub transactions: Vec<Transaction>,
-}
-
-pub struct Transaction {
-    pub nonce: U256,
-    pub trans_type: TransactionType,
-    pub submmitter: Address,
-    pub signature: TransactionSignature,
-    pub payload: Vec<u8>,
-}
-
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Signature {
     signature: Vec<u8>,
-    pubkey: identity::ed25519::PublicKey,
+    pubkey: [u8; 32], //identity::ed25519::PublicKey a byte array in compressed form
+}
+
+impl Signature {
+    pub fn new(msg: &[u8], keypair: &identity::ed25519::Keypair) -> Self {
+        Self {
+            signature: sign(msg, keypair),
+            pubkey: get_publickey_from_keypair(keypair).encode(),
+        }
+    }
 }
 
 type TransactionSignature = Signature;
 type BlockSignature = Signature;
 
-pub enum TransactionType {
-    Create,
-}
-
-pub fn generate_ed25519() -> identity::ed25519::Keypair {
-    //RFC8032
-    identity::ed25519::Keypair::generate()
-}
-
-pub fn signature(keypair: &identity::ed25519::Keypair, msg: &[u8]) -> Vec<u8> {
+pub fn sign(msg: &[u8], keypair: &identity::ed25519::Keypair) -> Vec<u8> {
     (*keypair).sign(msg)
 }
 
@@ -108,23 +50,110 @@ pub fn get_publickey_from_keypair(
     (*keypair).public()
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Block {
+    pub header: Header,
+    pub transactions: Vec<Transaction>,
+    pub signature: BlockSignature,
+}
+
+impl Block {
+    pub fn new(
+        header: Header,
+        transactions: Vec<Transaction>,
+        ed25519_keypair: &identity::ed25519::Keypair,
+    ) -> Self {
+        Self {
+            header: header,
+            transactions: transactions,
+            signature: Signature::new(
+                &bincode::serialize(&header.current_hash).unwrap(),
+                ed25519_keypair,
+            ),
+        }
+    }
+
+    pub fn verify(&self) -> bool {
+        let pubkey = match libp2p::identity::ed25519::PublicKey::decode(&self.signature.pubkey) {
+            Ok(v) => v,
+            Err(e) => {
+                println!("{}", e);
+                return false;
+            }
+        };
+
+        return verify(
+            &pubkey,
+            &bincode::serialize(&self.header.current_hash).unwrap(),
+            &self.signature.signature,
+        );
+    }
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Transaction {
+    pub trans_type: TransactionType,
+    pub submmitter: Address,
+    pub timestamp: u64,
+    pub payload: Vec<u8>,
+    pub nonce: u128,
+    pub transaction_hash: HashDigest,
+    pub signature: TransactionSignature,
+}
+
+impl Transaction {
+    pub fn new(
+        partial_transaction: PartialTransaction,
+        ed25519_keypair: &identity::ed25519::Keypair,
+    ) -> Self {
+        let hash = hash(&(bincode::serialize(&partial_transaction).unwrap()));
+        Self {
+            trans_type: partial_transaction.trans_type,
+            submmitter: partial_transaction.submmitter,
+            timestamp: partial_transaction.timestamp,
+            payload: partial_transaction.payload,
+            nonce: partial_transaction.nonce,
+            transaction_hash: hash,
+            signature: Signature::new(&bincode::serialize(&hash).unwrap(), ed25519_keypair),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PartialTransaction {
+    pub trans_type: TransactionType,
+    pub submmitter: Address,
+    pub timestamp: u64,
+    pub payload: Vec<u8>,
+    pub nonce: u128,
+}
+
+impl PartialTransaction {
+    pub fn new(
+        trans_type: TransactionType,
+        submmitter: Address,
+        payload: Vec<u8>,
+        nonce: u128,
+    ) -> Self {
+        Self {
+            trans_type: trans_type,
+            submmitter: submmitter,
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            payload: payload,
+            nonce: nonce,
+        }
+    }
+}
+
 pub fn verify(pubkey: &identity::ed25519::PublicKey, msg: &[u8], sig: &[u8]) -> bool {
     (*pubkey).verify(msg, sig)
 }
+
 impl Display for Block {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let json = serde_json::to_string_pretty(&self).expect("json format error");
         write!(f, "{}", json)
     }
 }
-
-impl PartialEq<Self> for Block {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-            && self.hash == other.hash
-            && self.previous_hash == other.previous_hash
-            && self.nonce == other.nonce
-    }
-}
-
-impl Eq for Block {}

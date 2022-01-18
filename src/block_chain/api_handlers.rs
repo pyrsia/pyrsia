@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use crate::block_chain::block_chain::BlockChain;
+use super::block_chain::Blockchain;
 
 use log::{debug, error, info};
 use std::sync::Arc;
