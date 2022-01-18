@@ -123,31 +123,6 @@ pub async fn handle_get_blobs(
         }
     };
 
-    /*let blob = format!(
-        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
-        hash.get(7..9).unwrap(),
-        hash.get(7..).unwrap()
-    );
-    debug!("Searching for blob: {}", blob);
-    let blob_path = Path::new(&blob);
-
-    if !blob_path.exists() {
-        get_blob_from_docker_hub(&_name, &hash).await?;
-    }
-
-    if !blob_path.is_file() {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown("ITS_NOT_A_FILE".to_string()),
-        }));
-    }
-
-    info!("Reading blob from local Pyrsia storage: {}", blob);
-    let blob_content = fs::read(blob_path).map_err(|_| {
-        warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobUnknown,
-        })
-    })?;*/
-
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
         .status(StatusCode::OK)
@@ -287,16 +262,6 @@ fn store_blob_in_filesystem(
         hex::decode(&digest.get(7..).unwrap()).unwrap().as_ref(),
         Box::new(reader),
     )?;
-
-    /*let mut blob_dest = String::from(format!(
-        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}",
-        digest.get(7..9).unwrap(),
-        digest.get(7..).unwrap()
-    ));
-    fs::create_dir_all(&blob_dest)?;
-
-    blob_dest.push_str("/data");
-    fs::copy(&blob_upload_dest_data, &blob_dest)?;*/
 
     fs::remove_dir_all(&blob_upload_dest_dir)?;
 
