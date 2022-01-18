@@ -622,7 +622,7 @@ mod tests {
 
     const MANIFEST_V1_JSON: &str = r##"{
    "name": "hello-world",
-   "tag": "latest",
+   "tag": "v3.1",
    "architecture": "amd64",
    "fsLayers": [
       {
@@ -721,7 +721,7 @@ mod tests {
     #[test]
     fn happy_put_manifest() -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
-        let reference = "latest";
+        let reference = "v2.4";
 
         let future = async {
             handle_put_manifest(
@@ -772,7 +772,7 @@ mod tests {
         assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
         assert_eq!("hello-world", package_version.name());
         assert_eq!(PackageTypeName::Docker, *package_version.pkg_type());
-        assert_eq!("latest", package_version.version());
+        assert_eq!("v3.1", package_version.version());
         assert!(package_version.license_text().is_none());
         assert!(package_version.license_text_mimetype().is_none());
         assert!(package_version.license_url().is_none());
