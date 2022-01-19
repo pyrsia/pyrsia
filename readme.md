@@ -69,6 +69,27 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
     - or from Docker Hub (if it wasn't previously available in the Pyrsia network)
 
 
+7. Build the CLI tool
+   ```
+   cd ../pyrsia_cli
+   cargo build
+   cd ../target/debug
+   ```
+
+8. Configure the CLI tool
+    ```
+    ./pyrsia config --add localhost:7878
+    ```
+
+9. Ping the Pyrsia node and list the status
+    ```
+    ./pyrsia node -p
+    Connection Successfull !! {}
+    ```
+
+    ```
+    ./pyrsia node -s
+    ```
 
 
 ### Setting Up Visual Studio Code Debugger
