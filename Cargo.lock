@@ -2963,6 +2963,7 @@ dependencies = [
  "base64 0.9.3",
  "bincode",
  "blake3",
+ "bs58",
  "bytes 1.1.0",
  "ctor",
  "defaults",

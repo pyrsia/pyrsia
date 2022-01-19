@@ -14,9 +14,10 @@
    limitations under the License.
 */
 
+extern crate bs58;
 extern crate walkdir;
 
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{anyhow, bail, Context, Error, Result};
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
 use serde::{Deserialize, Serialize};
@@ -175,17 +176,15 @@ impl<'a> Hash<'a> {
     }
 
     fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
-        hex::encode(bytes)
+        bs58::encode(bytes).into_string()
     }
 
     // The base file path (no extension on the file name) that will correspond to this hash.
     // The structure of the path is
     // repo_root_dir/hash_algorithm/hash
     // This consists of the artifact repository root directory, a directory whose name is the
-    // algorithm used to compute the hash and a file name that is the hash, encoded as hex
-    // (base64 is more compact, but hex is easier for troubleshooting). For example
-    // pyrsia-artifacts/SHA256/68efadf3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6ccbb4
-    // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
+    // algorithm used to compute the hash and a file name that is the hash, encoded as base58.
+    // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n characters of the encoded hash value.
     fn base_file_path(&self, repo_dir: &Path) -> PathBuf {
         let mut buffer: PathBuf = PathBuf::from(repo_dir);
         buffer.push(self.algorithm.hash_algorithm_to_str());
@@ -199,7 +198,7 @@ impl Display for Hash<'_> {
         f.write_str(&format!(
             "{}:{}",
             self.algorithm.hash_algorithm_to_str(),
-            hex::encode(self.bytes)
+            bs58::encode(self.bytes).into_string()
         ))
     }
 }
@@ -362,8 +361,10 @@ impl<'a> ArtifactManager {
                 tmp_path.to_str().unwrap()
             )
         })?;
-        warn!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}", expected_hash, expected_hash.algorithm, hex::encode(actual_hash));
-        Err(anyhow!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}", expected_hash, expected_hash.algorithm, hex::encode(actual_hash)))
+        let msg = format!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}",
+                          expected_hash, expected_hash.algorithm, bs58::encode(actual_hash).into_string());
+        warn!("{}", msg);
+        bail!("{}", msg)
     }
 
     fn rename_to_permanent(
@@ -580,7 +581,7 @@ mod tests {
 
         let mut path_buf = PathBuf::from(dir_name.clone());
         path_buf.push("SHA256");
-        path_buf.push(hex::encode(TEST_ARTIFACT_HASH));
+        path_buf.push(bs58::encode(TEST_ARTIFACT_HASH).into_string());
         path_buf.set_extension("file");
         let content_vec = fs::read(path_buf.as_path()).context("reading pushed file")?;
         assert_eq!(content_vec.as_slice(), TEST_ARTIFACT_DATA.as_bytes());
