@@ -82,11 +82,11 @@ impl Block {
             }
         };
 
-        return verify(
+        verify(
             &pubkey,
             &bincode::serialize(&self.header.current_hash).unwrap(),
             &self.signature.signature,
-        );
+        )
     }
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
