@@ -23,7 +23,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::block::Block;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct BlockChain {
     blocks: Vec<Block>,
 }
@@ -54,7 +54,7 @@ impl BlockChain {
                 (nonce, hash, last_block)
             })
             .map(|(nonce, hash, last_block)| Block {
-                id: last_block.id.clone() + 1,
+                id: last_block.id + 1,
                 hash,
                 previous_hash: last_block.hash.clone(),
                 timestamp: now,
@@ -95,12 +95,13 @@ impl BlockChain {
         Ok(next)
     }
 
+    #[allow(dead_code)]
     fn is_chain_valid(&self, chain: &[Block]) -> bool {
         for i in 1..chain.len() {
             let first = chain.get(i - 1).expect("has to exist");
             let second = chain.get(i).expect("has to exist");
             match BlockChain::are_blocks_sequential(first, second.clone()) {
-                Err(e) => {
+                Err(_) => {
                     return false;
                 }
                 Ok(_) => {
@@ -136,13 +137,7 @@ fn mine_block(id: u64, timestamp: u128, previous_hash: &str, data: &str) -> (u64
                 calculate_hash(id, timestamp, previous_hash, data, nonce),
             )
         })
-        .map(|(nonce, hash)| {
-            (
-                nonce,
-                hash.clone(),
-                hash_to_binary_representation(&hash.clone()),
-            )
-        })
+        .map(|(nonce, hash)| (nonce, hash.clone(), hash_to_binary_representation(&hash)))
         .find(|(_nonce, _hash, binary_hash)| binary_hash.starts_with(DIFFICULTY_PREFIX))
         .map(|(nonce, hash, _bin)| (nonce, hex::encode(hash)))
         .expect("results")
@@ -189,7 +184,7 @@ impl Ledger for BlockChain {
         }
     }
 
-    fn is_valid(self) -> Result<bool, anyhow::Error> {
+    fn is_valid(&self) -> Result<bool, anyhow::Error> {
         todo!()
     }
 }
@@ -205,7 +200,7 @@ impl Iterator for BlockChain {
 pub trait Ledger {
     fn add_entry(/*mut*/ self, entry: Block) -> Result<BlockChain, anyhow::Error>;
 
-    fn is_valid(self) -> Result<bool, anyhow::Error>;
+    fn is_valid(&self) -> Result<bool, anyhow::Error>;
 }
 
 // trait Observer<T> {

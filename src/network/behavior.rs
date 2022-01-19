@@ -16,6 +16,7 @@
 
 extern crate dirs;
 
+use libp2p::gossipsub;
 use libp2p::{
     floodsub::{Floodsub, FloodsubEvent},
     kad::{
@@ -30,7 +31,6 @@ use libp2p::{
     swarm::NetworkBehaviourEventProcess,
     NetworkBehaviour, PeerId,
 };
-use libp2p::{gossipsub, identity, swarm::SwarmEvent, Multiaddr};
 use log::{debug, error, info};
 use std::collections::HashSet;
 
@@ -175,24 +175,22 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour {
 impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
     // Called when `kademlia` produces an event.
     fn inject_event(&mut self, message: KademliaEvent) {
-        match message {
-            KademliaEvent::OutboundQueryCompleted { result, .. } => match result {
+        if let KademliaEvent::OutboundQueryCompleted { result, .. } = message {
+            match result {
                 QueryResult::GetProviders(Ok(ok)) => {
                     for peer in ok.providers {
                         debug!(target: "pyrsia_node_comms",
-                            "Peer {:?} provides key {:?}",
-                            peer,
-                            std::str::from_utf8(ok.key.as_ref()).unwrap()
+                        "Peer {:?} provides key {:?}",
+                        peer,
+                        std::str::from_utf8(ok.key.as_ref()).unwrap()
                         );
                     }
                 }
-
                 QueryResult::GetClosestPeers(Ok(ok)) => {
                     println!("GetClosestPeers result {:?}", ok.peers);
                     let connected_peers = itertools::join(ok.peers, ",");
                     respond_send(self.response_sender.clone(), connected_peers);
                 }
-
                 QueryResult::GetProviders(Err(err)) => {
                     error!(target: "pyrsia_node_comms", "Failed to get providers: {:?}", err);
                 }
@@ -231,8 +229,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
                     error!(target: "pyrsia_node_comms","Failed to put provider record: {:?}", err);
                 }
                 _ => {}
-            },
-            _ => {}
+            }
         }
     }
 }

@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use libp2p::{identity, Multiaddr, PeerId};
+use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -54,21 +54,21 @@ impl Header {
         signature: BlockSignature,
     ) -> Self {
         Self {
-            parent_hash: parent_hash,
-            committer: committer,
-            transactions_root: transactions_root,
+            parent_hash,
+            committer,
+            transactions_root,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
-            number: number,
-            nonce: nonce,
-            signature: signature,
+            number,
+            nonce,
+            signature,
         }
     }
 }
 
-pub struct Block_v1 {
+pub struct BlockV1 {
     pub header: Header,
     pub transactions: Vec<Transaction>,
 }
@@ -81,6 +81,7 @@ pub struct Transaction {
     pub payload: Vec<u8>,
 }
 
+#[allow(dead_code)]
 pub struct Signature {
     signature: Vec<u8>,
     pubkey: identity::ed25519::PublicKey,
