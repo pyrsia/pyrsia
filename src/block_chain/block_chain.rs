@@ -16,6 +16,7 @@
 use super::block::*;
 use super::header::*;
 use libp2p::identity;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
@@ -31,8 +32,13 @@ impl Blockchain {
 
     pub fn genesis(&mut self, keypair: &identity::ed25519::Keypair) {
         let local_id = hash(&get_publickey_from_keypair(keypair).encode());
-        let genesis_block_header =
-            Header::new(PartialHeader::new(hash(b""), local_id, hash(b""), 0, 1));
+        let genesis_block_header = Header::new(PartialHeader::new(
+            hash(b""),
+            local_id,
+            hash(b""),
+            0,
+            rand::thread_rng().gen::<u128>(),
+        ));
         let genesis_block = Block::new(genesis_block_header, vec![], keypair);
         self.blocks.push(genesis_block);
     }
@@ -57,7 +63,7 @@ impl Blockchain {
             local_id,
             transaction_root,
             last_block.header.number + 1,
-            last_block.header.nonce + 1,
+            rand::thread_rng().gen::<u128>(),
         ));
         let block = Block::new(block_header, transactions.to_vec(), keypair);
         self.blocks.push(block);
@@ -73,5 +79,35 @@ impl Display for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let json = serde_json::to_string_pretty(&self).expect("json format error");
         write!(f, "{}", json)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_blockchain() -> Result<(), String> {
+        let keypair = generate_ed25519();
+        let local_id = hash(&get_publickey_from_keypair(&keypair).encode());
+        let mut chain = Blockchain::new();
+        chain.genesis(&keypair);
+        let mut transactions = vec![];
+        let data = "Hello First Transaction";
+        let transaction = Transaction::new(
+            PartialTransaction::new(
+                TransactionType::Create,
+                local_id,
+                data.as_bytes().to_vec(),
+                rand::thread_rng().gen::<u128>(),
+            ),
+            &keypair,
+        );
+        transactions.push(transaction);
+        chain.new_block(&keypair, &transactions);
+        chain.new_block(&keypair, &transactions);
+        assert_eq!(true, chain.blocks.last().unwrap().verify());
+        assert_eq!(3, chain.blocks.len());
+        Ok(())
     }
 }
