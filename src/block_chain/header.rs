@@ -75,15 +75,15 @@ impl PartialHeader {
         nonce: u128,
     ) -> Self {
         Self {
-            parent_hash: parent_hash,
-            committer: committer,
-            transactions_root: transactions_root,
+            parent_hash,
+            committer,
+            transactions_root,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
-            number: number,
-            nonce: nonce,
+            number,
+            nonce,
         }
     }
 }

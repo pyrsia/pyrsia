@@ -64,8 +64,8 @@ impl Block {
         ed25519_keypair: &identity::ed25519::Keypair,
     ) -> Self {
         Self {
-            header: header,
-            transactions: transactions,
+            header,
+            transactions,
             signature: Signature::new(
                 &bincode::serialize(&header.current_hash).unwrap(),
                 ed25519_keypair,
@@ -135,14 +135,14 @@ impl PartialTransaction {
         nonce: u128,
     ) -> Self {
         Self {
-            trans_type: trans_type,
-            submmitter: submmitter,
+            trans_type,
+            submmitter,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
-            payload: payload,
-            nonce: nonce,
+            payload,
+            nonce,
         }
     }
 }
