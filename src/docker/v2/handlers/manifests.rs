@@ -320,7 +320,6 @@ const MEDIA_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.
 const MEDIA_TYPE_SCHEMA_1: &str = "application/vnd.docker.distribution.manifest.v1+json";
 const MEDIA_TYPE_IMAGE_MANIFEST: &str = "application/vnd.docker.distribution.manifest.v2+json";
 const MEDIA_TYPE_MANIFEST_LIST: &str = "application/vnd.docker.distribution.manifest.list.v2+json";
-const MEDIA_TYPE_CONFIG_JSON: &str = "application/vnd.docker.container.image.v1+json";
 
 fn package_version_from_schema1(
     json_object: &Map<String, Value>,
@@ -584,10 +583,9 @@ fn invalid_manifest<T>(json_string: &str) -> Result<T, anyhow::Error> {
 mod tests {
     use super::*;
     use crate::node_manager::handlers::ART_MGR;
-    use bytes::Bytes;
     use futures::executor;
     use serde::de::StdError;
-
+    const MEDIA_TYPE_CONFIG_JSON: &str = "application/vnd.docker.container.image.v1+json";
     const MANIFEST_V1_JSON: &str = r##"{
    "name": "hello-world",
    "tag": "latest",
