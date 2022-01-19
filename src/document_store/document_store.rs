@@ -379,7 +379,7 @@ impl DocumentStore {
     pub fn store(&self, document: &str) -> Result<(), Box<dyn std::error::Error>> {
         let data_store = DocumentStore::get_data_store(&self.name);
 
-        let json_document = serde_json::from_str::<Value>(&document)?;
+        let json_document = serde_json::from_str::<Value>(document)?;
         if !json_document.is_object() {
             return Err(From::from(DocumentStoreError::Custom(
                 "Provided JSON document must represent a JSON Object".to_string(),
@@ -446,7 +446,7 @@ impl DocumentStore {
         &self,
         data_store: &UnQLite,
         json_document: &Value,
-        raw_data_key: &Vec<u8>,
+        raw_data_key: &[u8],
         index: u16,
         index_spec: &IndexSpec,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -463,7 +463,7 @@ impl DocumentStore {
     fn store_index(
         &self,
         data_store: &UnQLite,
-        raw_data_key: &Vec<u8>,
+        raw_data_key: &[u8],
         index: u16,
         index_values: Vec<String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -517,7 +517,7 @@ impl DocumentStore {
         if let Some(index_to_use) = self.indexes.iter().find(|index| index.1.name == index_name) {
             let mut values: Vec<String> = vec![];
             for field_name in &index_to_use.1.field_names {
-                if let Some(value) = filter.get(&field_name as &str) {
+                if let Some(value) = filter.get(field_name as &str) {
                     values.push(value.to_string());
                 } else {
                     return Err(From::from(DocumentStoreError::Custom(format!(
@@ -545,7 +545,7 @@ impl DocumentStore {
                 }
             }
 
-            return Ok(None);
+            Ok(None)
         } else {
             return Err(From::from(DocumentStoreError::Custom(format!(
                 "DocumentStore has no index with given name: {}",

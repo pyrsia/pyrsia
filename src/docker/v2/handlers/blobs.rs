@@ -32,7 +32,7 @@ use std::str;
 use uuid::Uuid;
 use warp::{http::StatusCode, Rejection, Reply};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct GetBlobsHandle {
     pending_hash_queries: Vec<String>,
 }
@@ -53,7 +53,7 @@ impl Stream for GetBlobsHandle {
     type Item = String;
 
     fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        if self.pending_hash_queries.len() > 0 {
+        if !self.pending_hash_queries.is_empty() {
             return Poll::Ready(self.pending_hash_queries.pop());
         }
 
@@ -85,7 +85,7 @@ pub async fn handle_get_blobs(
     tx.send(send_message.clone());
 
     debug!("Getting blob with hash : {:?}", hash);
-    let mut blob_content = Vec::new();
+    let blob_content;
 
     match get_artifact(
         hex::decode(&hash.get(7..).unwrap()).unwrap().as_ref(),
@@ -105,7 +105,7 @@ pub async fn handle_get_blobs(
                 error.to_string()
             );
             let blob_push = get_blob_from_docker_hub(&_name, &hash).await?;
-            if blob_push == true {
+            if blob_push {
                 blob_content = get_artifact(
                     hex::decode(&hash.get(7..).unwrap()).unwrap().as_ref(),
                     HashAlgorithm::SHA256,
@@ -166,12 +166,12 @@ pub async fn handle_patch_blob(
     id: String,
     bytes: Bytes,
 ) -> Result<impl Reply, Rejection> {
-    let mut blob_upload_dest = format!(
+    let blob_upload_dest = format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}/data",
         name, id
     );
 
-    let append = append_to_blob(&mut blob_upload_dest, bytes).map_err(RegistryError::from)?;
+    let append = append_to_blob(&blob_upload_dest, bytes).map_err(RegistryError::from)?;
 
     let range = format!("{}-{}", append.0, append.0 + append.1 - 1);
     debug!("Patch blob range: {}", range);
