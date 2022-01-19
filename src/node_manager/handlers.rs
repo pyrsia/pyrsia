@@ -79,7 +79,6 @@ mod tests {
     use super::*;
     use anyhow::Context;
     use std::env;
-    use std::io::BufReader;
     use std::{fs, path::PathBuf};
 
     const GOOD_ART_HASH: [u8; 32] = [
