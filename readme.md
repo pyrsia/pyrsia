@@ -29,18 +29,35 @@ There are two components of this project
 For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsia node and use it as the registry for all Docker Hub content.
 
 1. Setup rust on your local machine as described in [Rust's getting started guide](https://www.rust-lang.org/learn/get-started)
-2. `cd pyrsia_node`
-3. `cargo run`
-4. **configure Docker** to use Pyrsia, which is running on localhost port 7878\
-    open your Docker daemon settings and add this entry in the root object:
+2. Clone this repo `git clone https://github.com/pyrsia/pyrsia.git`
+3. `cd pyrsia/pyrsia_node`
+4. `cargo run`
+5. **configure Docker** to use Pyrsia, which is running on localhost port 7878\
+    open your Docker daemon settings and add this entry in the root JSON object:
+    
+    **On Linux platforms**:
+
     ```
       "registry-mirrors": ["http://localhost:7878"]
     ```    
-    On linux you can usually find the Docker daemon settings here `/etc/docker/daemon.json`. On other platforms you can find them in Docker Desktop -> Preferences -> Docker Engine.
+    By default you can find the Docker daemon settings here `/etc/docker/daemon.json`. 
+    
+    **On other platforms**:
 
-    **Important note**: If you're not running on Linux, please see the note on configuring Docker on other platforms below
+    You can find the Docker daemon settings in Docker Desktop -> Preferences -> Docker Engine.
 
-5. using another terminal, use `docker` to pull an image from Pyrsia: 
+    You cannot use `localhost` because that will point to the Docker Desktop VM. Instead you have to use the hostname of your host machine. If you don't know/have that, you can add this to `/etc/hosts` (on Mac) or `c:\windows\system32\drivers\etc\hosts` (on Windows):
+
+    ```
+    127.0.0.1       my-pyrsia-host
+    ```
+
+    And then use that name in the Docker configuration file like this:
+    ```
+    "registry-mirrors": ["http://my-pyrsia-host:7878"]
+    ```
+
+6. using another terminal, use `docker` to pull an image from Pyrsia: 
     ```
     docker pull ubuntu
     ```
@@ -52,19 +69,6 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
     - or from Docker Hub (if it wasn't previously available in the Pyrsia network)
 
 
-
-**Configuring Docker on other platforms**
-
-If you're not running on Linux, you cannot use `localhost` because that will point to the Docker Desktop VM. Instead you have to use the hostname of your host machine. If you don't know/have that, you can add this to `/etc/hosts` (on Mac) or `c:\windows\system32\drivers\etc\hosts` (on Windows):
-
-```
-127.0.0.1       my-pyrsia-host
-```
-
-And then use that name in the Docker configuration file like this:
-```
-"registry-mirrors": ["http://my-pyrsia-host:7878"]
-```
 
 
 ### Setting Up Visual Studio Code Debugger
