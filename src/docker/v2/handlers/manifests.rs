@@ -115,7 +115,7 @@ pub async fn handle_put_manifest(
             );
             if let Err(err) = sign_and_save_package_version(&mut package_version) {
                 return Ok(internal_error_response(
-                    "Failed to sign and same package version from docker manifest",
+                    "Failed to sign and save package version from docker manifest",
                     &err,
                 ));
             };

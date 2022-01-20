@@ -169,8 +169,7 @@ mod tests {
     }
 
     #[test]
-    fn metadata_test() {
-        // Verify that a metadata manager has been created and made accessible.
+    fn test_that_a_metadata_manager_is_created_and_accessible() {
         let untrusted_key_pair = METADATA_MGR.untrusted_key_pair();
         assert!(!untrusted_key_pair.public_key.is_empty());
         assert!(!untrusted_key_pair.private_key.is_empty());
