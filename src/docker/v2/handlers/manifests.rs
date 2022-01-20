@@ -741,7 +741,8 @@ mod tests {
 }"##;
 
     #[test]
-    fn test_handle_put_manifest_expecting_success_response_with_manifest_stored_in_artifact_manager_and_package_version_in_metadata_manager() -> Result<(), Box<dyn StdError>> {
+    fn test_handle_put_manifest_expecting_success_response_with_manifest_stored_in_artifact_manager_and_package_version_in_metadata_manager(
+    ) -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
         let reference = "v2.4";
 
@@ -788,7 +789,8 @@ mod tests {
     }
 
     #[test]
-    fn test_extraction_of_package_version_from_manifest_conforming_to_schema_version_1() -> Result<(), anyhow::Error> {
+    fn test_extraction_of_package_version_from_manifest_conforming_to_schema_version_1(
+    ) -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V1_JSON);
         let hash: Vec<u8> = raw_sha512(json_bytes.to_vec()).to_vec();
         let package_version: PackageVersion = package_version_from_manifest_bytes(
