@@ -725,9 +725,10 @@ mod tests {
         let dir_name = create_tmp_dir("TmpM")?;
         let am: ArtifactManager =
             ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
-        am.move_from(&file_path,&expected_hash).context("Error from move_from")?;
+        am.move_from(&file_path, &expected_hash)
+            .context("Error from move_from")?;
 
-        assert!(fs::metadata(&file_path).is_err());  // File should have been moved
+        assert!(fs::metadata(&file_path).is_err()); // File should have been moved
         am.pull_artifact(&expected_hash)?; // should be able to pull
 
         remove_dir_all(&dir_name);
@@ -760,7 +761,7 @@ mod tests {
         let mut data_buffer = [0u8; 77777];
         let mut rng = rand::thread_rng();
         for i in 0..data_buffer.len() {
-            data_buffer[i] =rng.gen();
+            data_buffer[i] = rng.gen();
         }
         data_buffer
     }
