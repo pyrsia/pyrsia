@@ -272,16 +272,8 @@ impl<'a> ArtifactManager {
                 repository_path: absolute_path,
             })
         } else {
-            Self::inaccessible_repo_directory_error(repository_path)
+            inaccessible_repo_directory_error(repository_path)
         }
-    }
-
-    fn inaccessible_repo_directory_error(repository_path: &str) -> Result<ArtifactManager, Error> {
-        error!(
-            "Unable to create ArtifactManager with inaccessible directory: {}",
-            repository_path
-        );
-        Err(anyhow!("Not an accessible directory: {}", repository_path))
     }
 
     pub fn artifacts_count(&self, repository_path: &str) -> Result<usize, Error> {
@@ -289,7 +281,7 @@ impl<'a> ArtifactManager {
 
         for file in WalkDir::new(repository_path)
             .into_iter()
-            .filter_entry(|path| Self::is_not_hidden(path))
+            .filter_entry(|path| is_not_hidden(path))
             .filter_map(|file| file.ok())
         {
             if file.metadata().unwrap().is_file() {
@@ -297,14 +289,6 @@ impl<'a> ArtifactManager {
             }
         }
         Ok(total_files)
-    }
-
-    fn is_not_hidden(entry: &DirEntry) -> bool {
-        entry
-            .file_name()
-            .to_str()
-            .map(|s| entry.depth() == 0 || !s.starts_with('.'))
-            .unwrap_or(false)
     }
 
     /// Push an artifact to this node's local repository.
@@ -327,63 +311,52 @@ impl<'a> ArtifactManager {
         // Write to a temporary name that won't be mistaken for a valid file. If the hash checks out, rename it to the base name; otherwise delete it.
         let tmp_path = tmp_path_from_base(&base_path);
 
-        match Self::create_artifact_file(&tmp_path) {
+        match create_artifact_file(&tmp_path) {
             Err(error) => file_creation_error(&tmp_path, error),
             Ok(out) => {
                 println!("hash is {}", expected_hash);
-                let mut hash_buffer: [u8; 128] = [0; 128];
+                let mut hash_buffer = [0; HASH_BUFFER_SIZE];
                 let actual_hash =
-                    &*Self::do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
+                    &*do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
                 if actual_hash == expected_hash.bytes {
-                    Self::rename_to_permanent(expected_hash, base_path, &tmp_path)
+                    rename_to_permanent(expected_hash, base_path, &tmp_path)
                 } else {
-                    Self::handle_wrong_hash(expected_hash, tmp_path, actual_hash)
+                    handle_wrong_hash(expected_hash, tmp_path, actual_hash)
                 }
             }
         }
     }
 
-    fn create_artifact_file(tmp_path: &Path) -> std::io::Result<File> {
-        OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(tmp_path)
-    }
+    /// Move a file from a local directory to this node's local repository.
+    /// Parameters are:
+    /// * path — The path of the file to be moved and renamed.
+    /// * expected_hash — The hash value that the pushed artifact is expected to have.
+    /// Returns true if it created the artifact local or false if the artifact already existed. If
+    /// the artifact already existed, it deletes rather than removes the file.
+    pub fn move_from(&self, path: &Path, expected_hash: &Hash) -> Result<bool, anyhow::Error> {
+        debug!("Attempting to move file to the artifact manager: {}", path.display());
+        let mut reader =
+            File::open(path).with_context(|| format!("Failed to open {}", path.display()))?;
 
-    fn handle_wrong_hash(
-        expected_hash: &Hash,
-        tmp_path: PathBuf,
-        actual_hash: &[u8],
-    ) -> Result<bool, Error> {
-        fs::remove_file(tmp_path.clone()).with_context(|| {
-            format!(
-                "Attempted to remove {} because its content has the wrong hash.",
-                tmp_path.to_str().unwrap()
-            )
-        })?;
-        let msg = format!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}",
-                          expected_hash, expected_hash.algorithm, bs58::encode(actual_hash).into_string());
-        warn!("{}", msg);
-        bail!("{}", msg)
-    }
-
-    fn rename_to_permanent(
-        expected_hash: &Hash,
-        base_path: PathBuf,
-        tmp_path: &Path,
-    ) -> Result<bool, anyhow::Error> {
-        fs::rename(tmp_path.to_path_buf(), base_path.clone()).with_context(|| {
-            format!(
-                "Attempting to rename from temporary file name{} to permanent{}",
-                tmp_path.to_str().unwrap(),
-                base_path.to_str().unwrap()
-            )
-        })?;
-        debug!(
-            "Artifact has the expected hash available locally {}",
-            expected_hash
-        );
-        Ok(true)
+        let mut digester = expected_hash.algorithm.digest_factory();
+        const READ_BUFFER_SIZE: usize = 32768;
+        let mut read_buffer = [0u8; READ_BUFFER_SIZE];
+        loop {
+            let bytes_read = reader.read(&mut read_buffer)?;
+            if bytes_read == 0 {
+                break;
+            }
+            digester.update_hash(&read_buffer[..bytes_read]);
+            let hash_buffer_size = digester.hash_size_in_bytes();
+        }
+        let mut hash_buffer = [0u8; HASH_BUFFER_SIZE];
+        let computed_hash = actual_hash(&mut hash_buffer, &mut digester);
+        if expected_hash.bytes != computed_hash {
+            bail!("{} does not have the expected hash value {}:{}\nActual hash is {}:{}",
+                path.display(), expected_hash.algorithm, bs58::encode(computed_hash).into_string(), expected_hash.algorithm, bs58::encode(expected_hash.bytes).into_string())
+        }
+        let target_path = self.file_path_for_new_artifact(expected_hash);
+        rename_to_permanent(expected_hash, target_path,&path)
     }
 
     fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> PathBuf {
@@ -391,50 +364,6 @@ impl<'a> ArtifactManager {
         // for now all artifacts are unstructured
         base_path.set_extension("file");
         base_path
-    }
-
-    fn do_push<'b>(
-        reader: &mut impl Read,
-        expected_hash: &Hash,
-        path: &Path,
-        out: File,
-        hash_buffer: &'b mut [u8; 128],
-    ) -> Result<&'b [u8], Error> {
-        let mut buf_writer: BufWriter<File> = BufWriter::new(out);
-        let mut digester = expected_hash.algorithm.digest_factory();
-        let mut writer = WriteHashDecorator::new(&mut buf_writer, &mut digester);
-
-        Self::copy_from_reader_to_writer(reader, path, &mut writer)
-            .with_context(|| format!("Error writing contents of {}", expected_hash))?;
-        Ok(Self::actual_hash(hash_buffer, &mut digester))
-    }
-
-    fn actual_hash<'b>(
-        hash_buffer: &'b mut [u8; 128],
-        digester: &mut Box<dyn Digester>,
-    ) -> &'b mut [u8] {
-        let buffer_slice: &mut [u8] = &mut hash_buffer[..digester.hash_size_in_bytes()];
-        digester.finalize_hash(buffer_slice);
-        buffer_slice
-    }
-
-    fn copy_from_reader_to_writer(
-        reader: &mut impl Read,
-        path: &Path,
-        mut writer: &mut WriteHashDecorator,
-    ) -> Result<(), Error> {
-        io::copy(reader, &mut writer).with_context(|| {
-            format!(
-                "Error while copying artifact contents to {}",
-                path.display()
-            )
-        })?;
-        writer.flush().with_context(|| {
-            format!(
-                "Error while flushing last of artifact contents to {}",
-                path.display()
-            )
-        })
     }
 
     /// Pull an artifact. The current implementation only looks in the local node's repository.
@@ -452,6 +381,111 @@ impl<'a> ArtifactManager {
         File::open(base_path.as_path())
             .with_context(|| format!("{} not found.", base_path.display()))
     }
+}
+
+fn inaccessible_repo_directory_error(repository_path: &str) -> Result<ArtifactManager, Error> {
+    error!(
+        "Unable to create ArtifactManager with inaccessible directory: {}",
+        repository_path
+    );
+    Err(anyhow!("Not an accessible directory: {}", repository_path))
+}
+
+fn is_not_hidden(entry: &DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| entry.depth() == 0 || !s.starts_with('.'))
+        .unwrap_or(false)
+}
+
+fn create_artifact_file(tmp_path: &Path) -> std::io::Result<File> {
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(tmp_path)
+}
+
+fn handle_wrong_hash(
+    expected_hash: &Hash,
+    tmp_path: PathBuf,
+    actual_hash: &[u8],
+) -> Result<bool, Error> {
+    fs::remove_file(tmp_path.clone()).with_context(|| {
+        format!(
+            "Attempted to remove {} because its content has the wrong hash.",
+            tmp_path.to_str().unwrap()
+        )
+    })?;
+    let msg = format!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}",
+                      expected_hash, expected_hash.algorithm, bs58::encode(actual_hash).into_string());
+    warn!("{}", msg);
+    bail!("{}", msg)
+}
+
+fn rename_to_permanent(
+    expected_hash: &Hash,
+    base_path: PathBuf,
+    tmp_path: &Path,
+) -> Result<bool, anyhow::Error> {
+    fs::rename(tmp_path.to_path_buf(), base_path.clone()).with_context(|| {
+        format!(
+            "Attempting to rename from temporary file name{} to permanent{}",
+            tmp_path.to_str().unwrap(),
+            base_path.to_str().unwrap()
+        )
+    })?;
+    debug!(
+        "Artifact has the expected hash available locally {}",
+        expected_hash
+    );
+    Ok(true)
+}
+
+fn do_push<'b>(
+    reader: &mut impl Read,
+    expected_hash: &Hash,
+    path: &Path,
+    out: File,
+    hash_buffer: &'b mut [u8; HASH_BUFFER_SIZE],
+) -> Result<&'b [u8], Error> {
+    let mut buf_writer: BufWriter<File> = BufWriter::new(out);
+    let mut digester = expected_hash.algorithm.digest_factory();
+    let mut writer = WriteHashDecorator::new(&mut buf_writer, &mut digester);
+
+    copy_from_reader_to_writer(reader, path, &mut writer)
+        .with_context(|| format!("Error writing contents of {}", expected_hash))?;
+    Ok(actual_hash(hash_buffer, &mut digester))
+}
+
+const HASH_BUFFER_SIZE: usize = 128;
+
+fn actual_hash<'b>(
+    hash_buffer: &'b mut [u8; HASH_BUFFER_SIZE],
+    digester: &mut Box<dyn Digester>,
+) -> &'b mut [u8] {
+    let buffer_slice: &mut [u8] = &mut hash_buffer[..digester.hash_size_in_bytes()];
+    digester.finalize_hash(buffer_slice);
+    buffer_slice
+}
+
+fn copy_from_reader_to_writer(
+    reader: &mut impl Read,
+    path: &Path,
+    mut writer: &mut WriteHashDecorator,
+) -> Result<(), Error> {
+    io::copy(reader, &mut writer).with_context(|| {
+        format!(
+            "Error while copying artifact contents to {}",
+            path.display()
+        )
+    })?;
+    writer.flush().with_context(|| {
+        format!(
+            "Error while flushing last of artifact contents to {}",
+            path.display()
+        )
+    })
 }
 
 fn file_creation_error(base_path: &Path, error: std::io::Error) -> Result<bool, Error> {
@@ -474,7 +508,7 @@ fn file_creation_error(base_path: &Path, error: std::io::Error) -> Result<bool, 
 fn tmp_path_from_base(base: &Path) -> PathBuf {
     let mut tmp_buf = base.to_path_buf();
     let file_name: &OsStr = base.file_name().unwrap();
-    tmp_buf.set_file_name(format!("X{}", file_name.to_str().unwrap()));
+    tmp_buf.set_file_name(format!("l0-{}", file_name.to_str().unwrap()));
     tmp_buf
 }
 
