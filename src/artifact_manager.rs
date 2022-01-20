@@ -338,19 +338,7 @@ impl<'a> ArtifactManager {
         let mut reader =
             File::open(path).with_context(|| format!("Failed to open {}", path.display()))?;
 
-        let mut digester = expected_hash.algorithm.digest_factory();
-        const READ_BUFFER_SIZE: usize = 32768;
-        let mut read_buffer = [0u8; READ_BUFFER_SIZE];
-        loop {
-            let bytes_read = reader.read(&mut read_buffer)?;
-            if bytes_read == 0 {
-                break;
-            }
-            digester.update_hash(&read_buffer[..bytes_read]);
-            let hash_buffer_size = digester.hash_size_in_bytes();
-        }
-        let mut hash_buffer = [0u8; HASH_BUFFER_SIZE];
-        let computed_hash = actual_hash(&mut hash_buffer, &mut digester);
+        let computed_hash = compute_hash_of_file(&mut reader, path, &expected_hash.algorithm)?;
         if expected_hash.bytes != computed_hash {
             bail!("{} does not have the expected hash value {}:{}\nActual hash is {}:{}",
                 path.display(), expected_hash.algorithm, bs58::encode(computed_hash).into_string(), expected_hash.algorithm, bs58::encode(expected_hash.bytes).into_string())
@@ -381,6 +369,21 @@ impl<'a> ArtifactManager {
         File::open(base_path.as_path())
             .with_context(|| format!("{} not found.", base_path.display()))
     }
+}
+
+fn compute_hash_of_file<'a>(reader: &mut impl Read, path: &'a Path, algorithm: &HashAlgorithm) -> Result<Vec<u8>, anyhow::Error> {
+    let mut digester = algorithm.digest_factory();
+    const READ_BUFFER_SIZE: usize = 32768;
+    let mut read_buffer = [0u8; READ_BUFFER_SIZE];
+    loop {
+        let bytes_read = reader.read(&mut read_buffer).with_context(|| format!("Error reading {}", path.display()))?;
+        if bytes_read == 0 {
+            break;
+        }
+        digester.update_hash(&read_buffer[..bytes_read]);
+    }
+    let mut hash_buffer = [0u8; HASH_BUFFER_SIZE];
+    Ok(actual_hash(&mut hash_buffer, &mut digester).to_vec())
 }
 
 fn inaccessible_repo_directory_error(repository_path: &str) -> Result<ArtifactManager, Error> {
