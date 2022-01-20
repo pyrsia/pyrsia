@@ -284,8 +284,10 @@ impl<'a> ArtifactManager {
             .filter_entry(|path| is_not_hidden(path))
             .filter_map(|file| file.ok())
         {
-            if file.metadata().unwrap().is_file() {
-                total_files += 1;
+            if let Ok(metadata) = file.metadata() {
+                if metadata.is_file() {
+                    total_files += 1;
+                }
             }
         }
         Ok(total_files)
@@ -334,17 +336,26 @@ impl<'a> ArtifactManager {
     /// Returns true if it created the artifact local or false if the artifact already existed. If
     /// the artifact already existed, it deletes rather than removes the file.
     pub fn move_from(&self, path: &Path, expected_hash: &Hash) -> Result<bool, anyhow::Error> {
-        debug!("Attempting to move file to the artifact manager: {}", path.display());
+        debug!(
+            "Attempting to move file to the artifact manager: {}",
+            path.display()
+        );
         let mut reader =
             File::open(path).with_context(|| format!("Failed to open {}", path.display()))?;
 
         let computed_hash = compute_hash_of_file(&mut reader, path, &expected_hash.algorithm)?;
         if expected_hash.bytes != computed_hash {
-            bail!("{} does not have the expected hash value {}:{}\nActual hash is {}:{}",
-                path.display(), expected_hash.algorithm, bs58::encode(computed_hash).into_string(), expected_hash.algorithm, bs58::encode(expected_hash.bytes).into_string())
+            bail!(
+                "{} does not have the expected hash value {}:{}\nActual hash is {}:{}",
+                path.display(),
+                expected_hash.algorithm,
+                bs58::encode(computed_hash).into_string(),
+                expected_hash.algorithm,
+                bs58::encode(expected_hash.bytes).into_string()
+            )
         }
         let target_path = self.file_path_for_new_artifact(expected_hash);
-        rename_to_permanent(expected_hash, target_path,&path)
+        rename_to_permanent(expected_hash, target_path, &path)
     }
 
     fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> PathBuf {
@@ -371,12 +382,18 @@ impl<'a> ArtifactManager {
     }
 }
 
-fn compute_hash_of_file<'a>(reader: &mut impl Read, path: &'a Path, algorithm: &HashAlgorithm) -> Result<Vec<u8>, anyhow::Error> {
+fn compute_hash_of_file<'a>(
+    reader: &mut impl Read,
+    path: &'a Path,
+    algorithm: &HashAlgorithm,
+) -> Result<Vec<u8>, anyhow::Error> {
     let mut digester = algorithm.digest_factory();
     const READ_BUFFER_SIZE: usize = 32768;
     let mut read_buffer = [0u8; READ_BUFFER_SIZE];
     loop {
-        let bytes_read = reader.read(&mut read_buffer).with_context(|| format!("Error reading {}", path.display()))?;
+        let bytes_read = reader
+            .read(&mut read_buffer)
+            .with_context(|| format!("Error reading {}", path.display()))?;
         if bytes_read == 0 {
             break;
         }
@@ -529,10 +546,11 @@ mod tests {
     use anyhow::{anyhow, Context};
     use env_logger::Target;
     use log::{info, LevelFilter};
-    use rand::Rng;
+    use rand::{Rng, RngCore};
+    use std::env;
     use std::fs;
     use std::io::Read;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
     use stringreader::StringReader;
 
@@ -605,13 +623,10 @@ mod tests {
     }
 
     #[test]
-    pub fn happy_push_pull_test() -> Result<(), anyhow::Error> {
+    pub fn push_artifact_then_pull_it() -> Result<(), anyhow::Error> {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
         let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
-        let dir_name = tmp_dir_name("tmp");
-        println!("tmp dir: {}", dir_name);
-        fs::create_dir(dir_name.clone())
-            .context(format!("Error creating directory {}", dir_name.clone()))?;
+        let dir_name = create_tmp_dir("tmp")?;
         let am: ArtifactManager =
             ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
         am.push_artifact(&mut string_reader, &hash)
@@ -631,8 +646,7 @@ mod tests {
         reader.read_to_string(&mut read_buffer)?;
         assert_eq!(TEST_ARTIFACT_DATA, read_buffer);
 
-        fs::remove_dir_all(dir_name.clone())
-            .context(format!("Error removing directory {}", dir_name))?;
+        remove_dir_all(&dir_name);
         Ok(())
     }
 
@@ -641,10 +655,7 @@ mod tests {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
         let hash_algorithm = HashAlgorithm::str_to_hash_algorithm("SHA256")?;
         let hash = Hash::new(hash_algorithm, &WRONG_ARTIFACT_HASH)?;
-        let dir_name = tmp_dir_name("TmpW");
-        println!("tmp dir: {}", dir_name);
-        fs::create_dir(dir_name.clone())
-            .context(format!("Error creating directory {}", dir_name.clone()))?;
+        let dir_name = create_tmp_dir("TmpW")?;
         let am: ArtifactManager =
             ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
         let ok = match am
@@ -656,18 +667,14 @@ mod tests {
             )),
             Err(_) => Ok(()),
         };
-        fs::remove_dir_all(dir_name.clone())
-            .expect(&format!("unable to remove temp directory {}", dir_name));
+        remove_dir_all(&dir_name);
         ok
     }
 
     #[test]
     pub fn pull_nonexistent_test() -> Result<(), anyhow::Error> {
         let hash = Hash::new(HashAlgorithm::SHA256, &WRONG_ARTIFACT_HASH)?;
-        let dir_name = tmp_dir_name("TmpR");
-        println!("tmp dir: {}", dir_name);
-        fs::create_dir(dir_name.clone())
-            .context(format!("Error creating directory {}", dir_name.clone()))?;
+        let dir_name = create_tmp_dir("TmpR")?;
         let am: ArtifactManager =
             ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
         let ok = match am.pull_artifact(&hash).context("Error from push_artifact") {
@@ -676,9 +683,21 @@ mod tests {
             )),
             Err(_) => Ok(()),
         };
+        remove_dir_all(&dir_name);
+        ok
+    }
+
+    fn create_tmp_dir(prefix: &str) -> Result<String> {
+        let dir_name = tmp_dir_name(prefix);
+        println!("tmp dir: {}", dir_name);
+        fs::create_dir(dir_name.clone())
+            .context(format!("Error creating directory {}", dir_name.clone()))?;
+        Ok(dir_name)
+    }
+
+    fn remove_dir_all(dir_name: &String) {
         fs::remove_dir_all(dir_name.clone())
             .expect(&format!("unable to remove temp directory {}", dir_name));
-        ok
     }
 
     pub fn tmp_dir_name(prefix: &str) -> String {
@@ -693,9 +712,56 @@ mod tests {
     }
 
     #[test]
-    pub fn test_move_from_expecting_success() {
-        let mut data_buffer = [0u8;77777];
+    pub fn test_move_from_expecting_success() -> Result<()> {
+        let test_data_buffer = create_random_content();
+        let file_path = temp_file_path();
+        write_data_to_test_file(&test_data_buffer, &*file_path)?;
+        assert!(fs::metadata(&file_path).unwrap().is_file());
+
+        let algorithm = HashAlgorithm::SHA512;
+        let hash_value = compute_data_hash(&test_data_buffer);
+        let expected_hash = Hash::new(algorithm, &hash_value)?;
+
+        let dir_name = create_tmp_dir("TmpM")?;
+        let am: ArtifactManager =
+            ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
+        am.move_from(&file_path,&expected_hash).context("Error from move_from")?;
+
+        assert!(fs::metadata(&file_path).is_err());  // File should have been moved
+        am.pull_artifact(&expected_hash)?; // should be able to pull
+
+        remove_dir_all(&dir_name);
+        Ok(())
+    }
+
+    fn compute_data_hash(test_data_buffer: &[u8; 77777]) -> [u8; 64] {
+        let mut digester = HashAlgorithm::SHA512.digest_factory();
+        digester.update_hash(&test_data_buffer[..]);
+        let mut hash_buffer = [0u8; 64];
+        digester.finalize_hash(&mut hash_buffer);
+        hash_buffer
+    }
+
+    fn write_data_to_test_file(test_data_buffer: &[u8; 77777], file_path: &Path) -> Result<()> {
+        let mut file = File::open(file_path)?;
+        file.write(&test_data_buffer[..])?;
+        Ok(())
+    }
+
+    fn temp_file_path() -> PathBuf {
+        let random_number = rand::thread_rng().next_u64();
+        let tmp_name = format!("T{}.tmp", random_number);
+        let mut file_path = env::temp_dir();
+        file_path.push(Path::new(&tmp_name));
+        file_path
+    }
+
+    fn create_random_content() -> [u8; 77777] {
+        let mut data_buffer = [0u8; 77777];
         let mut rng = rand::thread_rng();
-        rng.fill(&mut data_buffer);
+        for i in 0..data_buffer.len() {
+            data_buffer[i] =rng.gen();
+        }
+        data_buffer
     }
 }
