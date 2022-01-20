@@ -529,6 +529,7 @@ mod tests {
     use anyhow::{anyhow, Context};
     use env_logger::Target;
     use log::{info, LevelFilter};
+    use rand::Rng;
     use std::fs;
     use std::io::Read;
     use std::path::PathBuf;
@@ -689,5 +690,12 @@ mod tests {
                 .expect("Time went backwards")
                 .as_millis()
         );
+    }
+
+    #[test]
+    pub fn test_move_from_expecting_success() {
+        let mut data_buffer = [0u8;77777];
+        let mut rng = rand::thread_rng();
+        rng.fill(&mut data_buffer);
     }
 }
