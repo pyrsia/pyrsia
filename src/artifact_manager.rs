@@ -743,7 +743,7 @@ mod tests {
     }
 
     fn write_data_to_test_file(test_data_buffer: &[u8; 77777], file_path: &Path) -> Result<()> {
-        let mut file = File::open(file_path)?;
+        let mut file = File::create(file_path)?;
         file.write(&test_data_buffer[..])?;
         Ok(())
     }
