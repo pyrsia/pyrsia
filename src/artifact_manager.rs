@@ -281,7 +281,7 @@ impl<'a> ArtifactManager {
 
         for file in WalkDir::new(repository_path)
             .into_iter()
-            .filter_entry(|path| is_not_hidden(path))
+            .filter_entry(is_not_hidden)
             .filter_map(|file| file.ok())
         {
             if let Ok(metadata) = file.metadata() {
@@ -355,7 +355,7 @@ impl<'a> ArtifactManager {
             )
         }
         let target_path = self.file_path_for_new_artifact(expected_hash);
-        rename_to_permanent(expected_hash, target_path, &path)
+        rename_to_permanent(expected_hash, target_path, path)
     }
 
     fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> PathBuf {
