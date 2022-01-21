@@ -28,10 +28,17 @@ pub fn make_node_routes(
     get_blocks_tx: Sender<String>,
     get_blocks_rx: Receiver<BlockChain>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    let tx1 = tx.clone();
+    let rx1 = rx.clone();
     let peers = warp::path!("peers")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(move || handle_get_peers(tx.clone(), rx.clone()));
+        .and_then(move || handle_get_peers(tx1.clone(), rx1.clone()));
+
+    let status = warp::path!("status")
+        .and(warp::get())
+        .and(warp::path::end())
+        .and_then(move || handle_get_status(tx.clone(), rx.clone()));
 
     let repeatable_get_blocks_receiver = Arc::new(Mutex::new(get_blocks_rx));
     // The problem was our closure was being invoked "aka made again" so each new call needs to _take ownership_
@@ -45,5 +52,5 @@ pub fn make_node_routes(
             )
         });
 
-    warp::any().and(peers.or(blocks))
+    warp::any().and(peers.or(status).or(blocks))
 }

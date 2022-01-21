@@ -52,9 +52,13 @@ pub async fn handle_get_status(
     }
 
     let peers = rx.lock().await.recv().await.unwrap();
-    let split = peers.split(',');
-    let vec: Vec<&str> = split.collect();
-    debug!("peers count: {}", vec.len());
+    debug!("peers empty: {:?}", peers.is_empty());
+    let mut peers_total = 0;
+    if !peers.is_empty() {
+        let res: Vec<String> = peers.split(',').map(|s| s.to_string()).collect();
+        debug!("peers count: {}", res.len());
+        peers_total = res.len();
+    }
 
     let art_count_result = get_arts_count();
     if art_count_result.is_err() {
@@ -65,7 +69,7 @@ pub async fn handle_get_status(
 
     let status = Status {
         artifact_count: art_count_result.unwrap(),
-        peers_count: vec.len(),
+        peers_count: peers_total,
         // TODO: placeholder disk space value, need implementation in upstream
         disk_space_available: String::from("983112"),
     };
