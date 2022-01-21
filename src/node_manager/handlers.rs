@@ -19,21 +19,54 @@ use super::HashAlgorithm;
 
 use super::Hash;
 
+use crate::metadata_manager::metadata::Metadata;
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
-use log::info;
-use std::fs;
+use log::{error, info};
 use std::fs::File;
 use std::io::{BufReader, Read};
+use std::panic::UnwindSafe;
 use std::str;
+use std::{fs, panic};
 
 const ART_MGR_DIR: &str = "pyrsia";
 
 lazy_static! {
     pub static ref ART_MGR: ArtifactManager = {
-        fs::create_dir_all(ART_MGR_DIR).expect("Error creating dir for artifacts");
-        ArtifactManager::new(ART_MGR_DIR).unwrap()
+        log_static_initialization_failure(
+            "Artifact Manager Directory",
+            fs::create_dir_all(ART_MGR_DIR).with_context(|| {
+                format!(
+                    "Failed to create artifact manager directory {}",
+                    ART_MGR_DIR
+                )
+            }),
+        );
+        log_static_initialization_failure("Artifact Manager", ArtifactManager::new(ART_MGR_DIR))
     };
+    pub static ref METADATA_MGR: Metadata =
+        log_static_initialization_failure("Metadata Manager", Metadata::new());
+}
+
+fn log_static_initialization_failure<T: UnwindSafe>(
+    label: &str,
+    result: Result<T, anyhow::Error>,
+) -> T {
+    let panic_wrapper = panic::catch_unwind(|| match result {
+        Ok(unwrapped) => unwrapped,
+        Err(error) => {
+            let msg = format!("Error initializing {}, error is: {}", label, error);
+            error!("{}", msg);
+            panic!("{}", msg)
+        }
+    });
+    match panic_wrapper {
+        Ok(normal) => normal,
+        Err(partially_unwound_panic) => {
+            error!("Initialization of {} paniced!", label);
+            panic::resume_unwind(partially_unwound_panic)
+        }
+    }
 }
 
 //get_artifact: given artifact_hash(artifactName) pulls artifact for  artifact_manager and
@@ -115,7 +148,7 @@ mod tests {
 
         assert_eq!(content_vec.as_slice(), actual_content_vec.as_slice());
 
-        // pull artiafct
+        // pull artifact
         let file = get_artifact(&GOOD_ART_HASH, HashAlgorithm::SHA256)
             .context("Error from get_artifact")?;
 
@@ -131,11 +164,14 @@ mod tests {
         };
         assert_eq!(s, s1);
 
-        //cleaning up
-        fs::remove_dir_all(ART_MGR_DIR)
-            .context(format!("Error cleaning up directory {}", path.clone()))?;
-
         println!("put_and_get_artifact_test ended !!");
         Ok(())
+    }
+
+    #[test]
+    fn test_that_a_metadata_manager_is_created_and_accessible() {
+        let untrusted_key_pair = METADATA_MGR.untrusted_key_pair();
+        assert!(!untrusted_key_pair.public_key.is_empty());
+        assert!(!untrusted_key_pair.private_key.is_empty());
     }
 }

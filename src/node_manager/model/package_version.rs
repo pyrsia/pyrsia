@@ -24,10 +24,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use signed::signed::Signed;
 use signed_struct::signed_struct;
-use strum_macros::{EnumIter, EnumString};
+use strum_macros::{Display, EnumIter, EnumString};
 
 #[signed_struct]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct PackageVersion {
     /// The unique ID of this package version
     id: String,
@@ -61,7 +61,7 @@ pub struct PackageVersion {
     artifacts: Vec<Artifact>,
 }
 
-#[derive(EnumIter, Debug, PartialEq, EnumString, Serialize, Deserialize, Clone)]
+#[derive(EnumIter, Debug, Display, PartialEq, EnumString, Serialize, Deserialize, Clone)]
 pub enum LicenseTextMimeType {
     Text,
     Html,

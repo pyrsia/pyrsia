@@ -14,6 +14,6 @@
    limitations under the License.
 */
 
-mod metadata;
+pub mod metadata;
 
 use crate::node_manager::model;

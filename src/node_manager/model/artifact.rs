@@ -24,7 +24,7 @@ use serde_json::{Map, Value};
 
 /// Describes an individual artifact. This is not a signed struct because it is normally stored as
 /// part a descripion of something that contains artifacts.
-#[derive(Builder, Debug, Serialize, Deserialize, Clone)]
+#[derive(Builder, Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Artifact {
     /// The hash value that identifies the artifact.
     hash: Vec<u8>,

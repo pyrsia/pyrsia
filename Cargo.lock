@@ -2314,6 +2314,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "maplit"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
+
+[[package]]
 name = "match_cfg"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2981,12 +2987,14 @@ dependencies = [
  "lazy_static",
  "libp2p",
  "log",
+ "maplit",
  "once_cell",
  "pretty_env_logger",
  "rand 0.8.4",
  "reqwest",
  "serde",
  "serde_json",
+ "serial_test",
  "sha2 0.9.9",
  "signed",
  "signed_struct",
@@ -2997,6 +3005,7 @@ dependencies = [
  "synapse-rpc",
  "tempfile",
  "test-log",
+ "thiserror",
  "tokio",
  "tungstenite",
  "unqlite",
@@ -3500,6 +3509,28 @@ dependencies = [
  "itoa 0.4.8",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serial_test"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0bccbcf40c8938196944a3da0e133e031a33f4d6b72db3bda3cc556e361905d"
+dependencies = [
+ "lazy_static",
+ "parking_lot",
+ "serial_test_derive",
+]
+
+[[package]]
+name = "serial_test_derive"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2acd6defeddb41eb60bb468f8825d0cfd0c2a76bc03bfd235b6a1dc4f6a1ad5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
