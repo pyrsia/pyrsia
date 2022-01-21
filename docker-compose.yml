@@ -2,6 +2,7 @@ services:
   pyrsia:
     image: pyrsia/node
     build:
+      context: .
       target: node
     command: ["-h", "0.0.0.0", "-p", "7878"]
     stdin_open: true
