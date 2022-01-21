@@ -65,10 +65,6 @@ async fn main() {
     let field1 = "most_significant_field";
     let idx1 = IndexSpec::new(index_one, vec![field1]);
 
-    DocumentStore::create("document_store", vec![idx1]).expect("Failed to create DocumentStore");
-    let doc_store = DocumentStore::get("document_store").unwrap();
-    doc_store.ping();
-
     let matches: ArgMatches = App::new("Pyrsia Node")
         .version("0.1.0")
         .author(clap::crate_authors!(", "))
