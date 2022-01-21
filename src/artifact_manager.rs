@@ -331,7 +331,7 @@ impl<'a> ArtifactManager {
         match Self::create_artifact_file(&tmp_path) {
             Err(error) => file_creation_error(&tmp_path, error),
             Ok(out) => {
-                println!("hash is {}", expected_hash);
+                debug!("hash is {}", expected_hash);
                 let mut hash_buffer: [u8; 128] = [0; 128];
                 let actual_hash =
                     &*Self::do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
@@ -570,7 +570,7 @@ mod tests {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
         let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
         let dir_name = tmp_dir_name("tmp");
-        println!("tmp dir: {}", dir_name);
+        debug!("tmp dir: {}", dir_name);
         fs::create_dir(dir_name.clone())
             .context(format!("Error creating directory {}", dir_name.clone()))?;
         let am: ArtifactManager =
@@ -603,7 +603,7 @@ mod tests {
         let hash_algorithm = HashAlgorithm::str_to_hash_algorithm("SHA256")?;
         let hash = Hash::new(hash_algorithm, &WRONG_ARTIFACT_HASH)?;
         let dir_name = tmp_dir_name("TmpW");
-        println!("tmp dir: {}", dir_name);
+        debug!("tmp dir: {}", dir_name);
         fs::create_dir(dir_name.clone())
             .context(format!("Error creating directory {}", dir_name.clone()))?;
         let am: ArtifactManager =
@@ -626,7 +626,7 @@ mod tests {
     pub fn pull_nonexistent_test() -> Result<(), anyhow::Error> {
         let hash = Hash::new(HashAlgorithm::SHA256, &WRONG_ARTIFACT_HASH)?;
         let dir_name = tmp_dir_name("TmpR");
-        println!("tmp dir: {}", dir_name);
+        debug!("tmp dir: {}", dir_name);
         fs::create_dir(dir_name.clone())
             .context(format!("Error creating directory {}", dir_name.clone()))?;
         let am: ArtifactManager =
