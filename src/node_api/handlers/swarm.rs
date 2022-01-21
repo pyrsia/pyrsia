@@ -54,11 +54,10 @@ pub async fn handle_get_status(
     let peers = rx.lock().await.recv().await.unwrap();
     debug!("peers empty: {:?}", peers.is_empty());
     let mut peers_total = 0;
-    if !peers.is_empty(){
-
-    let res: Vec<String> = peers.split(",").map(|s| s.to_string()).collect();
-    debug!("peers count: {}", res.iter().count());
-    peers_total = res.iter().count();
+    if !peers.is_empty() {
+        let res: Vec<String> = peers.split(',').map(|s| s.to_string()).collect();
+        debug!("peers count: {}", res.len());
+        peers_total = res.len();
     }
 
     let art_count_result = get_arts_count();
