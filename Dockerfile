@@ -36,7 +36,7 @@ RUN <<EOT bash
     set -e
     apt-get update
     apt-get install -y \
-        libssl1.1
+        openssl
     rm -rf /var/lib/apt/lists/*
 EOT
 COPY --from=dbuild /out/pyrsia_node /usr/local/bin/

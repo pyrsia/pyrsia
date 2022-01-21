@@ -55,6 +55,7 @@ use tokio::{
 };
 use warp::Filter;
 
+const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_PORT: &str = "7878";
 
 #[tokio::main]
@@ -70,6 +71,17 @@ async fn main() {
         .version("0.1.0")
         .author(clap::crate_authors!(", "))
         .about("Application to connect to and participate in the Pyrsia network")
+        .arg(
+            Arg::new("host")
+                .short('H')
+                .long("host")
+                .value_name("HOST")
+                .default_value(DEFAULT_HOST)
+                .takes_value(true)
+                .required(false)
+                .multiple(false)
+                .help("Sets the host address to bind to for the Docker API"),
+        )        
         .arg(
             Arg::new("port")
                 .short('p')
@@ -127,10 +139,12 @@ async fn main() {
         .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
         .unwrap();
 
-    let mut address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0);
-    if let Some(p) = matches.value_of("port") {
-        address.set_port(p.parse::<u16>().unwrap());
-    }
+    // Get host and port from the settings. Defaults to DEFAULT_HOST and DEFAULT_PORT
+    let host = matches.value_of("host").unwrap();
+    let port = matches.value_of("port").unwrap();
+    debug!("Pyrsia Docker Node will bind to host = {}, port = {}", host, port);
+
+    let address = SocketAddr::new(IpAddr::V4(host.parse::<Ipv4Addr>().unwrap()), port.parse::<u16>().unwrap());
 
     let (tx, mut rx) = mpsc::channel(32);
 
@@ -168,7 +182,7 @@ async fn main() {
     )
     .bind_ephemeral(address);
 
-    info!("Pyrsia Docker Node is now running on port {}!", addr.port());
+    info!("Pyrsia Docker Node is now running on port {}:{}!", addr.ip(), addr.port());
 
     tokio::spawn(server);
     let tx4 = tx.clone();

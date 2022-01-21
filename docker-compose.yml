@@ -3,7 +3,7 @@ services:
     image: pyrsia/node
     build:
       target: node
-    command: ["-p", "7878"]
+    command: ["-h", "0.0.0.0", "-p", "7878"]
     stdin_open: true
     ports:
       - "7878:7878"
