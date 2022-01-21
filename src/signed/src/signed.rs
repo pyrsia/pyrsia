@@ -189,7 +189,7 @@ fn date_time_from_json(json_header: &Value, field_name: &str) -> Option<DateTime
 ///
 /// This struct has the public and private keys as separate values in anticipation that quantum-
 /// resistant signature algorithms will require this.
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct SignatureKeyPair {
     pub signature_algorithm: JwsSignatureAlgorithms,
     pub private_key: Vec<u8>,
