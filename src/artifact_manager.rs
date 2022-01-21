@@ -690,7 +690,7 @@ mod tests {
 
     fn create_tmp_dir(prefix: &str) -> Result<String> {
         let dir_name = tmp_dir_name(prefix);
-        println!("tmp dir: {}", dir_name);
+        debug!("tmp dir: {}", dir_name);
         fs::create_dir(dir_name.clone())
             .context(format!("Error creating directory {}", dir_name.clone()))?;
         Ok(dir_name)
