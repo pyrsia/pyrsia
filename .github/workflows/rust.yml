@@ -31,7 +31,7 @@ jobs:
       run: |
         brew install openssl
     
-    - run: cargo build --workspace --verbose --locked
+    - run: cargo build --workspace --verbose --locked --release
     - run: cargo test --workspace --verbose
 
     # save the pyrsia_node binary for the package creation
@@ -40,7 +40,7 @@ jobs:
       if: runner.os == 'Linux'
       with:
         name: pyrsia_node
-        path: target/debug/pyrsia_node
+        path: target/release/pyrsia_node
         if-no-files-found: error
 
     # save the pyrsia binary for the package creation
@@ -49,7 +49,7 @@ jobs:
       if: runner.os == 'Linux'
       with:
         name: pyrsia
-        path: target/debug/pyrsia
+        path: target/release/pyrsia
         if-no-files-found: error
 
     # save the debian control files to be used with the deb packager
@@ -65,8 +65,8 @@ jobs:
     - name: Build synapse 
       if: runner.os == 'Linux'
       run: |
-        cargo install --git https://github.com/Luminarys/synapse.git#634ee2a62 synapse-bt
-        cp ~/.cargo/bin/synapse target/debug/synapse
+        cargo install --force --git https://github.com/Luminarys/synapse.git#634ee2a62 synapse-bt
+        cp ~/.cargo/bin/synapse target/release/synapse
       shell: bash
 
     # save the debian control files to be used with the deb packager
@@ -75,7 +75,7 @@ jobs:
       if: runner.os == 'Linux'
       with:
         name: synapse
-        path: target/debug/synapse
+        path: target/release/synapse
         if-no-files-found: error
 
   # Create the .deb file, add it to the apt repo and
@@ -90,14 +90,14 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: pyrsia_node
-          path: target/debug
+          path: target/release
 
       # grab the pyrsia from the build step
       - name: Fetch pyrsia binary
         uses: actions/download-artifact@v2
         with:
           name: pyrsia
-          path: target/debug
+          path: target/release
 
       # grab the control file from the build step
       - name: Fetch debian control file
@@ -111,15 +111,15 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: synapse
-          path: target/debug
+          path: target/release
 
       # create the pyrsia.deb file
       - name:  Package for apt-get
         run: |
             mkdir -p pyrsia/usr/local/bin
-            cp target/debug/pyrsia_node pyrsia/usr/local/bin
-            cp target/debug/pyrsia pyrsia/usr/local/bin
-            cp target/debug/synapse pyrsia/usr/local/bin
+            cp target/release/pyrsia_node pyrsia/usr/local/bin
+            cp target/release/pyrsia pyrsia/usr/local/bin
+            cp target/release/synapse pyrsia/usr/local/bin
             chmod 755 pyrsia/usr/local/bin/pyrsia_node
             chmod 755 pyrsia/usr/local/bin/pyrsia
             chmod 755 pyrsia/usr/local/bin/synapse

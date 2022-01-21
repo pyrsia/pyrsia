@@ -32,6 +32,7 @@ RUN --mount=target=/src \
 
 FROM debian:buster-slim AS node
 ENTRYPOINT ["pyrsia_node"]
+ENV RUST_LOG=info
 RUN <<EOT bash
     set -e
     apt-get update

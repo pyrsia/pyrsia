@@ -317,7 +317,7 @@ impl<'a> ArtifactManager {
         match create_artifact_file(&tmp_path) {
             Err(error) => file_creation_error(&tmp_path, error),
             Ok(out) => {
-                println!("hash is {}", expected_hash);
+                debug!("hash is {}", expected_hash);
                 let mut hash_buffer = [0; HASH_BUFFER_SIZE];
                 let actual_hash =
                     &*do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
