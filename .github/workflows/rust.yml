@@ -65,7 +65,7 @@ jobs:
     - name: Build synapse 
       if: runner.os == 'Linux'
       run: |
-        cargo install --git https://github.com/Luminarys/synapse.git#634ee2a62 synapse-bt
+        cargo install --force --git https://github.com/Luminarys/synapse.git#634ee2a62 synapse-bt
         cp ~/.cargo/bin/synapse target/debug/synapse
       shell: bash
 
