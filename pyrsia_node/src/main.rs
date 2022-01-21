@@ -81,7 +81,7 @@ async fn main() {
                 .required(false)
                 .multiple(false)
                 .help("Sets the host address to bind to for the Docker API"),
-        )        
+        )
         .arg(
             Arg::new("port")
                 .short('p')
@@ -142,9 +142,15 @@ async fn main() {
     // Get host and port from the settings. Defaults to DEFAULT_HOST and DEFAULT_PORT
     let host = matches.value_of("host").unwrap();
     let port = matches.value_of("port").unwrap();
-    debug!("Pyrsia Docker Node will bind to host = {}, port = {}", host, port);
+    debug!(
+        "Pyrsia Docker Node will bind to host = {}, port = {}",
+        host, port
+    );
 
-    let address = SocketAddr::new(IpAddr::V4(host.parse::<Ipv4Addr>().unwrap()), port.parse::<u16>().unwrap());
+    let address = SocketAddr::new(
+        IpAddr::V4(host.parse::<Ipv4Addr>().unwrap()),
+        port.parse::<u16>().unwrap(),
+    );
 
     let (tx, mut rx) = mpsc::channel(32);
 
@@ -182,7 +188,11 @@ async fn main() {
     )
     .bind_ephemeral(address);
 
-    info!("Pyrsia Docker Node is now running on port {}:{}!", addr.ip(), addr.port());
+    info!(
+        "Pyrsia Docker Node is now running on port {}:{}!",
+        addr.ip(),
+        addr.port()
+    );
 
     tokio::spawn(server);
     let tx4 = tx.clone();
