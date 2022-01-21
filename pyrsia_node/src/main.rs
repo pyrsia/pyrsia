@@ -55,7 +55,7 @@ use tokio::{
 };
 use warp::Filter;
 
-const DEFAULT_PORT: &str = "7878";
+const DEFAULT_PORT: &str = "7888";
 
 #[tokio::main]
 async fn main() {
