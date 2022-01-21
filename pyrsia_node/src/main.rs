@@ -23,7 +23,6 @@ extern crate pyrsia;
 extern crate tokio;
 extern crate warp;
 
-//use pyrsia::block_chain::block_chain::Ledger;
 use pyrsia::block_chain::*;
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::handlers::blobs::GetBlobsHandle;
