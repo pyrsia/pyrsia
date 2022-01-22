@@ -4,7 +4,7 @@ services:
     build:
       context: .
       target: node
-    command: ["-h", "0.0.0.0", "-p", "7878"]
+    command: ["-H" , "0.0.0.0", "-p", "7878"]
     stdin_open: true
     ports:
       - "7878:7878"
