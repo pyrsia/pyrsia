@@ -154,6 +154,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
     - uses: actions/cache@v2
       with:
         path: |
@@ -164,11 +166,45 @@ jobs:
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    - run: cargo install cargo-tarpaulin
-    - run: cargo tarpaulin --workspace
-    - run: cat target/tarpaulin/pyrsia-coverage.json # debug test
-
-    - uses: codecov/codecov-action@v2
+    - name: Install stable toolchain
+      uses: actions-rs/toolchain@v1
       with:
-        files: target/tarpaulin/pyrsia-coverage.json
+        toolchain: stable
+        override: true
+
+    - name: Run cargo-tarpaulin
+      uses: actions-rs/tarpaulin@v0.1
+      with:
+        args: '-- --test-threads 1'
+
+    - name: Upload to codecov.io
+      uses: codecov/codecov-action@v1.0.2
+      with:
+        token: ${{secrets.CODECOV_TOKEN}}
         fail_ci_if_error: ${{ github.repository_owner == 'pyrsia' }}
+  
+  docker:
+    runs-on: ubuntu-latest
+    needs: [apt-package]
+    if: github.repository_owner == 'pyrsia' && github.event_name == 'push'
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 2
+
+    - name: Only build if DockerfileCodeCoverage changed
+      uses: tj-actions/changed-files@v13.1
+      id: changed-files
+
+    - name: Build Code Coverage Base Image
+      if: contains(steps.changed-files.outputs.all_changed_and_modified_files, 'DockerfileCodeCoverage')
+      run: | 
+        docker build -t pyrsiaos/codecoverage:1.0 -f installers/docker/DockerfileCodeCoverage .
+        docker login --username ${{ secrets.DOCKERHUB_USERID }} --password '${{ secrets.DOCKERHUB_PASSWORD }}'
+        docker push pyrsiaos/codecoverage:1.0
+
+    - name: Build Docker Image
+      run: |
+        docker build -t pyrsiaos/pyrsia-node:latest -f installers/docker/DockerfileAptGet .
+        docker login --username ${{ secrets.DOCKERHUB_USERID }} --password '${{ secrets.DOCKERHUB_PASSWORD }}'
+        docker push pyrsiaos/pyrsia-node:latest

@@ -5,6 +5,7 @@ RUN rustup --version; \
     cargo --version; \
     rustc --version; \
     cargo install cargo-tarpaulin;
-COPY . /home/pyrsia/
+
 WORKDIR /home/pyrsia
-CMD ["cargo", "tarpaulin", "--workspace"]
+
+ENTRYPOINT ["cargo", "tarpaulin", "--workspace"]
