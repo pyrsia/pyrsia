@@ -32,11 +32,13 @@ RUN --mount=target=/src \
 
 FROM debian:buster-slim AS node
 ENTRYPOINT ["pyrsia_node"]
+ENV RUST_LOG=info
 RUN <<EOT bash
     set -e
     apt-get update
     apt-get install -y \
-        libssl1.1
+        ca-certificates \
+        openssl
     rm -rf /var/lib/apt/lists/*
 EOT
 COPY --from=dbuild /out/pyrsia_node /usr/local/bin/
