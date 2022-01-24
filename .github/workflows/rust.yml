@@ -199,12 +199,12 @@ jobs:
     - name: Build Code Coverage Base Image
       if: contains(steps.changed-files.outputs.all_changed_and_modified_files, 'DockerfileCodeCoverage')
       run: | 
-        docker build -t pyrsiaos/codecoverage:1.0 -f installers/docker/DockerfileCodeCoverage .
+        docker build -t pyrsiaoss/codecoverage:1.0 -f installers/docker/DockerfileCodeCoverage .
         docker login --username ${{ secrets.DOCKERHUB_USERID }} --password '${{ secrets.DOCKERHUB_PASSWORD }}'
-        docker push pyrsiaos/codecoverage:1.0
+        docker push pyrsiaoss/codecoverage:1.0
 
     - name: Build Docker Image
       run: |
-        docker build -t pyrsiaos/pyrsia-node:latest -f installers/docker/DockerfileAptGet .
+        docker build -t pyrsiaoss/pyrsia-node:latest -f installers/docker/DockerfileAptGet .
         docker login --username ${{ secrets.DOCKERHUB_USERID }} --password '${{ secrets.DOCKERHUB_PASSWORD }}'
-        docker push pyrsiaos/pyrsia-node:latest
+        docker push pyrsiaoss/pyrsia-node:latest
