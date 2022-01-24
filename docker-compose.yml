@@ -2,8 +2,9 @@ services:
   pyrsia:
     image: pyrsia/node
     build:
+      context: .
       target: node
-    command: ["-p", "7888"]
+    command: ["-H" , "0.0.0.0", "-p", "7888"]
     stdin_open: true
     ports:
       - "7888:7888"
