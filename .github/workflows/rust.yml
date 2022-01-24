@@ -192,19 +192,29 @@ jobs:
       with:
         fetch-depth: 2
 
-    - name: Only build if DockerfileCodeCoverage changed
+    - name: Login to DockerHub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+    - name: Build and Push Docker Image for Pyrsia Node
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        push: true
+        file: installers/docker/AptGet.Dockerfile
+        tags: pyrsiaoss/pyrsia-node:latest
+
+    - name: Only build if CodeCoverage.Dockerfile changed
       uses: tj-actions/changed-files@v13.1
       id: changed-files
 
-    - name: Build Code Coverage Base Image
-      if: contains(steps.changed-files.outputs.all_changed_and_modified_files, 'DockerfileCodeCoverage')
-      run: | 
-        docker build -t pyrsiaoss/codecoverage:1.0 -f installers/docker/DockerfileCodeCoverage .
-        docker login --username ${{ secrets.DOCKERHUB_USERID }} --password '${{ secrets.DOCKERHUB_PASSWORD }}'
-        docker push pyrsiaoss/codecoverage:1.0
-
-    - name: Build Docker Image
-      run: |
-        docker build -t pyrsiaoss/pyrsia-node:latest -f installers/docker/DockerfileAptGet .
-        docker login --username ${{ secrets.DOCKERHUB_USERID }} --password '${{ secrets.DOCKERHUB_PASSWORD }}'
-        docker push pyrsiaoss/pyrsia-node:latest
+    - name: Build and Push Code Coverage Base Image
+      if: contains(steps.changed-files.outputs.all_changed_and_modified_files, 'CodeCoverage.Dockerfile')
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        push: true
+        file: installers/docker/CodeCoverage.Dockerfile
+        tags: pyrsiaoss/codecoverage:1.0
