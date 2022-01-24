@@ -37,6 +37,7 @@ RUN <<EOT bash
     set -e
     apt-get update
     apt-get install -y \
+        ca-certificates \
         openssl
     rm -rf /var/lib/apt/lists/*
 EOT
