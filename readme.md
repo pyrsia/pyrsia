@@ -32,13 +32,13 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
 2. Clone this repo `git clone https://github.com/pyrsia/pyrsia.git`
 3. `cd pyrsia/pyrsia_node`
 4. `cargo run`
-5. **configure Docker** to use Pyrsia, which is running on localhost port 7878\
+5. **configure Docker** to use Pyrsia, which is running on localhost port 7888\
     open your Docker daemon settings and add this entry in the root JSON object:
     
     **On Linux platforms**:
 
     ```
-      "registry-mirrors": ["http://localhost:7878"]
+      "registry-mirrors": ["http://localhost:7888"]
     ```    
     By default you can find the Docker daemon settings here `/etc/docker/daemon.json`. 
     
@@ -54,7 +54,7 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
 
     And then use that name in the Docker configuration file like this:
     ```
-    "registry-mirrors": ["http://my-pyrsia-host:7878"]
+    "registry-mirrors": ["http://my-pyrsia-host:7888"]
     ```
 
 6. using another terminal, use `docker` to pull an image from Pyrsia: 
@@ -78,7 +78,7 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
 
 8. Configure the CLI tool
     ```
-    ./pyrsia config --add localhost:7878
+    ./pyrsia config --add localhost:7888
     ```
 
 9. Ping the Pyrsia node and list the status
@@ -103,5 +103,5 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
     * macOS and Windows: Compose is included in Docker Desktop
     * Linux: [Downloaded Compose](https://github.com/docker/compose#linux)
 
-The Pyrsia node will then be running on localhost:7878 both on the host and 
+The Pyrsia node will then be running on localhost:7888 both on the host and 
 inside the VM, available to Docker Engine, in the case of Docker Desktop.

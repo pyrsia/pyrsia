@@ -56,7 +56,7 @@ use tokio::{
 use warp::Filter;
 
 const DEFAULT_HOST: &str = "127.0.0.1";
-const DEFAULT_PORT: &str = "7878";
+const DEFAULT_PORT: &str = "7888";
 
 #[tokio::main]
 async fn main() {
