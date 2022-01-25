@@ -24,7 +24,7 @@ use anyhow::{Context, Result};
 use byte_unit::Byte;
 use fs_extra::dir::get_size;
 use lazy_static::lazy_static;
-use log::{error, info,debug};
+use log::{debug, error, info};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::panic::UnwindSafe;
@@ -134,10 +134,7 @@ pub fn disk_usage() -> Result<f64, anyhow::Error> {
     debug!("total_allocated_size: {}", total_allocated_size);
 
     if total_allocated_size > disk_used_bytes {
-
-        disk_usage = (disk_used_bytes as f64 / total_allocated_size as f64) * 100 as f64;
-        debug!("disk_used: {}", disk_usage);
-
+        disk_usage = (disk_used_bytes as f64 / total_allocated_size as f64) * 100_f64;
     }
     Ok(disk_usage)
 }

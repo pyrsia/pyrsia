@@ -73,7 +73,6 @@ pub async fn handle_get_status(
         }));
     }
 
-
     let status = Status {
         artifact_count: art_count_result.unwrap(),
         peers_count: peers_total,
