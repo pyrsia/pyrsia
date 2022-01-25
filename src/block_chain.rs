@@ -18,3 +18,4 @@ pub mod api_handlers;
 pub mod block;
 #[allow(clippy::module_inception)]
 pub mod block_chain;
+pub mod header;
