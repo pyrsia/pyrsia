@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use crate::block_chain::block_chain::BlockChain;
+use crate::block_chain::block_chain::Blockchain;
 
 use super::handlers::swarm::*;
 use std::sync::Arc;
@@ -26,7 +26,7 @@ pub fn make_node_routes(
     tx: Sender<String>,
     rx: Arc<Mutex<Receiver<String>>>,
     get_blocks_tx: Sender<String>,
-    get_blocks_rx: Receiver<BlockChain>,
+    get_blocks_rx: Receiver<Blockchain>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let tx1 = tx.clone();
     let rx1 = rx.clone();

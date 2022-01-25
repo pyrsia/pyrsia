@@ -92,7 +92,7 @@ pub async fn handle_get_status(
 // TODO Move to block chain module
 pub async fn handle_get_blocks(
     tx: Sender<String>,
-    rx: Arc<Mutex<Receiver<BlockChain>>>,
+    rx: Arc<Mutex<Receiver<Blockchain>>>,
 ) -> Result<impl Reply, Rejection> {
     // Send "digested" request data to main
     match tx.send(String::from("blocks")).await {
