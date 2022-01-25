@@ -41,7 +41,7 @@ pub async fn handle_node_ping() {
     let result = ping().await;
     let _resp = match result {
         Ok(resp) => {
-            println!("Connection Successfull !! {}", resp)
+            println!("Connection Successfull !!")
         }
         Err(error) => {
             println!("Error: {}", error);

@@ -21,8 +21,10 @@ use super::Hash;
 
 use crate::metadata_manager::metadata::Metadata;
 use anyhow::{Context, Result};
+use byte_unit::Byte;
+use fs_extra::dir::get_size;
 use lazy_static::lazy_static;
-use log::{error, info};
+use log::{error, info,debug};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::panic::UnwindSafe;
@@ -30,6 +32,8 @@ use std::str;
 use std::{fs, panic};
 
 const ART_MGR_DIR: &str = "pyrsia";
+//TODO: read from CLI config file
+pub const ART_MGR_ALLOCATED_SIZE: &str = "10.84 GB";
 
 lazy_static! {
     pub static ref ART_MGR: ArtifactManager = {
@@ -63,7 +67,7 @@ fn log_static_initialization_failure<T: UnwindSafe>(
     match panic_wrapper {
         Ok(normal) => normal,
         Err(partially_unwound_panic) => {
-            error!("Initialization of {} paniced!", label);
+            error!("Initialization of {} panicked!", label);
             panic::resume_unwind(partially_unwound_panic)
         }
     }
@@ -92,18 +96,50 @@ pub fn put_artifact(
     let hash = Hash::new(HashAlgorithm::SHA256, artifact_hash)?;
     info!("put_artifact hash: {}", hash);
     let mut buf_reader = BufReader::new(art_reader);
-
     ART_MGR
         .push_artifact(&mut buf_reader, &hash)
         .context("Error from put_artifact")
 }
 
 pub fn get_arts_count() -> Result<usize, anyhow::Error> {
-    info!("get_pyrsia_status started");
+    info!("get_arts_count started");
 
     ART_MGR
         .artifacts_count(ART_MGR_DIR)
         .context("Error while getting artifacts count")
+}
+
+pub fn get_space_available() -> Result<u64, anyhow::Error> {
+    info!("get_space_available started");
+
+    let disk_used_bytes =
+        get_size(ART_MGR_DIR).context("Error while calculating the size of artifact manager")?;
+    let mut available_space: u64 = 0;
+    let total_allocated_size: u64 = Byte::from_str(ART_MGR_ALLOCATED_SIZE).unwrap().get_bytes();
+
+    if total_allocated_size > disk_used_bytes {
+        available_space = total_allocated_size - disk_used_bytes;
+    }
+    Ok(available_space)
+}
+
+pub fn disk_usage() -> Result<f64, anyhow::Error> {
+    info!("disk_usage started");
+
+    let disk_used_bytes =
+        get_size(ART_MGR_DIR).context("Error while calculating the size of artifact manager")?;
+    let total_allocated_size: u64 = Byte::from_str(ART_MGR_ALLOCATED_SIZE).unwrap().get_bytes();
+    let mut disk_usage: f64 = 0.0;
+    debug!("disk_used: {}", disk_used_bytes);
+    debug!("total_allocated_size: {}", total_allocated_size);
+
+    if total_allocated_size > disk_used_bytes {
+
+        disk_usage = (disk_used_bytes as f64 / total_allocated_size as f64) * 100 as f64;
+        debug!("disk_used: {}", disk_usage);
+
+    }
+    Ok(disk_usage)
 }
 
 #[cfg(test)]

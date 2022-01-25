@@ -16,8 +16,7 @@
 
 use super::{RegistryError, RegistryErrorCode};
 use crate::block_chain::block_chain::BlockChain;
-use crate::node_manager::{handlers::get_arts_count, model::cli::Status};
-
+use crate::node_manager::{handlers::*, model::cli::Status};
 use log::{debug, error, info};
 use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -67,11 +66,19 @@ pub async fn handle_get_status(
         }));
     }
 
+    let disk_space_result = disk_usage();
+    if disk_space_result.is_err() {
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown(disk_space_result.err().unwrap().to_string()),
+        }));
+    }
+
+
     let status = Status {
         artifact_count: art_count_result.unwrap(),
         peers_count: peers_total,
-        // TODO: placeholder disk space value, need implementation in upstream
-        disk_space_available: String::from("983112"),
+        disk_allocated: String::from(ART_MGR_ALLOCATED_SIZE),
+        disk_usage: format!("{:.4}", disk_space_result.unwrap()),
     };
 
     let ser_status = serde_json::to_string(&status).unwrap();
