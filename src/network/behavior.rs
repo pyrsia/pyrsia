@@ -16,7 +16,6 @@
 
 extern crate dirs;
 
-
 use crate::node_manager::handlers::ART_MGR;
 
 use libp2p::gossipsub;
@@ -117,7 +116,9 @@ impl NetworkBehaviourEventProcess<gossipsub::GossipsubEvent> for MyBehaviour {
                 info!("Start downloading {}", msg_data);
                 let server = "ws://localhost:8412/";
                 let pass = "donthackme";
-                let download_dir = ART_MGR.repository_path.clone()
+                let download_dir = ART_MGR
+                    .repository_path
+                    .clone()
                     .into_os_string()
                     .into_string()
                     .unwrap();
