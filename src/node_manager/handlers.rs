@@ -102,14 +102,12 @@ pub fn put_artifact(
 }
 
 pub fn get_arts_count() -> Result<usize, anyhow::Error> {
-
     ART_MGR
         .artifacts_count(ART_MGR_DIR)
         .context("Error while getting artifacts count")
 }
 
 pub fn get_space_available() -> Result<u64, anyhow::Error> {
-
     let disk_used_bytes =
         get_size(ART_MGR_DIR).context("Error while calculating the size of artifact manager")?;
     let mut available_space: u64 = 0;
@@ -122,7 +120,6 @@ pub fn get_space_available() -> Result<u64, anyhow::Error> {
 }
 
 pub fn disk_usage() -> Result<f64, anyhow::Error> {
-
     let disk_used_bytes =
         get_size(ART_MGR_DIR).context("Error while calculating the size of artifact manager")?;
     let total_allocated_size: u64 = Byte::from_str(ART_MGR_ALLOCATED_SIZE).unwrap().get_bytes();
