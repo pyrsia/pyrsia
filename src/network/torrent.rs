@@ -27,8 +27,8 @@ use std::process;
 
 use super::error::{ErrorKind, Result, ResultExt};
 use log::{error, info};
-use rpc::criterion::{Criterion, Operation, Value};
-use rpc::resource::{CResourceUpdate, Resource, ResourceKind, SResourceUpdate, Server};
+
+use rpc::resource::{Resource, SResourceUpdate};
 use synapse_rpc::message::{self, CMessage, SMessage};
 
 use super::client::Client;

@@ -26,9 +26,77 @@ There are two components of this project
 
 ### Getting Started
 
+For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsia node and use it as the registry for all Docker Hub content.
+
 1. Setup rust on your local machine as described in [Rust's getting started guide](https://www.rust-lang.org/learn/get-started)
-2. `cd pyrsia_node`
-3. `cargo run`
+2. Clone this repo `git clone https://github.com/pyrsia/pyrsia.git`
+3. `cd pyrsia/pyrsia_node`
+4. You have 2 options:
+   - regular build: `cargo run`
+   - build in docker: `docker-compose up --build`
+   
+5. **configure Docker** to use Pyrsia, which is running on localhost port 7888\
+    open your Docker daemon settings and add this entry in the root JSON object:
+    
+    **On Linux platforms**:
+
+    ```
+      "registry-mirrors": ["http://localhost:7888"]
+    ```    
+    By default you can find the Docker daemon settings here `/etc/docker/daemon.json`. 
+    
+    **On other platforms**:
+
+    You can find the Docker daemon settings in Docker Desktop -> Preferences -> Docker Engine.
+
+    If you're running Pyrsia inside Docker, the `registry-mirrors` settings can be set to `http://localhost:7888` as well. However if you're not running inside Docker, you cannot use `localhost` because localhost will point to the Docker Desktop VM. Instead you have to use the hostname of your host machine. If you don't know/have that, you can add this to `/etc/hosts` (on Mac) or `c:\windows\system32\drivers\etc\hosts` (on Windows):
+
+    ```
+    127.0.0.1       my-pyrsia-host
+    ```
+
+    And then use that name in the Docker configuration file like this:
+    ```
+    "registry-mirrors": ["http://my-pyrsia-host:7888"]
+    ```
+
+6. using another terminal, use `docker` to pull an image from Pyrsia: 
+    ```
+    docker pull ubuntu
+    ```
+   (or pull any other Docker image of your choice)
+
+    Optionally, you can inspect the Pyrsia node logs to check where the image came from. This can be either: 
+    - locally (if it was cached by Pyrsia before)
+    - from the Pyrsia network
+    - or from Docker Hub (if it wasn't previously available in the Pyrsia network)
+
+
+7. Build the CLI tool
+   ```
+   cd ../pyrsia_cli
+   cargo build
+   cd ../target/debug
+   ```
+
+8. Configure the CLI tool
+    ```
+    ./pyrsia config --add localhost:7888
+    ```
+
+9. Ping the Pyrsia node and list the status
+    ```
+    ./pyrsia node -p
+    Connection Successfull !! {}
+    ```
+
+    ```
+    ./pyrsia node -s
+    Connected Peers Count:   1
+    Artifacts Count:         12
+    Total Disk Available:    983112
+    ```
+
 
 ### Setting Up Visual Studio Code Debugger
 
@@ -41,5 +109,5 @@ There are two components of this project
     * macOS and Windows: Compose is included in Docker Desktop
     * Linux: [Downloaded Compose](https://github.com/docker/compose#linux)
 
-The Pyrsia node will then be running on localhost:7878 both on the host and 
+The Pyrsia node will then be running on localhost:7888 both on the host and 
 inside the VM, available to Docker Engine, in the case of Docker Desktop.

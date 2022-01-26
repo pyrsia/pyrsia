@@ -24,7 +24,6 @@
 
 extern crate anyhow;
 extern crate base64;
-extern crate chrono;
 extern crate log;
 extern crate openssl;
 extern crate serde;
@@ -37,7 +36,6 @@ use crate::signed::json_parser::{parse, JsonPathElement};
 use anyhow::{anyhow, Context, Result};
 use base64::decode_config;
 use base64::write::EncoderWriter;
-use chrono::{DateTime, SecondsFormat, Utc};
 use log::Level::Trace;
 use log::{debug, log_enabled, trace, warn};
 use openssl::pkey::{PKey, Private};
@@ -100,8 +98,8 @@ const DEFAULT_RSA_KEY_SIZE: u32 = 8192;
 pub struct Attestation {
     public_key: Option<Vec<u8>>,
     signature_algorithm: Option<JwsSignatureAlgorithms>,
-    timestamp: Option<DateTime<Utc>>,
-    expiration_time: Option<DateTime<Utc>>,
+    timestamp: Option<time::OffsetDateTime>,
+    expiration_time: Option<time::OffsetDateTime>,
     signature_is_valid: bool,
 }
 
@@ -117,12 +115,12 @@ impl Attestation {
     }
 
     /// The timestamp of the signature
-    pub fn timestamp(&self) -> &Option<DateTime<Utc>> {
+    pub fn timestamp(&self) -> &Option<time::OffsetDateTime> {
         &self.timestamp
     }
 
     /// The optional expiration time of the signature
-    pub fn expiration_time(&self) -> &Option<DateTime<Utc>> {
+    pub fn expiration_time(&self) -> &Option<time::OffsetDateTime> {
         &self.expiration_time
     }
 
@@ -168,12 +166,15 @@ fn public_key_from_json(json_header: &Value) -> Option<Vec<u8>> {
     }
 }
 
-fn date_time_from_json(json_header: &Value, field_name: &str) -> Option<DateTime<Utc>> {
+fn date_time_from_json(json_header: &Value, field_name: &str) -> Option<time::OffsetDateTime> {
     match &json_header[field_name] {
         Value::String(time_string) => {
             let unquoted_time_string: &str = time_string[1..time_string.len() - 1].as_ref();
-            match DateTime::parse_from_rfc3339(unquoted_time_string) {
-                Ok(datetime) => Some(DateTime::from(datetime)),
+            match time::OffsetDateTime::parse(
+                unquoted_time_string,
+                &time::format_description::well_known::Rfc3339,
+            ) {
+                Ok(datetime) => Some(datetime),
                 Err(err) => {
                     warn!("Datetime value in JSON field {} could not be parsed \"{}\". {}. Treating the field as missing", field_name, err, time_string);
                     None
@@ -189,7 +190,7 @@ fn date_time_from_json(json_header: &Value, field_name: &str) -> Option<DateTime
 ///
 /// This struct has the public and private keys as separate values in anticipation that quantum-
 /// resistant signature algorithms will require this.
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct SignatureKeyPair {
     pub signature_algorithm: JwsSignatureAlgorithms,
     pub private_key: Vec<u8>,
@@ -632,7 +633,9 @@ fn unicode_32_bit_to_string(u: &[u32]) -> String {
 
 // Now with millisecond precision and time zone "Z"
 pub fn now_as_iso8601_string() -> String {
-    Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
+    time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap()
 }
 
 fn create_jsw_header(

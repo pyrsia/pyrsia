@@ -18,16 +18,17 @@ use super::block_chain::Blockchain;
 
 use log::{debug, error, info};
 use std::sync::Arc;
-use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
-use warp::http::StatusCode;
-use warp::{Rejection, Reply};
 
 // Types of API requests
+#[allow(dead_code)]
 struct GetAllBlocks {}
+#[allow(dead_code)]
 struct GetBlockWithId {
     id: u32,
 }
+#[allow(dead_code)]
 struct PutNewData {
     data: String,
 }
@@ -35,6 +36,7 @@ struct PutNewData {
 // enum ApiMessage { Request(GetAllBlocks, GetAllBlocks, PutNewData), Answer([]Block, Block) }
 
 // Just one Channel
+#[allow(dead_code)]
 struct MessageHandler<Request, Answer> {
     tx: Sender<Request>,
     rx: Arc<Mutex<Receiver<Answer>>>,

@@ -16,7 +16,7 @@
 
 extern crate walkdir;
 
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{anyhow, bail, Context, Error, Result};
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
 use serde::{Deserialize, Serialize};
@@ -273,16 +273,8 @@ impl<'a> ArtifactManager {
                 repository_path: absolute_path,
             })
         } else {
-            Self::inaccessible_repo_directory_error(repository_path)
+            inaccessible_repo_directory_error(repository_path)
         }
-    }
-
-    fn inaccessible_repo_directory_error(repository_path: &str) -> Result<ArtifactManager, Error> {
-        error!(
-            "Unable to create ArtifactManager with inaccessible directory: {}",
-            repository_path
-        );
-        Err(anyhow!("Not an accessible directory: {}", repository_path))
     }
 
     pub fn artifacts_count(&self, repository_path: &str) -> Result<usize, Error> {
@@ -290,22 +282,16 @@ impl<'a> ArtifactManager {
 
         for file in WalkDir::new(repository_path)
             .into_iter()
-            .filter_entry(|path| Self::is_not_hidden(path))
+            .filter_entry(is_not_hidden)
             .filter_map(|file| file.ok())
         {
-            if file.metadata().unwrap().is_file() {
-                total_files += 1;
+            if let Ok(metadata) = file.metadata() {
+                if metadata.is_file() {
+                    total_files += 1;
+                }
             }
         }
         Ok(total_files)
-    }
-
-    fn is_not_hidden(entry: &DirEntry) -> bool {
-        entry
-            .file_name()
-            .to_str()
-            .map(|s| entry.depth() == 0 || !s.starts_with('.'))
-            .unwrap_or(false)
     }
 
     /// Push an artifact to this node's local repository.
@@ -328,61 +314,49 @@ impl<'a> ArtifactManager {
         // Write to a temporary name that won't be mistaken for a valid file. If the hash checks out, rename it to the base name; otherwise delete it.
         let tmp_path = tmp_path_from_base(&base_path);
 
-        match Self::create_artifact_file(&tmp_path) {
+        match create_artifact_file(&tmp_path) {
             Err(error) => file_creation_error(&tmp_path, error),
             Ok(out) => {
-                println!("hash is {}", expected_hash);
-                let mut hash_buffer: [u8; 128] = [0; 128];
+                debug!("hash is {}", expected_hash);
+                let mut hash_buffer = [0; HASH_BUFFER_SIZE];
                 let actual_hash =
-                    &*Self::do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
+                    &*do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
                 if actual_hash == expected_hash.bytes {
-                    Self::rename_to_permanent(expected_hash, base_path, &tmp_path)
+                    rename_to_permanent(expected_hash, base_path, &tmp_path)
                 } else {
-                    Self::handle_wrong_hash(expected_hash, tmp_path, actual_hash)
+                    handle_wrong_hash(expected_hash, tmp_path, actual_hash)
                 }
             }
         }
     }
 
-    fn create_artifact_file(tmp_path: &Path) -> std::io::Result<File> {
-        OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(tmp_path)
-    }
-
-    fn handle_wrong_hash(
-        expected_hash: &Hash,
-        tmp_path: PathBuf,
-        actual_hash: &[u8],
-    ) -> Result<bool, Error> {
-        fs::remove_file(tmp_path.clone()).with_context(|| {
-            format!(
-                "Attempted to remove {} because its content has the wrong hash.",
-                tmp_path.to_str().unwrap()
-            )
-        })?;
-        warn!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}", expected_hash, expected_hash.algorithm, hex::encode(actual_hash));
-        Err(anyhow!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}", expected_hash, expected_hash.algorithm, hex::encode(actual_hash)))
-    }
-
-    fn rename_to_permanent(
-        expected_hash: &Hash,
-        base_path: PathBuf,
-        tmp_path: &Path,
-    ) -> Result<bool, anyhow::Error> {
-        fs::rename(tmp_path.to_path_buf(), base_path.clone()).with_context(|| {
-            format!(
-                "Attempting to rename from temporary file name{} to permanent{}",
-                tmp_path.to_str().unwrap(),
-                base_path.to_str().unwrap()
-            )
-        })?;
+    /// Move a file from a local directory to this node's local repository.
+    /// Parameters are:
+    /// * path — The path of the file to be moved and renamed.
+    /// * expected_hash — The hash value that the pushed artifact is expected to have.
+    /// Returns true if it created the artifact local or false if the artifact already existed. If
+    /// the artifact already existed, it deletes rather than removes the file.
+    pub fn move_from(&self, path: &Path, expected_hash: &Hash) -> Result<bool, anyhow::Error> {
         debug!(
-            "Artifact has the expected hash available locally {}",
-            expected_hash
+            "Attempting to move file to the artifact manager: {}",
+            path.display()
         );
-        Ok(true)
+        let mut reader =
+            File::open(path).with_context(|| format!("Failed to open {}", path.display()))?;
+
+        let computed_hash = compute_hash_of_file(&mut reader, path, &expected_hash.algorithm)?;
+        if expected_hash.bytes != computed_hash {
+            bail!(
+                "{} does not have the expected hash value {}:{}\nActual hash is {}:{}",
+                path.display(),
+                expected_hash.algorithm,
+                hex::encode(computed_hash),
+                expected_hash.algorithm,
+                hex::encode(expected_hash.bytes)
+            )
+        }
+        let target_path = self.file_path_for_new_artifact(expected_hash);
+        rename_to_permanent(expected_hash, target_path, path)
     }
 
     fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> PathBuf {
@@ -390,50 +364,6 @@ impl<'a> ArtifactManager {
         // for now all artifacts are unstructured
         base_path.set_extension("file");
         base_path
-    }
-
-    fn do_push<'b>(
-        reader: &mut impl Read,
-        expected_hash: &Hash,
-        path: &Path,
-        out: File,
-        hash_buffer: &'b mut [u8; 128],
-    ) -> Result<&'b [u8], Error> {
-        let mut buf_writer: BufWriter<File> = BufWriter::new(out);
-        let mut digester = expected_hash.algorithm.digest_factory();
-        let mut writer = WriteHashDecorator::new(&mut buf_writer, &mut digester);
-
-        Self::copy_from_reader_to_writer(reader, path, &mut writer)
-            .with_context(|| format!("Error writing contents of {}", expected_hash))?;
-        Ok(Self::actual_hash(hash_buffer, &mut digester))
-    }
-
-    fn actual_hash<'b>(
-        hash_buffer: &'b mut [u8; 128],
-        digester: &mut Box<dyn Digester>,
-    ) -> &'b mut [u8] {
-        let buffer_slice: &mut [u8] = &mut hash_buffer[..digester.hash_size_in_bytes()];
-        digester.finalize_hash(buffer_slice);
-        buffer_slice
-    }
-
-    fn copy_from_reader_to_writer(
-        reader: &mut impl Read,
-        path: &Path,
-        mut writer: &mut WriteHashDecorator,
-    ) -> Result<(), Error> {
-        io::copy(reader, &mut writer).with_context(|| {
-            format!(
-                "Error while copying artifact contents to {}",
-                path.display()
-            )
-        })?;
-        writer.flush().with_context(|| {
-            format!(
-                "Error while flushing last of artifact contents to {}",
-                path.display()
-            )
-        })
     }
 
     /// Pull an artifact. The current implementation only looks in the local node's repository.
@@ -453,15 +383,139 @@ impl<'a> ArtifactManager {
     }
 }
 
+fn compute_hash_of_file<'a>(
+    reader: &mut impl Read,
+    path: &'a Path,
+    algorithm: &HashAlgorithm,
+) -> Result<Vec<u8>, anyhow::Error> {
+    let mut digester = algorithm.digest_factory();
+    const READ_BUFFER_SIZE: usize = 32768;
+    let mut read_buffer = [0u8; READ_BUFFER_SIZE];
+    loop {
+        let bytes_read = reader
+            .read(&mut read_buffer)
+            .with_context(|| format!("Error reading {}", path.display()))?;
+        if bytes_read == 0 {
+            break;
+        }
+        digester.update_hash(&read_buffer[..bytes_read]);
+    }
+    let mut hash_buffer = [0u8; HASH_BUFFER_SIZE];
+    Ok(actual_hash(&mut hash_buffer, &mut digester).to_vec())
+}
+
+fn inaccessible_repo_directory_error(repository_path: &str) -> Result<ArtifactManager, Error> {
+    error!(
+        "Unable to create ArtifactManager with inaccessible directory: {}",
+        repository_path
+    );
+    Err(anyhow!("Not an accessible directory: {}", repository_path))
+}
+
+fn is_not_hidden(entry: &DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| entry.depth() == 0 || !s.starts_with('.'))
+        .unwrap_or(false)
+}
+
+fn create_artifact_file(tmp_path: &Path) -> std::io::Result<File> {
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(tmp_path)
+}
+
+fn handle_wrong_hash(
+    expected_hash: &Hash,
+    tmp_path: PathBuf,
+    actual_hash: &[u8],
+) -> Result<bool, Error> {
+    fs::remove_file(tmp_path.clone()).with_context(|| {
+        format!(
+            "Attempted to remove {} because its content has the wrong hash.",
+            tmp_path.to_str().unwrap()
+        )
+    })?;
+    let msg = format!("Contents of artifact did not have the expected hash value of {}. The actual hash was {}:{}",
+                      expected_hash, expected_hash.algorithm, hex::encode(actual_hash));
+    warn!("{}", msg);
+    bail!("{}", msg)
+}
+
+fn rename_to_permanent(
+    expected_hash: &Hash,
+    base_path: PathBuf,
+    tmp_path: &Path,
+) -> Result<bool, anyhow::Error> {
+    fs::rename(tmp_path.to_path_buf(), base_path.clone()).with_context(|| {
+        format!(
+            "Attempting to rename from temporary file name{} to permanent{}",
+            tmp_path.to_str().unwrap(),
+            base_path.to_str().unwrap()
+        )
+    })?;
+    debug!(
+        "Artifact has the expected hash available locally {}",
+        expected_hash
+    );
+    Ok(true)
+}
+
+fn do_push<'b>(
+    reader: &mut impl Read,
+    expected_hash: &Hash,
+    path: &Path,
+    out: File,
+    hash_buffer: &'b mut [u8; HASH_BUFFER_SIZE],
+) -> Result<&'b [u8], Error> {
+    let mut buf_writer: BufWriter<File> = BufWriter::new(out);
+    let mut digester = expected_hash.algorithm.digest_factory();
+    let mut writer = WriteHashDecorator::new(&mut buf_writer, &mut digester);
+
+    copy_from_reader_to_writer(reader, path, &mut writer)
+        .with_context(|| format!("Error writing contents of {}", expected_hash))?;
+    Ok(actual_hash(hash_buffer, &mut digester))
+}
+
+const HASH_BUFFER_SIZE: usize = 128;
+
+fn actual_hash<'b>(
+    hash_buffer: &'b mut [u8; HASH_BUFFER_SIZE],
+    digester: &mut Box<dyn Digester>,
+) -> &'b mut [u8] {
+    let buffer_slice: &mut [u8] = &mut hash_buffer[..digester.hash_size_in_bytes()];
+    digester.finalize_hash(buffer_slice);
+    buffer_slice
+}
+
+fn copy_from_reader_to_writer(
+    reader: &mut impl Read,
+    path: &Path,
+    mut writer: &mut WriteHashDecorator,
+) -> Result<(), Error> {
+    io::copy(reader, &mut writer).with_context(|| {
+        format!(
+            "Error while copying artifact contents to {}",
+            path.display()
+        )
+    })?;
+    writer.flush().with_context(|| {
+        format!(
+            "Error while flushing last of artifact contents to {}",
+            path.display()
+        )
+    })
+}
+
 fn file_creation_error(base_path: &Path, error: std::io::Error) -> Result<bool, Error> {
     error!("I/O error {} on {}", error, base_path.display());
-    let result = match error.kind() {
+    match error.kind() {
         io::ErrorKind::AlreadyExists => Ok(false),
         _ => Err(anyhow!(error.to_string())),
     }
-    .with_context(|| format!("Error creating file {}", base_path.display()));
-
-    result
+    .with_context(|| format!("Error creating file {}", base_path.display()))
 }
 
 // Return a temporary file name to use for the file until we have verified that the hash is correct.
@@ -475,7 +529,7 @@ fn file_creation_error(base_path: &Path, error: std::io::Error) -> Result<bool, 
 fn tmp_path_from_base(base: &Path) -> PathBuf {
     let mut tmp_buf = base.to_path_buf();
     let file_name: &OsStr = base.file_name().unwrap();
-    tmp_buf.set_file_name(format!("X{}", file_name.to_str().unwrap()));
+    tmp_buf.set_file_name(format!("l0-{}", file_name.to_str().unwrap()));
     tmp_buf
 }
 
@@ -493,9 +547,11 @@ mod tests {
     use anyhow::{anyhow, Context};
     use env_logger::Target;
     use log::{info, LevelFilter};
+    use rand::{Rng, RngCore};
+    use std::env;
     use std::fs;
     use std::io::Read;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
     use stringreader::StringReader;
 
@@ -568,13 +624,10 @@ mod tests {
     }
 
     #[test]
-    pub fn happy_push_pull_test() -> Result<(), anyhow::Error> {
+    pub fn push_artifact_then_pull_it() -> Result<(), anyhow::Error> {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
         let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
-        let dir_name = tmp_dir_name("tmp");
-        println!("tmp dir: {}", dir_name);
-        fs::create_dir(dir_name.clone())
-            .context(format!("Error creating directory {}", dir_name.clone()))?;
+        let dir_name = create_tmp_dir("tmp")?;
         let am: ArtifactManager =
             ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
         am.push_artifact(&mut string_reader, &hash)
@@ -594,8 +647,7 @@ mod tests {
         reader.read_to_string(&mut read_buffer)?;
         assert_eq!(TEST_ARTIFACT_DATA, read_buffer);
 
-        fs::remove_dir_all(dir_name.clone())
-            .context(format!("Error removing directory {}", dir_name))?;
+        remove_dir_all(&dir_name);
         Ok(())
     }
 
@@ -604,10 +656,7 @@ mod tests {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
         let hash_algorithm = HashAlgorithm::str_to_hash_algorithm("SHA256")?;
         let hash = Hash::new(hash_algorithm, &WRONG_ARTIFACT_HASH)?;
-        let dir_name = tmp_dir_name("TmpW");
-        println!("tmp dir: {}", dir_name);
-        fs::create_dir(dir_name.clone())
-            .context(format!("Error creating directory {}", dir_name.clone()))?;
+        let dir_name = create_tmp_dir("TmpW")?;
         let am: ArtifactManager =
             ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
         let ok = match am
@@ -619,18 +668,14 @@ mod tests {
             )),
             Err(_) => Ok(()),
         };
-        fs::remove_dir_all(dir_name.clone())
-            .expect(&format!("unable to remove temp directory {}", dir_name));
+        remove_dir_all(&dir_name);
         ok
     }
 
     #[test]
     pub fn pull_nonexistent_test() -> Result<(), anyhow::Error> {
         let hash = Hash::new(HashAlgorithm::SHA256, &WRONG_ARTIFACT_HASH)?;
-        let dir_name = tmp_dir_name("TmpR");
-        println!("tmp dir: {}", dir_name);
-        fs::create_dir(dir_name.clone())
-            .context(format!("Error creating directory {}", dir_name.clone()))?;
+        let dir_name = create_tmp_dir("TmpR")?;
         let am: ArtifactManager =
             ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
         let ok = match am.pull_artifact(&hash).context("Error from push_artifact") {
@@ -639,9 +684,21 @@ mod tests {
             )),
             Err(_) => Ok(()),
         };
+        remove_dir_all(&dir_name);
+        ok
+    }
+
+    fn create_tmp_dir(prefix: &str) -> Result<String> {
+        let dir_name = tmp_dir_name(prefix);
+        debug!("tmp dir: {}", dir_name);
+        fs::create_dir(dir_name.clone())
+            .context(format!("Error creating directory {}", dir_name.clone()))?;
+        Ok(dir_name)
+    }
+
+    fn remove_dir_all(dir_name: &String) {
         fs::remove_dir_all(dir_name.clone())
             .expect(&format!("unable to remove temp directory {}", dir_name));
-        ok
     }
 
     pub fn tmp_dir_name(prefix: &str) -> String {
@@ -653,5 +710,60 @@ mod tests {
                 .expect("Time went backwards")
                 .as_millis()
         );
+    }
+
+    #[test]
+    pub fn test_move_from_expecting_success() -> Result<()> {
+        let test_data_buffer = create_random_content();
+        let file_path = temp_file_path();
+        write_data_to_test_file(&test_data_buffer, &*file_path)?;
+        assert!(fs::metadata(&file_path).unwrap().is_file());
+
+        let algorithm = HashAlgorithm::SHA512;
+        let hash_value = compute_data_hash(&test_data_buffer);
+        let expected_hash = Hash::new(algorithm, &hash_value)?;
+
+        let dir_name = create_tmp_dir("TmpM")?;
+        let am: ArtifactManager =
+            ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
+        am.move_from(&file_path, &expected_hash)
+            .context("Error from move_from")?;
+
+        assert!(fs::metadata(&file_path).is_err()); // File should have been moved
+        am.pull_artifact(&expected_hash)?; // should be able to pull
+
+        remove_dir_all(&dir_name);
+        Ok(())
+    }
+
+    fn compute_data_hash(test_data_buffer: &[u8; 77777]) -> [u8; 64] {
+        let mut digester = HashAlgorithm::SHA512.digest_factory();
+        digester.update_hash(&test_data_buffer[..]);
+        let mut hash_buffer = [0u8; 64];
+        digester.finalize_hash(&mut hash_buffer);
+        hash_buffer
+    }
+
+    fn write_data_to_test_file(test_data_buffer: &[u8; 77777], file_path: &Path) -> Result<()> {
+        let mut file = File::create(file_path)?;
+        file.write(&test_data_buffer[..])?;
+        Ok(())
+    }
+
+    fn temp_file_path() -> PathBuf {
+        let random_number = rand::thread_rng().next_u64();
+        let tmp_name = format!("T{}.tmp", random_number);
+        let mut file_path = env::temp_dir();
+        file_path.push(Path::new(&tmp_name));
+        file_path
+    }
+
+    fn create_random_content() -> [u8; 77777] {
+        let mut data_buffer = [0u8; 77777];
+        let mut rng = rand::thread_rng();
+        for i in 0..data_buffer.len() {
+            data_buffer[i] = rng.gen();
+        }
+        data_buffer
     }
 }
