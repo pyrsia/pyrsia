@@ -21,6 +21,8 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use lava_torrent::bencode::BencodeElem;
 use lava_torrent::torrent;
 use lava_torrent::torrent::v1::Torrent;
+use libp2p::kad::store::{MemoryStore, RecordStore};
+use libp2p::kad::Kademlia;
 use libp2p::PeerId;
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
@@ -36,8 +38,6 @@ use std::path;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::RwLock;
-use libp2p::kad::Kademlia;
-use libp2p::kad::store::{MemoryStore, RecordStore};
 use strum::IntoEnumIterator;
 use strum_macros::{EnumIter, EnumString};
 use walkdir::{DirEntry, WalkDir};
@@ -266,7 +266,7 @@ impl<'a> Write for WriteHashDecorator<'a> {
 pub struct ArtifactManager<'a> {
     pub repository_path: PathBuf,
     peer_id: RwLock<Option<PeerId>>,
-    dht: RwLock<Option<&'a Kademlia<dyn RecordStore<'a>>>>
+    dht: RwLock<Option<&'a Kademlia<dyn RecordStore<'a>>>>,
 }
 
 const FILE_EXTENSION: &str = "file";
@@ -285,7 +285,7 @@ impl<'a> ArtifactManager {
             Ok(ArtifactManager {
                 repository_path: absolute_path,
                 peer_id: RwLock::new(None),
-                dht: RwLock::new(None)
+                dht: RwLock::new(None),
             })
         } else {
             inaccessible_repo_directory_error(repository_path)
