@@ -30,6 +30,7 @@ use std::collections::hash_map::DefaultHasher;
 
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
+use crate::node_manager::handlers::ART_MGR;
 
 pub type MyBehaviourSwarm = Swarm<MyBehaviour>;
 
@@ -44,6 +45,7 @@ pub async fn new(
     //create kad
     let store = MemoryStore::new(local_peer_id);
     let kademlia = Kademlia::new(local_peer_id, store);
+    ART_MGR.set_peer_id(local_peer_id).expect("Failed to set peer_id in artifact manager.");
 
     // To content-address message, we can take the hash of message and use it as an ID.
     let message_id_fn = |message: &GossipsubMessage| {
