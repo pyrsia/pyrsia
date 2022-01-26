@@ -36,6 +36,8 @@ use std::path;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::RwLock;
+use libp2p::kad::Kademlia;
+use libp2p::kad::store::{MemoryStore, RecordStore};
 use strum::IntoEnumIterator;
 use strum_macros::{EnumIter, EnumString};
 use walkdir::{DirEntry, WalkDir};
@@ -261,9 +263,10 @@ impl<'a> Write for WriteHashDecorator<'a> {
 /// contents are the artifact having the same hash as indicated by the file name. Other extensions
 /// may be used in the future to indicate that the file has a particular internal structure that
 /// Pyrsia needs to know about.
-pub struct ArtifactManager {
+pub struct ArtifactManager<'a> {
     pub repository_path: PathBuf,
     peer_id: RwLock<Option<PeerId>>,
+    dht: RwLock<Option<&'a Kademlia<dyn RecordStore<'a>>>>
 }
 
 const FILE_EXTENSION: &str = "file";
@@ -282,6 +285,7 @@ impl<'a> ArtifactManager {
             Ok(ArtifactManager {
                 repository_path: absolute_path,
                 peer_id: RwLock::new(None),
+                dht: RwLock::new(None)
             })
         } else {
             inaccessible_repo_directory_error(repository_path)
@@ -423,6 +427,35 @@ impl<'a> ArtifactManager {
             }
             Err(_) => Err(anyhow!(
                 "Unable to access ArtifactManager.peer_id due to a previous panic"
+            )),
+        }
+    }
+
+    pub fn set_dht(&self, dht: &Kademlia<dyn RecordStore>) -> Result<()> {
+        // Because artifact manager is allocated statically, no mutable references are allowed to it.
+        // To allow a set method from an immutable borrow, we are using interior mutability
+        match self.dht.try_write() {
+            Ok(mut guard) => {
+                *guard = Some(dht);
+                Ok(())
+            }
+            Err(error) => bail!("Error setting ArtifactManager.dht: {}", error),
+        }
+    }
+
+    pub fn get_dht(&self) -> Result<&Kademlia<dyn RecordStore>> {
+        // Because artifact manager is allocated statically, no mutable references are allowed to it.
+        // To allow a set method from an immutable borrow, we are using interior mutability
+        match self.dht.read() {
+            Ok(guard) => {
+                if (*guard).is_some() {
+                    Ok((*guard).unwrap())
+                } else {
+                    bail!("Attempt to read ArtifactManager.dht before it is set!")
+                }
+            }
+            Err(_) => Err(anyhow!(
+                "Unable to access ArtifactManager.dht due to a previous panic"
             )),
         }
     }
