@@ -15,7 +15,7 @@
 */
 
 use super::{RegistryError, RegistryErrorCode};
-use crate::block_chain::block_chain::BlockChain;
+use crate::block_chain::block_chain::Blockchain;
 use crate::node_manager::{handlers::*, model::cli::Status};
 use log::{debug, error, info};
 use std::sync::Arc;
