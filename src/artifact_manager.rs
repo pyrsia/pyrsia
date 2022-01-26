@@ -17,6 +17,7 @@
 extern crate walkdir;
 
 use anyhow::{anyhow, bail, Context, Error, Result};
+use fs_extra::dir::get_size;
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
 use serde::{Deserialize, Serialize};
@@ -292,6 +293,10 @@ impl<'a> ArtifactManager {
             }
         }
         Ok(total_files)
+    }
+
+    pub fn space_used(&self, repository_path: &str) -> Result<u64, Error> {
+        get_size(repository_path).context("Error while calculating the size of artifact manager")
     }
 
     /// Push an artifact to this node's local repository.
