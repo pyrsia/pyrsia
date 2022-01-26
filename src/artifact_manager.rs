@@ -36,7 +36,6 @@ use std::path;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::RwLock;
-use std::time::{SystemTime, UNIX_EPOCH};
 use strum::IntoEnumIterator;
 use strum_macros::{EnumIter, EnumString};
 use walkdir::{DirEntry, WalkDir};
@@ -267,8 +266,8 @@ pub struct ArtifactManager {
     peer_id: RwLock<Option<PeerId>>,
 }
 
-const FILE_EXTENSION: &'static str = "file";
-const TORRENT_EXTENSION: &'static str = "torrent";
+const FILE_EXTENSION: &str = "file";
+const TORRENT_EXTENSION: &str = "torrent";
 
 impl<'a> ArtifactManager {
     /// Create a new ArtifactManager that works with artifacts in the given directory
@@ -338,7 +337,7 @@ impl<'a> ArtifactManager {
                     let peer_id_string = self
                         .get_peer_id()
                         .map(|id| id.to_base58())
-                        .unwrap_or("*** Uninitialized ***".to_string());
+                        .unwrap_or_else(|_| "*** Uninitialized ***".to_string());
                     create_torrent_file_from(&base_path, peer_id_string)
                 } else {
                     handle_wrong_hash(expected_hash, tmp_path, actual_hash)
@@ -422,9 +421,9 @@ impl<'a> ArtifactManager {
                     bail!("Attempt to read ArtifactManager.peer_id before it is set!")
                 }
             }
-            Err(_) => Err(anyhow!(format!(
+            Err(_) => Err(anyhow!(
                 "Unable to access ArtifactManager.peer_id due to a previous panic"
-            ))),
+            )),
         }
     }
 }
@@ -450,9 +449,9 @@ fn compute_hash_of_file<'a>(
     Ok(actual_hash(&mut hash_buffer, &mut digester).to_vec())
 }
 
-fn create_torrent_file_from(path: &PathBuf, peer_id: String) -> Result<bool> {
+fn create_torrent_file_from(path: &Path, peer_id: String) -> Result<bool> {
     let torrent_content = create_torrent_content(path, peer_id)?;
-    let mut torrent_path = path.clone();
+    let mut torrent_path = path.to_path_buf();
     torrent_path.set_extension(TORRENT_EXTENSION);
     write_torrent_to_file(torrent_content, torrent_path)?;
     Ok(true)
@@ -474,7 +473,7 @@ fn write_torrent_to_file(torrent_content: Torrent, torrent_path: PathBuf) -> Res
 
 const DEFAULT_TORRENT_PIECE_SIZE: i64 = 1048576;
 
-fn create_torrent_content(path: &PathBuf, peer_id: String) -> Result<Torrent> {
+fn create_torrent_content(path: &Path, peer_id: String) -> Result<Torrent> {
     match torrent::v1::TorrentBuilder::new(path, DEFAULT_TORRENT_PIECE_SIZE)
         .add_extra_field(
             "x_create_by".to_string(),
@@ -529,10 +528,10 @@ fn handle_wrong_hash(
 
 fn rename_to_permanent(
     expected_hash: &Hash,
-    base_path: &PathBuf,
+    base_path: &Path,
     tmp_path: &Path,
 ) -> Result<bool, anyhow::Error> {
-    fs::rename(tmp_path.to_path_buf(), base_path.clone()).with_context(|| {
+    fs::rename(tmp_path.to_path_buf(), base_path.to_path_buf()).with_context(|| {
         format!(
             "Attempting to rename from temporary file name{} to permanent{}",
             tmp_path.to_str().unwrap(),
@@ -636,6 +635,7 @@ mod tests {
     use std::fs;
     use std::io::Read;
     use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
     use stringreader::StringReader;
 
     pub use super::*;
