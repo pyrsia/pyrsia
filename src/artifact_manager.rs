@@ -335,7 +335,11 @@ impl<'a> ArtifactManager {
                     &*do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
                 if actual_hash == expected_hash.bytes {
                     rename_to_permanent(expected_hash, &base_path, &tmp_path)?;
-                    create_torrent_file_from(&base_path)
+                    let peer_id_string = self
+                        .get_peer_id()
+                        .map(|id| id.to_base58())
+                        .unwrap_or("*** Uninitialized ***".to_string());
+                    create_torrent_file_from(&base_path, peer_id_string)
                 } else {
                     handle_wrong_hash(expected_hash, tmp_path, actual_hash)
                 }
@@ -446,8 +450,8 @@ fn compute_hash_of_file<'a>(
     Ok(actual_hash(&mut hash_buffer, &mut digester).to_vec())
 }
 
-fn create_torrent_file_from(path: &PathBuf) -> Result<bool> {
-    let torrent_content = create_torrent_content(path)?;
+fn create_torrent_file_from(path: &PathBuf, peer_id: String) -> Result<bool> {
+    let torrent_content = create_torrent_content(path, peer_id)?;
     let mut torrent_path = path.clone();
     torrent_path.set_extension(TORRENT_EXTENSION);
     write_torrent_to_file(torrent_content, torrent_path)?;
@@ -468,11 +472,13 @@ fn write_torrent_to_file(torrent_content: Torrent, torrent_path: PathBuf) -> Res
     }
 }
 
-fn create_torrent_content(path: &PathBuf) -> Result<Torrent> {
-    match torrent::v1::TorrentBuilder::new(path, 1048576)
+const DEFAULT_TORRENT_PIECE_SIZE: i64 = 1048576;
+
+fn create_torrent_content(path: &PathBuf, peer_id: String) -> Result<Torrent> {
+    match torrent::v1::TorrentBuilder::new(path, DEFAULT_TORRENT_PIECE_SIZE)
         .add_extra_field(
             "x_create_by".to_string(),
-            BencodeElem::String("Pyrsia Node".to_string()),
+            BencodeElem::String(format!("Pyrsia Node: {}", peer_id)),
         )
         .build()
     {
@@ -624,6 +630,7 @@ mod tests {
     use anyhow::{anyhow, Context};
     use env_logger::Target;
     use log::{info, LevelFilter};
+    use num_traits::cast::AsPrimitive;
     use rand::{Rng, RngCore};
     use std::env;
     use std::fs;
@@ -709,6 +716,7 @@ mod tests {
         am.push_artifact(&mut string_reader, &hash)
             .context("Error from push_artifact")?;
 
+        // Check that artifact file was written correctly
         let mut path_buf = PathBuf::from(dir_name.clone());
         path_buf.push("SHA256");
         path_buf.push(hex::encode(TEST_ARTIFACT_HASH));
@@ -716,12 +724,31 @@ mod tests {
         let content_vec = fs::read(path_buf.as_path()).context("reading pushed file")?;
         assert_eq!(content_vec.as_slice(), TEST_ARTIFACT_DATA.as_bytes());
 
-        path_buf.set_extension(TORRENT_EXTENSION);
-        fs::metadata(path_buf.clone()).expect(&format!(
-            "Expectd torrent file to exist: {}",
-            path_buf.display()
-        ));
+        // Check that torrent file was written correctly
+        let mut torrent_path_buf = path_buf.clone();
+        torrent_path_buf.set_extension(TORRENT_EXTENSION);
+        let torrent =
+            torrent::v1::Torrent::read_from_file(torrent_path_buf).expect("Reading torrent file");
+        assert!(torrent.announce.is_none());
+        let file_metadata = fs::metadata(path_buf.clone())
+            .expect(&format!("Expected file to exist: {}", path_buf.display()));
+        let torrent_length_as_u64: u64 = torrent.length.as_();
+        assert_eq!(
+            file_metadata.len(),
+            torrent_length_as_u64,
+            "file length in torrent"
+        );
+        assert_eq!(
+            path_buf.file_name().unwrap().to_str().unwrap(),
+            &torrent.name,
+            "file name in torrent"
+        );
+        assert_eq!(
+            DEFAULT_TORRENT_PIECE_SIZE, torrent.piece_length,
+            "piece length"
+        );
 
+        // Check that we can pull the artifact
         let mut reader = am
             .pull_artifact(&hash)
             .context("Error from pull_artifact")?;
