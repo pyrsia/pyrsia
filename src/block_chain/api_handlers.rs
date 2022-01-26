@@ -14,9 +14,6 @@
    limitations under the License.
 */
 
-use super::block_chain::Blockchain;
-
-use log::{debug, error, info};
 use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;

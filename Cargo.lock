@@ -3006,9 +3006,13 @@ dependencies = [
  "libp2p",
  "log",
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
  "maplit",
 >>>>>>> 8061a386b678269cd03440f8ab39dc04df5b3c47
+=======
+ "maplit",
+>>>>>>> pyrsia-main
  "multihash 0.15.0",
  "once_cell",
  "pretty_env_logger",

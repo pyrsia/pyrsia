@@ -135,7 +135,20 @@ mod tests {
         //put the artifact
         put_artifact(&GOOD_ART_HASH, Box::new(reader)).context("Error from put_artifact")?;
 
-        // pull artiafct
+        //validate pushed artifact with actual data
+        let mut push_art_path = PathBuf::from(ART_MGR_DIR);
+        push_art_path.push("SHA256");
+        push_art_path.push(hex::encode(GOOD_ART_HASH));
+        push_art_path.set_extension("file");
+        println!("reading artifact path is: {}", push_art_path.display());
+        let content_vec = fs::read(push_art_path.as_path()).context("reading pushed file")?;
+
+        let test_art_path = PathBuf::from(path.as_str());
+        let actual_content_vec = fs::read(test_art_path.as_path()).context("reading test file")?;
+
+        assert_eq!(content_vec.as_slice(), actual_content_vec.as_slice());
+
+        // pull artifact
         let file = get_artifact(&GOOD_ART_HASH, HashAlgorithm::SHA256)
             .context("Error from get_artifact")?;
 
