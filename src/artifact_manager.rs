@@ -454,10 +454,17 @@ fn create_torrent_file_from(path: &PathBuf) -> Result<bool> {
     Ok(true)
 }
 
-fn write_torrent_to_file(torrent_content: Torrent, torrent_path: PathBuf) -> Result<()>{
+fn write_torrent_to_file(torrent_content: Torrent, torrent_path: PathBuf) -> Result<()> {
     match torrent_content.write_into_file(torrent_path.clone()) {
-        Ok(_) => Ok(()),
-        Err(error) => bail!("Error writing torrent to file {}: {}", torrent_path.display(), error)
+        Ok(_) => {
+            debug!("Wrote torrent file: {}", torrent_path.display());
+            Ok(())
+        }
+        Err(error) => bail!(
+            "Error writing torrent to file {}: {}",
+            torrent_path.display(),
+            error
+        ),
     }
 }
 
@@ -708,6 +715,12 @@ mod tests {
         path_buf.set_extension(FILE_EXTENSION);
         let content_vec = fs::read(path_buf.as_path()).context("reading pushed file")?;
         assert_eq!(content_vec.as_slice(), TEST_ARTIFACT_DATA.as_bytes());
+
+        path_buf.set_extension(TORRENT_EXTENSION);
+        fs::metadata(path_buf.clone()).expect(&format!(
+            "Expectd torrent file to exist: {}",
+            path_buf.display()
+        ));
 
         let mut reader = am
             .pull_artifact(&hash)
