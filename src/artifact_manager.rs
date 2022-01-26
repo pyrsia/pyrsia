@@ -286,6 +286,14 @@ impl<'a> ArtifactManager {
         Err(anyhow!("Not an accessible directory: {}", repository_path))
     }
 
+    fn is_not_hidden(entry: &DirEntry) -> bool {
+        entry
+            .file_name()
+            .to_str()
+            .map(|s| entry.depth() == 0 || !s.starts_with('.'))
+            .unwrap_or(false)
+    }
+
     pub fn artifacts_count(&self, repository_path: &str) -> Result<usize, Error> {
         let mut total_files = 0;
 
@@ -303,14 +311,6 @@ impl<'a> ArtifactManager {
 
     pub fn space_used(&self, repository_path: &str) -> Result<u64, Error> {
         get_size(repository_path).context("Error while calculating the size of artifact manager")
-    }
-
-    fn is_not_hidden(entry: &DirEntry) -> bool {
-        entry
-            .file_name()
-            .to_str()
-            .map(|s| entry.depth() == 0 || !s.starts_with('.'))
-            .unwrap_or(false)
     }
 
     /// Push an artifact to this node's local repository.

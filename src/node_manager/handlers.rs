@@ -138,7 +138,6 @@ mod tests {
     use super::*;
     use anyhow::Context;
     use std::env;
-    use std::io::BufReader;
     use std::{fs, path::PathBuf};
 
     const GOOD_ART_HASH: [u8; 32] = [
@@ -157,24 +156,12 @@ mod tests {
         println!("curr_dir is: {}", curr_dir.display());
 
         let path = String::from(curr_dir.to_string_lossy());
+        let actual_content_vec = fs::read(path.clone()).context("reading pushed file")?;
         let reader = File::open(path.as_str()).unwrap();
         //put the artifact
         put_artifact(&GOOD_ART_HASH, Box::new(reader)).context("Error from put_artifact")?;
 
-        //validate pushed artifact with actual data
-        let mut push_art_path = PathBuf::from(ART_MGR_DIR);
-        push_art_path.push("SHA256");
-        push_art_path.push(hex::encode(GOOD_ART_HASH));
-        push_art_path.set_extension("file");
-        println!("reading artifact path is: {}", push_art_path.display());
-        let content_vec = fs::read(push_art_path.as_path()).context("reading pushed file")?;
-
-        let test_art_path = PathBuf::from(path.as_str());
-        let actual_content_vec = fs::read(test_art_path.as_path()).context("reading test file")?;
-
-        assert_eq!(content_vec.as_slice(), actual_content_vec.as_slice());
-
-        // pull artifact
+        // pull artiafct
         let file = get_artifact(&GOOD_ART_HASH, HashAlgorithm::SHA256)
             .context("Error from get_artifact")?;
 

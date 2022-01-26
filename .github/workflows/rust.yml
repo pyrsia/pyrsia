@@ -154,6 +154,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
     - uses: actions/cache@v2
       with:
         path: |
@@ -164,11 +166,55 @@ jobs:
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    - run: cargo install cargo-tarpaulin
-    - run: cargo tarpaulin --workspace
-    - run: cat target/tarpaulin/pyrsia-coverage.json # debug test
-
-    - uses: codecov/codecov-action@v2
+    - name: Install stable toolchain
+      uses: actions-rs/toolchain@v1
       with:
-        files: target/tarpaulin/pyrsia-coverage.json
+        toolchain: stable
+        override: true
+
+    - name: Run cargo-tarpaulin
+      uses: actions-rs/tarpaulin@v0.1
+      with:
+        args: '-- --test-threads 1'
+
+    - name: Upload to codecov.io
+      uses: codecov/codecov-action@v2
+      with:
+        token: ${{secrets.CODECOV_TOKEN}}
         fail_ci_if_error: ${{ github.repository_owner == 'pyrsia' }}
+  
+  docker:
+    runs-on: ubuntu-latest
+    needs: [apt-package]
+    if: github.repository_owner == 'pyrsia' && github.event_name == 'push'
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 2
+
+    - name: Login to DockerHub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+    - name: Build and Push Docker Image for Pyrsia Node
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        push: true
+        file: installers/docker/AptGet.Dockerfile
+        tags: pyrsiaoss/pyrsia-node:latest
+
+    - name: Only build if CodeCoverage.Dockerfile changed
+      uses: tj-actions/changed-files@v13.1
+      id: changed-files
+
+    - name: Build and Push Code Coverage Base Image
+      if: contains(steps.changed-files.outputs.all_changed_and_modified_files, 'CodeCoverage.Dockerfile')
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        push: true
+        file: installers/docker/CodeCoverage.Dockerfile
+        tags: pyrsiaoss/codecoverage:1.0
