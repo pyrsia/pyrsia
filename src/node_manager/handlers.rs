@@ -22,7 +22,6 @@ use super::Hash;
 use crate::metadata_manager::metadata::Metadata;
 use anyhow::{Context, Result};
 use byte_unit::Byte;
-use fs_extra::dir::get_size;
 use lazy_static::lazy_static;
 use log::{debug, error, info};
 use std::fs::File;
@@ -31,7 +30,7 @@ use std::panic::UnwindSafe;
 use std::str;
 use std::{fs, panic};
 
-const ART_MGR_DIR: &str = "pyrsia";
+pub const ART_MGR_DIR: &str = "pyrsia";
 //TODO: read from CLI config file
 pub const ART_MGR_ALLOCATED_SIZE: &str = "10.84 GB";
 
@@ -108,8 +107,8 @@ pub fn get_arts_count() -> Result<usize, anyhow::Error> {
 }
 
 pub fn get_space_available() -> Result<u64, anyhow::Error> {
-    let disk_used_bytes =
-        get_size(ART_MGR_DIR).context("Error while calculating the size of artifact manager")?;
+    let disk_used_bytes = ART_MGR.space_used(ART_MGR_DIR)?;
+
     let mut available_space: u64 = 0;
     let total_allocated_size: u64 = Byte::from_str(ART_MGR_ALLOCATED_SIZE).unwrap().get_bytes();
 
@@ -120,8 +119,8 @@ pub fn get_space_available() -> Result<u64, anyhow::Error> {
 }
 
 pub fn disk_usage() -> Result<f64, anyhow::Error> {
-    let disk_used_bytes =
-        get_size(ART_MGR_DIR).context("Error while calculating the size of artifact manager")?;
+    let disk_used_bytes = ART_MGR.space_used(ART_MGR_DIR)?;
+
     let total_allocated_size: u64 = Byte::from_str(ART_MGR_ALLOCATED_SIZE).unwrap().get_bytes();
     let mut disk_usage: f64 = 0.0;
     debug!("disk_used: {}", disk_used_bytes);
