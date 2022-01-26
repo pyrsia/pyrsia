@@ -3066,6 +3066,7 @@ dependencies = [
  "libp2p",
  "log",
  "maplit",
+ "num-traits 0.2.14",
  "once_cell",
  "pretty_env_logger",
  "rand 0.8.4",

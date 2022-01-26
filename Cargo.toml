@@ -29,6 +29,7 @@ lazy_static = "1.4.0"
 libp2p = { version = "0.41.1", features=["tcp-tokio"]}
 log = { version = "0.4.14", features = ["max_level_trace", "release_max_level_info"] }
 maplit = "1.0.2"
+num-traits = "0.2.14"
 once_cell = "1.5"
 pretty_env_logger = "0.4.0"
 rand = "0.8.4"
