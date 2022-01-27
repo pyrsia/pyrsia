@@ -32,7 +32,7 @@ use sha2::{Digest, Sha256, Sha512};
 use std::ffi::{OsStr, OsString};
 use std::fmt::{Display, Formatter};
 use std::fs;
-use std::fs::{File, FileType, OpenOptions};
+use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::{BufWriter, Read, Write};
 use std::path;
@@ -353,7 +353,7 @@ impl<'a> ArtifactManager<'a> {
                     rename_to_permanent(expected_hash, &base_path, &tmp_path)?;
                     let torrent_file_path =
                         create_torrent_file_from(&base_path, self.peer_id_string())?;
-                    self.add_torrent_to_dht(&torrent_file_path.as_path());
+                    self.add_torrent_to_dht(torrent_file_path.as_path());
                     Ok(true)
                 } else {
                     handle_wrong_hash(expected_hash, tmp_path, actual_hash)
@@ -512,8 +512,8 @@ fn create_torrent_file_from(path: &Path, peer_id: String) -> Result<PathBuf> {
     Ok(torrent_path)
 }
 
-fn write_torrent_to_file(torrent_content: Torrent, torrent_path: &PathBuf) -> Result<()> {
-    match torrent_content.write_into_file(torrent_path.clone()) {
+fn write_torrent_to_file(torrent_content: Torrent, torrent_path: &Path) -> Result<()> {
+    match torrent_content.write_into_file(torrent_path.to_path_buf()) {
         Ok(_) => {
             debug!("Wrote torrent file: {}", torrent_path.display());
             Ok(())
