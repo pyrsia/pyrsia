@@ -24,14 +24,15 @@ use lava_torrent::torrent::v1::Torrent;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Kademlia;
 use libp2p::PeerId;
-use log::{debug, error, info, warn}; //log_enabled, Level,
+use log::Level::Debug;
+use log::{debug, error, info, log_enabled, warn}; //log_enabled, Level,
 use path::PathBuf;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
 use std::ffi::{OsStr, OsString};
 use std::fmt::{Display, Formatter};
 use std::fs;
-use std::fs::{File, OpenOptions};
+use std::fs::{File, FileType, OpenOptions};
 use std::io;
 use std::io::{BufWriter, Read, Write};
 use std::path;
@@ -292,23 +293,27 @@ impl<'a> ArtifactManager<'a> {
         }
     }
 
+    // TODO After we restructure the directories to scale, counting files becomes an expensive operation. Provide this as an estimate, an async operation or both.
     pub fn artifacts_count(&self) -> Result<usize, Error> {
         let mut total_files = 0;
-        let os_file_extension = OsString::from(FILE_EXTENSION);
+        if log_enabled!(Debug) {
+            debug!("logging a directory walk");
+            for entry in WalkDir::new(self.repository_path.clone()).into_iter()
+            //                .filter_entry(is_artifact_file)
+            {
+                match entry {
+                    Ok(ent) => debug!("walking: {}", ent.path().display()),
+                    Err(e) => debug!("error: {}", e),
+                }
+            }
+        }
 
-        for file in WalkDir::new(self.repository_path.clone())
+        for entry in WalkDir::new(self.repository_path.clone())
             .into_iter()
-            .filter_entry(|entry| {
-                is_not_hidden(entry)
-                    && entry
-                        .path()
-                        .extension()
-                        .map(|extension| extension == os_file_extension.as_os_str())
-                        .unwrap_or(false)
-            })
+            .filter_entry(is_directory_or_artifact_file)
             .filter_map(|file| file.ok())
         {
-            if let Ok(metadata) = file.metadata() {
+            if let Ok(metadata) = entry.metadata() {
                 if metadata.is_file() {
                     total_files += 1;
                 }
@@ -544,12 +549,19 @@ fn inaccessible_repo_directory_error(repository_path: &str) -> Result<ArtifactMa
     Err(anyhow!("Not an accessible directory: {}", repository_path))
 }
 
-fn is_not_hidden(entry: &DirEntry) -> bool {
-    entry
+fn is_directory_or_artifact_file(entry: &DirEntry) -> bool {
+    let not_hidden = entry
         .file_name()
         .to_str()
         .map(|s| entry.depth() == 0 || !s.starts_with('.'))
-        .unwrap_or(false)
+        .unwrap_or(false);
+    not_hidden
+        && (entry.file_type().is_dir()
+            || entry
+                .path()
+                .extension()
+                .map(|extension| extension == OsString::from(FILE_EXTENSION).as_os_str())
+                .unwrap_or(false))
 }
 
 fn create_artifact_file(tmp_path: &Path) -> std::io::Result<File> {
@@ -806,7 +818,11 @@ mod tests {
         reader.read_to_string(&mut read_buffer)?;
         assert_eq!(TEST_ARTIFACT_DATA, read_buffer);
 
-        assert_eq!(1, am.artifacts_count()?, "artifact manager should have a 1 artifact");
+        assert_eq!(
+            1,
+            am.artifacts_count()?,
+            "artifact manager should have a 1 artifact"
+        );
 
         remove_dir_all(&dir_name);
         Ok(())
