@@ -32,8 +32,10 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
 2. Clone this repo `git clone https://github.com/pyrsia/pyrsia.git`
 3. `cd pyrsia/pyrsia_node`
 4. You have 2 options:
-   - regular build: `cargo run`
+   - local build: `cargo run`
    - build in docker: `docker-compose up --build`
+
+Unless you're building on Linux platforms, please use __docker build__ only.
    
 5. **configure Docker** to use Pyrsia, which is running on localhost port 7888\
     open your Docker daemon settings and add this entry in the root JSON object:
@@ -59,32 +61,38 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
     ```
     "registry-mirrors": ["http://my-pyrsia-host:7888"]
     ```
+6. Restart of the Docker engine is required for the docker configuration changes to take effect. Once the engine is up and running, start the Pyrsia host container again:
+    ```
+    docker run pyrsia/node
+    ```
 
-6. using another terminal, use `docker` to pull an image from Pyrsia: 
+7. using another terminal, use `docker` to pull an image from Pyrsia: 
     ```
-    docker pull ubuntu
+    docker pull busybox
     ```
-   (or pull any other Docker image of your choice)
+   (make sure you're pulling an image you don't have on your machine. Delete the busybox image if you already have it, or pull any other Docker image of your choice)
 
     Optionally, you can inspect the Pyrsia node logs to check where the image came from. This can be either: 
     - locally (if it was cached by Pyrsia before)
     - from the Pyrsia network
     - or from Docker Hub (if it wasn't previously available in the Pyrsia network)
 
+(TODO how to inspect the logs)
 
-7. Build the CLI tool
+8. Build the CLI tool
    ```
    cd ../pyrsia_cli
    cargo build
    cd ../target/debug
    ```
 
-8. Configure the CLI tool
+9. Configure the CLI tool
     ```
     ./pyrsia config --add localhost:7888
     ```
 
-9. Ping the Pyrsia node and list the status
+10. Ping the Pyrsia node and list the status
+    example output for busybox image pulled in step 7 is below:
     ```
     ./pyrsia node -p
     Connection Successfull !! {}
@@ -93,7 +101,7 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
     ```
     ./pyrsia node -s
     Connected Peers Count:   1
-    Artifacts Count:         12
+    Artifacts Count:         3
     Total Disk Available:    983112
     ```
 
