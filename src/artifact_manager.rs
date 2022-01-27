@@ -24,8 +24,8 @@ use lava_torrent::torrent::v1::Torrent;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Kademlia;
 use libp2p::PeerId;
-use log::Level::Debug;
-use log::{debug, error, info, log_enabled, warn}; //log_enabled, Level,
+use log::{debug, error, info, warn}; //log_enabled, Level,
+use multihash::Multihash;
 use path::PathBuf;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
@@ -88,7 +88,6 @@ impl Digester for Sha512 {
 }
 
 /// The types of hash algorithms that the artifact manager supports
-
 #[derive(EnumIter, Clone, Debug, PartialEq, EnumString, Serialize, Deserialize)]
 pub enum HashAlgorithm {
     SHA256,
@@ -127,6 +126,18 @@ impl HashAlgorithm {
             HashAlgorithm::SHA512 => 512 / 8,
         }
     }
+
+    // Code values used to indicate hash algorithms in Multihash. These values come from https://github.com/multiformats/multicodec/blob/master/table.csv
+    const MH_IDENTITY: u64 = 0x00;
+    const MH_SHA1: u64 = 0x11;
+    const MH_SHA2_256: u64 = 0x12;
+    const MH_SHA2_512: u64 = 0x13;
+    const MH_SHA3_512: u64 = 0x14;
+    const MH_SHA3_384: u64 = 0x15;
+    const MH_SHA3_256: u64 = 0x16;
+    const MH_SHA3_224: u64 = 0x17;
+    const MH_BLAKE3: u64 = 0x1e;
+
 }
 
 impl std::fmt::Display for HashAlgorithm {
@@ -268,7 +279,7 @@ pub struct ArtifactManager<'a> {
     pub repository_path: PathBuf,
     peer_id: RwLock<Option<PeerId>>,
     dht: RwLock<Option<&'a Kademlia<MemoryStore>>>,
-    repository_path_component_count: u32,
+    repository_path_component_count: u16,
 }
 
 const FILE_EXTENSION: &str = "file";
@@ -284,7 +295,7 @@ impl<'a> ArtifactManager<'a> {
                 "Creating an ArtifactManager with a repository in {}",
                 absolute_path.display()
             );
-            let repository_path_component_count = absolute_path.components().count().as_u32();
+            let repository_path_component_count = absolute_path.components().count() as u16;
             Ok(ArtifactManager {
                 repository_path: absolute_path,
                 peer_id: RwLock::new(None),
@@ -363,17 +374,19 @@ impl<'a> ArtifactManager<'a> {
 
     fn add_torrent_to_dht(&self, torrent_path: &Path) {
         debug!("Adding torrent to dht: {}", torrent_path.display());
-        let hash_name = get_hash_from_path();
+        let hash_name = self.get_hash_from_path(torrent_path);
     }
 
-    fn get_hash_from_path<'a>(&self, torrent_path: &'a Path) -> Option<&'a str> {
+    fn get_hash_from_path<'b>(&self, torrent_path: &'b Path) -> Option<&'b str> {
         let mut components = torrent_path.components();
         for _ in 0..self.repository_path_component_count {
             if components.next().is_none() {
-                return None
+                return None;
             }
-        };
-        components.next().map(|component| &*component.as_os_str().to_string_lossy())
+        }
+        components
+            .next()
+            .map(|component| &*component.as_os_str().to_string_lossy())
     }
 
     /// Move a file from a local directory to this node's local repository.
