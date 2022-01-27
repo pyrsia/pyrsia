@@ -19,6 +19,7 @@ use crate::document_store::document_store::{DocumentStore, DocumentStoreError, I
 use std::collections::HashMap;
 use std::fmt::Debug;
 
+use super::model::namespace::Namespace;
 use super::model::package_type::{PackageType, PackageTypeBuilder, PackageTypeName};
 use super::model::package_version::PackageVersion;
 use anyhow::{bail, Result};
@@ -87,6 +88,29 @@ fn init_package_types(key_pair: &SignatureKeyPair) -> Result<Vec<String>> {
     })])
 }
 
+// Definitions for name spaces
+const DS_NAMESPACES: &str = "namespaces";
+const IX_NAMESPACES_ID: &str = "ids";
+const IX_NAMESPACES_PATH: &str = "path";
+const FLD_NAMESPACES_ID: &str = "id";
+const FLD_NAMESPACES_PKG_TYPE: &str = "package_type";
+const FLD_NAMESPACES_PATH: &str = "namespace_path";
+fn ix_namespaces() -> Vec<IndexSpec> {
+    vec![
+        IndexSpec::new(
+            String::from(IX_NAMESPACES_ID),
+            vec![String::from(FLD_NAMESPACES_ID)],
+        ),
+        IndexSpec::new(
+            String::from(IX_NAMESPACES_PATH),
+            vec![
+                String::from(FLD_NAMESPACES_PKG_TYPE),
+                String::from(FLD_NAMESPACES_PATH),
+            ],
+        ),
+    ]
+}
+
 // Definitions for package-versions
 const DS_PACKAGE_VERSIONS: &str = "package_versions";
 const IX_PACKAGE_VERSIONS_ID: &str = "id";
@@ -119,6 +143,7 @@ fn ix_package_versions() -> Vec<IndexSpec> {
 pub struct Metadata {
     //TODO Add a trust manager to decide if metadata is trust-worthy
     package_type_docs: DocumentStore,
+    namespace_docs: DocumentStore,
     package_version_docs: DocumentStore,
     untrusted_key_pair: SignatureKeyPair,
 }
@@ -137,9 +162,11 @@ impl Metadata {
         info!("Creating new instance of metadata manager");
         let untrusted_key_pair = signed::signed::create_key_pair(JwsSignatureAlgorithms::RS512)?;
         let package_type_docs = DocumentStore::open(DS_PACKAGE_TYPES, ix_package_types())?;
+        let namespace_docs = DocumentStore::open(DS_NAMESPACES, ix_namespaces())?;
         let package_version_docs = DocumentStore::open(DS_PACKAGE_VERSIONS, ix_package_versions())?;
         let metadata = Metadata {
             package_type_docs,
+            namespace_docs,
             package_version_docs,
             untrusted_key_pair: untrusted_key_pair.clone(),
         };
@@ -175,6 +202,26 @@ impl Metadata {
             Ok(Some(json)) => Ok(Some(PackageType::from_json_string(&json)?)),
             Ok(None) => Ok(None),
         }
+    }
+
+    pub fn create_namespace(
+        &self,
+        namespace: &Namespace,
+    ) -> anyhow::Result<MetadataCreationStatus> {
+        insert_metadata(&self.namespace_docs, namespace)
+    }
+
+    pub fn get_namespace(
+        &self,
+        package_type: PackageTypeName,
+        namespace_path: &str,
+    ) -> anyhow::Result<Option<Namespace>> {
+        let package_type_as_string = package_type.to_string();
+        let filter = hashmap! {
+            FLD_NAMESPACES_PKG_TYPE => package_type_as_string.as_str(),
+            FLD_NAMESPACES_PATH => namespace_path
+        };
+        fetch_namespace(self, IX_NAMESPACES_PATH, filter)
     }
 
     pub fn create_package_version(
@@ -228,6 +275,18 @@ fn populate_with_initial_records(
     Ok(())
 }
 
+fn fetch_namespace(
+    md: &Metadata,
+    index_name: &str,
+    filter: HashMap<&str, &str>,
+) -> anyhow::Result<Option<Namespace>> {
+    match md.namespace_docs.fetch(index_name, filter) {
+        Err(error) => bail!("Error fetching namespace: {:?}", error),
+        Ok(Some(json)) => Ok(Some(Namespace::from_json_string(&json)?)),
+        Ok(None) => Ok(None),
+    }
+}
+
 fn fetch_package_version(
     md: &Metadata,
     index_name: &str,
@@ -267,6 +326,7 @@ fn insert_metadata<'a, T: Signed<'a> + Debug>(
 mod tests {
     use super::*;
     use crate::artifact_manager::HashAlgorithm;
+    use crate::model::namespace::NamespaceBuilder;
     use crate::node_manager::handlers::METADATA_MGR;
     use crate::node_manager::model::artifact::ArtifactBuilder;
     use crate::node_manager::model::package_version::LicenseTextMimeType;
@@ -278,7 +338,6 @@ mod tests {
     #[test]
     fn package_type_test() -> Result<()> {
         let metadata = &METADATA_MGR;
-        info!("Got metadata instance");
 
         let mut package_type = PackageTypeBuilder::default()
             .id(Uuid::new_v4().to_string())
@@ -286,7 +345,7 @@ mod tests {
             .description("docker packages".to_string())
             .build()?;
         let algorithm = signed::JwsSignatureAlgorithms::RS384;
-        let key_pair = signed::create_key_pair(algorithm)?;
+        let key_pair = metadata.untrusted_key_pair();
         package_type.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key)?;
         // Because the Docker package type is pre-installed, we expect an attempt to add one to
         // produce a duplicate result.
@@ -294,6 +353,39 @@ mod tests {
             MetadataCreationStatus::Created => bail!("Docker package type is supposed to be pre-installed, but we were just able to create it!"),
             MetadataCreationStatus::Duplicate{ json: _} => Ok(())
         }
+    }
+
+    #[test]
+    fn namespace_test() -> Result<()> {
+        let metadata = &METADATA_MGR;
+        let key_pair = metadata.untrusted_key_pair();
+
+        let id = Uuid::new_v4().to_string();
+        let path = append_random("all/or/nothing");
+        let timestamp = signed::now_as_iso8601_string();
+        let mut namespace = NamespaceBuilder::default()
+            .id(id)
+            .package_type(PackageTypeName::Docker)
+            .namespace_path(path.clone())
+            .creation_time(timestamp.clone())
+            .modified_time(timestamp.clone())
+            .build()?;
+
+        namespace.sign_json(
+            JwsSignatureAlgorithms::RS512,
+            &key_pair.private_key,
+            &key_pair.public_key,
+        )?;
+        match metadata.create_namespace(&namespace)? {
+            MetadataCreationStatus::Created => {
+                let namespace2 = metadata
+                    .get_namespace(PackageTypeName::Docker, &path)?
+                    .unwrap();
+                assert_eq!(namespace2, namespace);
+            }
+            MetadataCreationStatus::Duplicate { json: _ } => (),
+        }
+        Ok(())
     }
 
     #[test]
@@ -355,7 +447,7 @@ mod tests {
             .artifacts(artifacts)
             .build()?;
         let algorithm = signed::JwsSignatureAlgorithms::RS384;
-        let key_pair = signed::create_key_pair(algorithm)?;
+        let key_pair = metadata.untrusted_key_pair();
         package_version.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key)?;
 
         match metadata.create_package_version(&package_version)? {
