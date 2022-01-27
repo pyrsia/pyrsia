@@ -32,7 +32,7 @@ use std::{fs, panic};
 const ART_MGR_DIR: &str = "pyrsia";
 
 lazy_static! {
-    pub static ref ART_MGR: ArtifactManager = {
+    pub static ref ART_MGR: ArtifactManager<'static> = {
         log_static_initialization_failure(
             "Artifact Manager Directory",
             fs::create_dir_all(ART_MGR_DIR).with_context(|| {
@@ -102,7 +102,7 @@ pub fn get_arts_count() -> Result<usize, anyhow::Error> {
     info!("get_pyrsia_status started");
 
     ART_MGR
-        .artifacts_count(ART_MGR_DIR)
+        .artifacts_count()
         .context("Error while getting artifacts count")
 }
 

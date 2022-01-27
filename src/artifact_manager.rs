@@ -21,14 +21,14 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use lava_torrent::bencode::BencodeElem;
 use lava_torrent::torrent;
 use lava_torrent::torrent::v1::Torrent;
-use libp2p::kad::store::{MemoryStore, RecordStore};
+use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Kademlia;
 use libp2p::PeerId;
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::fs::{File, OpenOptions};
@@ -266,13 +266,13 @@ impl<'a> Write for WriteHashDecorator<'a> {
 pub struct ArtifactManager<'a> {
     pub repository_path: PathBuf,
     peer_id: RwLock<Option<PeerId>>,
-    dht: RwLock<Option<&'a Kademlia<dyn RecordStore<'a>>>>,
+    dht: RwLock<Option<&'a Kademlia<MemoryStore>>>,
 }
 
 const FILE_EXTENSION: &str = "file";
 const TORRENT_EXTENSION: &str = "torrent";
 
-impl<'a> ArtifactManager {
+impl<'a> ArtifactManager<'a> {
     /// Create a new ArtifactManager that works with artifacts in the given directory
     pub fn new(repository_path: &str) -> Result<ArtifactManager, anyhow::Error> {
         let absolute_path = Path::new(repository_path).canonicalize()?;
@@ -292,12 +292,20 @@ impl<'a> ArtifactManager {
         }
     }
 
-    pub fn artifacts_count(&self, repository_path: &str) -> Result<usize, Error> {
+    pub fn artifacts_count(&self) -> Result<usize, Error> {
         let mut total_files = 0;
+        let os_file_extension = OsString::from(FILE_EXTENSION);
 
-        for file in WalkDir::new(repository_path)
+        for file in WalkDir::new(self.repository_path.clone())
             .into_iter()
-            .filter_entry(is_not_hidden)
+            .filter_entry(|entry| {
+                is_not_hidden(entry)
+                    && entry
+                        .path()
+                        .extension()
+                        .map(|extension| extension == os_file_extension.as_os_str())
+                        .unwrap_or(false)
+            })
             .filter_map(|file| file.ok())
         {
             if let Ok(metadata) = file.metadata() {
@@ -338,16 +346,26 @@ impl<'a> ArtifactManager {
                     &*do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
                 if actual_hash == expected_hash.bytes {
                     rename_to_permanent(expected_hash, &base_path, &tmp_path)?;
-                    let peer_id_string = self
-                        .get_peer_id()
-                        .map(|id| id.to_base58())
-                        .unwrap_or_else(|_| "*** Uninitialized ***".to_string());
-                    create_torrent_file_from(&base_path, peer_id_string)
+                    let torrent_file_path =
+                        create_torrent_file_from(&base_path, self.peer_id_string())?;
+                    self.add_torrent_to_dht(&torrent_file_path.as_path());
+                    Ok(true)
                 } else {
                     handle_wrong_hash(expected_hash, tmp_path, actual_hash)
                 }
             }
         }
+    }
+
+    // The peer_id as a string
+    fn peer_id_string(&self) -> String {
+        self.get_peer_id()
+            .map(|id| id.to_base58())
+            .unwrap_or_else(|_| "*** Uninitialized ***".to_string())
+    }
+
+    fn add_torrent_to_dht(&self, torrent_path: &Path) {
+        debug!("Adding torrent to dht: {}", torrent_path.display());
     }
 
     /// Move a file from a local directory to this node's local repository.
@@ -431,7 +449,7 @@ impl<'a> ArtifactManager {
         }
     }
 
-    pub fn set_dht(&self, dht: &Kademlia<dyn RecordStore>) -> Result<()> {
+    pub fn set_dht(&self, dht: &'static Kademlia<MemoryStore>) -> Result<()> {
         // Because artifact manager is allocated statically, no mutable references are allowed to it.
         // To allow a set method from an immutable borrow, we are using interior mutability
         match self.dht.try_write() {
@@ -443,7 +461,7 @@ impl<'a> ArtifactManager {
         }
     }
 
-    pub fn get_dht(&self) -> Result<&Kademlia<dyn RecordStore>> {
+    pub fn get_dht(&self) -> Result<&Kademlia<MemoryStore>> {
         // Because artifact manager is allocated statically, no mutable references are allowed to it.
         // To allow a set method from an immutable borrow, we are using interior mutability
         match self.dht.read() {
@@ -482,15 +500,14 @@ fn compute_hash_of_file<'a>(
     Ok(actual_hash(&mut hash_buffer, &mut digester).to_vec())
 }
 
-fn create_torrent_file_from(path: &Path, peer_id: String) -> Result<bool> {
+fn create_torrent_file_from(path: &Path, peer_id: String) -> Result<PathBuf> {
     let torrent_content = create_torrent_content(path, peer_id)?;
-    let mut torrent_path = path.to_path_buf();
-    torrent_path.set_extension(TORRENT_EXTENSION);
-    write_torrent_to_file(torrent_content, torrent_path)?;
-    Ok(true)
+    let torrent_path = path.with_extension(TORRENT_EXTENSION);
+    write_torrent_to_file(torrent_content, &torrent_path)?;
+    Ok(torrent_path)
 }
 
-fn write_torrent_to_file(torrent_content: Torrent, torrent_path: PathBuf) -> Result<()> {
+fn write_torrent_to_file(torrent_content: Torrent, torrent_path: &PathBuf) -> Result<()> {
     match torrent_content.write_into_file(torrent_path.clone()) {
         Ok(_) => {
             debug!("Wrote torrent file: {}", torrent_path.display());
@@ -743,7 +760,7 @@ mod tests {
     pub fn push_artifact_then_pull_it() -> Result<(), anyhow::Error> {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
         let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
-        let dir_name = create_tmp_dir("tmp")?;
+        let dir_name = create_tmp_dir("tmpP")?;
         let am: ArtifactManager =
             ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
         am.push_artifact(&mut string_reader, &hash)
@@ -789,8 +806,18 @@ mod tests {
         reader.read_to_string(&mut read_buffer)?;
         assert_eq!(TEST_ARTIFACT_DATA, read_buffer);
 
+        assert_eq!(1, am.artifacts_count()?, "artifact manager should have a 1 artifact");
+
         remove_dir_all(&dir_name);
         Ok(())
+    }
+
+    #[test]
+    pub fn hash_length_does_not_match_algorithm_test() {
+        assert!(
+            Hash::new(HashAlgorithm::SHA512, &[0u8; 7]).is_err(),
+            "A 56 bit hash value for SHA512 should be an error"
+        )
     }
 
     #[test]
@@ -850,7 +877,7 @@ mod tests {
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("Time went backwards")
-                .as_millis()
+                .as_micros()
         );
     }
 
