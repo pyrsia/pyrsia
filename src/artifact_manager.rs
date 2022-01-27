@@ -268,6 +268,7 @@ pub struct ArtifactManager<'a> {
     pub repository_path: PathBuf,
     peer_id: RwLock<Option<PeerId>>,
     dht: RwLock<Option<&'a Kademlia<MemoryStore>>>,
+    repository_path_component_count: u32,
 }
 
 const FILE_EXTENSION: &str = "file";
@@ -283,10 +284,12 @@ impl<'a> ArtifactManager<'a> {
                 "Creating an ArtifactManager with a repository in {}",
                 absolute_path.display()
             );
+            let repository_path_component_count = absolute_path.components().count().as_u32();
             Ok(ArtifactManager {
                 repository_path: absolute_path,
                 peer_id: RwLock::new(None),
                 dht: RwLock::new(None),
+                repository_path_component_count,
             })
         } else {
             inaccessible_repo_directory_error(repository_path)
@@ -296,17 +299,6 @@ impl<'a> ArtifactManager<'a> {
     // TODO After we restructure the directories to scale, counting files becomes an expensive operation. Provide this as an estimate, an async operation or both.
     pub fn artifacts_count(&self) -> Result<usize, Error> {
         let mut total_files = 0;
-        if log_enabled!(Debug) {
-            debug!("logging a directory walk");
-            for entry in WalkDir::new(self.repository_path.clone()).into_iter()
-            //                .filter_entry(is_artifact_file)
-            {
-                match entry {
-                    Ok(ent) => debug!("walking: {}", ent.path().display()),
-                    Err(e) => debug!("error: {}", e),
-                }
-            }
-        }
 
         for entry in WalkDir::new(self.repository_path.clone())
             .into_iter()
@@ -371,6 +363,17 @@ impl<'a> ArtifactManager<'a> {
 
     fn add_torrent_to_dht(&self, torrent_path: &Path) {
         debug!("Adding torrent to dht: {}", torrent_path.display());
+        let hash_name = get_hash_from_path();
+    }
+
+    fn get_hash_from_path<'a>(&self, torrent_path: &'a Path) -> Option<&'a str> {
+        let mut components = torrent_path.components();
+        for _ in 0..self.repository_path_component_count {
+            if components.next().is_none() {
+                return None
+            }
+        };
+        components.next().map(|component| &*component.as_os_str().to_string_lossy())
     }
 
     /// Move a file from a local directory to this node's local repository.
