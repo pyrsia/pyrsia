@@ -25,7 +25,7 @@ use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Kademlia;
 use libp2p::PeerId;
 use log::{debug, error, info, warn}; //log_enabled, Level,
-use multihash::Multihash;
+use multihash::{Multihash, MultihashGeneric};
 use path::PathBuf;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
@@ -126,18 +126,6 @@ impl HashAlgorithm {
             HashAlgorithm::SHA512 => 512 / 8,
         }
     }
-
-    // Code values used to indicate hash algorithms in Multihash. These values come from https://github.com/multiformats/multicodec/blob/master/table.csv
-    const MH_IDENTITY: u64 = 0x00;
-    const MH_SHA1: u64 = 0x11;
-    const MH_SHA2_256: u64 = 0x12;
-    const MH_SHA2_512: u64 = 0x13;
-    const MH_SHA3_512: u64 = 0x14;
-    const MH_SHA3_384: u64 = 0x15;
-    const MH_SHA3_256: u64 = 0x16;
-    const MH_SHA3_224: u64 = 0x17;
-    const MH_BLAKE3: u64 = 0x1e;
-
 }
 
 impl std::fmt::Display for HashAlgorithm {
@@ -146,82 +134,103 @@ impl std::fmt::Display for HashAlgorithm {
     }
 }
 
-pub struct Hash<'a> {
+#[derive(PartialEq, Debug)]
+pub struct Hash {
     algorithm: HashAlgorithm,
-    bytes: &'a [u8],
+    bytes: Vec<u8>,
 }
 
-impl<'a> Hash<'a> {
+// Code values used to indicate hash algorithms in Multihash. These values come from https://github.com/multiformats/multicodec/blob/master/table.csv
+const MH_SHA2_256: u64 = 0x12;
+const MH_SHA2_512: u64 = 0x13;
+
+impl<'a> Hash {
     pub fn new(algorithm: HashAlgorithm, bytes: &'a [u8]) -> Result<Self, anyhow::Error> {
         let expected_length: usize = algorithm.hash_length_in_bytes();
         if bytes.len() == expected_length {
-            Ok(Hash { algorithm, bytes })
+            Ok(Hash { algorithm, bytes: bytes.to_vec() })
         } else {
             Err(anyhow!(format!("The hash value does not have the correct length for the algorithm. The expected length is {} bytes, but the length of the supplied hash is {}.", expected_length, bytes.len())))
         }
     }
 
-    // It is possible, though unlikely, for SHA512, SHA3_512 and BLAKE3 to generate the same
-    // hash for different content. Separating files by algorithm avoids this type of collision.
-    // This function ensures that there is a directory under the repository root for each one of
-    // the supported hash algorithms.
-    fn ensure_directories_for_hash_algorithms_exist(
-        repository_path: &Path,
-    ) -> Result<(), anyhow::Error> {
-        let mut path_buf = PathBuf::new();
-        path_buf.push(repository_path);
-        for algorithm in HashAlgorithm::iter() {
-            Self::ensure_subdirectory_exists(&mut path_buf, algorithm)?;
-        }
-        Ok(())
+    pub fn to_multihash(&self) -> Result<Multihash> {
+        match self.algorithm {
+            HashAlgorithm::SHA256 => MultihashGeneric::wrap(MH_SHA2_256, &self.bytes),
+            HashAlgorithm::SHA512 => MultihashGeneric::wrap(MH_SHA2_512, &self.bytes)
+        }.context("Error creating a multihash from a Hash struct")
     }
 
-    fn ensure_subdirectory_exists(
-        path_buf: &mut PathBuf,
-        algorithm: HashAlgorithm,
-    ) -> Result<(), anyhow::Error> {
-        let mut this_buf = path_buf.clone();
-        this_buf.push(algorithm.hash_algorithm_to_str());
-        info!(
+    pub fn from_multihash<'b>(mh: Multihash) -> Result<Hash> {
+        match mh.code() {
+            MH_SHA2_256 => Hash::new(HashAlgorithm::SHA256, mh.digest()),
+            MH_SHA2_512 => Hash::new(HashAlgorithm::SHA512, mh.digest()),
+            _ => bail!("Unable to create Hash struct from multihash with unknown type code 0x{:x}", mh.code())
+        }
+    }
+}
+
+impl Display for Hash {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!(
+            "{}:{}",
+            self.algorithm.hash_algorithm_to_str(),
+            hex::encode(&self.bytes)
+        ))
+    }
+}
+
+
+fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
+    hex::encode(bytes)
+}
+
+// The base file path (no extension on the file name) that will correspond to this hash.
+// The structure of the path is
+// repo_root_dir/hash_algorithm/hash
+// This consists of the artifact repository root directory, a directory whose name is the
+// algorithm used to compute the hash and a file name that is the hash, encoded as hex
+// (base64 is more compact, but hex is easier for troubleshooting). For example
+// pyrsia-artifacts/SHA256/680fade3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6cab34
+// TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
+fn base_file_path(hash: &Hash, repo_dir: &Path) -> PathBuf {
+    let mut buffer: PathBuf = PathBuf::from(repo_dir);
+    buffer.push(hash.algorithm.hash_algorithm_to_str());
+    buffer.push(encode_bytes_as_file_name(&hash.bytes));
+    buffer
+}
+
+// It is possible, though unlikely, for SHA512, SHA3_512 and BLAKE3 to generate the same
+// hash for different content. Separating files by algorithm avoids this type of collision.
+// This function ensures that there is a directory under the repository root for each one of
+// the supported hash algorithms.
+fn ensure_directories_for_hash_algorithms_exist(
+    repository_path: &Path,
+) -> Result<(), anyhow::Error> {
+    let mut path_buf = PathBuf::new();
+    path_buf.push(repository_path);
+    for algorithm in HashAlgorithm::iter() {
+        ensure_subdirectory_exists(&mut path_buf, algorithm)?;
+    }
+    Ok(())
+}
+
+fn ensure_subdirectory_exists(
+    path_buf: &mut PathBuf,
+    algorithm: HashAlgorithm,
+) -> Result<(), anyhow::Error> {
+    let mut this_buf = path_buf.clone();
+    this_buf.push(algorithm.hash_algorithm_to_str());
+    info!(
             "Creating directory {}",
             this_buf
                 .as_os_str()
                 .to_str()
                 .unwrap_or("*** Unable to convert artifact directory path to UTF-8!")
         );
-        fs::create_dir_all(this_buf.as_os_str())
-            .with_context(|| format!("Error creating directory {}", this_buf.display()))?;
-        Ok(())
-    }
-
-    fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
-        hex::encode(bytes)
-    }
-
-    // The base file path (no extension on the file name) that will correspond to this hash.
-    // The structure of the path is
-    // repo_root_dir/hash_algorithm/hash
-    // This consists of the artifact repository root directory, a directory whose name is the
-    // algorithm used to compute the hash and a file name that is the hash, encoded as hex
-    // (base64 is more compact, but hex is easier for troubleshooting). For example
-    // pyrsia-artifacts/SHA256/680fade3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6cab34
-    // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
-    fn base_file_path(&self, repo_dir: &Path) -> PathBuf {
-        let mut buffer: PathBuf = PathBuf::from(repo_dir);
-        buffer.push(self.algorithm.hash_algorithm_to_str());
-        buffer.push(Hash::encode_bytes_as_file_name(self.bytes));
-        buffer
-    }
-}
-
-impl Display for Hash<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!(
-            "{}:{}",
-            self.algorithm.hash_algorithm_to_str(),
-            hex::encode(self.bytes)
-        ))
-    }
+    fs::create_dir_all(this_buf.as_os_str())
+        .with_context(|| format!("Error creating directory {}", this_buf.display()))?;
+    Ok(())
 }
 
 // This is a decorator for the Write trait that allows the bytes written by the writer to be
@@ -290,7 +299,7 @@ impl<'a> ArtifactManager<'a> {
     pub fn new(repository_path: &str) -> Result<ArtifactManager, anyhow::Error> {
         let absolute_path = Path::new(repository_path).canonicalize()?;
         if is_accessible_directory(&absolute_path) {
-            Hash::ensure_directories_for_hash_algorithms_exist(&absolute_path)?;
+            ensure_directories_for_hash_algorithms_exist(&absolute_path)?;
             info!(
                 "Creating an ArtifactManager with a repository in {}",
                 absolute_path.display()
@@ -377,7 +386,7 @@ impl<'a> ArtifactManager<'a> {
         let hash_name = self.get_hash_from_path(torrent_path);
     }
 
-    fn get_hash_from_path<'b>(&self, torrent_path: &'b Path) -> Option<&'b str> {
+    fn get_hash_from_path(&self, torrent_path: &Path) -> Option<String> {
         let mut components = torrent_path.components();
         for _ in 0..self.repository_path_component_count {
             if components.next().is_none() {
@@ -386,7 +395,7 @@ impl<'a> ArtifactManager<'a> {
         }
         components
             .next()
-            .map(|component| &*component.as_os_str().to_string_lossy())
+            .map(|component| component.as_os_str().to_string_lossy().to_string())
     }
 
     /// Move a file from a local directory to this node's local repository.
@@ -411,7 +420,7 @@ impl<'a> ArtifactManager<'a> {
                 expected_hash.algorithm,
                 hex::encode(computed_hash),
                 expected_hash.algorithm,
-                hex::encode(expected_hash.bytes)
+                hex::encode(&expected_hash.bytes)
             )
         }
         let target_path = self.file_path_for_new_artifact(expected_hash);
@@ -419,7 +428,7 @@ impl<'a> ArtifactManager<'a> {
     }
 
     fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> PathBuf {
-        let mut base_path: PathBuf = expected_hash.base_file_path(&self.repository_path);
+        let mut base_path: PathBuf = base_file_path(expected_hash, &self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension(FILE_EXTENSION);
         base_path
@@ -433,7 +442,7 @@ impl<'a> ArtifactManager<'a> {
             "An artifact is being pulled from the artifact manager {}",
             hash
         );
-        let mut base_path: PathBuf = hash.base_file_path(&self.repository_path);
+        let mut base_path: PathBuf = base_file_path(hash, &self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension(FILE_EXTENSION);
         debug!("Pulling artifact from {}", base_path.display());
@@ -782,6 +791,14 @@ mod tests {
             Err(_) => true,
         };
         assert!(ok)
+    }
+
+    #[test]
+    pub fn hash_to_multihash_to_hash() -> Result<()>{
+        let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
+        let hash2 = Hash::from_multihash(hash.to_multihash()?)?;
+        assert_eq!(hash, hash2, "Hash converted to multihash converted to hash should equal the original hash");
+        Ok(())
     }
 
     #[test]
