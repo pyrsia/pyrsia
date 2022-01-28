@@ -91,8 +91,9 @@ pub fn get_artifact(
 pub fn put_artifact(
     artifact_hash: &[u8],
     art_reader: Box<dyn Read>,
+    art_algorithm: HashAlgorithm
 ) -> Result<bool, anyhow::Error> {
-    let hash = Hash::new(HashAlgorithm::SHA256, artifact_hash)?;
+    let hash = Hash::new(art_algorithm, artifact_hash)?;
     info!("put_artifact hash: {}", hash);
     let mut buf_reader = BufReader::new(art_reader);
     ART_MGR
@@ -159,7 +160,7 @@ mod tests {
         let actual_content_vec = fs::read(path.clone()).context("reading pushed file")?;
         let reader = File::open(path.as_str()).unwrap();
         //put the artifact
-        put_artifact(&GOOD_ART_HASH, Box::new(reader)).context("Error from put_artifact")?;
+        put_artifact(&GOOD_ART_HASH, Box::new(reader), HashAlgorithm::SHA256).context("Error from put_artifact")?;
 
         // pull artiafct
         let file = get_artifact(&GOOD_ART_HASH, HashAlgorithm::SHA256)
