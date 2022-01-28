@@ -37,10 +37,10 @@ pub async fn new(
     gossip_topic: IdentTopic,
     topic: Topic,
     transport: TcpTokioTransport,
-    local_key: identity::Keypair,
+    local_key: &identity::Keypair,
+    local_peer_id: PeerId,
     response_sender: tokio::sync::mpsc::Sender<String>,
 ) -> Result<MyBehaviourSwarm, ()> {
-    let local_peer_id = PeerId::from(local_key.public());
     //create kad
     let store = MemoryStore::new(local_peer_id);
     let kademlia = Kademlia::new(local_peer_id, store);
@@ -61,9 +61,11 @@ pub async fn new(
         .build()
         .expect("Valid config");
     // build a gossipsub network behaviour
-    let mut gossipsub: gossipsub::Gossipsub =
-        gossipsub::Gossipsub::new(MessageAuthenticity::Signed(local_key), gossipsub_config)
-            .expect("Correct configuration");
+    let mut gossipsub: gossipsub::Gossipsub = gossipsub::Gossipsub::new(
+        MessageAuthenticity::Signed(local_key.clone()),
+        gossipsub_config,
+    )
+    .expect("Correct configuration");
 
     // subscribes to our gossip topic
     gossipsub.subscribe(&gossip_topic).unwrap();

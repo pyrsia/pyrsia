@@ -104,6 +104,7 @@ async fn main() {
         .get_matches();
 
     let local_key: identity::Keypair = identity::Keypair::generate_ed25519();
+
     let local_peer_id = PeerId::from(local_key.public());
     let transport: TcpTokioTransport = new_tokio_tcp_transport(&local_key); // Create a tokio-based TCP transport using noise for authenticated
 
@@ -117,7 +118,8 @@ async fn main() {
         gossip_topic.clone(),
         floodsub_topic.clone(),
         transport,
-        local_key,
+        &local_key,
+        local_peer_id,
         respond_tx,
     )
     .await
@@ -196,7 +198,7 @@ async fn main() {
     tokio::spawn(server);
     let tx4 = tx.clone();
 
-    let raw_chain = block_chain::Blockchain::new();
+    let raw_chain = block_chain::Blockchain::new(&local_key);
     let bc = Arc::new(Mutex::new(raw_chain));
     // Kick it off
     loop {

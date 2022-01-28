@@ -102,9 +102,14 @@ pub struct Blockchain {
 }
 
 impl Blockchain {
-    pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
+    pub fn new(keypair: &identity::Keypair) -> Self {
+        let ed25519_keypair = match keypair {
+            identity::Keypair::Ed25519(v) => v,
+            identity::Keypair::Rsa(_) => todo!(),
+            identity::Keypair::Secp256k1(_) => todo!(),
+        };
         Self {
-            genesis_block: GenesisBlock::new(keypair),
+            genesis_block: GenesisBlock::new(ed25519_keypair),
             blocks: vec![],
         }
     }
@@ -149,10 +154,16 @@ mod tests {
 
     #[test]
     fn test_build_blockchain() -> Result<(), String> {
-        let keypair = generate_ed25519();
-        let local_id = hash(&get_publickey_from_keypair(&keypair).encode());
-        let mut chain = Blockchain::new(&keypair);
+        let local_keypair = identity::Keypair::generate_ed25519();
 
+        let mut chain = Blockchain::new(&local_keypair);
+
+        let keypair = match local_keypair {
+            identity::Keypair::Ed25519(v) => v,
+            identity::Keypair::Rsa(_) => todo!(),
+            identity::Keypair::Secp256k1(_) => todo!(),
+        };
+        let local_id = hash(&get_publickey_from_keypair(&keypair).encode());
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
