@@ -38,7 +38,7 @@ impl Signature {
 }
 
 type TransactionSignature = Signature;
-type BlockSignature = Signature;
+pub type BlockSignature = Signature;
 
 pub fn sign(msg: &[u8], keypair: &identity::ed25519::Keypair) -> Vec<u8> {
     (*keypair).sign(msg)
@@ -151,9 +151,49 @@ pub fn verify(pubkey: &identity::ed25519::PublicKey, msg: &[u8], sig: &[u8]) -> 
     (*pubkey).verify(msg, sig)
 }
 
+pub fn generate_ed25519() -> identity::ed25519::Keypair {
+    //RFC8032
+    identity::ed25519::Keypair::generate()
+}
+
 impl Display for Block {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let json = serde_json::to_string_pretty(&self).expect("json format error");
         write!(f, "{}", json)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::Rng;
+
+    #[test]
+    fn test_build_block() -> Result<(), String> {
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = hash(&get_publickey_from_keypair(&keypair).encode());
+
+        let mut transactions = vec![];
+        let data = "Hello First Transaction";
+        let transaction = Transaction::new(
+            PartialTransaction::new(
+                TransactionType::Create,
+                local_id,
+                data.as_bytes().to_vec(),
+                rand::thread_rng().gen::<u128>(),
+            ),
+            &keypair,
+        );
+        transactions.push(transaction);
+        let block_header = Header::new(PartialHeader::new(
+            hash(b""),
+            local_id,
+            hash(b""),
+            1,
+            rand::thread_rng().gen::<u128>(),
+        ));
+        let block = Block::new(block_header, transactions.to_vec(), &keypair);
+        assert_eq!(1, block.header.number);
+        Ok(())
     }
 }

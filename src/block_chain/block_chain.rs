@@ -13,6 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+
 use super::block::*;
 use super::header::*;
 use libp2p::identity;
@@ -20,27 +21,92 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
+/// BlockchainId identifies the current chain
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum BlockchainId {
+    Pyrsia,
+}
+
+/// Define Supported Hash Algorithm
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum HashAlgorithm {
+    Keccak,
+}
+
+/// Define Supported Signature Algorithm
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum SignatureAlgorithm {
+    Ed25519,
+}
+
+/// Define Configuration Information
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Config {
+    pub blockchain_id: BlockchainId,
+    pub hash_algorithm: HashAlgorithm,
+    pub hash_size: u32, //sizes of u8
+    pub signature_algorithm: SignatureAlgorithm,
+    pub key_size: u32,
+}
+
+impl Config {
+    pub fn new() -> Self {
+        Self {
+            blockchain_id: BlockchainId::Pyrsia,
+            hash_algorithm: HashAlgorithm::Keccak,
+            hash_size: 32, //256bits
+            signature_algorithm: SignatureAlgorithm::Ed25519,
+            key_size: 32, //256bits
+        }
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Define Genesis Block
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GenesisBlock {
+    pub header: Header,
+    pub config: Config,
+    pub signature: BlockSignature,
+}
+
+impl GenesisBlock {
+    pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
+        let local_id = hash(&get_publickey_from_keypair(keypair).encode());
+        let config = Config::new();
+        let header = Header::new(PartialHeader::new(
+            hash(b""),
+            local_id,
+            hash(&(bincode::serialize(&config).unwrap())),
+            0,
+            rand::thread_rng().gen::<u128>(),
+        ));
+
+        Self {
+            header,
+            config,
+            signature: Signature::new(&bincode::serialize(&header.current_hash).unwrap(), keypair),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Blockchain {
+    pub genesis_block: GenesisBlock,
     pub blocks: Vec<Block>,
 }
 
 impl Blockchain {
-    pub fn new() -> Self {
-        Self { blocks: vec![] }
-    }
-
-    pub fn genesis(&mut self, keypair: &identity::ed25519::Keypair) {
-        let local_id = hash(&get_publickey_from_keypair(keypair).encode());
-        let genesis_block_header = Header::new(PartialHeader::new(
-            hash(b""),
-            local_id,
-            hash(b""),
-            0,
-            rand::thread_rng().gen::<u128>(),
-        ));
-        let genesis_block = Block::new(genesis_block_header, vec![], keypair);
-        self.blocks.push(genesis_block);
+    pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
+        Self {
+            genesis_block: GenesisBlock::new(keypair),
+            blocks: vec![],
+        }
     }
 
     pub fn new_block(
@@ -48,21 +114,21 @@ impl Blockchain {
         keypair: &identity::ed25519::Keypair,
         transactions: &[Transaction],
     ) {
-        let last_block = match self.blocks.last() {
-            Some(block) => block,
-            None => {
-                Blockchain::genesis(self, keypair);
-                return;
-            }
+        let (parent_hash, previous_number) = match self.blocks.last() {
+            Some(block) => (block.header.current_hash, block.header.number),
+            None => (
+                self.genesis_block.header.current_hash,
+                self.genesis_block.header.number,
+            ),
         };
 
         let local_id = hash(&get_publickey_from_keypair(keypair).encode());
         let transaction_root = hash(&bincode::serialize(transactions).unwrap());
         let block_header = Header::new(PartialHeader::new(
-            last_block.header.current_hash,
+            parent_hash,
             local_id,
             transaction_root,
-            last_block.header.number + 1,
+            previous_number + 1,
             rand::thread_rng().gen::<u128>(),
         ));
         let block = Block::new(block_header, transactions.to_vec(), keypair);
@@ -70,21 +136,10 @@ impl Blockchain {
     }
 }
 
-pub fn generate_ed25519() -> identity::ed25519::Keypair {
-    //RFC8032
-    identity::ed25519::Keypair::generate()
-}
-
 impl Display for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let json = serde_json::to_string_pretty(&self).expect("json format error");
         write!(f, "{}", json)
-    }
-}
-
-impl Default for Blockchain {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -96,8 +151,8 @@ mod tests {
     fn test_build_blockchain() -> Result<(), String> {
         let keypair = generate_ed25519();
         let local_id = hash(&get_publickey_from_keypair(&keypair).encode());
-        let mut chain = Blockchain::new();
-        chain.genesis(&keypair);
+        let mut chain = Blockchain::new(&keypair);
+
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
@@ -113,7 +168,7 @@ mod tests {
         chain.new_block(&keypair, &transactions);
         chain.new_block(&keypair, &transactions);
         assert_eq!(true, chain.blocks.last().unwrap().verify());
-        assert_eq!(3, chain.blocks.len());
+        assert_eq!(2, chain.blocks.len());
         Ok(())
     }
 }
