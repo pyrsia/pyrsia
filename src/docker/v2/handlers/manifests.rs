@@ -30,7 +30,7 @@ use crate::node_manager::model::package_version::{PackageVersion, PackageVersion
 use crate::signed::signed::Signed;
 use anyhow::{anyhow, bail, Context};
 use bytes::Bytes;
-use easy_hasher::easy_hasher::{file_hash, raw_sha256, raw_sha512, Hash};
+use easy_hasher::easy_hasher::raw_sha512;
 use log::{debug, error, info, warn};
 use reqwest::{header, Client};
 use serde_json::{json, Map, Value};
@@ -43,7 +43,6 @@ use bytes::Buf;
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Reply, Rejection> {
-    let mut hash = String::from(&tag);
     let mut manifest_content = Vec::new();
     let package_version:PackageVersion;
 
@@ -53,7 +52,7 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
             Ok(pv) => { 
                 if pv.is_some(){
                     package_version = pv.unwrap();
-                if package_version.artifacts()[0].hash().len() != 0{
+                if package_version.artifacts()[0].hash().is_empty(){
 
                     match get_artifact(
                         package_version.artifacts()[0].hash(),
@@ -76,7 +75,7 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
                         }
                 }
             }else {
-                hash = get_manifest_from_docker_hub(&name, &tag).await?;
+                let hash = get_manifest_from_docker_hub(&name, &tag).await?;
                 
                 manifest_content = get_artifact(
                     hex::decode(hash).unwrap().as_ref(),
@@ -91,7 +90,7 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
             },
             Err(_error) => {
 
-                hash = get_manifest_from_docker_hub(&name, &tag).await?;
+                let hash = get_manifest_from_docker_hub(&name, &tag).await?;
                 manifest_content = get_artifact(
                     hex::decode(hash).unwrap().as_ref(),
                     HashAlgorithm::SHA512,
@@ -105,32 +104,7 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
             
             }
         };
-    
-    /*if tag.find(':').is_none() {
-        let manifest = format!(
-            "/tmp/registry/docker/registry/v2/repositories/{}/_manifests/tags/{}/current/link",
-            name, tag
-        );
 
-        match fs::read_to_string(manifest) {
-            Ok(local_hash) => hash = local_hash,
-            Err(_) => hash = get_manifest_from_docker_hub(&name, &tag).await?,
-        }
-    }
-
-    let blob = format!(
-        "/tmp/registry/docker/registry/v2/blobs/sha256/{}/{}/data",
-        hash.get(7..9).unwrap(),
-        hash.get(7..).unwrap()
-    );
-    let blob_content = fs::read_to_string(blob);
-    if blob_content.is_err() {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::ManifestUnknown,
-        }));
-    }
-
-    let content = blob_content.unwrap();*/
     Ok(warp::http::response::Builder::new()
         .header(
             "Content-Type",
@@ -189,8 +163,6 @@ pub async fn handle_put_manifest(
         }
         Err(error) => warn!("Error storing manifest in artifact_manager {}", error),
     };
-
-    //let hash = store_manifest_in_filesystem(&name, &reference, bytes)?;
 
     put_manifest_response(name, hash)
 }
@@ -253,7 +225,7 @@ fn sign_and_save_package_version(
     Ok(())
 }
 
-fn store_manifest_in_filesystem(
+/*fn store_manifest_in_filesystem(
     name: &str,
     reference: &str,
     bytes: Bytes,
@@ -326,7 +298,7 @@ fn store_manifest_in_filesystem(
     }
 
     Ok(hash)
-}
+} */
 
 async fn get_manifest_from_docker_hub(name: &str, tag: &str) -> Result<String, Rejection> {
     let token = get_docker_hub_auth_token(name).await?;
@@ -364,9 +336,7 @@ async fn get_manifest_from_docker_hub_with_token(
     let bytes = response.bytes().await.map_err(RegistryError::from)?;
 
     debug!("Storing manifest pulled from dockerHub in artifact manager");
-    /*store_manifest_in_artifact_manager(&bytes).map_err(|err| RegistryError {
-        code: RegistryErrorCode::Unknown(err.to_string()),
-    })?;*/
+    
     let mut hash = String::new();
         match store_manifest_in_artifact_manager(bytes.clone()) {
         Ok(artifact_hash) => {
@@ -378,8 +348,8 @@ async fn get_manifest_from_docker_hub_with_token(
             hash = hex::encode(artifact_hash.1.clone());
             let mut package_version = match package_version_from_manifest_bytes(
                 &bytes,
-                &name,
-                &tag,
+                name,
+                tag,
                 artifact_hash.0,
                 artifact_hash.1,
             ) {
@@ -405,21 +375,16 @@ async fn get_manifest_from_docker_hub_with_token(
         Err(error) => warn!("Error storing manifest in artifact_manager {}", error),
     };
     Ok(hash)
-   // store_manifest_in_filesystem(name, tag, bytes)
 }
 
 fn store_manifest_in_artifact_manager(bytes: Bytes) -> anyhow::Result<(HashAlgorithm, Vec<u8>)> {
     let manifest_vec = bytes.to_vec();
-    let sha512: Vec<u8> = raw_sha512(manifest_vec.clone()).to_vec();
-    //let artifact_hash = artifact_manager::Hash::new(HashAlgorithm::SHA512, &sha512)?;
-    //let hash = art_hash::new(HashAlgorithm::SHA512, &sha512)?;
-    debug!("SHA512 for manifest is: {:?}",sha512.clone());
+    let sha512: Vec<u8> = raw_sha512(manifest_vec).to_vec();
     put_artifact(
         &sha512,
         Box::new(bytes.reader()),
         HashAlgorithm::SHA512
     )?;
-   // ART_MGR.push_artifact(&mut manifest_vec.as_slice(), &artifact_hash)?;
     Ok((HashAlgorithm::SHA512, sha512))
 }
 
@@ -747,7 +712,6 @@ fn invalid_manifest<T>(_json_string: &str) -> Result<T, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::node_manager::handlers::ART_MGR;
     use bytes::Bytes;
     use futures::executor;
     use serde::de::StdError;
@@ -868,7 +832,7 @@ mod tests {
         };
         let result = executor::block_on(future);
         check_put_manifest_result(result);
-        //check_artifact_manager_side_effects()?;
+        check_artifact_manager_side_effects()?;
         check_package_version_metadata()?;
         Ok(())
     }
@@ -893,12 +857,14 @@ mod tests {
         };
     }
 
-    /*fn check_artifact_manager_side_effects() -> Result<(), Box<dyn StdError>> {
+    fn check_artifact_manager_side_effects() -> Result<(), Box<dyn StdError>> {
         let manifest_sha512: Vec<u8> = raw_sha512(MANIFEST_V1_JSON.as_bytes().to_vec()).to_vec();
-        let artifact_hash = artifact_manager::Hash::new(HashAlgorithm::SHA512, &manifest_sha512)?;
-        ART_MGR.pull_artifact(&artifact_hash)?;
+        get_artifact(
+            manifest_sha512.as_ref(),
+            HashAlgorithm::SHA512
+        )?;
         Ok(())
-    }*/
+    }
 
     #[test]
     fn test_extraction_of_package_version_from_manifest_conforming_to_schema_version_1(
