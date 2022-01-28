@@ -365,7 +365,7 @@ impl<'a> ArtifactManager<'a> {
                     rename_to_permanent(expected_hash, &base_path, &tmp_path)?;
                     let torrent_file_path =
                         create_torrent_file_from(&base_path, self.peer_id_string())?;
-                    self.add_torrent_to_dht(torrent_file_path.as_path());
+                    self.add_torrent_to_dht(torrent_file_path.as_path())?;
                     Ok(true)
                 } else {
                     handle_wrong_hash(expected_hash, tmp_path, actual_hash)
@@ -381,21 +381,25 @@ impl<'a> ArtifactManager<'a> {
             .unwrap_or_else(|_| "*** Uninitialized ***".to_string())
     }
 
-    fn add_torrent_to_dht(&self, torrent_path: &Path) {
+    fn add_torrent_to_dht(&self, torrent_path: &Path) -> Result<()>{
         debug!("Adding torrent to dht: {}", torrent_path.display());
-        let hash_name = self.get_hash_from_path(torrent_path);
+        let hash_name = self.get_hash_algorithm_from_path(torrent_path)?;
     }
 
-    fn get_hash_from_path(&self, torrent_path: &Path) -> Option<String> {
+    fn get_hash_algorithm_from_path(&self, torrent_path: &Path) -> Result<HashAlgorithm> {
         let mut components = torrent_path.components();
+        let no_algorithm_directory = || bail!("Torrent path does not contain a hash algorithm directory: {}", torrent_path.display());
         for _ in 0..self.repository_path_component_count {
             if components.next().is_none() {
-                return None;
+                return no_algorithm_directory();
             }
         }
-        components
+        match components
             .next()
-            .map(|component| component.as_os_str().to_string_lossy().to_string())
+            .map(|component| component.as_os_str().to_string_lossy().to_string()) {
+            None => no_algorithm_directory(),
+            Some(algorithm_name) => HashAlgorithm::str_to_hash_algorithm(&algorithm_name)
+        }
     }
 
     /// Move a file from a local directory to this node's local repository.
