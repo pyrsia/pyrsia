@@ -17,16 +17,18 @@
 extern crate lava_torrent;
 extern crate walkdir;
 
+use crate::artifact_manager::tests::kad::{Quorum, Record};
 use anyhow::{anyhow, bail, Context, Error, Result};
 use lava_torrent::bencode::BencodeElem;
 use lava_torrent::torrent;
 use lava_torrent::torrent::v1::Torrent;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Kademlia;
-use libp2p::PeerId;
+use libp2p::{kad, PeerId};
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use multihash::{Multihash, MultihashGeneric};
 use path::PathBuf;
+use std::cell::RefCell;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
 use std::ffi::{OsStr, OsString};
@@ -148,7 +150,10 @@ impl<'a> Hash {
     pub fn new(algorithm: HashAlgorithm, bytes: &'a [u8]) -> Result<Self, anyhow::Error> {
         let expected_length: usize = algorithm.hash_length_in_bytes();
         if bytes.len() == expected_length {
-            Ok(Hash { algorithm, bytes: bytes.to_vec() })
+            Ok(Hash {
+                algorithm,
+                bytes: bytes.to_vec(),
+            })
         } else {
             Err(anyhow!(format!("The hash value does not have the correct length for the algorithm. The expected length is {} bytes, but the length of the supplied hash is {}.", expected_length, bytes.len())))
         }
@@ -157,15 +162,19 @@ impl<'a> Hash {
     pub fn to_multihash(&self) -> Result<Multihash> {
         match self.algorithm {
             HashAlgorithm::SHA256 => MultihashGeneric::wrap(MH_SHA2_256, &self.bytes),
-            HashAlgorithm::SHA512 => MultihashGeneric::wrap(MH_SHA2_512, &self.bytes)
-        }.context("Error creating a multihash from a Hash struct")
+            HashAlgorithm::SHA512 => MultihashGeneric::wrap(MH_SHA2_512, &self.bytes),
+        }
+        .context("Error creating a multihash from a Hash struct")
     }
 
     pub fn from_multihash<'b>(mh: Multihash) -> Result<Hash> {
         match mh.code() {
             MH_SHA2_256 => Hash::new(HashAlgorithm::SHA256, mh.digest()),
             MH_SHA2_512 => Hash::new(HashAlgorithm::SHA512, mh.digest()),
-            _ => bail!("Unable to create Hash struct from multihash with unknown type code 0x{:x}", mh.code())
+            _ => bail!(
+                "Unable to create Hash struct from multihash with unknown type code 0x{:x}",
+                mh.code()
+            ),
         }
     }
 }
@@ -180,9 +189,18 @@ impl Display for Hash {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// TODO: What is above this comment should be moved to a separate hash module.
+// What is below stays
+///////////////////////////////////////////////////////////////////////////////
 
 fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
     hex::encode(bytes)
+}
+
+fn decode_bytes_from_file_name(file_name: &str) -> Result<Vec<u8>> {
+    hex::decode(file_name)
+        .with_context(|| format!("Error converting hex string \"{}\" to bytes", file_name))
 }
 
 // The base file path (no extension on the file name) that will correspond to this hash.
@@ -222,12 +240,12 @@ fn ensure_subdirectory_exists(
     let mut this_buf = path_buf.clone();
     this_buf.push(algorithm.hash_algorithm_to_str());
     info!(
-            "Creating directory {}",
-            this_buf
-                .as_os_str()
-                .to_str()
-                .unwrap_or("*** Unable to convert artifact directory path to UTF-8!")
-        );
+        "Creating directory {}",
+        this_buf
+            .as_os_str()
+            .to_str()
+            .unwrap_or("*** Unable to convert artifact directory path to UTF-8!")
+    );
     fs::create_dir_all(this_buf.as_os_str())
         .with_context(|| format!("Error creating directory {}", this_buf.display()))?;
     Ok(())
@@ -287,7 +305,7 @@ impl<'a> Write for WriteHashDecorator<'a> {
 pub struct ArtifactManager<'a> {
     pub repository_path: PathBuf,
     peer_id: RwLock<Option<PeerId>>,
-    dht: RwLock<Option<&'a Kademlia<MemoryStore>>>,
+    dht: RwLock<Option<RefCell<&'a mut Kademlia<MemoryStore>>>>,
     repository_path_component_count: u16,
 }
 
@@ -381,14 +399,94 @@ impl<'a> ArtifactManager<'a> {
             .unwrap_or_else(|_| "*** Uninitialized ***".to_string())
     }
 
-    fn add_torrent_to_dht(&self, torrent_path: &Path) -> Result<()>{
+    fn add_torrent_to_dht(&self, torrent_path: &Path) -> Result<()> {
+        fn create_dht_record(
+            peer_id: &PeerId,
+            multihash: &Multihash,
+            torrent: Torrent,
+        ) -> Result<Record> {
+            let mut torrent_bytes = Vec::new();
+            torrent
+                .write_into(&mut torrent_bytes)
+                .map_err(|err| anyhow!("Error writing torrent: {}", err))?;
+            let dht_record = kad::Record {
+                key: libp2p::kad::record::Key::new(&multihash.to_bytes()),
+                value: torrent_bytes,
+                publisher: Some(peer_id.clone()),
+                expires: None,
+            };
+            Ok(dht_record)
+        }
+
+        fn read_torrent_from_file(torrent_path: &Path) -> Result<Torrent, Error> {
+            Torrent::read_from_file(torrent_path).map_err(|err| {
+                anyhow!(
+                    "Error reading torrent file at {}\n{}",
+                    torrent_path.display(),
+                    err
+                )
+            })
+        }
+
+        fn put_record_in_dht(
+            dht: &mut Kademlia<MemoryStore>,
+            torrent_path: &Path,
+            dht_record: Record,
+        ) -> Result<()> {
+            // TODO We should look at configuring a numeric quorum size.
+            let query_id = dht
+                .put_record(dht_record, Quorum::Majority)
+                .map_err(|err| {
+                    anyhow!(
+                    "Error putting a record in the Kademlia DHT to advertise torrent: {:?}\nTorrent path is {}",
+                    err, torrent_path.display()
+                )
+                })?;
+            info!(
+                "Sharing torrent using Kademlia: {}\nQuery id: {:?}",
+                torrent_path.display(),
+                query_id
+            );
+            Ok(())
+        }
+
         debug!("Adding torrent to dht: {}", torrent_path.display());
-        let hash_name = self.get_hash_algorithm_from_path(torrent_path)?;
+        let multihash = self.path_to_hash(torrent_path)?.to_multihash()?;
+        let torrent = read_torrent_from_file(torrent_path)?;
+        let dht_record = create_dht_record(&self.get_peer_id()?, &multihash, torrent)
+            .with_context(|| {
+                format!(
+                    "Error creating DHT record for torrent {}",
+                    torrent_path.display()
+                )
+            })?;
+        put_record_in_dht(self.get_dht()?, torrent_path, dht_record)
+    }
+
+    fn path_to_hash(&self, torrent_path: &Path) -> Result<Hash> {
+        let hash_algorithm = self.get_hash_algorithm_from_path(torrent_path)?;
+        match torrent_path.file_stem() {
+            None => {
+                bail!(
+                    "torrent path does not have a valid file name stem: {}",
+                    torrent_path.display()
+                )
+            }
+            Some(file_stem) => Hash::new(
+                hash_algorithm,
+                &decode_bytes_from_file_name(&*file_stem.to_string_lossy())?,
+            ),
+        }
     }
 
     fn get_hash_algorithm_from_path(&self, torrent_path: &Path) -> Result<HashAlgorithm> {
         let mut components = torrent_path.components();
-        let no_algorithm_directory = || bail!("Torrent path does not contain a hash algorithm directory: {}", torrent_path.display());
+        let no_algorithm_directory = || {
+            bail!(
+                "Torrent path does not contain a hash algorithm directory: {}",
+                torrent_path.display()
+            )
+        };
         for _ in 0..self.repository_path_component_count {
             if components.next().is_none() {
                 return no_algorithm_directory();
@@ -396,9 +494,10 @@ impl<'a> ArtifactManager<'a> {
         }
         match components
             .next()
-            .map(|component| component.as_os_str().to_string_lossy().to_string()) {
+            .map(|component| component.as_os_str().to_string_lossy().to_string())
+        {
             None => no_algorithm_directory(),
-            Some(algorithm_name) => HashAlgorithm::str_to_hash_algorithm(&algorithm_name)
+            Some(algorithm_name) => HashAlgorithm::str_to_hash_algorithm(&algorithm_name),
         }
     }
 
@@ -422,9 +521,9 @@ impl<'a> ArtifactManager<'a> {
                 "{} does not have the expected hash value {}:{}\nActual hash is {}:{}",
                 path.display(),
                 expected_hash.algorithm,
-                hex::encode(computed_hash),
+                encode_bytes_as_file_name(&computed_hash),
                 expected_hash.algorithm,
-                hex::encode(&expected_hash.bytes)
+                encode_bytes_as_file_name(&expected_hash.bytes)
             )
         }
         let target_path = self.file_path_for_new_artifact(expected_hash);
@@ -483,32 +582,32 @@ impl<'a> ArtifactManager<'a> {
         }
     }
 
-    pub fn set_dht(&self, dht: &'static Kademlia<MemoryStore>) -> Result<()> {
+    pub fn set_dht(&self, dht: &'static mut Kademlia<MemoryStore>) -> Result<()> {
         // Because artifact manager is allocated statically, no mutable references are allowed to it.
         // To allow a set method from an immutable borrow, we are using interior mutability
         match self.dht.try_write() {
             Ok(mut guard) => {
-                *guard = Some(dht);
+                *guard = Some(RefCell::new(dht));
                 Ok(())
             }
             Err(error) => bail!("Error setting ArtifactManager.dht: {}", error),
         }
     }
 
-    pub fn get_dht(&self) -> Result<&Kademlia<MemoryStore>> {
+    pub fn get_dht(&self) -> Result<&mut Kademlia<MemoryStore>> {
         // Because artifact manager is allocated statically, no mutable references are allowed to it.
         // To allow a set method from an immutable borrow, we are using interior mutability
         match self.dht.read() {
             Ok(guard) => {
-                if (*guard).is_some() {
-                    Ok((*guard).unwrap())
+                if let Some(guard) = *guard {
+                    Ok(*guard)
                 } else {
                     bail!("Attempt to read ArtifactManager.dht before it is set!")
                 }
             }
             Err(_) => Err(anyhow!(
                 "Unable to access ArtifactManager.dht due to a previous panic"
-            )),
+            ))
         }
     }
 }
@@ -798,10 +897,13 @@ mod tests {
     }
 
     #[test]
-    pub fn hash_to_multihash_to_hash() -> Result<()>{
+    pub fn hash_to_multihash_to_hash() -> Result<()> {
         let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
         let hash2 = Hash::from_multihash(hash.to_multihash()?)?;
-        assert_eq!(hash, hash2, "Hash converted to multihash converted to hash should equal the original hash");
+        assert_eq!(
+            hash, hash2,
+            "Hash converted to multihash converted to hash should equal the original hash"
+        );
         Ok(())
     }
 
@@ -818,7 +920,7 @@ mod tests {
         // Check that artifact file was written correctly
         let mut path_buf = PathBuf::from(dir_name.clone());
         path_buf.push("SHA256");
-        path_buf.push(hex::encode(TEST_ARTIFACT_HASH));
+        path_buf.push(encode_bytes_as_file_name(&TEST_ARTIFACT_HASH));
         path_buf.set_extension(FILE_EXTENSION);
         let content_vec = fs::read(path_buf.as_path()).context("reading pushed file")?;
         assert_eq!(content_vec.as_slice(), TEST_ARTIFACT_DATA.as_bytes());
