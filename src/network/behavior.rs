@@ -211,7 +211,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
                     error!(target: "pyrsia_node_comms","Failed to get record: {:?}", err);
                 }
                 QueryResult::PutRecord(Ok(PutRecordOk { key })) => {
-                    debug!(target: "pyrsia_node_comms",
+                    info!(target: "pyrsia_node_comms",
                         "Successfully put record {:?}",
                         std::str::from_utf8(key.as_ref()).unwrap()
                     );
