@@ -138,10 +138,10 @@ mod tests {
     use super::*;
     use anyhow::Context;
     use std::env;
+    use std::fs::File;
+    use std::io::{self, Write};
     use std::{fs, path::PathBuf};
     use tempfile::tempdir;
-    use std::io::{self, Write};
-    use std::fs::File;
 
     const MANIFEST_V1_JSON: &str = r##"{
         "name": "hello-world",
@@ -187,9 +187,10 @@ mod tests {
            }]}"##;
 
     const GOOD_ART_HASH: [u8; 32] = [
-    0x9c, 0x9f, 0xe2, 0x3f, 0x63, 0xae, 0x3b, 0x6c, 0x50, 0xe7, 0x85, 0x8, 0xeb, 0x99, 0xd7, 0x9a, 0xae, 
-    0xd3, 0x31, 0x1c, 0xfc, 0x9f, 0x6f, 0xba, 0xce, 0xa4, 0x2d, 0x7b, 0x94, 0x31, 0xa, 0x9f ];
-
+        0x9c, 0x9f, 0xe2, 0x3f, 0x63, 0xae, 0x3b, 0x6c, 0x50, 0xe7, 0x85, 0x8, 0xeb, 0x99, 0xd7,
+        0x9a, 0xae, 0xd3, 0x31, 0x1c, 0xfc, 0x9f, 0x6f, 0xba, 0xce, 0xa4, 0x2d, 0x7b, 0x94, 0x31,
+        0xa, 0x9f,
+    ];
 
     #[test]
     fn put_and_get_artifact_test() -> Result<(), anyhow::Error> {
@@ -198,10 +199,11 @@ mod tests {
         let dir = tempdir()?;
         let file_path = dir.path().join("artifact_test.txt");
         let mut file = File::create(file_path.clone())?;
-        writeln!(file, "{}",MANIFEST_V1_JSON);
+        writeln!(file, "{}", MANIFEST_V1_JSON);
 
         let reader = File::open(file_path.clone()).unwrap();
-        let push_result = put_artifact(&GOOD_ART_HASH, Box::new(reader)).context("Error from put_artifact")?;
+        let push_result =
+            put_artifact(&GOOD_ART_HASH, Box::new(reader)).context("Error from put_artifact")?;
         assert_eq!(push_result, true);
 
         // pull artifact
@@ -240,12 +242,12 @@ mod tests {
         ));
 
         let usage_pct_before = disk_usage().context("Error from disk_usage")?;
-        assert_eq!("0.0",format!("{:.1}", usage_pct_before));
+        assert_eq!("0.0", format!("{:.1}", usage_pct_before));
 
         create_artifact().context("Error creating artifact")?;
 
         let usage_pct_after = disk_usage().context("Error from disk_usage")?;
-        assert_eq!("0.000047",format!("{:.6}", usage_pct_after));
+        assert_eq!("0.000047", format!("{:.6}", usage_pct_after));
 
         Ok(())
     }
@@ -256,30 +258,28 @@ mod tests {
             "unable to remove artifact manager directory {}",
             ART_MGR_DIR
         ));
-        let space_available_before = get_space_available().context("Error from get_space_available")?;
+        let space_available_before =
+            get_space_available().context("Error from get_space_available")?;
         assert_eq!(10840000000, space_available_before);
 
         create_artifact().context("Error creating artifact")?;
-        
+
         let space_available = get_space_available().context("Error from get_space_available")?;
         assert_eq!(10839994888, space_available);
 
         Ok(())
-
     }
     fn create_artifact() -> Result<(), anyhow::Error> {
         let dir = tempdir()?;
         let file_path = dir.path().join("artifact_test.txt");
         let mut file = File::create(file_path.clone())?;
-        writeln!(file, "{}",MANIFEST_V1_JSON);
+        writeln!(file, "{}", MANIFEST_V1_JSON);
 
         let reader = File::open(file_path).unwrap();
-        let push_result = put_artifact(&GOOD_ART_HASH, Box::new(reader)).context("Error from put_artifact")?;
+        let push_result =
+            put_artifact(&GOOD_ART_HASH, Box::new(reader)).context("Error from put_artifact")?;
 
         assert_eq!(push_result, true);
         Ok(())
-
-
     }
-
 }

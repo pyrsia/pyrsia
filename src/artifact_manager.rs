@@ -307,7 +307,8 @@ impl<'a> ArtifactManager {
     }
 
     pub fn space_used(&self) -> Result<u64, Error> {
-        get_size(&self.repository_path).context("Error while calculating the size of artifact manager")
+        get_size(&self.repository_path)
+            .context("Error while calculating the size of artifact manager")
     }
 
     /// Push an artifact to this node's local repository.
