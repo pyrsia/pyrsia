@@ -30,7 +30,7 @@ use std::panic::UnwindSafe;
 use std::str;
 use std::{fs, panic};
 
-pub const ART_MGR_DIR: &str = "pyrsia";
+const ART_MGR_DIR: &str = "pyrsia";
 //TODO: read from CLI config file
 pub const ART_MGR_ALLOCATED_SIZE: &str = "10.84 GB";
 
@@ -107,7 +107,7 @@ pub fn get_arts_count() -> Result<usize, anyhow::Error> {
 }
 
 pub fn get_space_available() -> Result<u64, anyhow::Error> {
-    let disk_used_bytes = ART_MGR.space_used(ART_MGR_DIR)?;
+    let disk_used_bytes = ART_MGR.space_used()?;
 
     let mut available_space: u64 = 0;
     let total_allocated_size: u64 = Byte::from_str(ART_MGR_ALLOCATED_SIZE).unwrap().get_bytes();
@@ -119,7 +119,7 @@ pub fn get_space_available() -> Result<u64, anyhow::Error> {
 }
 
 pub fn disk_usage() -> Result<f64, anyhow::Error> {
-    let disk_used_bytes = ART_MGR.space_used(ART_MGR_DIR)?;
+    let disk_used_bytes = ART_MGR.space_used()?;
 
     let total_allocated_size: u64 = Byte::from_str(ART_MGR_ALLOCATED_SIZE).unwrap().get_bytes();
     let mut disk_usage: f64 = 0.0;
@@ -139,34 +139,34 @@ mod tests {
     use anyhow::Context;
     use std::env;
     use std::{fs, path::PathBuf};
+    use tempfile::tempdir;
+    use std::io::{self, Write};
+    use std::fs::File;
 
-    const GOOD_ART_HASH: [u8; 32] = [
-        0x66, 0xdc, 0x9a, 0xc8, 0xb2, 0x77, 0x12, 0xbc, 0x2c, 0x5d, 0xa3, 0x61, 0xab, 0x41, 0x75,
-        0x20, 0x6e, 0x27, 0x1a, 0x8a, 0x90, 0xd2, 0x1, 0xfb, 0xbe, 0x7, 0xb8, 0x81, 0xed, 0x8e,
-        0xec, 0xa7,
+    const GOOD_ART_HASH_1: [u8; 32] = [
+        0x12, 0xbf, 0x94, 0xd3, 0xca, 0x1a, 0xe4, 0x9d, 0xe0, 0x8, 0xc6, 0x5b, 0x79, 0xbc, 0x26, 0xf8, 
+        0x47, 0x1d, 0x77, 0x1c, 0x8c, 0x6, 0x47, 0xa3, 0x3b, 0x9d, 0x69, 0x6e, 0xfe, 0x5d, 0x1c, 0x54
     ];
-
     #[test]
     fn put_and_get_artifact_test() -> Result<(), anyhow::Error> {
-        println!("put_and_get_artifact_test started !!");
+        debug!("put_and_get_artifact_test started !!");
 
-        // test artifact file in resources/test dir
-        let mut curr_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        curr_dir.push("tests/resources/artifact_test.txt");
-        println!("curr_dir is: {}", curr_dir.display());
+        let dir = tempdir()?;
+        let file_path = dir.path().join("artifact_test.txt");
+        let mut file = File::create(file_path.clone())?;
+        writeln!(file, "This is the pyrsia node manager testing data. Pushing and pulling artifacts from node. This is good testing data")?;
 
-        let path = String::from(curr_dir.to_string_lossy());
-        let actual_content_vec = fs::read(path.clone()).context("reading pushed file")?;
-        let reader = File::open(path.as_str()).unwrap();
-        //put the artifact
-        put_artifact(&GOOD_ART_HASH, Box::new(reader)).context("Error from put_artifact")?;
+        let reader = File::open(file_path.clone()).unwrap();
+        let push_result = put_artifact(&GOOD_ART_HASH_1, Box::new(reader)).context("Error from put_artifact")?;
+        assert_eq!(push_result, true);
 
         // pull artiafct
-        let file = get_artifact(&GOOD_ART_HASH, HashAlgorithm::SHA256)
+        let file = get_artifact(&GOOD_ART_HASH_1, HashAlgorithm::SHA256)
             .context("Error from get_artifact")?;
 
         //validate pulled artifact with the actual data
-        let s = match str::from_utf8(actual_content_vec.as_slice()) {
+        let expected_content_vec = fs::read(file_path).context("reading pushed file")?;
+        let s = match str::from_utf8(expected_content_vec.as_slice()) {
             Ok(v) => v,
             Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
         };
@@ -177,7 +177,7 @@ mod tests {
         };
         assert_eq!(s, s1);
 
-        println!("put_and_get_artifact_test ended !!");
+        debug!("put_and_get_artifact_test ended !!");
         Ok(())
     }
 
@@ -187,4 +187,41 @@ mod tests {
         assert!(!untrusted_key_pair.public_key.is_empty());
         assert!(!untrusted_key_pair.private_key.is_empty());
     }
+
+    #[test]
+    fn test_disk_usage() -> Result<(), anyhow::Error> {
+        create_artifact().context("Error creating artifact")?;
+
+        let usage_pct = disk_usage().context("Error from disk_usage")?;
+        assert_eq!("0.000044",format!("{:.6}", usage_pct));
+
+        Ok(())
+
+    }
+
+    #[test]
+    fn test_get_space_available() -> Result<(), anyhow::Error> {
+        create_artifact().context("Error creating artifact")?;
+        
+        let space_available = get_space_available().context("Error from get_space_available")?;
+        assert_eq!(10839995189, space_available);
+
+        Ok(())
+
+    }
+    fn create_artifact() -> Result<(), anyhow::Error> {
+        let dir = tempdir()?;
+        let file_path = dir.path().join("artifact_test.txt");
+        let mut file = File::create(file_path.clone())?;
+        writeln!(file, "This is the pyrsia node manager testing data. Pushing and pulling artifacts from node. This is good testing data")?;
+
+        let reader = File::open(file_path).unwrap();
+        let push_result = put_artifact(&GOOD_ART_HASH_1, Box::new(reader)).context("Error from put_artifact")?;
+
+        assert_eq!(push_result, true);
+        Ok(())
+
+
+    }
+
 }
