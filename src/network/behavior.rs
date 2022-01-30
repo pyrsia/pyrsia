@@ -23,10 +23,10 @@ use libp2p::{
     floodsub::{Floodsub, FloodsubEvent},
     kad::{
         record::{
-            store::{Error, MemoryStore},
+            store::Error,
             Key,
         },
-        AddProviderOk, Kademlia, KademliaEvent, PeerRecord, PutRecordOk, QueryId, QueryResult,
+        AddProviderOk, KademliaEvent, PeerRecord, PutRecordOk, QueryId, QueryResult,
         Quorum, Record,
     },
     mdns::{Mdns, MdnsEvent},
@@ -45,7 +45,6 @@ use std::collections::HashSet;
 pub struct MyBehaviour {
     gossipsub: gossipsub::Gossipsub,
     floodsub: Floodsub,
-    kademlia: Kademlia<MemoryStore>,
     mdns: Mdns,
     #[behaviour(ignore)]
     response_sender: tokio::sync::mpsc::Sender<String>,
@@ -55,14 +54,12 @@ impl MyBehaviour {
     pub fn new(
         gossipsub: gossipsub::Gossipsub,
         floodsub: Floodsub,
-        kademlia: Kademlia<MemoryStore>,
         mdns: Mdns,
         response_sender: tokio::sync::mpsc::Sender<String>,
     ) -> Self {
         MyBehaviour {
             gossipsub,
             floodsub,
-            kademlia,
             mdns,
             response_sender,
         }

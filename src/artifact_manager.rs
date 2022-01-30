@@ -18,19 +18,20 @@ extern crate lava_torrent;
 extern crate walkdir;
 
 use crate::artifact_manager::tests::kad::{Quorum, Record};
+use crate::node_manager::handlers;
 use anyhow::{anyhow, bail, Context, Error, Result};
 use lava_torrent::bencode::BencodeElem;
 use lava_torrent::torrent;
 use lava_torrent::torrent::v1::Torrent;
 use libp2p::kad::store::MemoryStore;
-use libp2p::kad::Kademlia;
+use libp2p::kad::{Kademlia, QueryId};
 use libp2p::{kad, PeerId};
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use multihash::{Multihash, MultihashGeneric};
 use path::PathBuf;
-use std::cell::RefCell;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
+use std::cell::RefCell;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{Display, Formatter};
 use std::fs;
@@ -40,7 +41,7 @@ use std::io::{BufWriter, Read, Write};
 use std::path;
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::RwLock;
+use std::sync::Mutex;
 use strum::IntoEnumIterator;
 use strum_macros::{EnumIter, EnumString};
 use walkdir::{DirEntry, WalkDir};
@@ -304,8 +305,7 @@ impl<'a> Write for WriteHashDecorator<'a> {
 /// Pyrsia needs to know about.
 pub struct ArtifactManager<'a> {
     pub repository_path: PathBuf,
-    peer_id: RwLock<Option<PeerId>>,
-    dht: RwLock<Option<RefCell<&'a mut Kademlia<MemoryStore>>>>,
+    dht: Mutex<RefCell<Option<&'a mut Kademlia<MemoryStore>>>>,
     repository_path_component_count: u16,
 }
 
@@ -325,8 +325,7 @@ impl<'a> ArtifactManager<'a> {
             let repository_path_component_count = absolute_path.components().count() as u16;
             Ok(ArtifactManager {
                 repository_path: absolute_path,
-                peer_id: RwLock::new(None),
-                dht: RwLock::new(None),
+                dht: Mutex::new(RefCell::new(None)),
                 repository_path_component_count,
             })
         } else {
@@ -392,13 +391,6 @@ impl<'a> ArtifactManager<'a> {
         }
     }
 
-    // The peer_id as a string
-    fn peer_id_string(&self) -> String {
-        self.get_peer_id()
-            .map(|id| id.to_base58())
-            .unwrap_or_else(|_| "*** Uninitialized ***".to_string())
-    }
-
     fn add_torrent_to_dht(&self, torrent_path: &Path) -> Result<()> {
         fn create_dht_record(
             peer_id: &PeerId,
@@ -429,24 +421,31 @@ impl<'a> ArtifactManager<'a> {
         }
 
         fn put_record_in_dht(
-            dht: &mut Kademlia<MemoryStore>,
+            slf: &ArtifactManager,
             torrent_path: &Path,
             dht_record: Record,
         ) -> Result<()> {
             // TODO We should look at configuring a numeric quorum size.
-            let query_id = dht
-                .put_record(dht_record, Quorum::Majority)
-                .map_err(|err| {
+            if let KademliaMethodResult::PutRecord(result) =
+                slf.with_dht(KademliaMethodCall::PutRecord {
+                    record: dht_record,
+                    quorum: Quorum::Majority,
+                })
+            {
+                let query_id = result.map_err(|err| {
                     anyhow!(
                     "Error putting a record in the Kademlia DHT to advertise torrent: {:?}\nTorrent path is {}",
                     err, torrent_path.display()
                 )
                 })?;
-            info!(
-                "Sharing torrent using Kademlia: {}\nQuery id: {:?}",
-                torrent_path.display(),
-                query_id
-            );
+                info!(
+                    "Sharing torrent using Kademlia: {}\nQuery id: {:?}",
+                    torrent_path.display(),
+                    query_id
+                );
+            } else {
+                panic!("unexpected result type!")
+            }
             Ok(())
         }
 
@@ -460,7 +459,7 @@ impl<'a> ArtifactManager<'a> {
                     torrent_path.display()
                 )
             })?;
-        put_record_in_dht(self.get_dht()?, torrent_path, dht_record)
+        put_record_in_dht(self, torrent_path, dht_record)
     }
 
     fn path_to_hash(&self, torrent_path: &Path) -> Result<Hash> {
@@ -552,64 +551,16 @@ impl<'a> ArtifactManager<'a> {
         File::open(base_path.as_path())
             .with_context(|| format!("{} not found.", base_path.display()))
     }
+}
 
-    pub fn set_peer_id(&self, peer_id: PeerId) -> Result<()> {
-        // Because artifact manager is allocated statically, no mutable references are allowed to it.
-        // To allow a set method from an immutable borrow, we are using interior mutability
-        match self.peer_id.try_write() {
-            Ok(mut guard) => {
-                *guard = Some(peer_id);
-                Ok(())
-            }
-            Err(error) => bail!("Error setting ArtifactManager.peer_id: {}", error),
-        }
-    }
+// looks strange because we need to work around rust's limitation of not using closure that capture context values as function pointers.
+enum KademliaMethodCall {
+    PutRecord { record: Record, quorum: Quorum },
+}
 
-    pub fn get_peer_id(&self) -> Result<PeerId> {
-        // Because artifact manager is allocated statically, no mutable references are allowed to it.
-        // To allow a set method from an immutable borrow, we are using interior mutability
-        match self.peer_id.read() {
-            Ok(guard) => {
-                if (*guard).is_some() {
-                    Ok((*guard).unwrap())
-                } else {
-                    bail!("Attempt to read ArtifactManager.peer_id before it is set!")
-                }
-            }
-            Err(_) => Err(anyhow!(
-                "Unable to access ArtifactManager.peer_id due to a previous panic"
-            )),
-        }
-    }
-
-    pub fn set_dht(&self, dht: &'static mut Kademlia<MemoryStore>) -> Result<()> {
-        // Because artifact manager is allocated statically, no mutable references are allowed to it.
-        // To allow a set method from an immutable borrow, we are using interior mutability
-        match self.dht.try_write() {
-            Ok(mut guard) => {
-                *guard = Some(RefCell::new(dht));
-                Ok(())
-            }
-            Err(error) => bail!("Error setting ArtifactManager.dht: {}", error),
-        }
-    }
-
-    pub fn get_dht(&self) -> Result<&mut Kademlia<MemoryStore>> {
-        // Because artifact manager is allocated statically, no mutable references are allowed to it.
-        // To allow a set method from an immutable borrow, we are using interior mutability
-        match self.dht.read() {
-            Ok(guard) => {
-                if let Some(guard) = *guard {
-                    Ok(*guard)
-                } else {
-                    bail!("Attempt to read ArtifactManager.dht before it is set!")
-                }
-            }
-            Err(_) => Err(anyhow!(
-                "Unable to access ArtifactManager.dht due to a previous panic"
-            ))
-        }
-    }
+// looks strange because we need to work around rust's limitation of not using closure that capture context values as function pointers.
+enum KademliaMethodResult {
+    PutRecord(core::result::Result<QueryId, libp2p::kad::record::store::Error>),
 }
 
 fn compute_hash_of_file<'a>(
@@ -830,7 +781,6 @@ mod tests {
 
     pub use super::*;
 
-    #[cfg(test)]
     #[ctor::ctor]
     fn init() {
         let _ignore = env_logger::builder()

@@ -21,3 +21,4 @@ pub mod http;
 pub mod swarm;
 pub mod torrent;
 pub mod transport;
+pub mod kademlia_thread_safe_proxy;
