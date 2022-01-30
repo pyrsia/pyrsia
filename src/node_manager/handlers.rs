@@ -137,10 +137,10 @@ pub fn disk_usage() -> Result<f64, anyhow::Error> {
 mod tests {
     use super::*;
     use anyhow::Context;
-    use std::env;
+    use std::fs;
     use std::fs::File;
-    use std::io::{self, Write};
-    use std::{fs, path::PathBuf};
+    use std::io::Write;
+    use std::path::Path;
     use tempfile::tempdir;
 
     const MANIFEST_V1_JSON: &str = r##"{
@@ -199,7 +199,7 @@ mod tests {
         let dir = tempdir()?;
         let file_path = dir.path().join("artifact_test.txt");
         let mut file = File::create(file_path.clone())?;
-        writeln!(file, "{}", MANIFEST_V1_JSON);
+        writeln!(file, "{}", MANIFEST_V1_JSON)?;
 
         let reader = File::open(file_path.clone()).unwrap();
         let push_result =
@@ -236,10 +236,12 @@ mod tests {
 
     #[test]
     fn test_disk_usage() -> Result<(), anyhow::Error> {
-        fs::remove_dir_all(ART_MGR_DIR).expect(&format!(
-            "unable to remove artifact manager directory {}",
-            ART_MGR_DIR
-        ));
+        if Path::new(ART_MGR_DIR).exists() {
+            fs::remove_dir_all(ART_MGR_DIR).expect(&format!(
+                "unable to remove artifact manager directory {}",
+                ART_MGR_DIR
+            ));
+        }
 
         let usage_pct_before = disk_usage().context("Error from disk_usage")?;
         assert_eq!("0.0", format!("{:.1}", usage_pct_before));
@@ -254,10 +256,12 @@ mod tests {
 
     #[test]
     fn test_get_space_available() -> Result<(), anyhow::Error> {
-        fs::remove_dir_all(ART_MGR_DIR).expect(&format!(
-            "unable to remove artifact manager directory {}",
-            ART_MGR_DIR
-        ));
+        if Path::new(ART_MGR_DIR).exists() {
+            fs::remove_dir_all(ART_MGR_DIR).expect(&format!(
+                "unable to remove artifact manager directory {}",
+                ART_MGR_DIR
+            ));
+        }
         let space_available_before =
             get_space_available().context("Error from get_space_available")?;
         assert_eq!(10840000000, space_available_before);
@@ -273,7 +277,7 @@ mod tests {
         let dir = tempdir()?;
         let file_path = dir.path().join("artifact_test.txt");
         let mut file = File::create(file_path.clone())?;
-        writeln!(file, "{}", MANIFEST_V1_JSON);
+        writeln!(file, "{}", MANIFEST_V1_JSON)?;
 
         let reader = File::open(file_path).unwrap();
         let push_result =
