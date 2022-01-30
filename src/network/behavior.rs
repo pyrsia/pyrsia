@@ -16,7 +16,7 @@
 
 extern crate dirs;
 
-use crate::node_manager::handlers::ART_MGR;
+use crate::node_manager::handlers::{ART_MGR, KADEMLIA_PROXY};
 
 use libp2p::gossipsub;
 use libp2p::{
@@ -77,11 +77,11 @@ impl MyBehaviour {
         let num = std::num::NonZeroUsize::new(2)
             .ok_or(Error::ValueTooLarge)
             .unwrap();
-        self.kademlia.get_record(&Key::new(&hash), Quorum::N(num));
+        KADEMLIA_PROXY.get_record(&Key::new(&hash), Quorum::N(num));
     }
 
     pub async fn list_peers(&mut self, peer_id: PeerId) {
-        self.kademlia.get_closest_peers(peer_id);
+        KADEMLIA_PROXY.get_closest_peers(peer_id);
     }
 
     pub async fn list_peers_cmd(&mut self) {
