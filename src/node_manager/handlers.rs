@@ -30,22 +30,22 @@ use std::panic::UnwindSafe;
 use std::str;
 use std::{fs, panic};
 
-pub const ART_MGR_DIR: &str = "pyrsia";
+pub const ARTIFACTS_DIR: &str = "pyrsia";
 //TODO: read from CLI config file
-pub const ART_MGR_ALLOCATED_SIZE: &str = "10.84 GB";
+pub const ALLOCATED_SPACE_FOR_ARTIFACTS: &str = "10.84 GB";
 
 lazy_static! {
     pub static ref ART_MGR: ArtifactManager = {
         log_static_initialization_failure(
             "Artifact Manager Directory",
-            fs::create_dir_all(ART_MGR_DIR).with_context(|| {
+            fs::create_dir_all(ARTIFACTS_DIR).with_context(|| {
                 format!(
                     "Failed to create artifact manager directory {}",
-                    ART_MGR_DIR
+                    ARTIFACTS_DIR
                 )
             }),
         );
-        log_static_initialization_failure("Artifact Manager", ArtifactManager::new(ART_MGR_DIR))
+        log_static_initialization_failure("Artifact Manager", ArtifactManager::new(ARTIFACTS_DIR))
     };
     pub static ref METADATA_MGR: Metadata =
         log_static_initialization_failure("Metadata Manager", Metadata::new());
@@ -102,7 +102,7 @@ pub fn put_artifact(
 
 pub fn get_arts_count() -> Result<usize, anyhow::Error> {
     ART_MGR
-        .artifacts_count(ART_MGR_DIR)
+        .artifacts_count(ARTIFACTS_DIR)
         .context("Error while getting artifacts count")
 }
 
@@ -110,7 +110,9 @@ pub fn get_space_available(repository_path: &str) -> Result<u64, anyhow::Error> 
     let disk_used_bytes = ART_MGR.space_used(repository_path)?;
 
     let mut available_space: u64 = 0;
-    let total_allocated_size: u64 = Byte::from_str(ART_MGR_ALLOCATED_SIZE).unwrap().get_bytes();
+    let total_allocated_size: u64 = Byte::from_str(ALLOCATED_SPACE_FOR_ARTIFACTS)
+        .unwrap()
+        .get_bytes();
 
     if total_allocated_size > disk_used_bytes {
         available_space = total_allocated_size - disk_used_bytes;
@@ -121,7 +123,9 @@ pub fn get_space_available(repository_path: &str) -> Result<u64, anyhow::Error> 
 pub fn disk_usage(repository_path: &str) -> Result<f64, anyhow::Error> {
     let disk_used_bytes = ART_MGR.space_used(repository_path)?;
 
-    let total_allocated_size: u64 = Byte::from_str(ART_MGR_ALLOCATED_SIZE).unwrap().get_bytes();
+    let total_allocated_size: u64 = Byte::from_str(ALLOCATED_SPACE_FOR_ARTIFACTS)
+        .unwrap()
+        .get_bytes();
     let mut disk_usage: f64 = 0.0;
     debug!("disk_used: {}", disk_used_bytes);
     debug!("total_allocated_size: {}", total_allocated_size);
