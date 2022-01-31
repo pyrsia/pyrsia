@@ -21,13 +21,15 @@ use serde::{Deserialize, Serialize};
 pub struct Status {
     pub peers_count: usize,
     pub artifact_count: usize,
-    pub disk_space_available: String,
+    pub disk_allocated: String,
+    pub disk_usage: String,
 }
 
 impl std::fmt::Display for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(f, "Connected Peers Count:   {}", self.peers_count)?;
-        writeln!(f, "Artifacts Count:         {}", self.artifact_count)?;
-        write!(f, "Total Disk Available:    {}", self.disk_space_available)
+        writeln!(f, "Connected Peers Count:       {}", self.peers_count)?;
+        writeln!(f, "Artifacts Count:             {}", self.artifact_count)?;
+        writeln!(f, "Total Disk Space Allocated:  {}", self.disk_allocated)?;
+        write!(f, "Disk Space Used:             {}%", self.disk_usage)
     }
 }
