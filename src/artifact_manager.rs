@@ -385,10 +385,7 @@ impl ArtifactManager {
     }
 
     fn add_torrent_to_dht(&self, torrent_path: &Path) -> Result<()> {
-        fn create_dht_record(
-            multihash: &Multihash,
-            torrent: Torrent,
-        ) -> Result<Record> {
+        fn create_dht_record(multihash: &Multihash, torrent: Torrent) -> Result<Record> {
             let mut torrent_bytes = Vec::new();
             torrent
                 .write_into(&mut torrent_bytes)
@@ -429,13 +426,12 @@ impl ArtifactManager {
         debug!("Adding torrent to dht: {}", torrent_path.display());
         let multihash = self.path_to_hash(torrent_path)?.to_multihash()?;
         let torrent = read_torrent_from_file(torrent_path)?;
-        let dht_record = create_dht_record(&multihash, torrent)
-            .with_context(|| {
-                format!(
-                    "Error creating DHT record for torrent {}",
-                    torrent_path.display()
-                )
-            })?;
+        let dht_record = create_dht_record(&multihash, torrent).with_context(|| {
+            format!(
+                "Error creating DHT record for torrent {}",
+                torrent_path.display()
+            )
+        })?;
         put_record_in_dht(torrent_path, dht_record)
     }
 
@@ -835,19 +831,51 @@ mod tests {
         am.push_artifact(&mut string_reader, &hash)
             .context("Error from push_artifact")?;
 
-        // Check that artifact file was written correctly
+        let mut path_buf = check_artifact_is_written_correctly(&dir_name)?;
+
+        // Check that torrent file was written correctly
+        let mut torrent_path_buf = path_buf.clone();
+        torrent_path_buf.set_extension(TORRENT_EXTENSION);
+        let torrent = read_torrent_from_file(torrent_path_buf);
+        check_torrent(&mut path_buf, &torrent);
+
+        check_able_to_pull_artifact(&hash, &am)?;
+
+        assert_eq!(
+            1,
+            am.artifacts_count()?,
+            "artifact manager should have a 1 artifact"
+        );
+
+        remove_dir_all(&dir_name);
+        Ok(())
+    }
+
+    fn check_artifact_is_written_correctly(dir_name: &String) -> Result<PathBuf> {
         let mut path_buf = PathBuf::from(dir_name.clone());
         path_buf.push("SHA256");
         path_buf.push(encode_bytes_as_file_name(&TEST_ARTIFACT_HASH));
         path_buf.set_extension(FILE_EXTENSION);
         let content_vec = fs::read(path_buf.as_path()).context("reading pushed file")?;
         assert_eq!(content_vec.as_slice(), TEST_ARTIFACT_DATA.as_bytes());
+        Ok(path_buf)
+    }
 
-        // Check that torrent file was written correctly
-        let mut torrent_path_buf = path_buf.clone();
-        torrent_path_buf.set_extension(TORRENT_EXTENSION);
-        let torrent =
-            torrent::v1::Torrent::read_from_file(torrent_path_buf).expect("Reading torrent file");
+    fn read_torrent_from_file(torrent_path_buf: PathBuf) -> Torrent {
+        torrent::v1::Torrent::read_from_file(torrent_path_buf).expect("Reading torrent file")
+    }
+
+    fn check_able_to_pull_artifact(hash: &Hash, am: &ArtifactManager) -> Result<()> {
+        let mut reader = am
+            .pull_artifact(&hash)
+            .context("Error from pull_artifact")?;
+        let mut read_buffer = String::new();
+        reader.read_to_string(&mut read_buffer)?;
+        assert_eq!(TEST_ARTIFACT_DATA, read_buffer);
+        Ok(())
+    }
+
+    fn check_torrent(path_buf: &mut PathBuf, torrent: &Torrent) {
         assert!(torrent.announce.is_none());
         let file_metadata = fs::metadata(path_buf.clone())
             .expect(&format!("Expected file to exist: {}", path_buf.display()));
@@ -866,23 +894,6 @@ mod tests {
             DEFAULT_TORRENT_PIECE_SIZE, torrent.piece_length,
             "piece length"
         );
-
-        // Check that we can pull the artifact
-        let mut reader = am
-            .pull_artifact(&hash)
-            .context("Error from pull_artifact")?;
-        let mut read_buffer = String::new();
-        reader.read_to_string(&mut read_buffer)?;
-        assert_eq!(TEST_ARTIFACT_DATA, read_buffer);
-
-        assert_eq!(
-            1,
-            am.artifacts_count()?,
-            "artifact manager should have a 1 artifact"
-        );
-
-        remove_dir_all(&dir_name);
-        Ok(())
     }
 
     #[test]
