@@ -733,6 +733,7 @@ mod tests {
     use crate::artifact_manager::{ArtifactManager, Hash, HashAlgorithm};
     use anyhow::{anyhow, Context};
     use env_logger::Target;
+    use libp2p_kad::kbucket::Key;
     use log::{info, LevelFilter};
     use num_traits::cast::AsPrimitive;
     use rand::{Rng, RngCore};
@@ -741,7 +742,6 @@ mod tests {
     use std::io::Read;
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
-    use libp2p_kad::kbucket::Key;
     use stringreader::StringReader;
 
     pub use super::*;
@@ -840,7 +840,7 @@ mod tests {
         let torrent = read_torrent_from_file(torrent_path_buf);
         check_torrent(&mut path_buf, &torrent);
 
-        find_torrent_in_dht(am,&torrent_path_buf)?;
+        find_torrent_in_dht(am, &torrent_path_buf)?;
         check_able_to_pull_artifact(&hash, &am)?;
 
         assert_eq!(

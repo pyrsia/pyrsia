@@ -171,7 +171,12 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour {
 impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
     // Called when `kademlia` produces an event.
     fn inject_event(&mut self, message: KademliaEvent) {
-        if let KademliaEvent::OutboundQueryCompleted { result, id: query_id,.. } = message {
+        if let KademliaEvent::OutboundQueryCompleted {
+            result,
+            id: query_id,
+            ..
+        } = message
+        {
             debug!("Received query resule for Kademlia query id {:?}", query_id);
             match result {
                 QueryResult::GetProviders(Ok(ok)) => {
