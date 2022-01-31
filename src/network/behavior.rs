@@ -153,14 +153,14 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour {
             MdnsEvent::Discovered(list) => {
                 for (peer, multiaddr) in list {
                     self.floodsub.add_node_to_partial_view(peer);
-                    self.kademlia.add_address(&peer, multiaddr);
+                    KADEMLIA_PROXY.add_address(&peer, multiaddr);
                 }
             }
             MdnsEvent::Expired(list) => {
                 for (peer, multiaddr) in list {
                     if !self.mdns.has_node(&peer) {
                         self.floodsub.remove_node_from_partial_view(&peer);
-                        self.kademlia.remove_address(&peer, &multiaddr);
+                        KADEMLIA_PROXY.remove_address(&peer, &multiaddr);
                     }
                 }
             }

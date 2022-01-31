@@ -1,9 +1,12 @@
 extern crate libp2p;
+extern crate libp2p_kad;
 extern crate std;
 
 use crate::node_manager::handlers::LOCAL_PEER_ID;
+use libp2p::kad::kbucket::EntryView;
 use libp2p::kad::store::MemoryStore;
-use libp2p::kad::{kbucket, record, Kademlia, QueryId, Quorum, Record};
+use libp2p::kad::{kbucket, record, Addresses, Kademlia, QueryId, Quorum, Record};
+use libp2p::{Multiaddr, PeerId};
 use record::store::Error;
 use std::cell::RefCell;
 use std::sync::{Mutex, MutexGuard};
@@ -46,13 +49,39 @@ impl KademliaThreadSafeProxy {
     pub fn put_record(&self, record: Record, quorum: Quorum) -> Result<QueryId, Error> {
         (*self.ref_cell()).borrow_mut().put_record(record, quorum)
     }
+
+    pub fn add_address(&self, peer: &PeerId, address: Multiaddr) {
+        (*self.ref_cell()).borrow_mut().add_address(peer, address);
+    }
+
+    pub fn remove_address(
+        &self,
+        peer: &PeerId,
+        address: &Multiaddr,
+    ) -> Option<EntryView<kbucket::Key<PeerId>, Addresses>> {
+        (*self.ref_cell())
+            .borrow_mut()
+            .remove_address(peer, address)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    pub use super::*;
+    use super::*;
     use crate::node_manager::handlers::KADEMLIA_PROXY;
     use libp2p::PeerId;
+    use std::str::FromStr;
+
+    #[test]
+    pub fn add_and_remove_peer_addresses() {
+        let peer = PeerId::random();
+        let address = Multiaddr::from_str("10.11.12.13:9999").expect("address");
+        assert!(KADEMLIA_PROXY.remove_address(&peer, &address).is_none());
+        KADEMLIA_PROXY.add_address(&peer, address.clone());
+        if KADEMLIA_PROXY.remove_address(&peer, &address).is_none() {
+            panic!("No address was removed when there was an address to be removed.")
+        }
+    }
 
     #[test]
     pub fn new_proxy_test() {

@@ -23,11 +23,7 @@ use crate::metadata_manager::metadata::Metadata;
 use crate::network::kademlia_thread_safe_proxy::KademliaThreadSafeProxy;
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
-use libp2p::{
-    identity,
-    kad::{record::store::MemoryStore, Kademlia},
-    PeerId,
-};
+use libp2p::{identity, kad::record::store::MemoryStore, PeerId};
 use log::{error, info};
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -42,7 +38,6 @@ lazy_static! {
     pub static ref LOCAL_PEER_ID: PeerId = PeerId::from(LOCAL_KEY.public());
     pub static ref MEMORY_STORE: MemoryStore = MemoryStore::new(*LOCAL_PEER_ID);
     pub static ref KADEMLIA_PROXY: KademliaThreadSafeProxy = KademliaThreadSafeProxy::new();
-
     pub static ref ART_MGR: ArtifactManager<'static> = {
         log_static_initialization_failure(
             "Artifact Manager Directory",
