@@ -305,10 +305,12 @@ impl<'a> ArtifactManager {
         }
         Ok(total_files)
     }
-
-    pub fn space_used(&self) -> Result<u64, Error> {
-        get_size(&self.repository_path)
-            .context("Error while calculating the size of artifact manager")
+    /// Calculate the size of repositoy by recursively adding size of each directory inside it.
+    /// Parameters are:
+    /// * path — directory path of which size need to be calculated.
+    /// Returns the size
+    pub fn space_used(&self, repository_path: &str) -> Result<u64, Error> {
+        get_size(repository_path).context("Error while calculating the size of artifact manager")
     }
 
     /// Push an artifact to this node's local repository.
@@ -719,8 +721,21 @@ mod tests {
         let dir_name = create_tmp_dir("tmp")?;
         let am: ArtifactManager =
             ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
+
+        // Check the space before pushing artifact
+        let space_before = am
+            .space_used(dir_name.as_str())
+            .context("Error getting space used by ArtifactManager")?;
+        assert_eq!(0, space_before);
+
         am.push_artifact(&mut string_reader, &hash)
             .context("Error from push_artifact")?;
+
+        // Check the space before pushing artifact
+        let space_before = am
+            .space_used(dir_name.as_str())
+            .context("Error getting space used by ArtifactManager")?;
+        assert_eq!(315, space_before);
 
         // Check that artifact file was written correctly
         let mut path_buf = PathBuf::from(dir_name.clone());
@@ -729,6 +744,12 @@ mod tests {
         path_buf.set_extension(FILE_EXTENSION);
         let content_vec = fs::read(path_buf.as_path()).context("reading pushed file")?;
         assert_eq!(content_vec.as_slice(), TEST_ARTIFACT_DATA.as_bytes());
+
+        // Check the space used after pushing artifact
+        let space_after = am
+            .space_used(dir_name.as_str())
+            .context("Error getting space used by ArtifactManager")?;
+        assert_eq!(315, space_after);
 
         // Check that torrent file was written correctly
         let mut torrent_path_buf = path_buf.clone();
