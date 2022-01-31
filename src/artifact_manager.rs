@@ -731,12 +731,6 @@ mod tests {
         am.push_artifact(&mut string_reader, &hash)
             .context("Error from push_artifact")?;
 
-        // Check the space before pushing artifact
-        let space_before = am
-            .space_used(dir_name.as_str())
-            .context("Error getting space used by ArtifactManager")?;
-        assert_eq!(315, space_before);
-
         // Check that artifact file was written correctly
         let mut path_buf = PathBuf::from(dir_name.clone());
         path_buf.push("SHA256");
