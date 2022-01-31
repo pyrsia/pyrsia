@@ -66,7 +66,7 @@ pub async fn handle_get_status(
         }));
     }
 
-    let disk_space_result = disk_usage();
+    let disk_space_result = disk_usage(ARTIFACTS_DIR);
     if disk_space_result.is_err() {
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(disk_space_result.err().unwrap().to_string()),
@@ -76,7 +76,7 @@ pub async fn handle_get_status(
     let status = Status {
         artifact_count: art_count_result.unwrap(),
         peers_count: peers_total,
-        disk_allocated: String::from(ART_MGR_ALLOCATED_SIZE),
+        disk_allocated: String::from(ALLOCATED_SPACE_FOR_ARTIFACTS),
         disk_usage: format!("{:.4}", disk_space_result.unwrap()),
     };
 
@@ -112,7 +112,3 @@ pub async fn handle_get_blocks(
         .body(blocks)
         .unwrap())
 }
-
-// Next Step:
-// handle_get_block_id
-// hand_put_block

@@ -14,10 +14,15 @@
    limitations under the License.
 */
 
+extern crate lava_torrent;
 extern crate walkdir;
 
 use anyhow::{anyhow, bail, Context, Error, Result};
 use fs_extra::dir::get_size;
+use lava_torrent::bencode::BencodeElem;
+use lava_torrent::torrent;
+use lava_torrent::torrent::v1::Torrent;
+use libp2p::PeerId;
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
 use serde::{Deserialize, Serialize};
@@ -31,6 +36,7 @@ use std::io::{BufWriter, Read, Write};
 use std::path;
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::RwLock;
 use strum::IntoEnumIterator;
 use strum_macros::{EnumIter, EnumString};
 use walkdir::{DirEntry, WalkDir};
@@ -185,7 +191,7 @@ impl<'a> Hash<'a> {
     // This consists of the artifact repository root directory, a directory whose name is the
     // algorithm used to compute the hash and a file name that is the hash, encoded as hex
     // (base64 is more compact, but hex is easier for troubleshooting). For example
-    // pyrsia-artifacts/SHA256/68efadf3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6ccbb4
+    // pyrsia-artifacts/SHA256/680fade3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6cab34
     // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
     fn base_file_path(&self, repo_dir: &Path) -> PathBuf {
         let mut buffer: PathBuf = PathBuf::from(repo_dir);
@@ -250,7 +256,7 @@ impl<'a> Write for WriteHashDecorator<'a> {
 ///
 /// Each of the hash algorithm directories will contain files whose names consist of the file's
 /// hash followed by an extension. For example<br>
-/// `68efadf3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6ccbb4.file`
+// `680fade3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6cab34`
 ///
 /// For now, all files will have the `.file` extension to signify that they are simple files whose
 /// contents are the artifact having the same hash as indicated by the file name. Other extensions
@@ -258,7 +264,11 @@ impl<'a> Write for WriteHashDecorator<'a> {
 /// Pyrsia needs to know about.
 pub struct ArtifactManager {
     pub repository_path: PathBuf,
+    peer_id: RwLock<Option<PeerId>>,
 }
+
+const FILE_EXTENSION: &str = "file";
+const TORRENT_EXTENSION: &str = "torrent";
 
 impl<'a> ArtifactManager {
     /// Create a new ArtifactManager that works with artifacts in the given directory
@@ -272,6 +282,7 @@ impl<'a> ArtifactManager {
             );
             Ok(ArtifactManager {
                 repository_path: absolute_path,
+                peer_id: RwLock::new(None),
             })
         } else {
             inaccessible_repo_directory_error(repository_path)
@@ -294,7 +305,10 @@ impl<'a> ArtifactManager {
         }
         Ok(total_files)
     }
-
+    /// Calculate the size of repositoy by recursively adding size of each directory inside it.
+    /// Parameters are:
+    /// * path — directory path of which size need to be calculated.
+    /// Returns the size
     pub fn space_used(&self, repository_path: &str) -> Result<u64, Error> {
         get_size(repository_path).context("Error while calculating the size of artifact manager")
     }
@@ -327,7 +341,12 @@ impl<'a> ArtifactManager {
                 let actual_hash =
                     &*do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
                 if actual_hash == expected_hash.bytes {
-                    rename_to_permanent(expected_hash, base_path, &tmp_path)
+                    rename_to_permanent(expected_hash, &base_path, &tmp_path)?;
+                    let peer_id_string = self
+                        .get_peer_id()
+                        .map(|id| id.to_base58())
+                        .unwrap_or_else(|_| "*** Uninitialized ***".to_string());
+                    create_torrent_file_from(&base_path, peer_id_string)
                 } else {
                     handle_wrong_hash(expected_hash, tmp_path, actual_hash)
                 }
@@ -361,13 +380,13 @@ impl<'a> ArtifactManager {
             )
         }
         let target_path = self.file_path_for_new_artifact(expected_hash);
-        rename_to_permanent(expected_hash, target_path, path)
+        rename_to_permanent(expected_hash, &target_path, path)
     }
 
     fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> PathBuf {
         let mut base_path: PathBuf = expected_hash.base_file_path(&self.repository_path);
         // for now all artifacts are unstructured
-        base_path.set_extension("file");
+        base_path.set_extension(FILE_EXTENSION);
         base_path
     }
 
@@ -381,10 +400,39 @@ impl<'a> ArtifactManager {
         );
         let mut base_path: PathBuf = hash.base_file_path(&self.repository_path);
         // for now all artifacts are unstructured
-        base_path.set_extension("file");
+        base_path.set_extension(FILE_EXTENSION);
         debug!("Pulling artifact from {}", base_path.display());
         File::open(base_path.as_path())
             .with_context(|| format!("{} not found.", base_path.display()))
+    }
+
+    pub fn set_peer_id(&self, peer_id: PeerId) -> Result<()> {
+        // Because artifact manager is allocated statically, no mutable references are allowed to it.
+        // To allow a set method from an immutable borrow, we are using interior mutability
+        match self.peer_id.try_write() {
+            Ok(mut guard) => {
+                *guard = Some(peer_id);
+                Ok(())
+            }
+            Err(error) => bail!("Error setting ArtifactManager.peer_id: {}", error),
+        }
+    }
+
+    pub fn get_peer_id(&self) -> Result<PeerId> {
+        // Because artifact manager is allocated statically, no mutable references are allowed to it.
+        // To allow a set method from an immutable borrow, we are using interior mutability
+        match self.peer_id.read() {
+            Ok(guard) => {
+                if (*guard).is_some() {
+                    Ok((*guard).unwrap())
+                } else {
+                    bail!("Attempt to read ArtifactManager.peer_id before it is set!")
+                }
+            }
+            Err(_) => Err(anyhow!(
+                "Unable to access ArtifactManager.peer_id due to a previous panic"
+            )),
+        }
     }
 }
 
@@ -407,6 +455,43 @@ fn compute_hash_of_file<'a>(
     }
     let mut hash_buffer = [0u8; HASH_BUFFER_SIZE];
     Ok(actual_hash(&mut hash_buffer, &mut digester).to_vec())
+}
+
+fn create_torrent_file_from(path: &Path, peer_id: String) -> Result<bool> {
+    let torrent_content = create_torrent_content(path, peer_id)?;
+    let mut torrent_path = path.to_path_buf();
+    torrent_path.set_extension(TORRENT_EXTENSION);
+    write_torrent_to_file(torrent_content, torrent_path)?;
+    Ok(true)
+}
+
+fn write_torrent_to_file(torrent_content: Torrent, torrent_path: PathBuf) -> Result<()> {
+    match torrent_content.write_into_file(torrent_path.clone()) {
+        Ok(_) => {
+            debug!("Wrote torrent file: {}", torrent_path.display());
+            Ok(())
+        }
+        Err(error) => bail!(
+            "Error writing torrent to file {}: {}",
+            torrent_path.display(),
+            error
+        ),
+    }
+}
+
+const DEFAULT_TORRENT_PIECE_SIZE: i64 = 1048576;
+
+fn create_torrent_content(path: &Path, peer_id: String) -> Result<Torrent> {
+    match torrent::v1::TorrentBuilder::new(path, DEFAULT_TORRENT_PIECE_SIZE)
+        .add_extra_field(
+            "x_create_by".to_string(),
+            BencodeElem::String(format!("Pyrsia Node: {}", peer_id)),
+        )
+        .build()
+    {
+        Ok(torrent) => Ok(torrent),
+        Err(error) => bail!("Error creating torrent for {}: {}", path.display(), error),
+    }
 }
 
 fn inaccessible_repo_directory_error(repository_path: &str) -> Result<ArtifactManager, Error> {
@@ -451,10 +536,10 @@ fn handle_wrong_hash(
 
 fn rename_to_permanent(
     expected_hash: &Hash,
-    base_path: PathBuf,
+    base_path: &Path,
     tmp_path: &Path,
 ) -> Result<bool, anyhow::Error> {
-    fs::rename(tmp_path.to_path_buf(), base_path.clone()).with_context(|| {
+    fs::rename(tmp_path.to_path_buf(), base_path.to_path_buf()).with_context(|| {
         format!(
             "Attempting to rename from temporary file name{} to permanent{}",
             tmp_path.to_str().unwrap(),
@@ -552,6 +637,7 @@ mod tests {
     use anyhow::{anyhow, Context};
     use env_logger::Target;
     use log::{info, LevelFilter};
+    use num_traits::cast::AsPrimitive;
     use rand::{Rng, RngCore};
     use std::env;
     use std::fs;
@@ -635,16 +721,55 @@ mod tests {
         let dir_name = create_tmp_dir("tmp")?;
         let am: ArtifactManager =
             ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
+
+        // Check the space before pushing artifact
+        let space_before = am
+            .space_used(dir_name.as_str())
+            .context("Error getting space used by ArtifactManager")?;
+        assert_eq!(0, space_before);
+
         am.push_artifact(&mut string_reader, &hash)
             .context("Error from push_artifact")?;
 
+        // Check that artifact file was written correctly
         let mut path_buf = PathBuf::from(dir_name.clone());
         path_buf.push("SHA256");
         path_buf.push(hex::encode(TEST_ARTIFACT_HASH));
-        path_buf.set_extension("file");
+        path_buf.set_extension(FILE_EXTENSION);
         let content_vec = fs::read(path_buf.as_path()).context("reading pushed file")?;
         assert_eq!(content_vec.as_slice(), TEST_ARTIFACT_DATA.as_bytes());
 
+        // Check the space used after pushing artifact
+        let space_after = am
+            .space_used(dir_name.as_str())
+            .context("Error getting space used by ArtifactManager")?;
+        assert_eq!(315, space_after);
+
+        // Check that torrent file was written correctly
+        let mut torrent_path_buf = path_buf.clone();
+        torrent_path_buf.set_extension(TORRENT_EXTENSION);
+        let torrent =
+            torrent::v1::Torrent::read_from_file(torrent_path_buf).expect("Reading torrent file");
+        assert!(torrent.announce.is_none());
+        let file_metadata = fs::metadata(path_buf.clone())
+            .expect(&format!("Expected file to exist: {}", path_buf.display()));
+        let torrent_length_as_u64: u64 = torrent.length.as_();
+        assert_eq!(
+            file_metadata.len(),
+            torrent_length_as_u64,
+            "file length in torrent"
+        );
+        assert_eq!(
+            path_buf.file_name().unwrap().to_str().unwrap(),
+            &torrent.name,
+            "file name in torrent"
+        );
+        assert_eq!(
+            DEFAULT_TORRENT_PIECE_SIZE, torrent.piece_length,
+            "piece length"
+        );
+
+        // Check that we can pull the artifact
         let mut reader = am
             .pull_artifact(&hash)
             .context("Error from pull_artifact")?;
