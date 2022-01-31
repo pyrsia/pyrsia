@@ -18,7 +18,6 @@ extern crate lava_torrent;
 extern crate walkdir;
 
 use crate::artifact_manager::tests::kad::{Quorum, Record};
-use crate::node_manager::handlers;
 use anyhow::{anyhow, bail, Context, Error, Result};
 use lava_torrent::bencode::BencodeElem;
 use lava_torrent::torrent;

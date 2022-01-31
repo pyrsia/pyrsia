@@ -22,12 +22,9 @@ use libp2p::gossipsub;
 use libp2p::{
     floodsub::{Floodsub, FloodsubEvent},
     kad::{
-        record::{
-            store::Error,
-            Key,
-        },
-        AddProviderOk, KademliaEvent, PeerRecord, PutRecordOk, QueryId, QueryResult,
-        Quorum, Record,
+        record::{store::Error, Key},
+        AddProviderOk, KademliaEvent, PeerRecord, PutRecordOk, QueryId, QueryResult, Quorum,
+        Record,
     },
     mdns::{Mdns, MdnsEvent},
     swarm::NetworkBehaviourEventProcess,
@@ -93,8 +90,7 @@ impl MyBehaviour {
 
     pub fn advertise_blob(&mut self, hash: String, value: Vec<u8>) -> Result<QueryId, Error> {
         let num = std::num::NonZeroUsize::new(2).ok_or(Error::ValueTooLarge)?;
-        self.kademlia
-            .put_record(Record::new(Key::new(&hash), value), Quorum::N(num))
+        KADEMLIA_PROXY.put_record(Record::new(Key::new(&hash), value), Quorum::N(num))
     }
 }
 

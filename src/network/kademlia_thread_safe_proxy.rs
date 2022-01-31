@@ -2,9 +2,9 @@ extern crate libp2p;
 extern crate std;
 
 use crate::node_manager::handlers::LOCAL_PEER_ID;
-use libp2p::kad::record::Key;
 use libp2p::kad::store::MemoryStore;
-use libp2p::kad::{Kademlia, kbucket, QueryId, Quorum};
+use libp2p::kad::{kbucket, record, Kademlia, QueryId, Quorum, Record};
+use record::store::Error;
 use std::cell::RefCell;
 use std::sync::{Mutex, MutexGuard};
 
@@ -39,8 +39,12 @@ impl KademliaThreadSafeProxy {
         (*self.ref_cell()).borrow_mut().get_closest_peers(key)
     }
 
-    pub fn get_record(&self, key: &Key, quorum: Quorum) -> QueryId {
+    pub fn get_record(&self, key: &record::Key, quorum: Quorum) -> QueryId {
         (*self.ref_cell()).borrow_mut().get_record(key, quorum)
+    }
+
+    pub fn put_record(&self, record: Record, quorum: Quorum) -> Result<QueryId, Error> {
+        (*self.ref_cell()).borrow_mut().put_record(record, quorum)
     }
 }
 
@@ -48,6 +52,7 @@ impl KademliaThreadSafeProxy {
 mod tests {
     pub use super::*;
     use crate::node_manager::handlers::KADEMLIA_PROXY;
+    use libp2p::PeerId;
 
     #[test]
     pub fn new_proxy_test() {
@@ -57,7 +62,7 @@ mod tests {
 
     #[test]
     pub fn get_record_test_just_to_check_that_it_returns_a_different_query_id_each_call() {
-        let key = Key::from(vec![0xde, 0xad, 0xbe, 0xef]);
+        let key = record::Key::from(vec![0xde, 0xad, 0xbe, 0xef]);
         let q1 = KADEMLIA_PROXY.get_record(&key, Quorum::One);
         let q2 = KADEMLIA_PROXY.get_record(&key, Quorum::One);
         assert_ne!(q1, q2, "Query IDs should not be equal");
@@ -65,9 +70,22 @@ mod tests {
 
     #[test]
     pub fn get_closest_peers_test_just_to_check_that_it_returns_a_different_query_id_each_call() {
-        let key = Key::from(vec![0xde, 0xad, 0xbe, 0xef]);
-        let q1 = KADEMLIA_PROXY.get_closest_peers(&key);
-        let q2 = KADEMLIA_PROXY.get_closest_peers(&key);
+        let peer_id: PeerId = *LOCAL_PEER_ID;
+        let q1 = KADEMLIA_PROXY.get_closest_peers(peer_id);
+        let q2 = KADEMLIA_PROXY.get_closest_peers(peer_id);
         assert_ne!(q1, q2, "Query IDs should not be equal");
+    }
+
+    pub fn put_record_test() -> Result<(), Error> {
+        let record = Record {
+            key: record::Key::from(vec![0xdeu8, 0xadu8, 0xbeu8, 0xefu8]),
+            value: vec![0xf0u8, 0x83u8, 0x32u8],
+            publisher: Some(*LOCAL_PEER_ID),
+            expires: None,
+        };
+        let q1 = KADEMLIA_PROXY.put_record(record.clone(), Quorum::One)?;
+        let q2 = KADEMLIA_PROXY.put_record(record, Quorum::One)?;
+        assert_ne!(q1, q2, "Query IDs should not be equal");
+        Ok(())
     }
 }
