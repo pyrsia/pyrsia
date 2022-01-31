@@ -30,124 +30,120 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         brew install openssl
+
+    # Install cargo deb and strip
+    - name: Install cargo-deb cargo-strip
+      if: runner.os == 'Linux'
+      uses: actions-rs/cargo@v1.0.1
+      with: 
+        command: install
+        args: cargo-deb cargo-strip --force
+
+    # Need to add build number to version number
+    - name: Iterate Build Version Number
+      run: |
+        sed -i.bak "/^version = \"0.1.0\"/s/\"\$/+${{ github.run_number }}\"/" Cargo.toml
+
+    - name: Build Release Binaries
+      run: |
+        cargo build --workspace --verbose  --release
     
-    - run: cargo build --workspace --verbose --locked --release
-    - run: cargo test --workspace --verbose
+    - name: Execute Test Cases
+      run: |
+        cargo test --workspace --verbose
 
-    # save the pyrsia_node binary for the package creation
-    - name: Save pyrsia_node binary
-      uses: actions/upload-artifact@v2
-      if: runner.os == 'Linux'
-      with:
-        name: pyrsia_node
-        path: target/release/pyrsia_node
-        if-no-files-found: error
-
-    # save the pyrsia binary for the package creation
-    - name: Save pyrsia binary
-      uses: actions/upload-artifact@v2
-      if: runner.os == 'Linux'
-      with:
-        name: pyrsia
-        path: target/release/pyrsia
-        if-no-files-found: error
-
-    # save the debian control files to be used with the deb packager
-    - name: Save debian control file
-      uses: actions/upload-artifact@v2
-      if: runner.os == 'Linux'
-      with:
-        name: DEBIAN
-        path: installers/DEBIAN
-        if-no-files-found: error
-    
-      # build synapse-bt 1.0 from github (commit:634ee2a62 = 1.0 tag)
-    - name: Build synapse 
+    - name: Strip Binaries
       if: runner.os == 'Linux'
       run: |
-        cargo install --force --git https://github.com/Luminarys/synapse.git#634ee2a62 synapse-bt
-        cp ~/.cargo/bin/synapse target/release/synapse
-      shell: bash
+        cargo strip
 
-    # save the debian control files to be used with the deb packager
-    - name: Save synapse binary
-      uses: actions/upload-artifact@v2
+    # Create Pyrsia .deb file
+    - name: Package Pyrsia as deb file
       if: runner.os == 'Linux'
+      uses: actions-rs/cargo@v1.0.1
       with:
-        name: synapse
-        path: target/release/synapse
-        if-no-files-found: error
+        command: deb
+        args: --no-build -v
 
-  # Create the .deb file, add it to the apt repo and
+    # Add the prysia .deb file to the apt repo which is part of
+    # the github website repo
+    - name: Upload Pyrsia .deb to website repo
+      uses: sbtaylor15/apt-repo-action@v2.0.4
+      # Only when we push on the main repository should we upload the results
+      if: github.repository_owner == 'pyrsia' && github.event_name == 'push' && runner.os == 'Linux'
+      with:
+        github_token: ${{ secrets.APT }}
+        repo_supported_version: |
+          focal
+        repo_supported_arch: |
+          amd64
+        page_branch: gh-pages
+        file: /github/workspace/target/debian/pyrsia_0.1.0+${{ github.run_number }}_amd64.deb
+        file_target_version: focal
+        public_key: ${{ secrets.GPG_PUBLIC }}
+        private_key: ${{ secrets.GPG_PRIVATE }}
+        key_passphrase: ${{ secrets.GPG_SECRET }}
+        github_repository: pyrsia/pyrsia.github.io
+    
+  # Create the Synapse binaries and .deb file, add it to the apt repo and
   # push the changes to the website github repo
-  apt-package:
+  synapse-package:
       needs: [build]
       runs-on: ubuntu-latest
       steps:
+      # Install cargo deb and strip
+      - name: Install cargo-deb
+        uses: actions-rs/cargo@v1.0.1
+        with: 
+          command: install
+          args: cargo-deb cargo-strip --force
 
-      # grab the pyrsia_node from the build step
-      - name: Fetch pyrsia_node binary
-        uses: actions/download-artifact@v2
+      # Checkout Synapse
+      - name: Checkout Synapse
+        uses: actions/checkout@v2
         with:
-          name: pyrsia_node
-          path: target/release
+          repository: pyrsia/synapse
 
-      # grab the pyrsia from the build step
-      - name: Fetch pyrsia binary
-        uses: actions/download-artifact@v2
-        with:
-          name: pyrsia
-          path: target/release
-
-      # grab the control file from the build step
-      - name: Fetch debian control file
-        uses: actions/download-artifact@v2
-        with:
-          name: DEBIAN
-          path: pyrsia/DEBIAN
-
-      # grab the synapse from the build step
-      - name: Fetch synapse binary
-        uses: actions/download-artifact@v2
-        with:
-          name: synapse
-          path: target/release
-
-      # create the pyrsia.deb file
-      - name:  Package for apt-get
+      # Need to add build number to version number
+      - name: Iterate Build Version Number
         run: |
-            mkdir -p pyrsia/usr/local/bin
-            cp target/release/pyrsia_node pyrsia/usr/local/bin
-            cp target/release/pyrsia pyrsia/usr/local/bin
-            cp target/release/synapse pyrsia/usr/local/bin
-            chmod 755 pyrsia/usr/local/bin/pyrsia_node
-            chmod 755 pyrsia/usr/local/bin/pyrsia
-            chmod 755 pyrsia/usr/local/bin/synapse
-            echo "Installed-Size: $(echo "$(stat -c%s pyrsia/usr/local/bin/pyrsia) + $(stat -c%s pyrsia/usr/local/bin/pyrsia_node)" | bc)" >> pyrsia/DEBIAN/control
-            sed -i.bak "/Version:/s/\$/-$GITHUB_RUN_NUMBER/" pyrsia/DEBIAN/control
-            cat pyrsia/DEBIAN/control
-            dpkg-deb --build pyrsia
-            ls -la pyrsia.deb
-        shell: bash
+          sed -i.bak "/^version = \"1.0.0\"/s/\"\$/+${{ github.run_number }}\"/" Cargo.toml
 
-      # add the prysia.deb file to the apt repo which is part of
+      # Create the Synapse Binaries
+      - name: Build Synapse
+        run: |
+          cargo build --workspace   --release
+      
+      - name: Strip Synapse
+        run: |
+          cargo strip
+
+      # Create Synapse .deb file
+      - name: Package Synapse as deb file
+        uses: actions-rs/cargo@v1.0.1
+        with:
+          command: deb
+          args: --no-build -v
+
+      # Add the synapse .deb file to the apt repo which is part of
       # the github website repo
-      - uses: sbtaylor15/apt-repo-action@v2.0.4
+      - name: Updload Synapse .deb to website repo
+        uses: sbtaylor15/apt-repo-action@v2.0.4
         # Only when we push on the main repository should we upload the results
         if: github.repository_owner == 'pyrsia' && github.event_name == 'push'
         with:
           github_token: ${{ secrets.APT }}
           repo_supported_version: |
-            bionic
+            focal
           repo_supported_arch: |
             amd64
           page_branch: gh-pages
-          file: /github/workspace/pyrsia.deb
-          file_target_version: bionic
+          file: /github/workspace/target/debian/synapse-bt_1.0.0+${{ github.run_number }}_amd64.deb
+          file_target_version: focal
           public_key: ${{ secrets.GPG_PUBLIC }}
           private_key: ${{ secrets.GPG_PRIVATE }}
           key_passphrase: ${{ secrets.GPG_SECRET }}
-          github_repository: pyrsia/website
+          github_repository: pyrsia/pyrsia.github.io
 
   coverage:
     needs: [build]
@@ -185,7 +181,7 @@ jobs:
   
   docker:
     runs-on: ubuntu-latest
-    needs: [apt-package]
+    needs: [build, synapse-package]
     if: github.repository_owner == 'pyrsia' && github.event_name == 'push'
     steps:
     - uses: actions/checkout@v2

@@ -1,7 +1,24 @@
 [package]
 name = "pyrsia"
+readme = "readme.md"
 version = "0.1.0"
 edition = "2021"
+description = "Prysia Node and CLI"
+authors = ["pyrsiaoss <pyrsiaopensource@gmail.com>"]
+license = "Apache-2"
+repository = "https://github.com/pyrsia/pyrsia"
+
+[package.metadata.deb]
+assets = [
+    ["target/release/pyrsia_node", "usr/bin/", "755"],
+    ["target/release/pyrsia", "usr/bin/", "755"],
+    ["readme.md", "usr/share/doc/pyrsia/README", "644"],
+    ["installers/debian/synapse.toml", "usr/share/pyrsia/synapse.toml", "644"]
+   ]
+section = "devel"
+depends = "openssl, synapse-bt"
+maintainer-scripts = "installers/debian/"
+systemd-units = { unit-name = "pyrsia", unit-scripts = "installers/debian/" }
 
 [dependencies]
 signed = {path="src/signed"}

@@ -1,0 +1,11 @@
+[Unit]
+Description=Pyrsia Node
+
+[Service]
+WorkingDirectory=/usr/local/var
+Environment="PYRSIA_ARTIFACT_PATH=/usr/local/var/pyrsia"
+Environment="RUST_LOG=info"
+ExecStart=/usr/bin/pyrsia_node
+
+[Install]
+WantedBy=multi-user.target
