@@ -17,13 +17,13 @@
 extern crate lava_torrent;
 extern crate walkdir;
 
-use crate::artifact_manager::tests::kad::{Quorum, Record};
 use crate::node_manager::handlers::{KADEMLIA_PROXY, LOCAL_PEER_ID};
 use anyhow::{anyhow, bail, Context, Error, Result};
 use lava_torrent::bencode::BencodeElem;
 use lava_torrent::torrent;
 use lava_torrent::torrent::v1::Torrent;
 use libp2p::kad;
+use libp2p_kad::{Quorum, Record};
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use multihash::{Multihash, MultihashGeneric};
 use path::PathBuf;
@@ -459,6 +459,11 @@ impl ArtifactManager {
                 torrent_path.display()
             )
         };
+        debug!(
+            "get_hash_algorithm_from_path: repo_path is {}\nTorrent path is {}",
+            self.repository_path.display(),
+            torrent_path.display()
+        );
         for _ in 0..self.repository_path_component_count {
             if components.next().is_none() {
                 return no_algorithm_directory();
@@ -549,9 +554,14 @@ fn compute_hash_of_file<'a>(
 
 fn create_torrent_file_from(path: &Path) -> Result<PathBuf> {
     let torrent_content = create_torrent_content(path)?;
-    let torrent_path = path.with_extension(TORRENT_EXTENSION);
-    write_torrent_to_file(torrent_content, &torrent_path)?;
-    Ok(torrent_path)
+    let relative_torrent_path = path.with_extension(TORRENT_EXTENSION);
+    write_torrent_to_file(torrent_content, &relative_torrent_path)?;
+    let absolute_torrent_path = fs::canonicalize(relative_torrent_path)?;
+    debug!(
+        "Absolute torrent path is {}",
+        absolute_torrent_path.display()
+    );
+    Ok(absolute_torrent_path)
 }
 
 fn write_torrent_to_file(torrent_content: Torrent, torrent_path: &Path) -> Result<()> {
@@ -733,7 +743,6 @@ mod tests {
     use crate::artifact_manager::{ArtifactManager, Hash, HashAlgorithm};
     use anyhow::{anyhow, Context};
     use env_logger::Target;
-    use libp2p_kad::kbucket::Key;
     use log::{info, LevelFilter};
     use num_traits::cast::AsPrimitive;
     use rand::{Rng, RngCore};
@@ -837,10 +846,12 @@ mod tests {
         // Check that torrent file was written correctly
         let mut torrent_path_buf = path_buf.clone();
         torrent_path_buf.set_extension(TORRENT_EXTENSION);
-        let torrent = read_torrent_from_file(torrent_path_buf);
+        let absolute_torrent_path_buf = fs::canonicalize(torrent_path_buf)?;
+        let torrent_path = absolute_torrent_path_buf.as_path();
+        let torrent = read_torrent_from_file(&torrent_path);
         check_torrent(&mut path_buf, &torrent);
 
-        find_torrent_in_dht(am, &torrent_path_buf)?;
+        find_torrent_in_dht(&am, &torrent_path)?;
         check_able_to_pull_artifact(&hash, &am)?;
 
         assert_eq!(
@@ -853,8 +864,8 @@ mod tests {
         Ok(())
     }
 
-    fn find_torrent_in_dht(am: ArtifactManager, path: &PathBuf) -> Result<()> {
-        let multihash = am.path_to_hash(path)?.to_multihash()?;
+    fn find_torrent_in_dht(am: &ArtifactManager, path: &Path) -> Result<()> {
+        let _multihash = am.path_to_hash(path)?.to_multihash()?;
         //TODO The test to see if the torrent is in the DHT involves code that will be in the next PR.
         Ok(())
     }
@@ -869,7 +880,7 @@ mod tests {
         Ok(path_buf)
     }
 
-    fn read_torrent_from_file(torrent_path_buf: PathBuf) -> Torrent {
+    fn read_torrent_from_file(torrent_path_buf: &Path) -> Torrent {
         torrent::v1::Torrent::read_from_file(torrent_path_buf).expect("Reading torrent file")
     }
 
