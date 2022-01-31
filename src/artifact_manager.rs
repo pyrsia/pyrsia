@@ -165,7 +165,7 @@ impl<'a> Hash {
         .context("Error creating a multihash from a Hash struct")
     }
 
-    pub fn from_multihash<'b>(mh: Multihash) -> Result<Hash> {
+    pub fn from_multihash(mh: Multihash) -> Result<Hash> {
         match mh.code() {
             MH_SHA2_256 => Hash::new(HashAlgorithm::SHA256, mh.digest()),
             MH_SHA2_512 => Hash::new(HashAlgorithm::SHA512, mh.digest()),
@@ -401,7 +401,7 @@ impl ArtifactManager {
             let dht_record = kad::Record {
                 key: libp2p::kad::record::Key::new(&multihash.to_bytes()),
                 value: torrent_bytes,
-                publisher: Some(LOCAL_PEER_ID.clone()),
+                publisher: Some(*LOCAL_PEER_ID),
                 expires: None,
             };
             Ok(dht_record)

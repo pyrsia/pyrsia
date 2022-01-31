@@ -40,7 +40,7 @@ lazy_static! {
     pub static ref LOCAL_KEY: identity::Keypair = identity::Keypair::generate_ed25519();
     pub static ref LOCAL_PEER_ID: PeerId = PeerId::from(LOCAL_KEY.public());
     pub static ref MEMORY_STORE: MemoryStore = MemoryStore::new(*LOCAL_PEER_ID);
-    pub static ref KADEMLIA_PROXY: KademliaThreadSafeProxy = KademliaThreadSafeProxy::new();
+    pub static ref KADEMLIA_PROXY: KademliaThreadSafeProxy = KademliaThreadSafeProxy::default();
     pub static ref ART_MGR: ArtifactManager = {
         log_static_initialization_failure(
             "Artifact Manager Directory",
@@ -108,7 +108,7 @@ pub fn put_artifact(
 
 pub fn get_arts_count() -> Result<usize, anyhow::Error> {
     ART_MGR
-        .artifacts_count(ARTIFACTS_DIR)
+        .artifacts_count()
         .context("Error while getting artifacts count")
 }
 

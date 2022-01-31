@@ -32,7 +32,7 @@ pub struct KademliaThreadSafeProxy {
 }
 
 impl KademliaThreadSafeProxy {
-    pub fn new() -> KademliaThreadSafeProxy {
+    pub fn default() -> KademliaThreadSafeProxy {
         let kad = Kademlia::new(*LOCAL_PEER_ID, MemoryStore::new(*LOCAL_PEER_ID));
         KademliaThreadSafeProxy {
             mutex: Mutex::new(RefCell::new(kad)),
@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     pub fn new_proxy_test() {
-        let proxy = KademliaThreadSafeProxy::new();
+        let proxy = KademliaThreadSafeProxy::default();
         assert!(!proxy.is_poisoned())
     }
 
