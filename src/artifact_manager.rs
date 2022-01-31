@@ -18,19 +18,17 @@ extern crate lava_torrent;
 extern crate walkdir;
 
 use crate::artifact_manager::tests::kad::{Quorum, Record};
+use crate::node_manager::handlers::{KADEMLIA_PROXY, LOCAL_PEER_ID};
 use anyhow::{anyhow, bail, Context, Error, Result};
 use lava_torrent::bencode::BencodeElem;
 use lava_torrent::torrent;
 use lava_torrent::torrent::v1::Torrent;
-use libp2p::kad::store::MemoryStore;
-use libp2p::kad::{Kademlia, QueryId};
-use libp2p::{kad, PeerId};
+use libp2p::kad;
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use multihash::{Multihash, MultihashGeneric};
 use path::PathBuf;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
-use std::cell::RefCell;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{Display, Formatter};
 use std::fs;
@@ -40,7 +38,6 @@ use std::io::{BufWriter, Read, Write};
 use std::path;
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::Mutex;
 use strum::IntoEnumIterator;
 use strum_macros::{EnumIter, EnumString};
 use walkdir::{DirEntry, WalkDir};
@@ -302,16 +299,15 @@ impl<'a> Write for WriteHashDecorator<'a> {
 /// contents are the artifact having the same hash as indicated by the file name. Other extensions
 /// may be used in the future to indicate that the file has a particular internal structure that
 /// Pyrsia needs to know about.
-pub struct ArtifactManager<'a> {
+pub struct ArtifactManager {
     pub repository_path: PathBuf,
-    dht: Mutex<RefCell<Option<&'a mut Kademlia<MemoryStore>>>>,
     repository_path_component_count: u16,
 }
 
 const FILE_EXTENSION: &str = "file";
 const TORRENT_EXTENSION: &str = "torrent";
 
-impl<'a> ArtifactManager<'a> {
+impl ArtifactManager {
     /// Create a new ArtifactManager that works with artifacts in the given directory
     pub fn new(repository_path: &str) -> Result<ArtifactManager, anyhow::Error> {
         let absolute_path = Path::new(repository_path).canonicalize()?;
@@ -324,7 +320,6 @@ impl<'a> ArtifactManager<'a> {
             let repository_path_component_count = absolute_path.components().count() as u16;
             Ok(ArtifactManager {
                 repository_path: absolute_path,
-                dht: Mutex::new(RefCell::new(None)),
                 repository_path_component_count,
             })
         } else {
@@ -379,8 +374,7 @@ impl<'a> ArtifactManager<'a> {
                     &*do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
                 if actual_hash == expected_hash.bytes {
                     rename_to_permanent(expected_hash, &base_path, &tmp_path)?;
-                    let torrent_file_path =
-                        create_torrent_file_from(&base_path, self.peer_id_string())?;
+                    let torrent_file_path = create_torrent_file_from(&base_path)?;
                     self.add_torrent_to_dht(torrent_file_path.as_path())?;
                     Ok(true)
                 } else {
@@ -392,7 +386,6 @@ impl<'a> ArtifactManager<'a> {
 
     fn add_torrent_to_dht(&self, torrent_path: &Path) -> Result<()> {
         fn create_dht_record(
-            peer_id: &PeerId,
             multihash: &Multihash,
             torrent: Torrent,
         ) -> Result<Record> {
@@ -403,7 +396,7 @@ impl<'a> ArtifactManager<'a> {
             let dht_record = kad::Record {
                 key: libp2p::kad::record::Key::new(&multihash.to_bytes()),
                 value: torrent_bytes,
-                publisher: Some(peer_id.clone()),
+                publisher: Some(LOCAL_PEER_ID.clone()),
                 expires: None,
             };
             Ok(dht_record)
@@ -419,46 +412,31 @@ impl<'a> ArtifactManager<'a> {
             })
         }
 
-        fn put_record_in_dht(
-            slf: &ArtifactManager,
-            torrent_path: &Path,
-            dht_record: Record,
-        ) -> Result<()> {
+        fn put_record_in_dht(torrent_path: &Path, dht_record: Record) -> Result<()> {
             // TODO We should look at configuring a numeric quorum size.
-            if let KademliaMethodResult::PutRecord(result) =
-                slf.with_dht(KademliaMethodCall::PutRecord {
-                    record: dht_record,
-                    quorum: Quorum::Majority,
-                })
-            {
-                let query_id = result.map_err(|err| {
-                    anyhow!(
+            match KADEMLIA_PROXY.put_record(dht_record, Quorum::Majority) {
+                Ok(query_id) => {
+                    info!("QueryId {:?} to add torrent to dht: {}", query_id, torrent_path.display());
+                    Ok(())
+                }
+                Err(error) => bail!(
                     "Error putting a record in the Kademlia DHT to advertise torrent: {:?}\nTorrent path is {}",
-                    err, torrent_path.display()
+                    error, torrent_path.display()
                 )
-                })?;
-                info!(
-                    "Sharing torrent using Kademlia: {}\nQuery id: {:?}",
-                    torrent_path.display(),
-                    query_id
-                );
-            } else {
-                panic!("unexpected result type!")
             }
-            Ok(())
         }
 
         debug!("Adding torrent to dht: {}", torrent_path.display());
         let multihash = self.path_to_hash(torrent_path)?.to_multihash()?;
         let torrent = read_torrent_from_file(torrent_path)?;
-        let dht_record = create_dht_record(&self.get_peer_id()?, &multihash, torrent)
+        let dht_record = create_dht_record(&multihash, torrent)
             .with_context(|| {
                 format!(
                     "Error creating DHT record for torrent {}",
                     torrent_path.display()
                 )
             })?;
-        put_record_in_dht(self, torrent_path, dht_record)
+        put_record_in_dht(torrent_path, dht_record)
     }
 
     fn path_to_hash(&self, torrent_path: &Path) -> Result<Hash> {
@@ -552,16 +530,6 @@ impl<'a> ArtifactManager<'a> {
     }
 }
 
-// looks strange because we need to work around rust's limitation of not using closure that capture context values as function pointers.
-enum KademliaMethodCall {
-    PutRecord { record: Record, quorum: Quorum },
-}
-
-// looks strange because we need to work around rust's limitation of not using closure that capture context values as function pointers.
-enum KademliaMethodResult {
-    PutRecord(core::result::Result<QueryId, libp2p::kad::record::store::Error>),
-}
-
 fn compute_hash_of_file<'a>(
     reader: &mut impl Read,
     path: &'a Path,
@@ -583,8 +551,8 @@ fn compute_hash_of_file<'a>(
     Ok(actual_hash(&mut hash_buffer, &mut digester).to_vec())
 }
 
-fn create_torrent_file_from(path: &Path, peer_id: String) -> Result<PathBuf> {
-    let torrent_content = create_torrent_content(path, peer_id)?;
+fn create_torrent_file_from(path: &Path) -> Result<PathBuf> {
+    let torrent_content = create_torrent_content(path)?;
     let torrent_path = path.with_extension(TORRENT_EXTENSION);
     write_torrent_to_file(torrent_content, &torrent_path)?;
     Ok(torrent_path)
@@ -606,7 +574,8 @@ fn write_torrent_to_file(torrent_content: Torrent, torrent_path: &Path) -> Resul
 
 const DEFAULT_TORRENT_PIECE_SIZE: i64 = 1048576;
 
-fn create_torrent_content(path: &Path, peer_id: String) -> Result<Torrent> {
+fn create_torrent_content(path: &Path) -> Result<Torrent> {
+    let peer_id = &*LOCAL_PEER_ID;
     match torrent::v1::TorrentBuilder::new(path, DEFAULT_TORRENT_PIECE_SIZE)
         .add_extra_field(
             "x_create_by".to_string(),

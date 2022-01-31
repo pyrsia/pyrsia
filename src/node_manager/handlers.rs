@@ -38,7 +38,7 @@ lazy_static! {
     pub static ref LOCAL_PEER_ID: PeerId = PeerId::from(LOCAL_KEY.public());
     pub static ref MEMORY_STORE: MemoryStore = MemoryStore::new(*LOCAL_PEER_ID);
     pub static ref KADEMLIA_PROXY: KademliaThreadSafeProxy = KademliaThreadSafeProxy::new();
-    pub static ref ART_MGR: ArtifactManager<'static> = {
+    pub static ref ART_MGR: ArtifactManager = {
         log_static_initialization_failure(
             "Artifact Manager Directory",
             fs::create_dir_all(ART_MGR_DIR).with_context(|| {

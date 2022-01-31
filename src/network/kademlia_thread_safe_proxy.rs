@@ -105,6 +105,7 @@ mod tests {
         assert_ne!(q1, q2, "Query IDs should not be equal");
     }
 
+    #[test]
     pub fn put_record_test() -> Result<(), Error> {
         let record = Record {
             key: record::Key::from(vec![0xdeu8, 0xadu8, 0xbeu8, 0xefu8]),
