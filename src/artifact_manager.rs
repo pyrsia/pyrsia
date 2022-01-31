@@ -345,7 +345,7 @@ impl ArtifactManager {
         }
         Ok(total_files)
     }
-    /// Calculate the size of repositoy by recursively adding size of each directory inside it.
+    /// Calculate the repository size by recursively adding size of each directory inside it.
     /// Parameters are:
     /// * path — directory path of which size need to be calculated.
     /// Returns the size
@@ -868,11 +868,17 @@ mod tests {
 
         find_torrent_in_dht(&am, &torrent_path)?;
 
+        // Currently the space_used method does not include the size of directories in the directory tree, so this is how we obtain an independent result to check it.
+        let size_of_files_in_directory_tree =
+            fs_extra::dir::get_size(&*am.repository_path.to_string_lossy())?;
         // Check the space used after pushing artifact
         let space_after = am
             .space_used(dir_name.as_str())
             .context("Error getting space used by ArtifactManager")?;
-        assert_eq!(315, space_after);
+        assert_eq!(
+            size_of_files_in_directory_tree, space_after,
+            "expect correct result from space_used"
+        );
 
         check_able_to_pull_artifact(&hash, &am)?;
 

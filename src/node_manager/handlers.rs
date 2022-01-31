@@ -224,15 +224,17 @@ mod tests {
 
         let am: ArtifactManager = ArtifactManager::new(name)?;
 
+        // The amount of space available will vary with the testing environment. The exact decrease
+        // in the amount of space available will depend on the internal details of the artifact
+        // manager, so we are just looking for a decrease after we have added an artifact.
         let space_available_before =
             get_space_available(name).context("Error from get_space_available")?;
-        assert_eq!(10840000000, space_available_before);
 
         create_artifact(am).context("Error creating artifact")?;
 
-        let space_available =
+        let space_available_after =
             get_space_available(name).context("Error from get_space_available")?;
-        assert_eq!(10839994889, space_available);
+        assert!(space_available_after < space_available_before);
 
         Ok(())
     }
