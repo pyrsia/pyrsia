@@ -741,6 +741,7 @@ mod tests {
     use std::io::Read;
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
+    use libp2p_kad::kbucket::Key;
     use stringreader::StringReader;
 
     pub use super::*;
@@ -839,6 +840,7 @@ mod tests {
         let torrent = read_torrent_from_file(torrent_path_buf);
         check_torrent(&mut path_buf, &torrent);
 
+        find_torrent_in_dht(am,&torrent_path_buf)?;
         check_able_to_pull_artifact(&hash, &am)?;
 
         assert_eq!(
@@ -848,6 +850,12 @@ mod tests {
         );
 
         remove_dir_all(&dir_name);
+        Ok(())
+    }
+
+    fn find_torrent_in_dht(am: ArtifactManager, path: &PathBuf) -> Result<()> {
+        let multihash = am.path_to_hash(path)?.to_multihash()?;
+        //TODO The test to see if the torrent is in the DHT involves code that will be in the next PR.
         Ok(())
     }
 
