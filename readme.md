@@ -34,17 +34,17 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
 4. You have 2 options:
    - regular build: `cargo run`
    - build in docker: `docker-compose up --build`
-   
+
 5. **configure Docker** to use Pyrsia, which is running on localhost port 7888\
     open your Docker daemon settings and add this entry in the root JSON object:
-    
+
     **On Linux platforms**:
 
     ```
       "registry-mirrors": ["http://localhost:7888"]
-    ```    
-    By default you can find the Docker daemon settings here `/etc/docker/daemon.json`. 
-    
+    ```
+    By default you can find the Docker daemon settings here `/etc/docker/daemon.json`.
+
     **On other platforms**:
 
     You can find the Docker daemon settings in Docker Desktop -> Preferences -> Docker Engine.
@@ -60,13 +60,13 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
     "registry-mirrors": ["http://my-pyrsia-host:7888"]
     ```
 
-6. using another terminal, use `docker` to pull an image from Pyrsia: 
+6. using another terminal, use `docker` to pull an image from Pyrsia:
     ```
     docker pull ubuntu
     ```
    (or pull any other Docker image of your choice)
 
-    Optionally, you can inspect the Pyrsia node logs to check where the image came from. This can be either: 
+    Optionally, you can inspect the Pyrsia node logs to check where the image came from. This can be either:
     - locally (if it was cached by Pyrsia before)
     - from the Pyrsia network
     - or from Docker Hub (if it wasn't previously available in the Pyrsia network)
@@ -92,10 +92,34 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
 
     ```
     ./pyrsia node -s
-    Connected Peers Count:   1
+    Connected Peers Count:   0
+    Artifacts Count:         12 # reflects the number of artifacts that the pyrsia_node has stored on the network
+    Total Disk Available:    983112
+    ```
+10. Multiple Pyrsia nodes can be started on the same computer by changing the ports they use as follows
+
+    ```
+    cargo run --bin pyrsia_node -- -p 7888
+
+    # RUST_LOG=debug cargo run --bin pyrsia_node -- -p 7888 # Use this environment variable if you would like to see debug logs
+    ```
+
+    ```
+    cargo run --bin pyrsia_node -- -p 8181
+
+    # RUST_LOG=debug cargo run --bin pyrsia_node -- -p 8181 # Use this environment variable if you would like to see debug logs
+    ```
+
+    ```
+    ./pyrsia node -s
+    Connected Peers Count:   1 # Shows the additional node that joined the list of peers
     Artifacts Count:         12
     Total Disk Available:    983112
     ```
+
+    In a real life deployment these nodes will be spread over the network and will all run on their own 7888 port.
+    `Word of caution: Running the peers for a few hours does generate network traffic and hence can drain your computer power. Ensure you are plugged into power if you are running multiple peers for a long time`
+
 
 
 ### Setting Up Visual Studio Code Debugger
@@ -109,5 +133,5 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
     * macOS and Windows: Compose is included in Docker Desktop
     * Linux: [Downloaded Compose](https://github.com/docker/compose#linux)
 
-The Pyrsia node will then be running on localhost:7888 both on the host and 
+The Pyrsia node will then be running on localhost:7888 both on the host and
 inside the VM, available to Docker Engine, in the case of Docker Desktop.

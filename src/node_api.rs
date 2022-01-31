@@ -16,3 +16,5 @@
 
 pub mod handlers;
 pub mod routes;
+
+pub use crate::node_manager::handlers::*;
