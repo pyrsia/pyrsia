@@ -69,13 +69,12 @@ impl KademliaThreadSafeProxy {
 mod tests {
     use super::*;
     use crate::node_manager::handlers::KADEMLIA_PROXY;
-    use libp2p::PeerId;
-    use std::str::FromStr;
+    use libp2p::{build_multiaddr, PeerId};
 
     #[test]
     pub fn add_and_remove_peer_addresses() {
         let peer = PeerId::random();
-        let address = Multiaddr::from_str("10.11.12.13:9999").expect("address");
+        let address = build_multiaddr!(Ip4([10, 11, 12, 13]), Tcp(9999u16));
         assert!(KADEMLIA_PROXY.remove_address(&peer, &address).is_none());
         KADEMLIA_PROXY.add_address(&peer, address.clone());
         if KADEMLIA_PROXY.remove_address(&peer, &address).is_none() {
