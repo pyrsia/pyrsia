@@ -773,11 +773,10 @@ mod tests {
     }
 
     #[test]
-    pub fn new_artifact_manager_with_valid_directory() {
-        let dir_name = "TmpX";
-        fs::create_dir(dir_name).expect(&format!("Unable to create temp directory {}", dir_name));
+    pub fn new_artifact_manager_with_valid_directory() -> Result<()> {
+        let dir_name = create_tmp_dir("tmpX")?;
         info!("Created directory for valid directory test: {}", dir_name);
-        let ok: bool = match ArtifactManager::new(dir_name) {
+        let ok: bool = match ArtifactManager::new(&dir_name) {
             Ok(artifact_manager) => {
                 info!(
                     "Artifact manager created with repo directory {}",
@@ -804,7 +803,8 @@ mod tests {
             }
             Err(_) => false,
         };
-        assert!(ok)
+        assert!(ok);
+        Ok(())
     }
 
     const TEST_ARTIFACT_DATA: &str = "Incumbent nonsense text, sesquipedalian and obfuscatory. Exhortations to the mother lode. Dendrites for all.";
@@ -988,6 +988,8 @@ mod tests {
         ok
     }
 
+    // We are using this rather than temp_dir because on a Mac temp_dir gives the temp directory a
+    // name that begins with '.'. This breaks the torrent creation with the torrent builder complaining about the hidden directory.
     fn create_tmp_dir(prefix: &str) -> Result<String> {
         let dir_name = tmp_dir_name(prefix);
         debug!("tmp dir: {}", dir_name);
