@@ -269,7 +269,7 @@ fn store_blob_in_filesystem(
     let push_result = put_artifact(
         hex::decode(&digest.get(7..).unwrap()).unwrap().as_ref(),
         Box::new(reader),
-        HashAlgorithm::SHA256
+        HashAlgorithm::SHA256,
     )?;
 
     fs::remove_dir_all(&blob_upload_dest_dir)?;

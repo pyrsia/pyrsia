@@ -16,8 +16,8 @@
 
 extern crate easy_hasher;
 
-use super::*;
 use super::HashAlgorithm;
+use super::*;
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::metadata_manager::metadata::MetadataCreationStatus;
@@ -27,6 +27,7 @@ use crate::node_manager::model::package_type::PackageTypeName;
 use crate::node_manager::model::package_version::{PackageVersion, PackageVersionBuilder};
 use crate::signed::signed::Signed;
 use anyhow::{anyhow, bail, Context};
+use bytes::Buf;
 use bytes::Bytes;
 use easy_hasher::easy_hasher::raw_sha512;
 use log::{debug, error, info, warn};
@@ -36,26 +37,22 @@ use std::fmt::Display;
 use uuid::Uuid;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
-use bytes::Buf;
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Reply, Rejection> {
     let mut manifest_content = Vec::new();
-    let package_version:PackageVersion;
-    debug!("Fetching manifest for {} with tag: {}", name,tag);
+    let package_version: PackageVersion;
+    debug!("Fetching manifest for {} with tag: {}", name, tag);
 
     //get package_version from metadata
-    match METADATA_MGR.get_package_version(DOCKER_NAMESPACE_ID, &name, &tag)
-        {
-            Ok(pv) => { 
-                if pv.is_some(){
-                    package_version = pv.unwrap();
-                if !package_version.artifacts()[0].hash().is_empty(){
+    match METADATA_MGR.get_package_version(DOCKER_NAMESPACE_ID, &name, &tag) {
+        Ok(pv) => {
+            if pv.is_some() {
+                package_version = pv.unwrap();
+                if !package_version.artifacts()[0].hash().is_empty() {
                     debug!("Getting manifest from artifact manager.");
-                    match get_artifact(
-                        package_version.artifacts()[0].hash(),
-                        HashAlgorithm::SHA512,
-                    ) {
+                    match get_artifact(package_version.artifacts()[0].hash(), HashAlgorithm::SHA512)
+                    {
                         Ok(content) => {
                             info!(
                                 "Reading manifest from Pyrsia storage: {:?}",
@@ -69,40 +66,36 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
                             return Err(warp::reject::custom(RegistryError {
                                 code: RegistryErrorCode::Unknown(err_string),
                             }));
-                            }
                         }
+                    }
                 }
-            }else {
+            } else {
                 debug!("Getting manifest from dockerhub and storing in pyrsia storage.");
                 let hash = get_manifest_from_docker_hub(&name, &tag).await?;
-                
-                manifest_content = get_artifact(
-                    hex::decode(hash).unwrap().as_ref(),
-                    HashAlgorithm::SHA512,
-                )
-                .map_err(|_| {
-                    warp::reject::custom(RegistryError {
-                        code: RegistryErrorCode::ManifestUnknown,
-                    })
-                })?;
-            }
-            },
-            Err(_error) => {
-                debug!("Getting manifest from dockerhub and storing in pyrsia storage.");
 
-                let hash = get_manifest_from_docker_hub(&name, &tag).await?;
-                manifest_content = get_artifact(
-                    hex::decode(hash).unwrap().as_ref(),
-                    HashAlgorithm::SHA512,
-                )
-                .map_err(|_| {
-                    warp::reject::custom(RegistryError {
-                        code: RegistryErrorCode::ManifestUnknown,
-                    })
-                })?;
-            
+                manifest_content =
+                    get_artifact(hex::decode(hash).unwrap().as_ref(), HashAlgorithm::SHA512)
+                        .map_err(|_| {
+                            warp::reject::custom(RegistryError {
+                                code: RegistryErrorCode::ManifestUnknown,
+                            })
+                        })?;
             }
-        };
+        }
+        Err(_error) => {
+            debug!("Getting manifest from dockerhub and storing in pyrsia storage.");
+
+            let hash = get_manifest_from_docker_hub(&name, &tag).await?;
+            manifest_content =
+                get_artifact(hex::decode(hash).unwrap().as_ref(), HashAlgorithm::SHA512).map_err(
+                    |_| {
+                        warp::reject::custom(RegistryError {
+                            code: RegistryErrorCode::ManifestUnknown,
+                        })
+                    },
+                )?;
+        }
+    };
 
     Ok(warp::http::response::Builder::new()
         .header(
@@ -335,9 +328,9 @@ async fn get_manifest_from_docker_hub_with_token(
     let bytes = response.bytes().await.map_err(RegistryError::from)?;
 
     debug!("Storing manifest pulled from dockerHub in artifact manager");
-    
+
     let mut hash = String::new();
-        match store_manifest_in_artifact_manager(bytes.clone()) {
+    match store_manifest_in_artifact_manager(bytes.clone()) {
         Ok(artifact_hash) => {
             info!(
                 "Stored manifest with {} hash {}",
@@ -379,11 +372,7 @@ async fn get_manifest_from_docker_hub_with_token(
 fn store_manifest_in_artifact_manager(bytes: Bytes) -> anyhow::Result<(HashAlgorithm, Vec<u8>)> {
     let manifest_vec = bytes.to_vec();
     let sha512: Vec<u8> = raw_sha512(manifest_vec).to_vec();
-    put_artifact(
-        &sha512,
-        Box::new(bytes.reader()),
-        HashAlgorithm::SHA512
-    )?;
+    put_artifact(&sha512, Box::new(bytes.reader()), HashAlgorithm::SHA512)?;
     Ok((HashAlgorithm::SHA512, sha512))
 }
 
@@ -838,9 +827,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_handle_get_manifest(
-    ) -> Result<(), Box<dyn StdError>> {
-
+    fn test_handle_get_manifest() -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
         let reference = "v2.4";
 
@@ -857,13 +844,8 @@ mod tests {
         check_package_version_metadata()?;
 
         debug!("starting get manifest call");
-        let future = async {
-            handle_get_manifests(
-                "hello-world".to_string(),
-                "v3.1".to_string()
-            )
-            .await
-        };
+        let future =
+            async { handle_get_manifests("hello-world".to_string(), "v3.1".to_string()).await };
         let result = executor::block_on(future);
         check_get_manifest_result(result);
         Ok(())
@@ -873,7 +855,7 @@ mod tests {
         let some_package_version =
             METADATA_MGR.get_package_version(DOCKER_NAMESPACE_ID, "hello-world", "v3.1")?;
         assert!(some_package_version.is_some());
-        assert_eq!("v3.1",some_package_version.unwrap().version());
+        assert_eq!("v3.1", some_package_version.unwrap().version());
         Ok(())
     }
 
@@ -885,7 +867,10 @@ mod tests {
 
                 let mut headers = HeaderMap::new();
                 headers.insert("content-length", "4698".parse().unwrap());
-                assert_eq!(response.headers().get("content-length").unwrap(), headers["content-length"]);     
+                assert_eq!(
+                    response.headers().get("content-length").unwrap(),
+                    headers["content-length"]
+                );
             }
             Err(_) => {
                 assert!(false)
@@ -910,10 +895,7 @@ mod tests {
 
     fn check_artifact_manager_side_effects() -> Result<(), Box<dyn StdError>> {
         let manifest_sha512: Vec<u8> = raw_sha512(MANIFEST_V1_JSON.as_bytes().to_vec()).to_vec();
-        let manifest_content =get_artifact(
-            manifest_sha512.as_ref(),
-            HashAlgorithm::SHA512
-        )?;
+        let manifest_content = get_artifact(manifest_sha512.as_ref(), HashAlgorithm::SHA512)?;
         assert!(!manifest_content.is_empty());
         assert_eq!(4698, manifest_content.len());
         Ok(())
