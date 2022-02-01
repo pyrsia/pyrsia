@@ -46,9 +46,7 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
 
     //get package_version from metadata
     match METADATA_MGR.get_package_version(DOCKER_NAMESPACE_ID, &name, &tag) {
-        Ok(pv) => {
-            if pv.is_some() {
-                package_version = pv.unwrap();
+        Ok(Some(package_version)) => {
                 if !package_version.artifacts()[0].hash().is_empty() {
                     debug!("Getting manifest from artifact manager.");
                     match get_artifact(package_version.artifacts()[0].hash(), HashAlgorithm::SHA512)
