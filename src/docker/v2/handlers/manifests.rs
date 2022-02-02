@@ -639,6 +639,7 @@ mod tests {
     use bytes::Bytes;
     use futures::executor;
     use serde::de::StdError;
+    use warp::http::header::HeaderMap;
 
     const MEDIA_TYPE_CONFIG_JSON: &str = "application/vnd.docker.container.image.v1+json";
 
@@ -740,6 +741,12 @@ mod tests {
   ]
 }"##;
 
+macro_rules! test_async {
+    ($e:expr) => {
+        tokio_test::block_on($e)
+    };
+  }
+
     #[test]
     fn test_handle_put_manifest_expecting_success_response_with_manifest_stored_in_artifact_manager_and_package_version_in_metadata_manager(
     ) -> Result<(), Box<dyn StdError>> {
@@ -761,11 +768,40 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_handle_get_manifest_if_not_in_pyrsia() -> Result<(), Box<dyn StdError>> {
+        let name = "alpine";
+        let reference = "sha256:e7d88de73db3d3fd9b2d63aa7f447a10fd0220b7cbf39803c803f2af9ba256b3";
+
+        let result = test_async!(handle_get_manifests(name.to_string(), reference.to_string()));
+        check_get_manifest_result_if_not_in_pyrsia(result);
+        Ok(())
+    }
+
     fn check_package_version_metadata() -> anyhow::Result<()> {
         let some_package_version =
             METADATA_MGR.get_package_version(DOCKER_NAMESPACE_ID, "hello-world", "v3.1")?;
         assert!(some_package_version.is_some());
         Ok(())
+    }    
+
+    fn check_get_manifest_result_if_not_in_pyrsia(result: Result<impl Reply, Rejection>) {
+        match result {
+            Ok(reply) => {
+                let response = reply.into_response();
+                assert_eq!(response.status(), 200);
+
+                let mut headers = HeaderMap::new();
+                headers.insert("content-length", "528".parse().unwrap());
+                assert_eq!(
+                    response.headers().get("content-length").unwrap(),
+                    headers["content-length"]
+                );
+            }
+            Err(_) => {
+                assert!(false)
+            }
+        };
     }
 
     fn check_put_manifest_result(result: Result<impl Reply, Rejection>) {

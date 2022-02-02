@@ -36,3 +36,38 @@ pub async fn get_docker_hub_auth_token(name: &str) -> Result<String, warp::Rejec
 
     Ok(token.token)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::de::StdError;
+    use warp::{Rejection, Reply};
+
+    macro_rules! async_test {
+        ($e:expr) => {
+            tokio_test::block_on($e)
+        };
+      }
+      
+    #[test]
+    fn test_get_docker_hub_auth_token() -> Result<(), Box<dyn StdError>> {
+        let name = "alpine";
+        let result = async_test!(get_docker_hub_auth_token(name));
+        check_get_docker_hub_auth_token(result);
+        Ok(())
+
+    }
+   
+
+    fn check_get_docker_hub_auth_token(result: Result<impl Reply, Rejection>) {
+        match result {
+            Ok(reply) => {
+                let response = reply.into_response();
+                assert_eq!(response.status(), 200);
+            }
+            Err(_) => {
+                assert!(false)
+            }
+        };
+    }
+}

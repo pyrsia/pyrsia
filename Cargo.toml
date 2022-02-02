@@ -64,6 +64,7 @@ features = []
 
 [dev-dependencies]
 string_manipulation = {path="tests/string_manipulation"}
+tokio-test = "0.4.2"
 
 expectest = "0.10.0"
 
