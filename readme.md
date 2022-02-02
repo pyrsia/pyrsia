@@ -31,9 +31,12 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
 1. Setup rust on your local machine as described in [Rust's getting started guide](https://www.rust-lang.org/learn/get-started)
 2. Clone this repo `git clone https://github.com/pyrsia/pyrsia.git`
 3. `cd pyrsia/pyrsia_node`
-4. You have 2 options:
+4. You need to start the Pyrsia Node. To do so, you have 2 options:
    - regular build: `cargo run`
    - build in docker: `docker-compose up --build`
+
+*Note*: Do not to stop this process, a running node is required for the 
+following steps:
 
 5. **configure Docker** to use Pyrsia, which is running on localhost port 7888\
     open your Docker daemon settings and add this entry in the root JSON object:
@@ -96,6 +99,14 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
     Artifacts Count:         12 # reflects the number of artifacts that the pyrsia_node has stored on the network
     Total Disk Available:    983112
     ```
+
+If you see a status message similar to 
+   ```
+Error: error sending request for url (http://localhost:7888/v2): error trying to connect: tcp connect error: Connection refused (os error 111)
+   ```
+then your node is not running. Go back to step 3 to make sure
+the Pyrsia node is running.
+
 10. Multiple Pyrsia nodes can be started on the same computer by changing the ports they use as follows
 
     ```
