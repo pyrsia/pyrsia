@@ -14,7 +14,8 @@
    limitations under the License.
 */
 
-use super::*;
+use super::handlers::*;
+use super::HashAlgorithm;
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use bytes::{Buf, Bytes};
