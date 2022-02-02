@@ -49,20 +49,17 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
             match get_artifact_manifest(package_version.artifacts()) {
                 Some(artifact) => {
                     debug!("Getting manifest from artifact manager.");
-                    manifest_content = get_artifact(
-                        artifact.hash(),
-                        HashAlgorithm::SHA512,
-                    )
-                    .map_err(|_| {
-                        warp::reject::custom(RegistryError {
-                            code: RegistryErrorCode::ManifestUnknown,
-                        })
-                    })?;
+                    manifest_content = get_artifact(artifact.hash(), HashAlgorithm::SHA512)
+                        .map_err(|_| {
+                            warp::reject::custom(RegistryError {
+                                code: RegistryErrorCode::ManifestUnknown,
+                            })
+                        })?;
                 }
                 None => {
+                    //TODO: neeed mechanism in metadata to delete the invalid metadata
                     error!("Bad metadata in pyrsia , getting manifest from dockerhub");
 
-                    //TODO: neeed mechanism in metadata to delete the invalid metadata
                     let hash = get_manifest_from_docker_hub(&name, &tag).await?;
                     manifest_content =
                         get_artifact(hex::decode(hash).unwrap().as_ref(), HashAlgorithm::SHA512)
@@ -71,9 +68,6 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
                                     code: RegistryErrorCode::ManifestUnknown,
                                 })
                             })?;
-                    return Err(warp::reject::custom(RegistryError {
-                        code: RegistryErrorCode::ManifestUnknown,
-                    }));
                 }
             }
         }
