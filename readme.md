@@ -36,7 +36,7 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
    - build in docker: `docker-compose up --build`
 
 *Note*: Do not to stop this process, a running node is required for the 
-following steps.
+following steps:
 
 5. **configure Docker** to use Pyrsia, which is running on localhost port 7888\
     open your Docker daemon settings and add this entry in the root JSON object:
