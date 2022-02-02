@@ -17,17 +17,20 @@
 extern crate lava_torrent;
 extern crate walkdir;
 
+use crate::node_manager::handlers::{KADEMLIA_PROXY, LOCAL_PEER_ID};
 use anyhow::{anyhow, bail, Context, Error, Result};
 use fs_extra::dir::get_size;
 use lava_torrent::bencode::BencodeElem;
 use lava_torrent::torrent;
 use lava_torrent::torrent::v1::Torrent;
-use libp2p::PeerId;
+use libp2p::kad;
+use libp2p_kad::{Quorum, Record};
 use log::{debug, error, info, warn}; //log_enabled, Level,
+use multihash::{Multihash, MultihashGeneric};
 use path::PathBuf;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::fs::{File, OpenOptions};
@@ -36,7 +39,6 @@ use std::io::{BufWriter, Read, Write};
 use std::path;
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::RwLock;
 use strum::IntoEnumIterator;
 use strum_macros::{EnumIter, EnumString};
 use walkdir::{DirEntry, WalkDir};
@@ -86,7 +88,6 @@ impl Digester for Sha512 {
 }
 
 /// The types of hash algorithms that the artifact manager supports
-
 #[derive(EnumIter, Clone, Debug, PartialEq, EnumString, Serialize, Deserialize)]
 pub enum HashAlgorithm {
     SHA256,
@@ -133,82 +134,119 @@ impl std::fmt::Display for HashAlgorithm {
     }
 }
 
-pub struct Hash<'a> {
+#[derive(PartialEq, Debug)]
+pub struct Hash {
     algorithm: HashAlgorithm,
-    bytes: &'a [u8],
+    bytes: Vec<u8>,
 }
 
-impl<'a> Hash<'a> {
+// Code values used to indicate hash algorithms in Multihash. These values come from https://github.com/multiformats/multicodec/blob/master/table.csv
+const MH_SHA2_256: u64 = 0x12;
+const MH_SHA2_512: u64 = 0x13;
+
+impl<'a> Hash {
     pub fn new(algorithm: HashAlgorithm, bytes: &'a [u8]) -> Result<Self, anyhow::Error> {
         let expected_length: usize = algorithm.hash_length_in_bytes();
         if bytes.len() == expected_length {
-            Ok(Hash { algorithm, bytes })
+            Ok(Hash {
+                algorithm,
+                bytes: bytes.to_vec(),
+            })
         } else {
             Err(anyhow!(format!("The hash value does not have the correct length for the algorithm. The expected length is {} bytes, but the length of the supplied hash is {}.", expected_length, bytes.len())))
         }
     }
 
-    // It is possible, though unlikely, for SHA512, SHA3_512 and BLAKE3 to generate the same
-    // hash for different content. Separating files by algorithm avoids this type of collision.
-    // This function ensures that there is a directory under the repository root for each one of
-    // the supported hash algorithms.
-    fn ensure_directories_for_hash_algorithms_exist(
-        repository_path: &Path,
-    ) -> Result<(), anyhow::Error> {
-        let mut path_buf = PathBuf::new();
-        path_buf.push(repository_path);
-        for algorithm in HashAlgorithm::iter() {
-            Self::ensure_subdirectory_exists(&mut path_buf, algorithm)?;
+    pub fn to_multihash(&self) -> Result<Multihash> {
+        match self.algorithm {
+            HashAlgorithm::SHA256 => MultihashGeneric::wrap(MH_SHA2_256, &self.bytes),
+            HashAlgorithm::SHA512 => MultihashGeneric::wrap(MH_SHA2_512, &self.bytes),
         }
-        Ok(())
+        .context("Error creating a multihash from a Hash struct")
     }
 
-    fn ensure_subdirectory_exists(
-        path_buf: &mut PathBuf,
-        algorithm: HashAlgorithm,
-    ) -> Result<(), anyhow::Error> {
-        let mut this_buf = path_buf.clone();
-        this_buf.push(algorithm.hash_algorithm_to_str());
-        info!(
-            "Creating directory {}",
-            this_buf
-                .as_os_str()
-                .to_str()
-                .unwrap_or("*** Unable to convert artifact directory path to UTF-8!")
-        );
-        fs::create_dir_all(this_buf.as_os_str())
-            .with_context(|| format!("Error creating directory {}", this_buf.display()))?;
-        Ok(())
-    }
-
-    fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
-        hex::encode(bytes)
-    }
-
-    // The base file path (no extension on the file name) that will correspond to this hash.
-    // The structure of the path is
-    // repo_root_dir/hash_algorithm/hash
-    // This consists of the artifact repository root directory, a directory whose name is the
-    // algorithm used to compute the hash and a file name that is the hash, encoded as hex
-    // (base64 is more compact, but hex is easier for troubleshooting). For example
-    // pyrsia-artifacts/SHA256/680fade3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6cab34
-    // TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
-    fn base_file_path(&self, repo_dir: &Path) -> PathBuf {
-        let mut buffer: PathBuf = PathBuf::from(repo_dir);
-        buffer.push(self.algorithm.hash_algorithm_to_str());
-        buffer.push(Hash::encode_bytes_as_file_name(self.bytes));
-        buffer
+    pub fn from_multihash(mh: Multihash) -> Result<Hash> {
+        match mh.code() {
+            MH_SHA2_256 => Hash::new(HashAlgorithm::SHA256, mh.digest()),
+            MH_SHA2_512 => Hash::new(HashAlgorithm::SHA512, mh.digest()),
+            _ => bail!(
+                "Unable to create Hash struct from multihash with unknown type code 0x{:x}",
+                mh.code()
+            ),
+        }
     }
 }
 
-impl Display for Hash<'_> {
+impl Display for Hash {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!(
             "{}:{}",
             self.algorithm.hash_algorithm_to_str(),
-            hex::encode(self.bytes)
+            hex::encode(&self.bytes)
         ))
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// TODO: What is above this comment should be moved to a separate hash module.
+// What is below stays
+///////////////////////////////////////////////////////////////////////////////
+
+fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
+    hex::encode(bytes)
+}
+
+fn decode_bytes_from_file_name(file_name: &str) -> Result<Vec<u8>> {
+    hex::decode(file_name)
+        .with_context(|| format!("Error converting hex string \"{}\" to bytes", file_name))
+}
+
+// The base file path (no extension on the file name) that will correspond to this hash.
+// The structure of the path is
+// repo_root_dir/hash_algorithm/hash
+// This consists of the artifact repository root directory, a directory whose name is the
+// algorithm used to compute the hash and a file name that is the hash, encoded as hex
+// (base64 is more compact, but hex is easier for troubleshooting). For example
+// pyrsia-artifacts/SHA256/680fade3184f20557aa2bbf4432386eb79836902a1e5aea1ff077e323e6cab34
+// TODO To support nodes that will store many files, we need a scheme that will start separating files by subdirectories under the hash algorithm directory based on the first n bytes of the hash value.
+fn base_file_path(hash: &Hash, repo_dir: &Path) -> PathBuf {
+    let mut buffer: PathBuf = PathBuf::from(repo_dir);
+    buffer.push(hash.algorithm.hash_algorithm_to_str());
+    buffer.push(encode_bytes_as_file_name(&hash.bytes));
+    buffer
+}
+
+// It is possible, though unlikely, for SHA512, SHA3_512 and BLAKE3 to generate the same
+// hash for different content. Separating files by algorithm avoids this type of collision.
+// This function ensures that there is a directory under the repository root for each one of
+// the supported hash algorithms.
+fn ensure_directories_for_hash_algorithms_exist(
+    repository_path: &Path,
+) -> Result<(), anyhow::Error> {
+    let mut path_buf = PathBuf::new();
+    path_buf.push(repository_path);
+    for algorithm in HashAlgorithm::iter() {
+        ensure_subdirectory_exists(&mut path_buf, algorithm)?;
+    }
+    Ok(())
+}
+
+fn ensure_subdirectory_exists(
+    path_buf: &mut PathBuf,
+    algorithm: HashAlgorithm,
+) -> Result<(), anyhow::Error> {
+    let mut this_buf = path_buf.clone();
+    this_buf.push(algorithm.hash_algorithm_to_str());
+    info!(
+        "Creating directory {}",
+        this_buf
+            .as_os_str()
+            .to_str()
+            .unwrap_or("*** Unable to convert artifact directory path to UTF-8!")
+    );
+    fs::create_dir_all(this_buf.as_os_str())
+        .with_context(|| format!("Error creating directory {}", this_buf.display()))?;
+    Ok(())
 }
 
 // This is a decorator for the Write trait that allows the bytes written by the writer to be
@@ -264,40 +302,42 @@ impl<'a> Write for WriteHashDecorator<'a> {
 /// Pyrsia needs to know about.
 pub struct ArtifactManager {
     pub repository_path: PathBuf,
-    peer_id: RwLock<Option<PeerId>>,
+    repository_path_component_count: u16,
 }
 
 const FILE_EXTENSION: &str = "file";
 const TORRENT_EXTENSION: &str = "torrent";
 
-impl<'a> ArtifactManager {
+impl ArtifactManager {
     /// Create a new ArtifactManager that works with artifacts in the given directory
     pub fn new(repository_path: &str) -> Result<ArtifactManager, anyhow::Error> {
         let absolute_path = Path::new(repository_path).canonicalize()?;
         if is_accessible_directory(&absolute_path) {
-            Hash::ensure_directories_for_hash_algorithms_exist(&absolute_path)?;
+            ensure_directories_for_hash_algorithms_exist(&absolute_path)?;
             info!(
                 "Creating an ArtifactManager with a repository in {}",
                 absolute_path.display()
             );
+            let repository_path_component_count = absolute_path.components().count() as u16;
             Ok(ArtifactManager {
                 repository_path: absolute_path,
-                peer_id: RwLock::new(None),
+                repository_path_component_count,
             })
         } else {
             inaccessible_repo_directory_error(repository_path)
         }
     }
 
-    pub fn artifacts_count(&self, repository_path: &str) -> Result<usize, Error> {
+    // TODO After we restructure the directories to scale, counting files becomes an expensive operation. Provide this as an estimate, an async operation or both.
+    pub fn artifacts_count(&self) -> Result<usize, Error> {
         let mut total_files = 0;
 
-        for file in WalkDir::new(repository_path)
+        for entry in WalkDir::new(self.repository_path.clone())
             .into_iter()
-            .filter_entry(is_not_hidden)
+            .filter_entry(is_directory_or_artifact_file)
             .filter_map(|file| file.ok())
         {
-            if let Ok(metadata) = file.metadata() {
+            if let Ok(metadata) = entry.metadata() {
                 if metadata.is_file() {
                     total_files += 1;
                 }
@@ -305,7 +345,7 @@ impl<'a> ArtifactManager {
         }
         Ok(total_files)
     }
-    /// Calculate the size of repositoy by recursively adding size of each directory inside it.
+    /// Calculate the repository size by recursively adding size of each directory inside it.
     /// Parameters are:
     /// * path — directory path of which size need to be calculated.
     /// Returns the size
@@ -342,15 +382,107 @@ impl<'a> ArtifactManager {
                     &*do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
                 if actual_hash == expected_hash.bytes {
                     rename_to_permanent(expected_hash, &base_path, &tmp_path)?;
-                    let peer_id_string = self
-                        .get_peer_id()
-                        .map(|id| id.to_base58())
-                        .unwrap_or_else(|_| "*** Uninitialized ***".to_string());
-                    create_torrent_file_from(&base_path, peer_id_string)
+                    let torrent_file_path = create_torrent_file_from(&base_path)?;
+                    self.add_torrent_to_dht(torrent_file_path.as_path())?;
+                    Ok(true)
                 } else {
                     handle_wrong_hash(expected_hash, tmp_path, actual_hash)
                 }
             }
+        }
+    }
+
+    fn add_torrent_to_dht(&self, torrent_path: &Path) -> Result<()> {
+        fn create_dht_record(multihash: &Multihash, torrent: Torrent) -> Result<Record> {
+            let mut torrent_bytes = Vec::new();
+            torrent
+                .write_into(&mut torrent_bytes)
+                .map_err(|err| anyhow!("Error writing torrent: {}", err))?;
+            let dht_record = kad::Record {
+                key: libp2p::kad::record::Key::new(&multihash.to_bytes()),
+                value: torrent_bytes,
+                publisher: Some(*LOCAL_PEER_ID),
+                expires: None,
+            };
+            Ok(dht_record)
+        }
+
+        fn read_torrent_from_file(torrent_path: &Path) -> Result<Torrent, Error> {
+            Torrent::read_from_file(torrent_path).map_err(|err| {
+                anyhow!(
+                    "Error reading torrent file at {}\n{}",
+                    torrent_path.display(),
+                    err
+                )
+            })
+        }
+
+        fn put_record_in_dht(torrent_path: &Path, dht_record: Record) -> Result<()> {
+            // TODO We should look at configuring a numeric quorum size.
+            match KADEMLIA_PROXY.put_record(dht_record, Quorum::Majority) {
+                Ok(query_id) => {
+                    info!("QueryId {:?} to add torrent to dht: {}", query_id, torrent_path.display());
+                    Ok(())
+                }
+                Err(error) => bail!(
+                    "Error putting a record in the Kademlia DHT to advertise torrent: {:?}\nTorrent path is {}",
+                    error, torrent_path.display()
+                )
+            }
+        }
+
+        debug!("Adding torrent to dht: {}", torrent_path.display());
+        let multihash = self.path_to_hash(torrent_path)?.to_multihash()?;
+        let torrent = read_torrent_from_file(torrent_path)?;
+        let dht_record = create_dht_record(&multihash, torrent).with_context(|| {
+            format!(
+                "Error creating DHT record for torrent {}",
+                torrent_path.display()
+            )
+        })?;
+        put_record_in_dht(torrent_path, dht_record)
+    }
+
+    fn path_to_hash(&self, torrent_path: &Path) -> Result<Hash> {
+        let hash_algorithm = self.get_hash_algorithm_from_path(torrent_path)?;
+        match torrent_path.file_stem() {
+            None => {
+                bail!(
+                    "torrent path does not have a valid file name stem: {}",
+                    torrent_path.display()
+                )
+            }
+            Some(file_stem) => Hash::new(
+                hash_algorithm,
+                &decode_bytes_from_file_name(&*file_stem.to_string_lossy())?,
+            ),
+        }
+    }
+
+    fn get_hash_algorithm_from_path(&self, torrent_path: &Path) -> Result<HashAlgorithm> {
+        let mut components = torrent_path.components();
+        let no_algorithm_directory = || {
+            bail!(
+                "Torrent path does not contain a hash algorithm directory: {}",
+                torrent_path.display()
+            )
+        };
+        debug!(
+            "get_hash_algorithm_from_path: repo_path is {}\nTorrent path is {}",
+            self.repository_path.display(),
+            torrent_path.display()
+        );
+        for _ in 0..self.repository_path_component_count {
+            if components.next().is_none() {
+                return no_algorithm_directory();
+            }
+        }
+        match components
+            .next()
+            .map(|component| component.as_os_str().to_string_lossy().to_string())
+        {
+            None => no_algorithm_directory(),
+            Some(algorithm_name) => HashAlgorithm::str_to_hash_algorithm(&algorithm_name),
         }
     }
 
@@ -374,9 +506,9 @@ impl<'a> ArtifactManager {
                 "{} does not have the expected hash value {}:{}\nActual hash is {}:{}",
                 path.display(),
                 expected_hash.algorithm,
-                hex::encode(computed_hash),
+                encode_bytes_as_file_name(&computed_hash),
                 expected_hash.algorithm,
-                hex::encode(expected_hash.bytes)
+                encode_bytes_as_file_name(&expected_hash.bytes)
             )
         }
         let target_path = self.file_path_for_new_artifact(expected_hash);
@@ -384,7 +516,7 @@ impl<'a> ArtifactManager {
     }
 
     fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> PathBuf {
-        let mut base_path: PathBuf = expected_hash.base_file_path(&self.repository_path);
+        let mut base_path: PathBuf = base_file_path(expected_hash, &self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension(FILE_EXTENSION);
         base_path
@@ -398,41 +530,12 @@ impl<'a> ArtifactManager {
             "An artifact is being pulled from the artifact manager {}",
             hash
         );
-        let mut base_path: PathBuf = hash.base_file_path(&self.repository_path);
+        let mut base_path: PathBuf = base_file_path(hash, &self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension(FILE_EXTENSION);
         debug!("Pulling artifact from {}", base_path.display());
         File::open(base_path.as_path())
             .with_context(|| format!("{} not found.", base_path.display()))
-    }
-
-    pub fn set_peer_id(&self, peer_id: PeerId) -> Result<()> {
-        // Because artifact manager is allocated statically, no mutable references are allowed to it.
-        // To allow a set method from an immutable borrow, we are using interior mutability
-        match self.peer_id.try_write() {
-            Ok(mut guard) => {
-                *guard = Some(peer_id);
-                Ok(())
-            }
-            Err(error) => bail!("Error setting ArtifactManager.peer_id: {}", error),
-        }
-    }
-
-    pub fn get_peer_id(&self) -> Result<PeerId> {
-        // Because artifact manager is allocated statically, no mutable references are allowed to it.
-        // To allow a set method from an immutable borrow, we are using interior mutability
-        match self.peer_id.read() {
-            Ok(guard) => {
-                if (*guard).is_some() {
-                    Ok((*guard).unwrap())
-                } else {
-                    bail!("Attempt to read ArtifactManager.peer_id before it is set!")
-                }
-            }
-            Err(_) => Err(anyhow!(
-                "Unable to access ArtifactManager.peer_id due to a previous panic"
-            )),
-        }
     }
 }
 
@@ -457,16 +560,20 @@ fn compute_hash_of_file<'a>(
     Ok(actual_hash(&mut hash_buffer, &mut digester).to_vec())
 }
 
-fn create_torrent_file_from(path: &Path, peer_id: String) -> Result<bool> {
-    let torrent_content = create_torrent_content(path, peer_id)?;
-    let mut torrent_path = path.to_path_buf();
-    torrent_path.set_extension(TORRENT_EXTENSION);
-    write_torrent_to_file(torrent_content, torrent_path)?;
-    Ok(true)
+fn create_torrent_file_from(path: &Path) -> Result<PathBuf> {
+    let torrent_content = create_torrent_content(path)?;
+    let relative_torrent_path = path.with_extension(TORRENT_EXTENSION);
+    write_torrent_to_file(torrent_content, &relative_torrent_path)?;
+    let absolute_torrent_path = fs::canonicalize(relative_torrent_path)?;
+    debug!(
+        "Absolute torrent path is {}",
+        absolute_torrent_path.display()
+    );
+    Ok(absolute_torrent_path)
 }
 
-fn write_torrent_to_file(torrent_content: Torrent, torrent_path: PathBuf) -> Result<()> {
-    match torrent_content.write_into_file(torrent_path.clone()) {
+fn write_torrent_to_file(torrent_content: Torrent, torrent_path: &Path) -> Result<()> {
+    match torrent_content.write_into_file(torrent_path.to_path_buf()) {
         Ok(_) => {
             debug!("Wrote torrent file: {}", torrent_path.display());
             Ok(())
@@ -481,7 +588,8 @@ fn write_torrent_to_file(torrent_content: Torrent, torrent_path: PathBuf) -> Res
 
 const DEFAULT_TORRENT_PIECE_SIZE: i64 = 1048576;
 
-fn create_torrent_content(path: &Path, peer_id: String) -> Result<Torrent> {
+fn create_torrent_content(path: &Path) -> Result<Torrent> {
+    let peer_id = &*LOCAL_PEER_ID;
     match torrent::v1::TorrentBuilder::new(path, DEFAULT_TORRENT_PIECE_SIZE)
         .add_extra_field(
             "x_create_by".to_string(),
@@ -502,12 +610,19 @@ fn inaccessible_repo_directory_error(repository_path: &str) -> Result<ArtifactMa
     Err(anyhow!("Not an accessible directory: {}", repository_path))
 }
 
-fn is_not_hidden(entry: &DirEntry) -> bool {
-    entry
+fn is_directory_or_artifact_file(entry: &DirEntry) -> bool {
+    let not_hidden = entry
         .file_name()
         .to_str()
         .map(|s| entry.depth() == 0 || !s.starts_with('.'))
-        .unwrap_or(false)
+        .unwrap_or(false);
+    not_hidden
+        && (entry.file_type().is_dir()
+            || entry
+                .path()
+                .extension()
+                .map(|extension| extension == OsString::from(FILE_EXTENSION).as_os_str())
+                .unwrap_or(false))
 }
 
 fn create_artifact_file(tmp_path: &Path) -> std::io::Result<File> {
@@ -648,7 +763,6 @@ mod tests {
 
     pub use super::*;
 
-    #[cfg(test)]
     #[ctor::ctor]
     fn init() {
         let _ignore = env_logger::builder()
@@ -659,11 +773,10 @@ mod tests {
     }
 
     #[test]
-    pub fn new_artifact_manager_with_valid_directory() {
-        let dir_name = "TmpX";
-        fs::create_dir(dir_name).expect(&format!("Unable to create temp directory {}", dir_name));
+    pub fn new_artifact_manager_with_valid_directory() -> Result<()> {
+        let dir_name = create_tmp_dir("tmpX")?;
         info!("Created directory for valid directory test: {}", dir_name);
-        let ok: bool = match ArtifactManager::new(dir_name) {
+        let ok: bool = match ArtifactManager::new(&dir_name) {
             Ok(artifact_manager) => {
                 info!(
                     "Artifact manager created with repo directory {}",
@@ -690,7 +803,8 @@ mod tests {
             }
             Err(_) => false,
         };
-        assert!(ok)
+        assert!(ok);
+        Ok(())
     }
 
     const TEST_ARTIFACT_DATA: &str = "Incumbent nonsense text, sesquipedalian and obfuscatory. Exhortations to the mother lode. Dendrites for all.";
@@ -715,10 +829,21 @@ mod tests {
     }
 
     #[test]
+    pub fn hash_to_multihash_to_hash() -> Result<()> {
+        let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
+        let hash2 = Hash::from_multihash(hash.to_multihash()?)?;
+        assert_eq!(
+            hash, hash2,
+            "Hash converted to multihash converted to hash should equal the original hash"
+        );
+        Ok(())
+    }
+
+    #[test]
     pub fn push_artifact_then_pull_it() -> Result<(), anyhow::Error> {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
         let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
-        let dir_name = create_tmp_dir("tmp")?;
+        let dir_name = create_tmp_dir("tmpP")?;
         let am: ArtifactManager =
             ArtifactManager::new(dir_name.as_str()).context("Error creating ArtifactManager")?;
 
@@ -731,25 +856,73 @@ mod tests {
         am.push_artifact(&mut string_reader, &hash)
             .context("Error from push_artifact")?;
 
-        // Check that artifact file was written correctly
-        let mut path_buf = PathBuf::from(dir_name.clone());
-        path_buf.push("SHA256");
-        path_buf.push(hex::encode(TEST_ARTIFACT_HASH));
-        path_buf.set_extension(FILE_EXTENSION);
-        let content_vec = fs::read(path_buf.as_path()).context("reading pushed file")?;
-        assert_eq!(content_vec.as_slice(), TEST_ARTIFACT_DATA.as_bytes());
-
-        // Check the space used after pushing artifact
-        let space_after = am
-            .space_used(dir_name.as_str())
-            .context("Error getting space used by ArtifactManager")?;
-        assert_eq!(315, space_after);
+        let mut path_buf = check_artifact_is_written_correctly(&dir_name)?;
 
         // Check that torrent file was written correctly
         let mut torrent_path_buf = path_buf.clone();
         torrent_path_buf.set_extension(TORRENT_EXTENSION);
-        let torrent =
-            torrent::v1::Torrent::read_from_file(torrent_path_buf).expect("Reading torrent file");
+        let absolute_torrent_path_buf = fs::canonicalize(torrent_path_buf)?;
+        let torrent_path = absolute_torrent_path_buf.as_path();
+        let torrent = read_torrent_from_file(&torrent_path);
+        check_torrent(&mut path_buf, &torrent);
+
+        find_torrent_in_dht(&am, &torrent_path)?;
+
+        // Currently the space_used method does not include the size of directories in the directory tree, so this is how we obtain an independent result to check it.
+        let size_of_files_in_directory_tree =
+            fs_extra::dir::get_size(&*am.repository_path.to_string_lossy())?;
+        // Check the space used after pushing artifact
+        let space_after = am
+            .space_used(dir_name.as_str())
+            .context("Error getting space used by ArtifactManager")?;
+        assert_eq!(
+            size_of_files_in_directory_tree, space_after,
+            "expect correct result from space_used"
+        );
+
+        check_able_to_pull_artifact(&hash, &am)?;
+
+        assert_eq!(
+            1,
+            am.artifacts_count()?,
+            "artifact manager should have a 1 artifact"
+        );
+
+        remove_dir_all(&dir_name);
+        Ok(())
+    }
+
+    fn find_torrent_in_dht(am: &ArtifactManager, path: &Path) -> Result<()> {
+        let _multihash = am.path_to_hash(path)?.to_multihash()?;
+        //TODO The test to see if the torrent is in the DHT involves code that will be in the next PR.
+        Ok(())
+    }
+
+    fn check_artifact_is_written_correctly(dir_name: &String) -> Result<PathBuf> {
+        let mut path_buf = PathBuf::from(dir_name.clone());
+        path_buf.push("SHA256");
+        path_buf.push(encode_bytes_as_file_name(&TEST_ARTIFACT_HASH));
+        path_buf.set_extension(FILE_EXTENSION);
+        let content_vec = fs::read(path_buf.as_path()).context("reading pushed file")?;
+        assert_eq!(content_vec.as_slice(), TEST_ARTIFACT_DATA.as_bytes());
+        Ok(path_buf)
+    }
+
+    fn read_torrent_from_file(torrent_path_buf: &Path) -> Torrent {
+        torrent::v1::Torrent::read_from_file(torrent_path_buf).expect("Reading torrent file")
+    }
+
+    fn check_able_to_pull_artifact(hash: &Hash, am: &ArtifactManager) -> Result<()> {
+        let mut reader = am
+            .pull_artifact(&hash)
+            .context("Error from pull_artifact")?;
+        let mut read_buffer = String::new();
+        reader.read_to_string(&mut read_buffer)?;
+        assert_eq!(TEST_ARTIFACT_DATA, read_buffer);
+        Ok(())
+    }
+
+    fn check_torrent(path_buf: &mut PathBuf, torrent: &Torrent) {
         assert!(torrent.announce.is_none());
         let file_metadata = fs::metadata(path_buf.clone())
             .expect(&format!("Expected file to exist: {}", path_buf.display()));
@@ -768,17 +941,14 @@ mod tests {
             DEFAULT_TORRENT_PIECE_SIZE, torrent.piece_length,
             "piece length"
         );
+    }
 
-        // Check that we can pull the artifact
-        let mut reader = am
-            .pull_artifact(&hash)
-            .context("Error from pull_artifact")?;
-        let mut read_buffer = String::new();
-        reader.read_to_string(&mut read_buffer)?;
-        assert_eq!(TEST_ARTIFACT_DATA, read_buffer);
-
-        remove_dir_all(&dir_name);
-        Ok(())
+    #[test]
+    pub fn hash_length_does_not_match_algorithm_test() {
+        assert!(
+            Hash::new(HashAlgorithm::SHA512, &[0u8; 7]).is_err(),
+            "A 56 bit hash value for SHA512 should be an error"
+        )
     }
 
     #[test]
@@ -818,6 +988,8 @@ mod tests {
         ok
     }
 
+    // We are using this rather than temp_dir because on a Mac temp_dir gives the temp directory a
+    // name that begins with '.'. This breaks the torrent creation with the torrent builder complaining about the hidden directory.
     fn create_tmp_dir(prefix: &str) -> Result<String> {
         let dir_name = tmp_dir_name(prefix);
         debug!("tmp dir: {}", dir_name);
@@ -838,7 +1010,7 @@ mod tests {
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("Time went backwards")
-                .as_millis()
+                .as_micros()
         );
     }
 

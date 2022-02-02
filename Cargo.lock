@@ -3099,6 +3099,7 @@ dependencies = [
  "lava_torrent",
  "lazy_static",
  "libp2p",
+ "libp2p-kad",
  "log",
  "maplit",
  "multihash 0.15.0",

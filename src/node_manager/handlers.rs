@@ -20,9 +20,11 @@ use super::HashAlgorithm;
 use super::Hash;
 
 use crate::metadata_manager::metadata::Metadata;
+use crate::network::kademlia_thread_safe_proxy::KademliaThreadSafeProxy;
 use anyhow::{Context, Result};
 use byte_unit::Byte;
 use lazy_static::lazy_static;
+use libp2p::{identity, kad::record::store::MemoryStore, PeerId};
 use log::{debug, error, info};
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -35,6 +37,10 @@ pub const ARTIFACTS_DIR: &str = "pyrsia";
 pub const ALLOCATED_SPACE_FOR_ARTIFACTS: &str = "10.84 GB";
 
 lazy_static! {
+    pub static ref LOCAL_KEY: identity::Keypair = identity::Keypair::generate_ed25519();
+    pub static ref LOCAL_PEER_ID: PeerId = PeerId::from(LOCAL_KEY.public());
+    pub static ref MEMORY_STORE: MemoryStore = MemoryStore::new(*LOCAL_PEER_ID);
+    pub static ref KADEMLIA_PROXY: KademliaThreadSafeProxy = KademliaThreadSafeProxy::default();
     pub static ref ART_MGR: ArtifactManager = {
         log_static_initialization_failure(
             "Artifact Manager Directory",
@@ -102,7 +108,7 @@ pub fn put_artifact(
 
 pub fn get_arts_count() -> Result<usize, anyhow::Error> {
     ART_MGR
-        .artifacts_count(ARTIFACTS_DIR)
+        .artifacts_count()
         .context("Error while getting artifacts count")
 }
 
@@ -218,15 +224,17 @@ mod tests {
 
         let am: ArtifactManager = ArtifactManager::new(name)?;
 
+        // The amount of space available will vary with the testing environment. The exact decrease
+        // in the amount of space available will depend on the internal details of the artifact
+        // manager, so we are just looking for a decrease after we have added an artifact.
         let space_available_before =
             get_space_available(name).context("Error from get_space_available")?;
-        assert_eq!(10840000000, space_available_before);
 
         create_artifact(am).context("Error creating artifact")?;
 
-        let space_available =
+        let space_available_after =
             get_space_available(name).context("Error from get_space_available")?;
-        assert_eq!(10839994889, space_available);
+        assert!(space_available_after < space_available_before);
 
         Ok(())
     }
