@@ -24,7 +24,7 @@ use libp2p::{
     swarm::SwarmBuilder,
     Swarm,
 };
-use libp2p::{gossipsub, identity};
+use libp2p::{gossipsub, identity, PeerId};
 use std::collections::hash_map::DefaultHasher;
 
 use crate::node_manager::handlers::LOCAL_PEER_ID;
