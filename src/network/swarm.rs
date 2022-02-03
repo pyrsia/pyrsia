@@ -38,7 +38,7 @@ pub async fn new(
     topic: Topic,
     transport: TcpTokioTransport,
     local_key: &identity::Keypair,
-    local_peer_id: PeerId,
+    _local_peer_id: PeerId,
     response_sender: tokio::sync::mpsc::Sender<String>,
 ) -> Result<MyBehaviourSwarm<'static>, ()> {
     // To content-address message, we can take the hash of message and use it as an ID.
