@@ -31,20 +31,23 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
 1. Setup rust on your local machine as described in [Rust's getting started guide](https://www.rust-lang.org/learn/get-started)
 2. Clone this repo `git clone https://github.com/pyrsia/pyrsia.git`
 3. `cd pyrsia/pyrsia_node`
-4. You have 2 options:
+4. You need to start the Pyrsia Node. To do so, you have 2 options:
    - regular build: `cargo run`
    - build in docker: `docker-compose up --build`
-   
+
+*Note*: Do not to stop this process, a running node is required for the 
+following steps:
+
 5. **configure Docker** to use Pyrsia, which is running on localhost port 7888\
     open your Docker daemon settings and add this entry in the root JSON object:
-    
+
     **On Linux platforms**:
 
     ```
       "registry-mirrors": ["http://localhost:7888"]
-    ```    
-    By default you can find the Docker daemon settings here `/etc/docker/daemon.json`. 
-    
+    ```
+    By default you can find the Docker daemon settings here `/etc/docker/daemon.json`.
+
     **On other platforms**:
 
     You can find the Docker daemon settings in Docker Desktop -> Preferences -> Docker Engine.
@@ -60,13 +63,13 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
     "registry-mirrors": ["http://my-pyrsia-host:7888"]
     ```
 
-6. using another terminal, use `docker` to pull an image from Pyrsia: 
+6. using another terminal, use `docker` to pull an image from Pyrsia:
     ```
     docker pull ubuntu
     ```
    (or pull any other Docker image of your choice)
 
-    Optionally, you can inspect the Pyrsia node logs to check where the image came from. This can be either: 
+    Optionally, you can inspect the Pyrsia node logs to check where the image came from. This can be either:
     - locally (if it was cached by Pyrsia before)
     - from the Pyrsia network
     - or from Docker Hub (if it wasn't previously available in the Pyrsia network)
@@ -92,10 +95,42 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
 
     ```
     ./pyrsia node -s
-    Connected Peers Count:   1
+    Connected Peers Count:   0
+    Artifacts Count:         12 # reflects the number of artifacts that the pyrsia_node has stored on the network
+    Total Disk Available:    983112
+    ```
+
+If you see a status message similar to 
+   ```
+Error: error sending request for url (http://localhost:7888/v2): error trying to connect: tcp connect error: Connection refused (os error 111)
+   ```
+then your node is not running. Go back to step 3 to make sure
+the Pyrsia node is running.
+
+10. Multiple Pyrsia nodes can be started on the same computer by changing the ports they use as follows
+
+    ```
+    cargo run --bin pyrsia_node -- -p 7888
+
+    # RUST_LOG=debug cargo run --bin pyrsia_node -- -p 7888 # Use this environment variable if you would like to see debug logs
+    ```
+
+    ```
+    cargo run --bin pyrsia_node -- -p 8181
+
+    # RUST_LOG=debug cargo run --bin pyrsia_node -- -p 8181 # Use this environment variable if you would like to see debug logs
+    ```
+
+    ```
+    ./pyrsia node -s
+    Connected Peers Count:   1 # Shows the additional node that joined the list of peers
     Artifacts Count:         12
     Total Disk Available:    983112
     ```
+
+    In a real life deployment these nodes will be spread over the network and will all run on their own 7888 port.
+    `Word of caution: Running the peers for a few hours does generate network traffic and hence can drain your computer power. Ensure you are plugged into power if you are running multiple peers for a long time`
+
 
 
 ### Setting Up Visual Studio Code Debugger
@@ -109,5 +144,5 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
     * macOS and Windows: Compose is included in Docker Desktop
     * Linux: [Downloaded Compose](https://github.com/docker/compose#linux)
 
-The Pyrsia node will then be running on localhost:7888 both on the host and 
+The Pyrsia node will then be running on localhost:7888 both on the host and
 inside the VM, available to Docker Engine, in the case of Docker Desktop.

@@ -16,18 +16,15 @@
 
 extern crate dirs;
 
-use crate::node_manager::handlers::ART_MGR;
+use crate::node_manager::handlers::{ART_MGR, KADEMLIA_PROXY};
 
 use libp2p::gossipsub;
 use libp2p::{
     floodsub::{Floodsub, FloodsubEvent},
     kad::{
-        record::{
-            store::{Error, MemoryStore},
-            Key,
-        },
-        AddProviderOk, Kademlia, KademliaEvent, PeerRecord, PutRecordOk, QueryId, QueryResult,
-        Quorum, Record,
+        record::{store::Error, Key},
+        AddProviderOk, KademliaEvent, PeerRecord, PutRecordOk, QueryId, QueryResult, Quorum,
+        Record,
     },
     mdns::{Mdns, MdnsEvent},
     swarm::NetworkBehaviourEventProcess,
@@ -45,7 +42,6 @@ use std::collections::HashSet;
 pub struct MyBehaviour {
     gossipsub: gossipsub::Gossipsub,
     floodsub: Floodsub,
-    kademlia: Kademlia<MemoryStore>,
     mdns: Mdns,
     #[behaviour(ignore)]
     response_sender: tokio::sync::mpsc::Sender<String>,
@@ -55,14 +51,12 @@ impl MyBehaviour {
     pub fn new(
         gossipsub: gossipsub::Gossipsub,
         floodsub: Floodsub,
-        kademlia: Kademlia<MemoryStore>,
         mdns: Mdns,
         response_sender: tokio::sync::mpsc::Sender<String>,
     ) -> Self {
         MyBehaviour {
             gossipsub,
             floodsub,
-            kademlia,
             mdns,
             response_sender,
         }
@@ -80,11 +74,11 @@ impl MyBehaviour {
         let num = std::num::NonZeroUsize::new(2)
             .ok_or(Error::ValueTooLarge)
             .unwrap();
-        self.kademlia.get_record(&Key::new(&hash), Quorum::N(num));
+        KADEMLIA_PROXY.get_record(&Key::new(&hash), Quorum::N(num));
     }
 
     pub async fn list_peers(&mut self, peer_id: PeerId) {
-        self.kademlia.get_closest_peers(peer_id);
+        KADEMLIA_PROXY.get_closest_peers(peer_id);
     }
 
     pub async fn list_peers_cmd(&mut self) {
@@ -96,8 +90,7 @@ impl MyBehaviour {
 
     pub fn advertise_blob(&mut self, hash: String, value: Vec<u8>) -> Result<QueryId, Error> {
         let num = std::num::NonZeroUsize::new(2).ok_or(Error::ValueTooLarge)?;
-        self.kademlia
-            .put_record(Record::new(Key::new(&hash), value), Quorum::N(num))
+        KADEMLIA_PROXY.put_record(Record::new(Key::new(&hash), value), Quorum::N(num))
     }
 }
 
@@ -160,14 +153,14 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour {
             MdnsEvent::Discovered(list) => {
                 for (peer, multiaddr) in list {
                     self.floodsub.add_node_to_partial_view(peer);
-                    self.kademlia.add_address(&peer, multiaddr);
+                    KADEMLIA_PROXY.add_address(&peer, multiaddr);
                 }
             }
             MdnsEvent::Expired(list) => {
                 for (peer, multiaddr) in list {
                     if !self.mdns.has_node(&peer) {
                         self.floodsub.remove_node_from_partial_view(&peer);
-                        self.kademlia.remove_address(&peer, &multiaddr);
+                        KADEMLIA_PROXY.remove_address(&peer, &multiaddr);
                     }
                 }
             }
@@ -178,7 +171,13 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour {
 impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
     // Called when `kademlia` produces an event.
     fn inject_event(&mut self, message: KademliaEvent) {
-        if let KademliaEvent::OutboundQueryCompleted { result, .. } = message {
+        if let KademliaEvent::OutboundQueryCompleted {
+            result,
+            id: query_id,
+            ..
+        } = message
+        {
+            debug!("Received query resule for Kademlia query id {:?}", query_id);
             match result {
                 QueryResult::GetProviders(Ok(ok)) => {
                     for peer in ok.providers {
@@ -214,7 +213,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for MyBehaviour {
                     error!(target: "pyrsia_node_comms","Failed to get record: {:?}", err);
                 }
                 QueryResult::PutRecord(Ok(PutRecordOk { key })) => {
-                    debug!(target: "pyrsia_node_comms",
+                    info!(target: "pyrsia_node_comms",
                         "Successfully put record {:?}",
                         std::str::from_utf8(key.as_ref()).unwrap()
                     );

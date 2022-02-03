@@ -20,18 +20,18 @@ use libp2p::gossipsub::MessageId;
 use libp2p::gossipsub::{GossipsubMessage, IdentTopic, MessageAuthenticity, ValidationMode};
 use libp2p::{
     floodsub::{Floodsub, Topic},
-    kad::{record::store::MemoryStore, Kademlia},
     mdns::Mdns,
     swarm::SwarmBuilder,
-    PeerId, Swarm,
+    Swarm,
 };
 use libp2p::{gossipsub, identity};
 use std::collections::hash_map::DefaultHasher;
 
+use crate::node_manager::handlers::LOCAL_PEER_ID;
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
 
-pub type MyBehaviourSwarm = Swarm<MyBehaviour>;
+pub type MyBehaviourSwarm<'a> = Swarm<MyBehaviour>;
 
 pub async fn new(
     gossip_topic: IdentTopic,
@@ -40,11 +40,7 @@ pub async fn new(
     local_key: &identity::Keypair,
     local_peer_id: PeerId,
     response_sender: tokio::sync::mpsc::Sender<String>,
-) -> Result<MyBehaviourSwarm, ()> {
-    //create kad
-    let store = MemoryStore::new(local_peer_id);
-    let kademlia = Kademlia::new(local_peer_id, store);
-
+) -> Result<MyBehaviourSwarm<'static>, ()> {
     // To content-address message, we can take the hash of message and use it as an ID.
     let message_id_fn = |message: &GossipsubMessage| {
         let mut s = DefaultHasher::new();
@@ -73,14 +69,13 @@ pub async fn new(
     let mdns = Mdns::new(Default::default()).await.unwrap();
     let mut behaviour = MyBehaviour::new(
         gossipsub,
-        Floodsub::new(local_peer_id),
-        kademlia,
+        Floodsub::new(*LOCAL_PEER_ID),
         mdns,
         response_sender,
     );
     behaviour.floodsub_mut().subscribe(topic.clone());
 
-    let swarm = SwarmBuilder::new(transport, behaviour, local_peer_id)
+    let swarm = SwarmBuilder::new(transport, behaviour, *LOCAL_PEER_ID)
         // We want the connection background tasks to be spawned
         // onto the tokio runtime.
         .executor(Box::new(|fut| {
