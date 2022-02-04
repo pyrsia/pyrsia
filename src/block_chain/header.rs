@@ -100,3 +100,28 @@ impl From<Header> for PartialHeader {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::block;
+    use super::*;
+    use libp2p::identity;
+    use rand::Rng;
+
+    #[test]
+    fn test_build_block_header() -> Result<(), String> {
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = hash(&block::get_publickey_from_keypair(&keypair).encode());
+
+        let header = Header::new(PartialHeader::new(
+            hash(b""),
+            local_id,
+            hash(b""),
+            5,
+            rand::thread_rng().gen::<u128>(),
+        ));
+
+        assert_eq!(5, header.number);
+        Ok(())
+    }
+}

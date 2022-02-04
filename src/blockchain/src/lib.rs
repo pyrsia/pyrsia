@@ -14,8 +14,8 @@
    limitations under the License.
 */
 
-pub mod blobs;
-pub mod manifests;
-pub use crate::artifact_manager::HashAlgorithm;
+extern crate ed25519_dalek;
 
-pub use crate::node_manager::*;
+pub use ed25519_dalek::Signature;
+
+pub type Example = u32;

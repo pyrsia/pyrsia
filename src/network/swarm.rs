@@ -24,7 +24,7 @@ use libp2p::{
     swarm::SwarmBuilder,
     Swarm,
 };
-use libp2p::{gossipsub, identity};
+use libp2p::{gossipsub, identity, PeerId};
 use std::collections::hash_map::DefaultHasher;
 
 use crate::node_manager::handlers::LOCAL_PEER_ID;
@@ -37,7 +37,8 @@ pub async fn new(
     gossip_topic: IdentTopic,
     topic: Topic,
     transport: TcpTokioTransport,
-    local_key: identity::Keypair,
+    local_key: &identity::Keypair,
+    _local_peer_id: PeerId,
     response_sender: tokio::sync::mpsc::Sender<String>,
 ) -> Result<MyBehaviourSwarm<'static>, ()> {
     // To content-address message, we can take the hash of message and use it as an ID.
@@ -56,9 +57,11 @@ pub async fn new(
         .build()
         .expect("Valid config");
     // build a gossipsub network behaviour
-    let mut gossipsub: gossipsub::Gossipsub =
-        gossipsub::Gossipsub::new(MessageAuthenticity::Signed(local_key), gossipsub_config)
-            .expect("Correct configuration");
+    let mut gossipsub: gossipsub::Gossipsub = gossipsub::Gossipsub::new(
+        MessageAuthenticity::Signed(local_key.clone()),
+        gossipsub_config,
+    )
+    .expect("Correct configuration");
 
     // subscribes to our gossip topic
     gossipsub.subscribe(&gossip_topic).unwrap();

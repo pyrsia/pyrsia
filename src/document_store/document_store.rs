@@ -470,7 +470,6 @@ fn fetch_json_record(
     raw_data_key: Vec<u8>,
 ) -> Result<Option<String>, DocumentStoreError> {
     if let Ok(raw_document) = unqlite.kv_fetch(&raw_data_key) {
-        debug!("Found raw document: {:?}", raw_document);
         let document = bytes_to_utf8(raw_data_key, raw_document)?;
         Ok(Some(document))
     } else {

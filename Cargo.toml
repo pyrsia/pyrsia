@@ -64,16 +64,16 @@ features = []
 
 [dev-dependencies]
 string_manipulation = {path="tests/string_manipulation"}
-tokio-test = "0.4.2"
-
 expectest = "0.10.0"
+tokio-test = "0.4.2"
 
 [workspace]
 members = [
     "pyrsia_node",
     "pyrsia_cli",
     "src/signed",
-    "src/signed_struct"
+    "src/signed_struct",
+    "src/blockchain"
 ]
 
 [profile.dev]
