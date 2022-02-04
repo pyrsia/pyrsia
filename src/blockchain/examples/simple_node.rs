@@ -38,6 +38,10 @@ use rand::Rng;
 use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
 
+pub const BLOCK_FILE_PATH: &str = "./first";
+pub const CONTINUE_COMMIT: &str = "1";
+pub const APART_ONE_COMMIT: &str = "2";
+
 /// The `tokio::main` attribute sets up a tokio runtime.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -47,7 +51,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("Local peer id: {:?}", peer_id);
     let filepath = match std::env::args().nth(1) {
         Some(v) => v,
-        None => String::from("./first"),
+        None => String::from(BLOCK_FILE_PATH),
     };
 
     // Create a keypair for authenticated encryption of the transport.
@@ -65,7 +69,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .boxed();
 
     // Create a Floodsub topic
-    let floodsub_topic = floodsub::Topic::new("chat");
+    let floodsub_topic = floodsub::Topic::new("block");
 
     // We create a custom network behaviour that combines floodsub and mDNS.
     // The derive generates a delegating `NetworkBehaviour` impl which in turn
@@ -139,7 +143,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     // Reach out to another node if specified
-    let mut check_number = String::from("1");
+    let mut check_number = String::from(CONTINUE_COMMIT);
     if let Some(number) = std::env::args().nth(2) {
         check_number = number;
     }
@@ -186,7 +190,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 //let parent_hash=header::hash(b"");
                 //let previous_number=0;
 
-                if check_number=="2" && previous_commiter == local_id{
+                if check_number==APART_ONE_COMMIT
+                && previous_commiter == local_id{
 
                         println!("The Commit Permission is limited, Please wait others commit");
                         continue;
