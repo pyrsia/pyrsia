@@ -1,0 +1,14 @@
+[package]
+name = "pyrsia_blockchain_network"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ed25519-dalek = "1.0.1"
+
+[[example]]
+name = "simple_node"
+
+[dev-dependencies]
+pretty_env_logger = "0.4.0"
+tokio = { version = "1.16.1", features = [ "macros", "rt-multi-thread", "io-std" ] }

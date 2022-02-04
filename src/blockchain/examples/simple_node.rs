@@ -14,8 +14,14 @@
    limitations under the License.
 */
 
-pub mod blobs;
-pub mod manifests;
-pub use crate::artifact_manager::HashAlgorithm;
+extern crate pretty_env_logger;
+extern crate pyrsia_blockchain_network;
+extern crate tokio;
 
-pub use crate::node_manager::*;
+use pyrsia_blockchain_network::Example;
+
+#[tokio::main]
+async fn main() {
+    pretty_env_logger::init();
+    let _e: Example = 0;
+}
