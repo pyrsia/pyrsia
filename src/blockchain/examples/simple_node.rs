@@ -38,6 +38,7 @@ use pyrsia_blockchain_network::{block, blockchain, header};
 use rand::Rng;
 use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
+use pyrsia_blockchain_network::*;
 
 pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
 pub const CONTINUE_COMMIT: &str = "1"; //allow to continuously commit
