@@ -39,7 +39,7 @@ use warp::http::StatusCode;
 use warp::{Rejection, Reply};
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
-pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Reply, Rejection> {
+pub async fn fetch_manifest(name: String, tag: String) -> Result<impl Reply, Rejection> {
     let manifest_content;
     debug!("Fetching manifest for {} with tag: {}", name, tag);
 
@@ -115,7 +115,7 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
 const LOCATION: &str = "Location";
 
 // Handles PUT endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
-pub async fn handle_put_manifest(
+pub async fn put_manifest(
     name: String,
     reference: String,
     bytes: Bytes,
@@ -256,8 +256,6 @@ async fn get_manifest_from_docker_hub_with_token(
 
     let bytes = response.bytes().await.map_err(RegistryError::from)?;
 
-    debug!("Storing manifest pulled from dockerHub in artifact manager");
-
     let mut hash = String::new();
     match store_manifest_in_artifact_manager(bytes.clone()) {
         Ok(artifact_hash) => {
@@ -301,12 +299,10 @@ async fn get_manifest_from_docker_hub_with_token(
 fn get_artifact_manifest(artifacts: &[Artifact]) -> Option<&Artifact> {
     for artifact in artifacts {
         if let Some(mime_type) = artifact.mime_type() {
-            debug!("mime type is: {}", mime_type);
             if mime_type.eq(MEDIA_TYPE_SCHEMA_1)
                 || mime_type.eq(MEDIA_TYPE_IMAGE_MANIFEST)
                 || mime_type.eq(MEDIA_TYPE_MANIFEST_LIST)
             {
-                debug!("found where mime type is: {}", mime_type);
                 return Some(artifact);
             }
         }
@@ -757,13 +753,13 @@ macro_rules! test_async {
   }
 
     #[test]
-    fn test_handle_put_manifest_expecting_success_response_with_manifest_stored_in_artifact_manager_and_package_version_in_metadata_manager(
+    fn test_put_manifest_expecting_success_response_with_manifest_stored_in_artifact_manager_and_package_version_in_metadata_manager(
     ) -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
         let reference = "v2.4";
 
         let future = async {
-            handle_put_manifest(
+            put_manifest(
                 name.to_string(),
                 reference.to_string(),
                 Bytes::from(MANIFEST_V1_JSON.as_bytes()),
@@ -771,18 +767,18 @@ macro_rules! test_async {
             .await
         };
         let result = executor::block_on(future);
-        check_put_manifest_result(result);
+        verify_put_manifest_result(result);
         check_artifact_manager_side_effects()?;
         check_package_version_metadata()?;
         Ok(())
     }
     #[test]
-    fn test_handle_get_manifest() -> Result<(), Box<dyn StdError>> {
+    fn test_fetch_manifest_from_pyrsia_expecting_success_with() -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
         let reference = "v2.4";
 
         let future = async {
-            handle_put_manifest(
+            put_manifest(
                 name.to_string(),
                 reference.to_string(),
                 Bytes::from(MANIFEST_V1_JSON.as_bytes()),
@@ -790,24 +786,23 @@ macro_rules! test_async {
             .await
         };
         let result = executor::block_on(future);
-        check_put_manifest_result(result);
+        verify_put_manifest_result(result);
         check_package_version_metadata()?;
 
-        debug!("starting get manifest call");
         let future =
-            async { handle_get_manifests("hello-world".to_string(), "v3.1".to_string()).await };
+            async { fetch_manifest("hello-world".to_string(), "v3.1".to_string()).await };
         let result = executor::block_on(future);
-        check_get_manifest_result(result);
+        verify_fetch_manifest_result(result);
         Ok(())
     }
 
     #[test]
-    fn test_handle_get_manifest_if_not_in_pyrsia() -> Result<(), Box<dyn StdError>> {
+    fn test_fetch_manifest_if_not_in_pyrsia_expecting_fetch_from_dockerhub_success_and_store_in_pyrsia() -> Result<(), Box<dyn StdError>> {
         let name = "alpine";
         let reference = "sha256:e7d88de73db3d3fd9b2d63aa7f447a10fd0220b7cbf39803c803f2af9ba256b3";
 
-        let result = test_async!(handle_get_manifests(name.to_string(), reference.to_string()));
-        check_get_manifest_result_if_not_in_pyrsia(result);
+        let result = test_async!(fetch_manifest(name.to_string(), reference.to_string()));
+        verify_fetch_manifest_result_if_not_in_pyrsia(result);
         Ok(())
     }
 
@@ -819,7 +814,7 @@ macro_rules! test_async {
         Ok(())
     }    
 
-    fn check_get_manifest_result_if_not_in_pyrsia(result: Result<impl Reply, Rejection>) {
+    fn verify_fetch_manifest_result_if_not_in_pyrsia(result: Result<impl Reply, Rejection>) {
         match result {
             Ok(reply) => {
                 let response = reply.into_response();
@@ -838,7 +833,7 @@ macro_rules! test_async {
         };
     }
 
-    fn check_get_manifest_result(result: Result<impl Reply, Rejection>) {
+    fn verify_fetch_manifest_result(result: Result<impl Reply, Rejection>) {
         match result {
             Ok(reply) => {
                 let response = reply.into_response();
@@ -857,7 +852,7 @@ macro_rules! test_async {
         };
     }
 
-    fn check_put_manifest_result(result: Result<impl Reply, Rejection>) {
+    fn verify_put_manifest_result(result: Result<impl Reply, Rejection>) {
         match result {
             Ok(reply) => {
                 let response = reply.into_response();
