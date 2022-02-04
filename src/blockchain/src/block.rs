@@ -200,6 +200,13 @@ mod tests {
             rand::thread_rng().gen::<u128>(),
         ));
         let block = Block::new(block_header, transactions.to_vec(), &keypair);
+        let pubkey = libp2p::identity::ed25519::PublicKey::decode(&block.signature.pubkey).unwrap();
+
+        assert!(verify(
+            &pubkey,
+            &bincode::serialize(&block.header.current_hash).unwrap(),
+            &block.signature.signature,
+        ));
         assert_eq!(1, block.header.number);
         Ok(())
     }

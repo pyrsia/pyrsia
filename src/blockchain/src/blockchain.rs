@@ -174,7 +174,8 @@ mod tests {
             &ed25519_keypair,
         );
         transactions.push(transaction);
-
+        let g_block = GenesisBlock::new(&ed25519_keypair);
+        assert_eq!(0, g_block.header.number);
         chain.add_block(new_block(
             &ed25519_keypair,
             &transactions,

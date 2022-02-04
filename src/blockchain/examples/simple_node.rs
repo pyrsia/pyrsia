@@ -302,6 +302,7 @@ mod tests {
         ));
 
         let block = block::Block::new(block_header, transactions.to_vec(), &keypair);
+        append_genesis_block(BLOCK_FILE_PATH.to_string(), &keypair);
         write_block(BLOCK_FILE_PATH.to_string(), block);
         let (_, number, _) = read_last_block(BLOCK_FILE_PATH.to_string());
 
