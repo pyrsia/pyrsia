@@ -34,19 +34,20 @@ use libp2p::{
     PeerId,
     Transport,
 };
+use pyrsia_blockchain_network::{block, blockchain, header};
 use rand::Rng;
 use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
 
-pub const BLOCK_FILE_PATH: &str = "./first";
-pub const CONTINUE_COMMIT: &str = "1";
-pub const APART_ONE_COMMIT: &str = "2";
+pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
+pub const CONTINUE_COMMIT: &str = "1"; //allow to continuously commit
+pub const APART_ONE_COMMIT: &str = "2"; //must be at least one ledger apart to commit
 
 /// The `tokio::main` attribute sets up a tokio runtime.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     // Create a random PeerId
-    let id_keys = pyrsia_blockchain_network::blockchain::generate_ed25519();
+    let id_keys = blockchain::generate_ed25519();
     let peer_id = PeerId::from(id_keys.public());
     println!("Local peer id: {:?}", peer_id);
     let filepath = match std::env::args().nth(1) {
@@ -87,9 +88,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         fn inject_event(&mut self, message: FloodsubEvent) {
             if let FloodsubEvent::Message(message) = message {
                 //println!("Received: '{:?}' from {:?}", &message.data, message.source);
-                let block: pyrsia_blockchain_network::block::Block =
-                    bincode::deserialize::<pyrsia_blockchain_network::block::Block>(&message.data)
-                        .unwrap();
+                let block: block::Block =
+                    bincode::deserialize::<block::Block>(&message.data).unwrap();
                 println!("++++++++++");
                 println!("++++++++++");
                 println!("Recevie a new block {:?}", block);
@@ -168,17 +168,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut transactions = vec![];
 
-    let local_id = pyrsia_blockchain_network::header::hash(
-        &pyrsia_blockchain_network::block::get_publickey_from_keypair(&ed25519_keypair).encode(),
-    );
+    let local_id = header::hash(&block::get_publickey_from_keypair(&ed25519_keypair).encode());
     // Kick it off
     loop {
         tokio::select! {
             line = stdin.next_line() => {
                 let line = line?.expect("stdin closed");
-                let transaction = pyrsia_blockchain_network::block::Transaction::new(
-                    pyrsia_blockchain_network::block::PartialTransaction::new(
-                        pyrsia_blockchain_network::block::TransactionType::Create,
+                let transaction = block::Transaction::new(
+                    block::PartialTransaction::new(
+                        block::TransactionType::Create,
                         local_id,
                         line.as_bytes().to_vec(),
                         rand::thread_rng().gen::<u128>(),
@@ -196,10 +194,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         continue;
 
                 }
-                let block = pyrsia_blockchain_network::blockchain::new_block(&ed25519_keypair, &transactions, parent_hash, previous_number);
+                let block = blockchain::new_block(&ed25519_keypair, &transactions, parent_hash, previous_number);
                 println!("---------");
                 println!("---------");
-
                 println!("Add a New Block : {:?}", block);
                 swarm.behaviour_mut().floodsub.publish(floodsub_topic.clone(), bincode::serialize(&block).unwrap());
                 write_block(filepath.clone(), block);
@@ -213,13 +210,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
+//Add genesis block to the file
 pub fn append_genesis_block(path: String, key: &identity::ed25519::Keypair) {
-    use pyrsia_blockchain_network::blockchain::GenesisBlock;
+    use blockchain::GenesisBlock;
     use std::fs::OpenOptions;
     use std::io::Write;
 
     let g_block = GenesisBlock::new(key);
     let mut file = OpenOptions::new()
+        .create_new(true)
+        .write(true)
         .append(true)
         .open(path)
         .expect("cannot open file");
@@ -228,13 +228,8 @@ pub fn append_genesis_block(path: String, key: &identity::ed25519::Keypair) {
         .expect("write failed");
 }
 
-pub fn read_last_block(
-    path: String,
-) -> (
-    pyrsia_blockchain_network::header::HashDigest,
-    u128,
-    pyrsia_blockchain_network::header::Address,
-) {
+//read a last block from the file, and return this block hash, this block number and this block committer
+pub fn read_last_block(path: String) -> (header::HashDigest, u128, header::Address) {
     use std::io::{BufRead, BufReader};
     let file = std::fs::File::open(path).unwrap();
 
@@ -247,7 +242,7 @@ pub fn read_last_block(
 
     let line = line.unwrap();
 
-    let block: pyrsia_blockchain_network::block::Block = serde_json::from_str(&line).unwrap();
+    let block: block::Block = serde_json::from_str(&line).unwrap();
 
     (
         block.header.current_hash,
@@ -256,11 +251,14 @@ pub fn read_last_block(
     )
 }
 
-pub fn write_block(path: String, block: pyrsia_blockchain_network::block::Block) {
+//Write a block to the file
+pub fn write_block(path: String, block: block::Block) {
     use std::fs::OpenOptions;
     use std::io::Write;
 
     let mut file = OpenOptions::new()
+        .create_new(true)
+        .write(true)
         .append(true)
         .open(path)
         .expect("cannot open file");
@@ -268,4 +266,45 @@ pub fn write_block(path: String, block: pyrsia_blockchain_network::block::Block)
     file.write_all(serde_json::to_string(&block).unwrap().as_bytes())
         .expect("write failed");
     file.write_all(b"\n").expect("write failed");
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate pyrsia_blockchain_network;
+    use super::*;
+    use libp2p::identity;
+    use pyrsia_blockchain_network::{block, header};
+    use rand::Rng;
+
+    #[test]
+    fn test_write_read() -> Result<(), String> {
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = header::hash(&block::get_publickey_from_keypair(&keypair).encode());
+        let mut transactions = vec![];
+        let data = "Hello First Transaction";
+        let transaction = block::Transaction::new(
+            block::PartialTransaction::new(
+                block::TransactionType::Create,
+                local_id,
+                data.as_bytes().to_vec(),
+                rand::thread_rng().gen::<u128>(),
+            ),
+            &keypair,
+        );
+        transactions.push(transaction);
+        let block_header = header::Header::new(header::PartialHeader::new(
+            header::hash(b""),
+            local_id,
+            header::hash(b""),
+            1,
+            rand::thread_rng().gen::<u128>(),
+        ));
+
+        let block = block::Block::new(block_header, transactions.to_vec(), &keypair);
+        write_block(BLOCK_FILE_PATH.to_string(), block);
+        let (_, number, _) = read_last_block(BLOCK_FILE_PATH.to_string());
+
+        assert_eq!(1, number);
+        Ok(())
+    }
 }

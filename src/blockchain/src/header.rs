@@ -25,6 +25,7 @@ pub struct HashDigest {
 
 pub type Address = HashDigest;
 
+// struct Header define the header of a block
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Header {
     pub parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
@@ -56,6 +57,7 @@ pub fn hash(msg: &[u8]) -> HashDigest {
     }
 }
 
+// struct PartialHeader is a part of struct header for easily count the hash value of block
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PartialHeader {
     pub parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
@@ -98,5 +100,30 @@ impl From<Header> for PartialHeader {
             number: header.number,
             nonce: header.nonce,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::block;
+    use super::*;
+    use libp2p::identity;
+    use rand::Rng;
+
+    #[test]
+    fn test_build_block_header() -> Result<(), String> {
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = hash(&block::get_publickey_from_keypair(&keypair).encode());
+
+        let header = Header::new(PartialHeader::new(
+            hash(b""),
+            local_id,
+            hash(b""),
+            5,
+            rand::thread_rng().gen::<u128>(),
+        ));
+
+        assert_eq!(5, header.number);
+        Ok(())
     }
 }

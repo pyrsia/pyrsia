@@ -115,6 +115,7 @@ impl Blockchain {
     }
 }
 
+// Create a new block
 pub fn new_block(
     keypair: &identity::ed25519::Keypair,
     transactions: &[Transaction],
@@ -133,6 +134,7 @@ pub fn new_block(
     Block::new(block_header, transactions.to_vec(), keypair)
 }
 
+//ToDo
 pub fn generate_ed25519() -> identity::Keypair {
     //RFC8032
     identity::Keypair::generate_ed25519()
