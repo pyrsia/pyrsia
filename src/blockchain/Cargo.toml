@@ -4,7 +4,24 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ed25519-dalek = "1.0.1"
+multihash = {version = "0.15.0", features = ["serde-codec"]}
+primitive-types = "0.10.1"
+bincode = "1.3.3"
+serde = { version = "1.0", features = ["derive"] }
+#libp2p = {git = "https://github.com/libp2p/rust-libp2p.git", rev = "e15dad5f45a9ae804b7a27bd6f885a1b00e0525a", features=["tcp-tokio"]}
+rand = "0.8.4"
+
+libp2p = { version = "0.41.1", features=["tcp-tokio", "mdns"]}
+#tokio = { version = "1.14.0", features = [ "macros", "rt-multi-thread", "io-std" ] }
+tokio = { version = "1.14.0", features = ["io-util", "io-std", "macros", "rt", "rt-multi-thread", "sync", "time"] }
+serde_json = "1.0"
+once_cell = "1.5"
+log = "0.4"
+pretty_env_logger = "0.4"
+futures = "0.3.19"
+chrono = "0.4"
+sha2 = "0.9.8"
+hex = "0.4"
 
 [[example]]
 name = "simple_node"
