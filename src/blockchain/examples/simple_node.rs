@@ -190,8 +190,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 //let parent_hash=header::hash(b"");
                 //let previous_number=0;
 
-                if check_number==APART_ONE_COMMIT
-                && previous_commiter == local_id{
+                if check_number==APART_ONE_COMMIT && previous_commiter == local_id{
 
                         println!("The Commit Permission is limited, Please wait others commit");
                         continue;

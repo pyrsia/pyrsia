@@ -23,7 +23,6 @@ extern crate pyrsia;
 extern crate tokio;
 extern crate warp;
 
-use pyrsia::block_chain::*;
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::handlers::blobs::GetBlobsHandle;
 use pyrsia::docker::v2::routes::*;
@@ -167,19 +166,8 @@ async fn main() {
     let my_stats = shared_stats.clone();
     let tx2 = tx.clone();
 
-    // We need to have two channels (to seperate the handling)
-    // 1. API to main
-    // 2. main to API
-    let (blocks_get_tx_to_main, mut blocks_get_rx_from_api) = mpsc::channel(32); // Request Channel
-    let (blocks_get_tx_answer_to_api, blocks_get_rx_answers_from_main) = mpsc::channel(32); // Response Channel
-
     let docker_routes = make_docker_routes(b1, tx1);
-    let routes = docker_routes.or(make_node_routes(
-        tx2,
-        my_stats,
-        blocks_get_tx_to_main.clone(),
-        blocks_get_rx_answers_from_main,
-    ));
+    let routes = docker_routes.or(make_node_routes(tx2, my_stats));
 
     let (addr, server) = warp::serve(
         routes
@@ -198,8 +186,6 @@ async fn main() {
     tokio::spawn(server);
     let tx4 = tx.clone();
 
-    let raw_chain = block_chain::Blockchain::new(&local_key);
-    let bc = Arc::new(Mutex::new(raw_chain));
     // Kick it off
     loop {
         let evt = {
@@ -221,20 +207,7 @@ async fn main() {
                     //SwarmEvent::Behaviour(e) => panic!("Unexpected event: {:?}", e),
                     None
                 },
-                get_blocks_request_input = blocks_get_rx_from_api.recv() => //BlockChain::handle_api_requests(),
 
-                // Channels are only one type (both tx and rx must match)
-                // We need to have two channel for each API call to send and receive
-                // The request and the response.
-
-                {
-                    info!("Processessing 'GET /blocks' {} request", get_blocks_request_input.unwrap());
-                    let bc1 = bc.clone();
-                    let block_chaing_instance = bc1.lock().await.clone();
-                    blocks_get_tx_answer_to_api.send(block_chaing_instance).await.expect("send to work");
-
-                    None
-                }
             }
         };
 

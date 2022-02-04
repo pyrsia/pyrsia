@@ -15,9 +15,8 @@
 */
 
 use super::{RegistryError, RegistryErrorCode};
-use crate::block_chain::block_chain::Blockchain;
 use crate::node_manager::{handlers::*, model::cli::Status};
-use log::{debug, error, info};
+use log::{debug, error};
 use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
@@ -86,29 +85,5 @@ pub async fn handle_get_status(
         .header("Content-Type", "application/json")
         .status(StatusCode::OK)
         .body(ser_status)
-        .unwrap())
-}
-
-// TODO Move to block chain module
-pub async fn handle_get_blocks(
-    tx: Sender<String>,
-    rx: Arc<Mutex<Receiver<Blockchain>>>,
-) -> Result<impl Reply, Rejection> {
-    // Send "digested" request data to main
-    match tx.send(String::from("blocks")).await {
-        Ok(_) => debug!("request for peers sent"),
-        Err(_) => error!("failed to send stdin input"),
-    }
-
-    // get result from main ( where the block chain lives )
-    let block_chain = rx.lock().await.recv().await.unwrap();
-    let blocks = format!("{}", block_chain);
-    info!("Got receive_blocks: {}", blocks);
-
-    // format the response
-    Ok(warp::http::response::Builder::new()
-        .header("Content-Type", "application/json")
-        .status(StatusCode::OK)
-        .body(blocks)
         .unwrap())
 }
