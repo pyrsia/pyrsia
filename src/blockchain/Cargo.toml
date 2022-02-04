@@ -8,7 +8,6 @@ multihash = {version = "0.15.0", features = ["serde-codec"]}
 primitive-types = "0.10.1"
 bincode = "1.3.3"
 serde = { version = "1.0", features = ["derive"] }
-#libp2p = {git = "https://github.com/libp2p/rust-libp2p.git", rev = "e15dad5f45a9ae804b7a27bd6f885a1b00e0525a", features=["tcp-tokio"]}
 libp2p = { version = "0.41.1", features=["tcp-tokio"]}
 rand = "0.8.4"
 tokio = { version = "1.14.0", features = ["io-util", "io-std", "macros", "rt", "rt-multi-thread", "sync", "time"] }

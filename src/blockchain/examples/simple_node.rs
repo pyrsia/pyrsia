@@ -307,4 +307,11 @@ mod tests {
         assert_eq!(1, number);
         Ok(())
     }
+
+    #[test]
+    fn test_main() -> Result<(), String> {
+        let result = main();
+        assert!(result.is_err());
+        Ok(())
+    }
 }
