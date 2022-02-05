@@ -244,19 +244,6 @@ async fn main() {
                     cmd if cmd.starts_with("get_blobs") => {
                         swarm.behaviour_mut().lookup_blob(message).await
                     }
-                    "blocks" => { /*
-                         let bc_state: Arc<_> = bc.clone();
-                         let mut bc_instance: MutexGuard<_> = bc_state.lock().await;
-                         let new_block =
-                             bc_instance.mk_block("happy_new_block".to_string()).unwrap();
-
-                         let new_chain = bc_instance
-                             .clone()
-                             .add_entry(new_block)
-                             .expect("should have added");
-                         *bc_instance = new_chain;
-                         */
-                    }
                     _ => info!("message received from peers: {}", message),
                 },
             }
