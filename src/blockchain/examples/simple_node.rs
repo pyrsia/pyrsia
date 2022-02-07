@@ -92,7 +92,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 //println!("Received: '{:?}' from {:?}", &message.data, message.source);
                 let block: block::Block =
                     bincode::deserialize::<block::Block>(&message.data).unwrap();
-                println!("++++++++++");
+                println!("++++++++++"); // TODO(fishseasbowl): Replace with logging methods
                 println!("++++++++++");
                 println!("Recevie a new block {:?}", block);
                 let filepath = match std::env::args().nth(1) {
