@@ -79,6 +79,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // the events of each behaviour.
     #[derive(NetworkBehaviour)]
     #[behaviour(event_process = true)]
+    # TODO(prince-chrismc): Give this a much better name!
     struct MyBehaviour {
         floodsub: Floodsub,
         mdns: Mdns,
