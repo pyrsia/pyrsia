@@ -235,14 +235,7 @@ pub fn read_last_block(path: String) -> (header::HashDigest, u128, header::Addre
     let file = std::fs::File::open(path).unwrap();
 
     let buffered = BufReader::new(file);
-
-    let line = match buffered.lines().last() {
-        Some(v) => v,
-        None => panic!("Error"),
-    };
-
-    let line = line.unwrap();
-
+    let line = buffered.lines().last().expect("stdin to read");
     let block: block::Block = serde_json::from_str(&line).unwrap();
 
     (
