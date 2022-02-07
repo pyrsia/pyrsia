@@ -9,3 +9,4 @@ ExecStart=/usr/bin/pyrsia_node
 
 [Install]
 WantedBy=multi-user.target
+

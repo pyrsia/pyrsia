@@ -1,6 +1,7 @@
-#!/bin/sh -e
+#!/usr/bin/env bash
 
 mkdir -p /usr/local/var/pyrsia 2>/dev/null
 chmod -R 644 /usr/local/var/pyrsia
 
 #DEBHELPER#
+

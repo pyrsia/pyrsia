@@ -1,10 +1,11 @@
-#!/bin/sh -e
+#!/usr/bin/env bash
 
 /usr/bin/systemctl stop synapse-bt
 export PW=`echo ZG9udGhhY2ttZQ== | base64 -d`
-sed -i.bak "s/hackme/$PW/" /usr/share/pyrsia/synapse.toml
-sed -i.bak "s#/usr/local/share/synapse/synapse.toml#/usr/local/share/pyrsia/synapse.toml#" /lib/systemd/system/synapse-bt.service
+/usr/bin/sed/sed -i.bak "s/hackme/$PW/" /usr/share/pyrsia/synapse.toml
+/usr/bin/sed/sed -i.bak "s#/usr/local/share/synapse/synapse.toml#/usr/local/share/pyrsia/synapse.toml#" /lib/systemd/system/synapse-bt.service
 /usr/bin/systemctl daemon-reload
 /usr/bin/systemctl start synapse-bt
 
 #DEBHELPER#
+
