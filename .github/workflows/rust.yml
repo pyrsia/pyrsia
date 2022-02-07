@@ -40,7 +40,7 @@ jobs:
         args: cargo-deb cargo-strip --force
 
     # Need to add build number to version number
-    - name: Iterate Build Version Number
+    - name: Add Build to Version Number
       run: |
         sed -i.bak "/^version = \"0.1.0\"/s/\"\$/+${{ github.run_number }}\"/" Cargo.toml
 
@@ -105,7 +105,7 @@ jobs:
           repository: pyrsia/synapse
 
       # Need to add build number to version number
-      - name: Iterate Build Version Number
+      - name: Add Build to Version Number
         run: |
           sed -i.bak "/^version = \"1.0.0\"/s/\"\$/+${{ github.run_number }}\"/" Cargo.toml
 
