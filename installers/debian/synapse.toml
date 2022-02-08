@@ -1,0 +1,54 @@
+# TCP port used for peer connections
+port = 16493
+
+# Maximum number of downloading torrents
+max_dl = 10
+
+[rpc]
+# TCP port used for RPC
+port = 8412
+# Whether or not RPC should listen on localhost
+# or 0.0.0.0
+local = true
+# Whether or not RPC should use auth
+# WARNING: If you do not use auth, synapse is still insecure, even running locally!
+auth = true
+# Password to use for auth.
+password = "hackme"
+# Optional SSL full certificate chain and key file (PEM only)
+# ssl_cert = "./cert.pem"
+# If SSL key is encrypted, you will need to enter your password at start
+# ssl_key = "./key.pem"
+
+[tracker]
+# UDP port used for UDP tracker interaction
+port = 16362
+
+[dht]
+# UDP port used for DHT interaction
+port = 16309
+# Node to use for DHT bootstrapping.
+# If this is not specified, DHT will be disabled.
+#bootstrap_node = "router.bittorrent.com:6881"
+bootstrap_node = "dht.transmissionbt.com:6881"
+
+[disk]
+# Location for storing session metadata
+session = "/usr/local/var/synapse/"
+# Default download directory
+directory = "/usr/local/var/prysia/"
+
+[net]
+# These max open limits should be set to be somewhat lower
+# than whatever the system ulimit is to accomodate for internal
+# fd's
+max_open_files = 500
+max_open_sockets = 400
+max_open_announces = 50
+
+[peer]
+# Duration(in seconds) of inactivity before
+# a connection is eligible for forced pruning
+# when the max socket limit is reached
+prune_timeout = 15
+
