@@ -19,7 +19,6 @@
 extern crate lazy_static; // Must be done in crate root
 
 pub mod artifact_manager;
-pub mod block_chain;
 pub mod docker;
 pub mod document_store;
 pub mod metadata_manager;
