@@ -61,7 +61,7 @@ sha2 = { version = "0.9.8" }
 stringreader = "0.1.1"
 strum = "0.22.0"
 strum_macros = "0.22.0"
-synapse-rpc = { git = "https://github.com/pyrsia/synapse", branch = "master" }
+synapse-rpc = { git = "https://github.com/pyrsia/synapse", branch = "main" }
 tempfile = "3.2.0"
 test-log = "0.2.8"
 thiserror = "1.0.30"
