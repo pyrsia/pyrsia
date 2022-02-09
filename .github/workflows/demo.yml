@@ -12,7 +12,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y wget gnupg
           wget -qO - https://pyrsia.io/public.key | sudo apt-key add -
-          echo "deb https://pyrsia.io/repo bionic main" | sudo tee -a /etc/apt/sources.list > /dev/null
+          echo "deb https://pyrsia.io/repo focal main" | sudo tee -a /etc/apt/sources.list > /dev/null
           sudo apt-get update
           sudo apt-get install -y pyrsia
         shell: bash
