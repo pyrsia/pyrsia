@@ -44,7 +44,11 @@ pub fn read_last_block(path: String) -> (header::HashDigest, u128, header::Addre
 
     let buffered = BufReader::new(file);
     let line = buffered.lines().last().expect("stdin to read").unwrap();
-    let block: block::Block = serde_json::from_str(&line).unwrap();
+
+    let block: block::Block = match serde_json::from_str(&line) {
+        Ok(v) => v,
+        Err(_) => return parse_genesis_block(&line),
+    };
 
     (
         block.header.current_hash,
@@ -53,6 +57,15 @@ pub fn read_last_block(path: String) -> (header::HashDigest, u128, header::Addre
     )
 }
 
+// Unformat the genesis block json string
+pub fn parse_genesis_block(line: &String) -> (header::HashDigest, u128, header::Address) {
+    let genesis_block: blockchain::GenesisBlock = serde_json::from_str(line).unwrap();
+    (
+        genesis_block.header.current_hash,
+        genesis_block.header.number,
+        genesis_block.header.committer,
+    )
+}
 //Write a block to the file
 pub fn write_block(path: String, block: block::Block) {
     use std::fs::OpenOptions;

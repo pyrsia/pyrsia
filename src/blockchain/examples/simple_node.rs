@@ -121,6 +121,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut transactions = vec![];
 
+    storage::append_genesis_block(filepath.clone(), &ed25519_keypair);
+
     let local_id = header::hash(&block::get_publickey_from_keypair(&ed25519_keypair).encode());
     // Kick it off
     loop {
@@ -138,8 +140,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 );
                 transactions.push(transaction);
                 let (parent_hash, previous_number, previous_commiter)=storage::read_last_block(filepath.clone());
-                //let parent_hash=header::hash(b"");
-                //let previous_number=0;
 
                 if check_number==APART_ONE_COMMIT && previous_commiter == local_id{
 
@@ -165,9 +165,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
-    extern crate pyrsia_blockchain_network;
     use super::*;
-
     #[test]
     fn test_main() -> Result<(), String> {
         let result = main();
