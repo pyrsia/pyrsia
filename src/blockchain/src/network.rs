@@ -30,7 +30,7 @@ pub struct Behaviour {
     pub mdns: Mdns,
 }
 
-impl NetworkBehaviourEventProcess<FloodsubEvent> for MyBehaviour {
+impl NetworkBehaviourEventProcess<FloodsubEvent> for Behaviour {
     // Called when `floodsub` produces an event.
     fn inject_event(&mut self, message: FloodsubEvent) {
         if let FloodsubEvent::Message(message) = message {
@@ -49,7 +49,7 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for MyBehaviour {
     }
 }
 
-impl NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour {
+impl NetworkBehaviourEventProcess<MdnsEvent> for Behaviour {
     // Called when `mdns` produces an event.
     fn inject_event(&mut self, event: MdnsEvent) {
         match event {

@@ -79,7 +79,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Create a Swarm to manage peers and events.
     let mut swarm = {
         let mdns = Mdns::new(Default::default()).await?;
-        let mut behaviour = network::MyBehaviour {
+        let mut behaviour = network::Behaviour {
             floodsub: Floodsub::new(peer_id),
             mdns,
         };
