@@ -5,6 +5,8 @@ Before submitting your Pull Request please check the following.
 
 -->
 
+## PR Checklist
+
 <!--
 
 Locally run the build process
@@ -25,5 +27,10 @@ Make certain your Pull Request has the following.
 - [ ] I've checked that the code is up-to-date with the `pyrsia/main` branch.
 - [ ] I've read ["What is a Good PR?"](good_pr.md)
 
-This PR ...
+## Description
+
 Fixes pyrsia/pyrsia#
+
+This PR does... by accomplishing ...
+
+## Screenshots (optional)
