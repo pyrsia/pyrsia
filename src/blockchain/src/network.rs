@@ -25,7 +25,7 @@ use super::*;
 #[derive(NetworkBehaviour)]
 #[behaviour(event_process = true)]
 
-pub struct MyBehaviour {
+pub struct Behaviour {
     pub floodsub: Floodsub,
     pub mdns: Mdns,
 }
