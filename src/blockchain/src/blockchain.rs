@@ -15,10 +15,13 @@
 */
 use super::block::*;
 use super::header::*;
+use super::notifier::OnTransactionSettled;
+use crate::notifier::OnBlockEvent;
 use libp2p::identity;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
+use std::collections::HashMap;
+use std::fmt::{Debug, Display, Formatter};
 
 /// BlockchainId identifies the current chain
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -94,16 +97,35 @@ impl GenesisBlock {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Blockchain {
+#[derive(Serialize, Deserialize)]
+pub struct Blockchain<'lt> {
+    // this seems suspicious to chris
+    #[serde(skip)]
+    // this should actually be a Map<Transaction,Vec<OnTransactionSettled>> but that's later
+    pub trans_observers: HashMap<&'lt Transaction, OnTransactionSettled>,
+    #[serde(skip)]
+    pub block_observers: Vec<OnBlockEvent>,
     pub genesis_block: GenesisBlock,
     pub blocks: Vec<Block>,
 }
 
-impl Blockchain {
+impl Clone for Blockchain<'_> {
+    fn clone(&self) -> Self {
+        Blockchain {
+            trans_observers: Default::default(),
+            block_observers: vec![],
+            genesis_block: self.genesis_block.clone(),
+            blocks: self.blocks.clone(),
+        }
+    }
+}
+
+impl Blockchain<'_> {
     #[warn(dead_code)]
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
         Self {
+            trans_observers: HashMap::new(),
+            block_observers: Vec::new(),
             genesis_block: GenesisBlock::new(keypair),
             blocks: vec![],
         }
@@ -140,7 +162,7 @@ pub fn generate_ed25519() -> identity::Keypair {
     identity::Keypair::generate_ed25519()
 }
 
-impl Display for Blockchain {
+impl Display for Blockchain<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let json = serde_json::to_string_pretty(&self).expect("json format error");
         write!(f, "{}", json)

@@ -35,7 +35,7 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
    - regular build: `cargo run`
    - build in docker: `docker-compose up --build`
 
-*Note*: Do not to stop this process, a running node is required for the 
+*Note*: Do not to stop this process, a running node is required for the
 following steps:
 
 5. **configure Docker** to use Pyrsia, which is running on localhost port 7888\
@@ -76,31 +76,31 @@ following steps:
 
 
 7. Build the CLI tool
-   ```
+   ```bash
    cd ../pyrsia_cli
    cargo build
    cd ../target/debug
    ```
 
 8. Configure the CLI tool
-    ```
+    ```bash
     ./pyrsia config --add localhost:7888
     ```
 
 9. Ping the Pyrsia node and list the status
-    ```
+    ```bash
     ./pyrsia node -p
     Connection Successfull !! {}
     ```
 
-    ```
+    ```bash
     ./pyrsia node -s
     Connected Peers Count:   0
     Artifacts Count:         12 # reflects the number of artifacts that the pyrsia_node has stored on the network
     Total Disk Available:    983112
     ```
 
-If you see a status message similar to 
+If you see a status message similar to
    ```
 Error: error sending request for url (http://localhost:7888/v2): error trying to connect: tcp connect error: Connection refused (os error 111)
    ```
@@ -109,7 +109,7 @@ the Pyrsia node is running.
 
 10. Multiple Pyrsia nodes can be started on the same computer by changing the ports they use as follows
 
-    ```
+    ```bash
     cargo run --bin pyrsia_node -- -p 7888
 
     # RUST_LOG=debug cargo run --bin pyrsia_node -- -p 7888 # Use this environment variable if you would like to see debug logs

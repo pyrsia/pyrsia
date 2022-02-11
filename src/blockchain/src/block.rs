@@ -13,20 +13,22 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use super::header::*;
-use libp2p::identity;
-use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use libp2p::identity;
+use serde::{Deserialize, Serialize};
+
+use super::header::*;
+
 // TransactionType define the type of transaction, currently only create
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub enum TransactionType {
     Create,
 }
 
 // struct Signature define a general structure of signature
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Signature {
     signature: Vec<u8>,
     pubkey: [u8; 32], //identity::ed25519::PublicKey a byte array in compressed form
@@ -99,10 +101,10 @@ impl Block {
 }
 
 // struct Transaction define the details of a transaction in a block
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Transaction {
     pub trans_type: TransactionType,
-    pub submmitter: Address,
+    pub submitter: Address,
     pub timestamp: u64,
     pub payload: Vec<u8>,
     pub nonce: u128,
@@ -118,7 +120,7 @@ impl Transaction {
         let hash = hash(&(bincode::serialize(&partial_transaction).unwrap()));
         Self {
             trans_type: partial_transaction.trans_type,
-            submmitter: partial_transaction.submmitter,
+            submitter: partial_transaction.submitter,
             timestamp: partial_transaction.timestamp,
             payload: partial_transaction.payload,
             nonce: partial_transaction.nonce,
@@ -129,10 +131,10 @@ impl Transaction {
 }
 
 // struct PartialTransaction is a part of Transaction for easily count the hash value of a transaction
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PartialTransaction {
     pub trans_type: TransactionType,
-    pub submmitter: Address,
+    pub submitter: Address,
     pub timestamp: u64,
     pub payload: Vec<u8>,
     pub nonce: u128,
@@ -141,13 +143,13 @@ pub struct PartialTransaction {
 impl PartialTransaction {
     pub fn new(
         trans_type: TransactionType,
-        submmitter: Address,
+        submitter: Address,
         payload: Vec<u8>,
         nonce: u128,
     ) -> Self {
         Self {
             trans_type,
-            submmitter,
+            submitter,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
@@ -172,8 +174,9 @@ impl Display for Block {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rand::Rng;
+
+    use super::*;
 
     #[test]
     fn test_build_block() -> Result<(), String> {
