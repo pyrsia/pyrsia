@@ -27,6 +27,9 @@ body:
   - type: textarea
     attributes:
       label: Experienced Instance of the bug
-      placeholder: What happened instead?
+      placeholder: |
+        Rust Version: 
+        Operating system:
+        Pyrsia SHA/Version :
     validations:
       required: true
