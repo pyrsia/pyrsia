@@ -190,7 +190,6 @@ async fn main() {
     loop {
         let evt = {
             tokio::select! {
-                line = stdin.next_line() => Some(EventType::Input(line.expect("can get line").expect("can read line from stdin"))),
                 message = rx.recv() => Some(EventType::Message(message.expect("message exists"))),
 
                 new_hash = blobs_need_hash.select_next_some() => {
@@ -220,8 +219,10 @@ async fn main() {
                         .floodsub_mut()
                         .publish(floodsub_topic.clone(), resp.as_bytes());
                 }
-                EventType::Input(line) => match line.as_str() {
-                    "peers" => swarm.behaviour_mut().list_peers_cmd().await,
+                EventType::Message(message) => match message.as_str() {
+                    cmd if cmd.starts_with("peers") || cmd.starts_with("status") => {
+                        swarm.behaviour_mut().list_peers(local_peer_id).await
+                    }
                     cmd if cmd.starts_with("magnet:") => {
                         info!(
                             "{}",
@@ -231,15 +232,6 @@ async fn main() {
                                 .publish(gossip_topic.clone(), cmd)
                                 .unwrap()
                         )
-                    }
-                    _ => match tx4.send(line).await {
-                        Ok(_) => debug!("line sent"),
-                        Err(_) => error!("failed to send stdin input"),
-                    },
-                },
-                EventType::Message(message) => match message.as_str() {
-                    cmd if cmd.starts_with("peers") || cmd.starts_with("status") => {
-                        swarm.behaviour_mut().list_peers(local_peer_id).await
                     }
                     cmd if cmd.starts_with("get_blobs") => {
                         swarm.behaviour_mut().lookup_blob(message).await
@@ -254,5 +246,4 @@ async fn main() {
 enum EventType {
     Response(String),
     Message(String),
-    Input(String),
 }

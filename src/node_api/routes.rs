@@ -26,15 +26,21 @@ pub fn make_node_routes(
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let tx1 = tx.clone();
     let rx1 = rx.clone();
+    let tx2 = tx.clone();
     let peers = warp::path!("peers")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(move || handle_get_peers(tx1.clone(), rx1.clone()));
+        .and_then(move || handle_get_peers(tx2.clone(), rx1.clone()));
+
+    let magnet = warp::path!("magnet")
+        .and(warp::post())
+        .and(warp::path::end())
+        .and_then(move || handle_add_magnet(tx1.clone()));
 
     let status = warp::path!("status")
         .and(warp::get())
         .and(warp::path::end())
         .and_then(move || handle_get_status(tx.clone(), rx.clone()));
 
-    warp::any().and(peers.or(status))
+    warp::any().and(peers.or(magnet).or(status))
 }
