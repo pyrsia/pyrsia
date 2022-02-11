@@ -18,10 +18,14 @@ use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+// TransactionType define the type of transaction, currently only create
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransactionType {
     Create,
 }
+
+// struct Signature define a general structure of signature
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Signature {
     signature: Vec<u8>,
@@ -37,19 +41,23 @@ impl Signature {
     }
 }
 
-type TransactionSignature = Signature;
+// ToDo
+pub type TransactionSignature = Signature;
 pub type BlockSignature = Signature;
 
+//ToDo
 pub fn sign(msg: &[u8], keypair: &identity::ed25519::Keypair) -> Vec<u8> {
     (*keypair).sign(msg)
 }
 
+//ToDo
 pub fn get_publickey_from_keypair(
     keypair: &identity::ed25519::Keypair,
 ) -> identity::ed25519::PublicKey {
-    (*keypair).public()
+    keypair.public()
 }
 
+// struct Block define a block strcuture
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
     pub header: Header,
@@ -89,6 +97,8 @@ impl Block {
         )
     }
 }
+
+// struct Transaction define the details of a transaction in a block
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transaction {
     pub trans_type: TransactionType,
@@ -118,6 +128,7 @@ impl Transaction {
     }
 }
 
+// struct PartialTransaction is a part of Transaction for easily count the hash value of a transaction
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PartialTransaction {
     pub trans_type: TransactionType,
@@ -147,13 +158,9 @@ impl PartialTransaction {
     }
 }
 
+///ToDO
 pub fn verify(pubkey: &identity::ed25519::PublicKey, msg: &[u8], sig: &[u8]) -> bool {
     (*pubkey).verify(msg, sig)
-}
-
-pub fn generate_ed25519() -> identity::ed25519::Keypair {
-    //RFC8032
-    identity::ed25519::Keypair::generate()
 }
 
 impl Display for Block {
@@ -193,6 +200,13 @@ mod tests {
             rand::thread_rng().gen::<u128>(),
         ));
         let block = Block::new(block_header, transactions.to_vec(), &keypair);
+        let pubkey = libp2p::identity::ed25519::PublicKey::decode(&block.signature.pubkey).unwrap();
+
+        assert!(verify(
+            &pubkey,
+            &bincode::serialize(&block.header.current_hash).unwrap(),
+            &block.signature.signature,
+        ));
         assert_eq!(1, block.header.number);
         Ok(())
     }

@@ -18,13 +18,14 @@ use multihash::{Code, Multihash, MultihashDigest};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct HashDigest {
     multihash: Multihash,
 }
 
 pub type Address = HashDigest;
 
+// struct Header define the header of a block
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Header {
     pub parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
@@ -56,6 +57,7 @@ pub fn hash(msg: &[u8]) -> HashDigest {
     }
 }
 
+// struct PartialHeader is a part of struct header for easily count the hash value of block
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PartialHeader {
     pub parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block

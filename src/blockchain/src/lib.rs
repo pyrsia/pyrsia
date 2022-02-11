@@ -14,8 +14,6 @@
    limitations under the License.
 */
 
-extern crate ed25519_dalek;
-
-pub use ed25519_dalek::Signature;
-
-pub type Example = u32;
+pub mod block;
+pub mod blockchain;
+pub mod header;

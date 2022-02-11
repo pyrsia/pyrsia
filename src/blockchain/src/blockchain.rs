@@ -13,7 +13,6 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-
 use super::block::*;
 use super::header::*;
 use libp2p::identity;
@@ -102,43 +101,43 @@ pub struct Blockchain {
 }
 
 impl Blockchain {
-    pub fn new(keypair: &identity::Keypair) -> Self {
-        let ed25519_keypair = match keypair {
-            identity::Keypair::Ed25519(v) => v,
-            identity::Keypair::Rsa(_) => todo!(),
-            identity::Keypair::Secp256k1(_) => todo!(),
-        };
+    #[warn(dead_code)]
+    pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
         Self {
-            genesis_block: GenesisBlock::new(ed25519_keypair),
+            genesis_block: GenesisBlock::new(keypair),
             blocks: vec![],
         }
     }
 
-    pub fn new_block(
-        &mut self,
-        keypair: &identity::ed25519::Keypair,
-        transactions: &[Transaction],
-    ) {
-        let (parent_hash, previous_number) = match self.blocks.last() {
-            Some(block) => (block.header.current_hash, block.header.number),
-            None => (
-                self.genesis_block.header.current_hash,
-                self.genesis_block.header.number,
-            ),
-        };
-
-        let local_id = hash(&get_publickey_from_keypair(keypair).encode());
-        let transaction_root = hash(&bincode::serialize(transactions).unwrap());
-        let block_header = Header::new(PartialHeader::new(
-            parent_hash,
-            local_id,
-            transaction_root,
-            previous_number + 1,
-            rand::thread_rng().gen::<u128>(),
-        ));
-        let block = Block::new(block_header, transactions.to_vec(), keypair);
+    #[warn(dead_code)]
+    pub fn add_block(&mut self, block: Block) {
         self.blocks.push(block);
     }
+}
+
+// Create a new block
+pub fn new_block(
+    keypair: &identity::ed25519::Keypair,
+    transactions: &[Transaction],
+    parent_hash: HashDigest,
+    previous_number: u128,
+) -> Block {
+    let local_id = hash(&get_publickey_from_keypair(keypair).encode());
+    let transaction_root = hash(&bincode::serialize(transactions).unwrap());
+    let block_header = Header::new(PartialHeader::new(
+        parent_hash,
+        local_id,
+        transaction_root,
+        previous_number + 1,
+        rand::thread_rng().gen::<u128>(),
+    ));
+    Block::new(block_header, transactions.to_vec(), keypair)
+}
+
+//ToDo
+pub fn generate_ed25519() -> identity::Keypair {
+    //RFC8032
+    identity::Keypair::generate_ed25519()
 }
 
 impl Display for Blockchain {
@@ -154,16 +153,15 @@ mod tests {
 
     #[test]
     fn test_build_blockchain() -> Result<(), String> {
-        let local_keypair = identity::Keypair::generate_ed25519();
-
-        let mut chain = Blockchain::new(&local_keypair);
-
-        let keypair = match local_keypair {
+        let keypair = generate_ed25519();
+        let ed25519_keypair = match keypair {
             identity::Keypair::Ed25519(v) => v,
             identity::Keypair::Rsa(_) => todo!(),
             identity::Keypair::Secp256k1(_) => todo!(),
         };
-        let local_id = hash(&get_publickey_from_keypair(&keypair).encode());
+        let local_id = hash(&get_publickey_from_keypair(&ed25519_keypair).encode());
+        let mut chain = Blockchain::new(&ed25519_keypair);
+
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
@@ -173,11 +171,23 @@ mod tests {
                 data.as_bytes().to_vec(),
                 rand::thread_rng().gen::<u128>(),
             ),
-            &keypair,
+            &ed25519_keypair,
         );
         transactions.push(transaction);
-        chain.new_block(&keypair, &transactions);
-        chain.new_block(&keypair, &transactions);
+        let g_block = GenesisBlock::new(&ed25519_keypair);
+        assert_eq!(0, g_block.header.number);
+        chain.add_block(new_block(
+            &ed25519_keypair,
+            &transactions,
+            chain.genesis_block.header.current_hash,
+            chain.genesis_block.header.number,
+        ));
+        chain.add_block(new_block(
+            &ed25519_keypair,
+            &transactions,
+            chain.blocks[0].header.current_hash,
+            chain.blocks[0].header.number,
+        ));
         assert_eq!(true, chain.blocks.last().unwrap().verify());
         assert_eq!(2, chain.blocks.len());
         Ok(())
