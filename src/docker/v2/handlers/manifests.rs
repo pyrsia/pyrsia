@@ -644,6 +644,9 @@ mod tests {
     use bytes::Bytes;
     use futures::executor;
     use serde::de::StdError;
+    use std::fs::File;
+    use std::io::Read;
+    use std::path::PathBuf;
     use warp::http::header::HeaderMap;
 
     const MEDIA_TYPE_CONFIG_JSON: &str = "application/vnd.docker.container.image.v1+json";
@@ -746,11 +749,11 @@ mod tests {
   ]
 }"##;
 
-macro_rules! test_async {
-    ($e:expr) => {
-        tokio_test::block_on($e)
-    };
-  }
+    macro_rules! test_async {
+        ($e:expr) => {
+            tokio_test::block_on($e)
+        };
+    }
 
     #[test]
     fn test_put_manifest_expecting_success_response_with_manifest_stored_in_artifact_manager_and_package_version_in_metadata_manager(
@@ -773,7 +776,7 @@ macro_rules! test_async {
         Ok(())
     }
     #[test]
-    fn test_fetch_manifest_from_pyrsia_expecting_success_with() -> Result<(), Box<dyn StdError>> {
+    fn test_put_and_fetch_manifest_from_pyrsia_storage() -> Result<(), Box<dyn StdError>> {
         let name = "httpbin";
         let reference = "v2.4";
 
@@ -789,20 +792,23 @@ macro_rules! test_async {
         verify_put_manifest_result(result);
         check_package_version_metadata()?;
 
-        let future =
-            async { fetch_manifest("hello-world".to_string(), "v3.1".to_string()).await };
+        let future = async { fetch_manifest("hello-world".to_string(), "v3.1".to_string()).await };
         let result = executor::block_on(future);
         verify_fetch_manifest_result(result);
         Ok(())
     }
 
     #[test]
-    fn test_fetch_manifest_if_not_in_pyrsia_expecting_fetch_from_dockerhub_success_and_store_in_pyrsia() -> Result<(), Box<dyn StdError>> {
+    fn test_fetch_manifest_if_not_in_pyrsia_expecting_fetch_from_dockerhub_success_and_store_in_pyrsia(
+    ) -> Result<(), Box<dyn StdError>> {
         let name = "alpine";
         let reference = "sha256:e7d88de73db3d3fd9b2d63aa7f447a10fd0220b7cbf39803c803f2af9ba256b3";
 
+        assert!(check_manifest_is_stored_in_pyrsia("alpine_manifest.json").is_err());
+
         let result = test_async!(fetch_manifest(name.to_string(), reference.to_string()));
         verify_fetch_manifest_result_if_not_in_pyrsia(result);
+        assert!(!(check_manifest_is_stored_in_pyrsia("alpine_manifest.json").is_err()));
         Ok(())
     }
 
@@ -812,7 +818,7 @@ macro_rules! test_async {
         assert!(some_package_version.is_some());
         assert_eq!("v3.1", some_package_version.unwrap().version());
         Ok(())
-    }    
+    }
 
     fn verify_fetch_manifest_result_if_not_in_pyrsia(result: Result<impl Reply, Rejection>) {
         match result {
@@ -867,12 +873,33 @@ macro_rules! test_async {
         };
     }
 
+    fn get_test_file_reader(file_name: &str) -> Result<File, anyhow::Error> {
+        let mut curr_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        curr_dir.push("tests/resources/");
+        curr_dir.push(file_name);
+
+        let path = String::from(curr_dir.to_string_lossy());
+        let reader = File::open(path.as_str()).unwrap();
+        Ok(reader)
+    }
+
     fn check_artifact_manager_side_effects() -> Result<(), Box<dyn StdError>> {
         let manifest_sha512: Vec<u8> = raw_sha512(MANIFEST_V1_JSON.as_bytes().to_vec()).to_vec();
         let manifest_content = get_artifact(manifest_sha512.as_ref(), HashAlgorithm::SHA512)?;
         assert!(!manifest_content.is_empty());
         assert_eq!(4698, manifest_content.len());
         Ok(())
+    }
+
+    fn check_manifest_is_stored_in_pyrsia(file_name: &str) -> Result<Vec<u8>, Box<dyn StdError>> {
+        let mut file = get_test_file_reader(file_name)?;
+        let mut data = Vec::new();
+        file.read_to_end(&mut data).expect("Unable to read data");
+        let manifest_sha512: Vec<u8> = raw_sha512(data).to_vec();
+        Ok(get_artifact(
+            manifest_sha512.as_ref(),
+            HashAlgorithm::SHA512,
+        )?)
     }
 
     #[test]

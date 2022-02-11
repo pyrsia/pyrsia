@@ -80,10 +80,7 @@ fn log_static_initialization_failure<T: UnwindSafe>(
 
 //get_artifact: given artifact_hash(artifactName) pulls artifact for  artifact_manager and
 //              returns read object to read the bytes of artifact
-pub fn get_artifact(
-    art_hash: &[u8],
-    algorithm: HashAlgorithm,
-) -> Result<Vec<u8>, anyhow::Error> {
+pub fn get_artifact(art_hash: &[u8], algorithm: HashAlgorithm) -> Result<Vec<u8>, anyhow::Error> {
     let hash = Hash::new(algorithm, art_hash)?;
     let result = ART_MGR.pull_artifact(&hash)?;
     let mut buf_reader: BufReader<File> = BufReader::new(result);
@@ -248,7 +245,6 @@ mod tests {
         // test artifact file in resources/test dir
         let mut curr_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         curr_dir.push("tests/resources/artifact_test.json");
-        println!("curr_dir is: {}", curr_dir.display());
 
         let path = String::from(curr_dir.to_string_lossy());
         let reader = File::open(path.as_str()).unwrap();

@@ -47,17 +47,15 @@ mod tests {
         ($e:expr) => {
             tokio_test::block_on($e)
         };
-      }
-      
+    }
+
     #[test]
     fn test_get_docker_hub_auth_token() -> Result<(), Box<dyn StdError>> {
         let name = "alpine";
         let result = async_test!(get_docker_hub_auth_token(name));
         check_get_docker_hub_auth_token(result);
         Ok(())
-
     }
-   
 
     fn check_get_docker_hub_auth_token(result: Result<impl Reply, Rejection>) {
         match result {
