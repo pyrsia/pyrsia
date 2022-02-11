@@ -65,7 +65,7 @@ pub async fn handle_get_status(
         }));
     }
 
-    let disk_space_result = disk_usage(ARTIFACTS_DIR);
+    let disk_space_result = disk_usage(ARTIFACTS_DIR.as_str());
     if disk_space_result.is_err() {
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(disk_space_result.err().unwrap().to_string()),

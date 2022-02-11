@@ -26,13 +26,13 @@ use byte_unit::Byte;
 use lazy_static::lazy_static;
 use libp2p::{identity, kad::record::store::MemoryStore, PeerId};
 use log::{debug, error, info};
+use std::env;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::panic::UnwindSafe;
 use std::str;
 use std::{fs, panic};
 
-pub const ARTIFACTS_DIR: &str = "pyrsia";
 //TODO: read from CLI config file
 pub const ALLOCATED_SPACE_FOR_ARTIFACTS: &str = "10.84 GB";
 
@@ -41,17 +41,23 @@ lazy_static! {
     pub static ref LOCAL_PEER_ID: PeerId = PeerId::from(LOCAL_KEY.public());
     pub static ref MEMORY_STORE: MemoryStore = MemoryStore::new(*LOCAL_PEER_ID);
     pub static ref KADEMLIA_PROXY: KademliaThreadSafeProxy = KademliaThreadSafeProxy::default();
+    pub static ref ARTIFACTS_DIR: String = log_static_initialization_failure(
+        "Pyrsia Artifact directory",
+        env::var("PYRSIA_ARTIFACT_PATH").with_context(|| "Pyrsia artifact directory not set")
+    );
     pub static ref ART_MGR: ArtifactManager = {
+        let dev_mode = env::var("DEV_MODE").unwrap_or_else(|_| "off".to_string());
+        if dev_mode.to_lowercase() == "on" {
+            log_static_initialization_failure(
+                "Artifact Manager Directory",
+                fs::create_dir_all(ARTIFACTS_DIR.as_str())
+                    .with_context(|| "Failed to create artifact manager directory in dev mode"),
+            );
+        }
         log_static_initialization_failure(
-            "Artifact Manager Directory",
-            fs::create_dir_all(ARTIFACTS_DIR).with_context(|| {
-                format!(
-                    "Failed to create artifact manager directory {}",
-                    ARTIFACTS_DIR
-                )
-            }),
-        );
-        log_static_initialization_failure("Artifact Manager", ArtifactManager::new(ARTIFACTS_DIR))
+            "Artifact Manager",
+            ArtifactManager::new(ARTIFACTS_DIR.as_str()),
+        )
     };
     pub static ref METADATA_MGR: Metadata =
         log_static_initialization_failure("Metadata Manager", Metadata::new());
@@ -162,6 +168,12 @@ mod tests {
         0x4f,
     ];
 
+    #[ctor::ctor]
+    fn init() {
+        env::set_var("PYRSIA_ARTIFACT_PATH", "pyrsia-test");
+        env::set_var("DEV_MODE", "on");
+    }
+
     #[test]
     fn put_and_get_artifact_test() -> Result<(), anyhow::Error> {
         debug!("put_and_get_artifact_test started !!");
@@ -187,7 +199,7 @@ mod tests {
         };
         assert_eq!(s, s1);
 
-        debug!("put_and_get_artifact_test ended !!");
+        remove_dir_all(&env::var("PYRSIA_ARTIFACT_PATH").unwrap());
         Ok(())
     }
 
@@ -263,5 +275,10 @@ mod tests {
 
         assert_eq!(push_result, true);
         Ok(())
+    }
+
+    fn remove_dir_all(dir_name: &String) {
+        fs::remove_dir_all(dir_name.clone())
+            .expect(&format!("unable to remove test directory {}", dir_name));
     }
 }

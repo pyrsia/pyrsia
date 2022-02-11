@@ -648,6 +648,8 @@ mod tests {
     use bytes::Bytes;
     use futures::executor;
     use serde::de::StdError;
+    use std::env;
+    use std::fs;
     use std::str;
     use warp::http::header::HeaderMap;
 
@@ -751,6 +753,12 @@ mod tests {
   ]
 }"##;
 
+    #[ctor::ctor]
+    fn init() {
+        env::set_var("PYRSIA_ARTIFACT_PATH", "pyrsia-manifest-test");
+        env::set_var("DEV_MODE", "on");
+    }
+
     #[test]
     fn test_handle_put_manifest_expecting_success_response_with_manifest_stored_in_artifact_manager_and_package_version_in_metadata_manager(
     ) -> Result<(), Box<dyn StdError>> {
@@ -769,6 +777,7 @@ mod tests {
         check_put_manifest_result(result);
         check_artifact_manager_side_effects()?;
         check_package_version_metadata()?;
+        remove_dir_all(&env::var("PYRSIA_ARTIFACT_PATH").unwrap());
         Ok(())
     }
     #[test]
@@ -793,6 +802,7 @@ mod tests {
             async { handle_get_manifests("hello-world".to_string(), "v3.1".to_string()).await };
         let result = executor::block_on(future);
         check_get_manifest_result(result);
+        remove_dir_all(&env::var("PYRSIA_ARTIFACT_PATH").unwrap());
         Ok(())
     }
 
@@ -844,6 +854,11 @@ mod tests {
         assert!(!manifest_content.is_empty());
         assert_eq!(4698, manifest_content.len());
         Ok(())
+    }
+
+    fn remove_dir_all(dir_name: &String) {
+        fs::remove_dir_all(dir_name.clone())
+            .expect(&format!("unable to remove test directory {}", dir_name));
     }
 
     #[test]

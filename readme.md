@@ -32,7 +32,7 @@ For now Pyrsia only supports Docker artifacts. Follow these steps to run a Pyrsi
 2. Clone this repo `git clone https://github.com/pyrsia/pyrsia.git`
 3. `cd pyrsia/pyrsia_node`
 4. You need to start the Pyrsia Node. To do so, you have 2 options:
-   - regular build: `cargo run`
+   - regular build: `DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run`
    - build in docker: `docker-compose up --build`
 
 *Note*: Do not to stop this process, a running node is required for the 
@@ -110,15 +110,15 @@ the Pyrsia node is running.
 10. Multiple Pyrsia nodes can be started on the same computer by changing the ports they use as follows
 
     ```
-    cargo run --bin pyrsia_node -- -p 7888
+    DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 7888
 
-    # RUST_LOG=debug cargo run --bin pyrsia_node -- -p 7888 # Use this environment variable if you would like to see debug logs
+    # RUST_LOG=debug DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 7888 # Use this environment variable if you would like to see debug logs
     ```
 
     ```
-    cargo run --bin pyrsia_node -- -p 8181
+    DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 8181
 
-    # RUST_LOG=debug cargo run --bin pyrsia_node -- -p 8181 # Use this environment variable if you would like to see debug logs
+    # RUST_LOG=debug DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 8181 # Use this environment variable if you would like to see debug logs
     ```
 
     ```
