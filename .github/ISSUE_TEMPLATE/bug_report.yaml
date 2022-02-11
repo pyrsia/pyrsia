@@ -1,0 +1,32 @@
+name: "❌ Bug report 🐛"
+description: Report errors bugs and unexpected behavior
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please make sure to [search for existing issues](https://github.com/pyrsia/pyrsia/issues) before creating a new report.
+
+        If possible, upload an image of the case as well, it'd be useful for the maintainers.
+
+  - type: textarea
+    attributes:
+      label: Steps taken/Steps to reproduce
+      placeholder: Tell us the steps required to experience the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Expected Behavior
+      description: If you want to include screenshots, paste them into the markdown editor below.
+      placeholder: What were you expecting?
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: Experienced Instance of the bug
+      placeholder: What happened instead?
+    validations:
+      required: true
