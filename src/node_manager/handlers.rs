@@ -168,12 +168,6 @@ mod tests {
         0x4f,
     ];
 
-    #[ctor::ctor]
-    fn init() {
-        env::set_var("PYRSIA_ARTIFACT_PATH", "pyrsia-test");
-        env::set_var("DEV_MODE", "on");
-    }
-
     #[test]
     fn put_and_get_artifact_test() -> Result<(), anyhow::Error> {
         debug!("put_and_get_artifact_test started !!");
@@ -199,7 +193,7 @@ mod tests {
         };
         assert_eq!(s, s1);
 
-        remove_dir_all(&env::var("PYRSIA_ARTIFACT_PATH").unwrap());
+        //remove_dir_all(&env::var("PYRSIA_ARTIFACT_PATH").unwrap());
         Ok(())
     }
 
@@ -275,10 +269,5 @@ mod tests {
 
         assert_eq!(push_result, true);
         Ok(())
-    }
-
-    fn remove_dir_all(dir_name: &String) {
-        fs::remove_dir_all(dir_name.clone())
-            .expect(&format!("unable to remove test directory {}", dir_name));
     }
 }

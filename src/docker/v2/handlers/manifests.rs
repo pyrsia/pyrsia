@@ -650,6 +650,7 @@ mod tests {
     use serde::de::StdError;
     use std::env;
     use std::fs;
+    use std::path::Path;
     use std::str;
     use warp::http::header::HeaderMap;
 
@@ -755,7 +756,7 @@ mod tests {
 
     #[ctor::ctor]
     fn init() {
-        env::set_var("PYRSIA_ARTIFACT_PATH", "pyrsia-manifest-test");
+        env::set_var("PYRSIA_ARTIFACT_PATH", "pyrsia-test");
         env::set_var("DEV_MODE", "on");
     }
 
@@ -777,7 +778,6 @@ mod tests {
         check_put_manifest_result(result);
         check_artifact_manager_side_effects()?;
         check_package_version_metadata()?;
-        remove_dir_all(&env::var("PYRSIA_ARTIFACT_PATH").unwrap());
         Ok(())
     }
     #[test]
@@ -857,8 +857,10 @@ mod tests {
     }
 
     fn remove_dir_all(dir_name: &String) {
-        fs::remove_dir_all(dir_name.clone())
-            .expect(&format!("unable to remove test directory {}", dir_name));
+        if Path::new(dir_name).exists() {
+            fs::remove_dir_all(dir_name.clone())
+                .expect(&format!("unable to remove test directory {}", dir_name));
+        }
     }
 
     #[test]
