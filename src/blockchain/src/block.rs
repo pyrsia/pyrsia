@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use super::header::*;
 
 // TransactionType define the type of transaction, currently only create
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum TransactionType {
     Create,
 }
@@ -60,7 +60,7 @@ pub fn get_publickey_from_keypair(
 }
 
 // struct Block define a block strcuture
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Block {
     pub header: Header,
     pub transactions: Vec<Transaction>,

@@ -13,15 +13,18 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use super::block::*;
-use super::header::*;
-use super::notifier::OnTransactionSettled;
-use crate::notifier::OnBlockEvent;
+use std::collections::HashMap;
+use std::fmt::{Debug, Display, Formatter};
+
 use libp2p::identity;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fmt::{Debug, Display, Formatter};
+
+use crate::notifier::OnBlockEvent;
+
+use super::block::*;
+use super::header::*;
+use super::notifier::OnTransactionSettled;
 
 /// BlockchainId identifies the current chain
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -46,7 +49,8 @@ pub enum SignatureAlgorithm {
 pub struct Config {
     pub blockchain_id: BlockchainId,
     pub hash_algorithm: HashAlgorithm,
-    pub hash_size: u32, //sizes of u8
+    pub hash_size: u32,
+    //sizes of u8
     pub signature_algorithm: SignatureAlgorithm,
     pub key_size: u32,
 }
@@ -98,18 +102,18 @@ impl GenesisBlock {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Blockchain<'lt> {
+pub struct Blockchain {
     // this seems suspicious to chris
     #[serde(skip)]
     // this should actually be a Map<Transaction,Vec<OnTransactionSettled>> but that's later
-    pub trans_observers: HashMap<&'lt Transaction, OnTransactionSettled>,
+    pub trans_observers: HashMap<Transaction, OnTransactionSettled>,
     #[serde(skip)]
     pub block_observers: Vec<OnBlockEvent>,
     pub genesis_block: GenesisBlock,
     pub blocks: Vec<Block>,
 }
 
-impl Clone for Blockchain<'_> {
+impl Clone for Blockchain {
     fn clone(&self) -> Self {
         Blockchain {
             trans_observers: Default::default(),
@@ -120,7 +124,7 @@ impl Clone for Blockchain<'_> {
     }
 }
 
-impl Blockchain<'_> {
+impl Blockchain {
     #[warn(dead_code)]
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
         Self {
@@ -132,8 +136,12 @@ impl Blockchain<'_> {
     }
 
     #[warn(dead_code)]
-    pub fn add_block(&mut self, block: Block) {
+    pub fn add_block(&mut self, block: Block) -> &mut Self {
         self.blocks.push(block);
+        if let Some(mut block) = self.blocks.last() {
+            self.notify_block_event(block.clone());
+        }
+        self
     }
 }
 
@@ -162,7 +170,7 @@ pub fn generate_ed25519() -> identity::Keypair {
     identity::Keypair::generate_ed25519()
 }
 
-impl Display for Blockchain<'_> {
+impl Display for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let json = serde_json::to_string_pretty(&self).expect("json format error");
         write!(f, "{}", json)
