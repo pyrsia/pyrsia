@@ -77,7 +77,7 @@ async fn main() {
                 .default_value(DEFAULT_HOST)
                 .takes_value(true)
                 .required(false)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Sets the host address to bind to for the Docker API"),
         )
         .arg(
@@ -88,7 +88,7 @@ async fn main() {
                 .default_value(DEFAULT_PORT)
                 .takes_value(true)
                 .required(false)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Sets the port to listen to for the Docker API"),
         )
         .arg(
@@ -97,7 +97,7 @@ async fn main() {
                 .long("peer")
                 .takes_value(true)
                 .required(false)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Provide an explicit peerId to connect with"),
         )
         .get_matches();
@@ -130,9 +130,6 @@ async fn main() {
         swarm.dial(addr).unwrap();
         info!("Dialed {:?}", to_dial)
     }
-
-    // Read full lines from stdin
-    let mut stdin = io::BufReader::new(io::stdin()).lines();
 
     // Listen on all interfaces and whatever port the OS assigns
     swarm
@@ -184,7 +181,6 @@ async fn main() {
     );
 
     tokio::spawn(server);
-    let tx4 = tx.clone();
 
     // Kick it off
     loop {
