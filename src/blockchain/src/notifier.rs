@@ -8,7 +8,8 @@ use crate::blockchain::Blockchain;
 pub struct BlockchainError;
 
 pub type BlockchainResult = std::result::Result<(), BlockchainError>;
-pub type OnTransactionSettled = Box<dyn FnOnce(Transaction)>;
+
+pub type OnTransactionSettled = Box<dyn FnOnce(Transaction) + 'a>;
 pub type OnBlockEvent = Box<dyn FnMut(Block)>;
 
 // But we require certain bounds to get things done...
@@ -66,11 +67,13 @@ mod test {
     use libp2p::identity;
     use rand::Rng;
 
-    use crate::{block, header};
-    use crate::block::{Block, get_publickey_from_keypair, PartialTransaction, Transaction, TransactionType};
-    use crate::blockchain::{Blockchain, generate_ed25519};
+    use crate::block::{
+        get_publickey_from_keypair, Block, PartialTransaction, Transaction, TransactionType,
+    };
+    use crate::blockchain::{generate_ed25519, Blockchain};
     use crate::header::hash;
     use crate::notifier::OnBlockEvent;
+    use crate::{block, header};
 
     #[test]
     fn test_add_trans_listener() -> Result<(), String> {
@@ -92,7 +95,7 @@ mod test {
             ),
             &ed25519_keypair,
         );
-        let mut called:  bool = false;
+        let mut called: bool = false;
         let mut lambda = |trans: Transaction| {
             assert_eq!(transaction, trans);
             called = true;
@@ -103,9 +106,8 @@ mod test {
         Ok(())
     }
 
-
     #[test]
-    fn test_add_block_listener()  -> Result<(), String> {
+    fn test_add_block_listener() -> Result<(), String> {
         let ed25519_keypair = match generate_ed25519() {
             identity::Keypair::Ed25519(v) => v,
             identity::Keypair::Rsa(_) => todo!(),
@@ -121,11 +123,15 @@ mod test {
             rand::thread_rng().gen::<u128>(),
         ));
 
-        let mut block = block::Block::new(block_header, Vec::new(), &identity::ed25519::Keypair::generate());
+        let mut block = block::Block::new(
+            block_header,
+            Vec::new(),
+            &identity::ed25519::Keypair::generate(),
+        );
         let mut chain = Blockchain::new(&ed25519_keypair);
-        let mut called : bool = false;
+        let mut called: bool = false;
 
-        let foo = | b: Block |{
+        let foo = |b: Block| {
             called = true;
             assert_eq!(block, b);
         };
@@ -133,7 +139,5 @@ mod test {
         chain.add_block(block);
         assert!(called);
         Ok(())
-
     }
-
 }
