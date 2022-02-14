@@ -27,6 +27,7 @@ Make certain your Pull Request has the following.
 - [ ] I've associated an [issue](https://github.com/pyrsia/pyrsia/issues) with this Pull Request. 
 - [ ] I've checked that the code is up-to-date with the `pyrsia/main` branch.
 - [ ] I've read ["What is a Good PR?"](good_pr.md)
+- [ ] I've assigned this Pull Request to "pyrsia/collaborators"
 
 ## Description
 
