@@ -30,6 +30,6 @@ body:
       placeholder: |
         Rust Version: 
         Operating system:
-        Pyrsia SHA/Version :
+        Pyrsia SHA/Version:
     validations:
       required: true
