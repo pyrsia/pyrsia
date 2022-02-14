@@ -9,13 +9,13 @@ pub struct BlockchainError;
 
 pub type BlockchainResult = std::result::Result<(), BlockchainError>;
 
-pub type OnTransactionSettled = Box<dyn FnOnce(Transaction) + 'a>;
+pub type OnTransactionSettled<'a> = Box<dyn FnOnce(Transaction) + 'a>;
 pub type OnBlockEvent = Box<dyn FnMut(Block)>;
 
 // But we require certain bounds to get things done...
 impl Blockchain {
     // should we borrow or own this transaction?
-    pub fn submit_transaction(&mut self, trans: Transaction, on_done: OnTransactionSettled) {
+    pub fn submit_transaction<'a>(&mut self, trans: Transaction, on_done: OnTransactionSettled<'a>) {
         self.trans_observers.insert(trans, on_done);
     }
     // block_chain.add_block_listener(|block| {

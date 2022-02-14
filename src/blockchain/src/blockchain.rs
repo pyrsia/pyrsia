@@ -102,11 +102,11 @@ impl GenesisBlock {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Blockchain {
+pub struct Blockchain<'a> {
     // this seems suspicious to chris
     #[serde(skip)]
     // this should actually be a Map<Transaction,Vec<OnTransactionSettled>> but that's later
-    pub trans_observers: HashMap<Transaction, OnTransactionSettled>,
+    pub trans_observers: HashMap<Transaction, OnTransactionSettled<'a>>,
     #[serde(skip)]
     pub block_observers: Vec<OnBlockEvent>,
     pub genesis_block: GenesisBlock,
