@@ -22,6 +22,19 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use warp::{http::StatusCode, Rejection, Reply};
 
+pub async fn handle_add_magnet(tx: Sender<String>) -> Result<impl Reply, Rejection> {
+    match tx.send(String::from("magnet")).await {
+        Ok(_) => debug!("request for magnet sent"),
+        Err(_) => error!("failed to send magnet"),
+    }
+    debug!("Got magnet link");
+    Ok(warp::http::response::Builder::new()
+        .header("Content-Type", "application/octet-stream")
+        .status(StatusCode::OK)
+        .body("Successfully sent magnet link")
+        .unwrap())
+}
+
 pub async fn handle_get_peers(
     tx: Sender<String>,
     rx: Arc<Mutex<Receiver<String>>>,
