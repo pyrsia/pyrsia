@@ -821,7 +821,6 @@ mod tests {
             async { handle_get_manifests("hello-world".to_string(), "v3.1".to_string()).await };
         let result = executor::block_on(future);
         check_get_manifest_result(result);
-        remove_dir_all(&env::var("PYRSIA_ARTIFACT_PATH").unwrap());
     }
 
     fn check_package_version_metadata() -> anyhow::Result<()> {
@@ -872,13 +871,6 @@ mod tests {
         assert!(!manifest_content.is_empty());
         assert_eq!(4698, manifest_content.len());
         Ok(())
-    }
-
-    fn remove_dir_all(dir_name: &String) {
-        if Path::new(dir_name).exists() {
-            fs::remove_dir_all(dir_name.clone())
-                .expect(&format!("unable to remove test directory {}", dir_name));
-        }
     }
 
     #[test]
