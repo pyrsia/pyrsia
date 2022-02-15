@@ -156,7 +156,9 @@ mod tests {
     use super::HashAlgorithm;
     use super::*;
     use anyhow::Context;
+    use assay::assay;
     use std::fs::File;
+    use std::path::Path;
     use std::path::PathBuf;
     use tempfile::Builder;
 
@@ -167,9 +169,24 @@ mod tests {
         0x25, 0x7, 0xbe, 0x2, 0x46, 0xea, 0x35, 0xe0, 0x9, 0x8c, 0xf6, 0x5, 0x4d, 0x36, 0x44, 0xc1,
         0x4f,
     ];
+    fn tear_down() {
+        if Path::new(&env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
+            fs::remove_dir_all(env::var("PYRSIA_ARTIFACT_PATH").unwrap()).expect(&format!(
+                "unable to remove test directory {}",
+                env::var("PYRSIA_ARTIFACT_PATH").unwrap()
+            ));
+        }
+    }
 
     #[test]
-    fn put_and_get_artifact_test() -> Result<(), anyhow::Error> {
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+          ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+        )]
+    fn put_and_get_artifact_test() {
         debug!("put_and_get_artifact_test started !!");
         //put the artifact
         put_artifact(
@@ -192,9 +209,6 @@ mod tests {
             Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
         };
         assert_eq!(s, s1);
-
-        //remove_dir_all(&env::var("PYRSIA_ARTIFACT_PATH").unwrap());
-        Ok(())
     }
 
     #[test]
@@ -205,7 +219,12 @@ mod tests {
     }
 
     #[test]
-    fn test_disk_usage() -> Result<(), anyhow::Error> {
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "PyrisaTest"),
+          ("DEV_MODE", "on")
+        ]  )]
+    fn test_disk_usage() {
         let tmp_dir = Builder::new().prefix("PyrisaTest").tempdir()?;
         let tmp_path = tmp_dir.path().to_owned();
         assert!(tmp_path.exists());
@@ -221,12 +240,15 @@ mod tests {
 
         let usage_pct_after = disk_usage(name).context("Error from disk_usage")?;
         assert_eq!("0.000047", format!("{:.6}", usage_pct_after));
-
-        Ok(())
     }
 
     #[test]
-    fn test_get_space_available() -> Result<(), anyhow::Error> {
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "PyrisaTest"),
+          ("DEV_MODE", "on")
+        ]  )]
+    fn test_get_space_available() {
         let tmp_dir = Builder::new().prefix("PyrisaTest").tempdir()?;
         let tmp_path = tmp_dir.path().to_owned();
         assert!(tmp_path.exists());
@@ -246,8 +268,6 @@ mod tests {
         let space_available_after =
             get_space_available(name).context("Error from get_space_available")?;
         assert!(space_available_after < space_available_before);
-
-        Ok(())
     }
 
     fn get_file_reader() -> Result<File, anyhow::Error> {

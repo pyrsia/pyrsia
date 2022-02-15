@@ -645,15 +645,16 @@ fn invalid_manifest<T>(_json_string: &str) -> Result<T, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assay::assay;
     use bytes::Bytes;
     use futures::executor;
     use serde::de::StdError;
     use std::env;
     use std::fs;
+    use std::panic;
     use std::path::Path;
     use std::str;
     use warp::http::header::HeaderMap;
-    use std::panic;
 
     const MEDIA_TYPE_CONFIG_JSON: &str = "application/vnd.docker.container.image.v1+json";
 
@@ -755,37 +756,25 @@ mod tests {
   ]
 }"##;
 
-    fn set_up() {
-        env::set_var("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node");
-        env::set_var("DEV_MODE", "on");
-    }
-
-    #[allow(dead_code)]
     fn tear_down() {
-            if Path::new(&env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
-                fs::remove_dir_all(env::var("PYRSIA_ARTIFACT_PATH").unwrap())
-                    .expect(&format!("unable to remove test directory {}", env::var("PYRSIA_ARTIFACT_PATH").unwrap()));
-            }
-    }
-
-    #[allow(dead_code)]
-    fn run_test<T>(test: T)
-    where
-        T: FnOnce() -> () + panic::UnwindSafe,
-    {
-        set_up();
-
-        let result = panic::catch_unwind(test);
-
-        tear_down();
-
-        assert!(result.is_ok())
+        if Path::new(&env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
+            fs::remove_dir_all(env::var("PYRSIA_ARTIFACT_PATH").unwrap()).expect(&format!(
+                "unable to remove test directory {}",
+                env::var("PYRSIA_ARTIFACT_PATH").unwrap()
+            ));
+        }
     }
 
     #[test]
+    #[assay(
+    env = [
+      ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+      ("DEV_MODE", "on")
+    ],
+    teardown = tear_down()
+    )]
     fn test_handle_put_manifest_expecting_success_response_with_manifest_stored_in_artifact_manager_and_package_version_in_metadata_manager(
-    ) -> Result<(), Box<dyn StdError>> {
-        run_test (|| {
+    ) {
         let name = "httpbin";
         let reference = "v2.4";
 
@@ -799,15 +788,19 @@ mod tests {
         };
         let result = executor::block_on(future);
         check_put_manifest_result(result);
-        check_artifact_manager_side_effects().expect("Could not verify artifact in artifact manager");
+        check_artifact_manager_side_effects()
+            .expect("Could not verify artifact in artifact manager");
         check_package_version_metadata().expect("Could not verify package version metadata");
-    });
-        Ok(())
     }
     #[test]
-    fn test_handle_get_manifest() -> Result<(), Box<dyn StdError>> {
-        run_test (|| {
-
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+          ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+        )]
+    fn test_handle_get_manifest() {
         let name = "httpbin";
         let reference = "v2.4";
 
@@ -829,8 +822,6 @@ mod tests {
         let result = executor::block_on(future);
         check_get_manifest_result(result);
         remove_dir_all(&env::var("PYRSIA_ARTIFACT_PATH").unwrap());
-    });
-        Ok(())
     }
 
     fn check_package_version_metadata() -> anyhow::Result<()> {
