@@ -19,12 +19,11 @@ use std::fmt::{Debug, Display, Formatter};
 use libp2p::identity;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use crate::notifier::*;
 
-use crate::notifier::OnBlockEvent;
 
 use super::block::*;
 use super::header::*;
-use super::notifier::OnTransactionSettled;
 
 /// BlockchainId identifies the current chain
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -124,7 +123,7 @@ impl Clone for Blockchain {
     }
 }
 
-impl Blockchain {
+impl Blockchain<'_> {
     #[warn(dead_code)]
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
         Self {
@@ -170,7 +169,7 @@ pub fn generate_ed25519() -> identity::Keypair {
     identity::Keypair::generate_ed25519()
 }
 
-impl Display for Blockchain {
+impl Display for Blockchain<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let json = serde_json::to_string_pretty(&self).expect("json format error");
         write!(f, "{}", json)
