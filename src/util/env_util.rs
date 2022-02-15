@@ -20,7 +20,7 @@ pub fn read_var(variable_name: &str, default_value: &str) -> String {
     match env::var(variable_name) {
         Ok(v) => {
             let tr = v.trim();
-            if tr.len() > 0 {
+            if !tr.is_empty() {
                 String::from(tr)
             } else {
                 String::from(default_value)
