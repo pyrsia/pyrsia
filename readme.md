@@ -131,6 +131,11 @@ the Pyrsia node is running.
     In a real life deployment these nodes will be spread over the network and will all run on their own 7888 port.
     `Word of caution: Running the peers for a few hours does generate network traffic and hence can drain your computer power. Ensure you are plugged into power if you are running multiple peers for a long time`
 
+    To test the pyrsia_node status you can use `curl`  and
+    ```
+    curl --location --request GET 'http://localhost:7888/status'
+    ```
+
 
 
 ### Setting Up Visual Studio Code Debugger
