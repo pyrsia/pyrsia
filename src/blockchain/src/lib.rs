@@ -17,4 +17,5 @@
 pub mod block;
 pub mod blockchain;
 pub mod header;
-pub mod notifier;
+pub mod network;
+pub mod storage;
