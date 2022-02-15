@@ -645,9 +645,14 @@ fn invalid_manifest<T>(_json_string: &str) -> Result<T, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assay::assay;
     use bytes::Bytes;
     use futures::executor;
     use serde::de::StdError;
+    use std::env;
+    use std::fs;
+    use std::panic;
+    use std::path::Path;
     use std::str;
     use warp::http::header::HeaderMap;
 
@@ -751,9 +756,25 @@ mod tests {
   ]
 }"##;
 
+    fn tear_down() {
+        if Path::new(&env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
+            fs::remove_dir_all(env::var("PYRSIA_ARTIFACT_PATH").unwrap()).expect(&format!(
+                "unable to remove test directory {}",
+                env::var("PYRSIA_ARTIFACT_PATH").unwrap()
+            ));
+        }
+    }
+
     #[test]
+    #[assay(
+    env = [
+      ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+      ("DEV_MODE", "on")
+    ],
+    teardown = tear_down()
+    )]
     fn test_handle_put_manifest_expecting_success_response_with_manifest_stored_in_artifact_manager_and_package_version_in_metadata_manager(
-    ) -> Result<(), Box<dyn StdError>> {
+    ) {
         let name = "httpbin";
         let reference = "v2.4";
 
@@ -767,12 +788,19 @@ mod tests {
         };
         let result = executor::block_on(future);
         check_put_manifest_result(result);
-        check_artifact_manager_side_effects()?;
-        check_package_version_metadata()?;
-        Ok(())
+        check_artifact_manager_side_effects()
+            .expect("Could not verify artifact in artifact manager");
+        check_package_version_metadata().expect("Could not verify package version metadata");
     }
     #[test]
-    fn test_handle_get_manifest() -> Result<(), Box<dyn StdError>> {
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+          ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+        )]
+    fn test_handle_get_manifest() {
         let name = "httpbin";
         let reference = "v2.4";
 
@@ -786,14 +814,13 @@ mod tests {
         };
         let result = executor::block_on(future);
         check_put_manifest_result(result);
-        check_package_version_metadata()?;
+        check_package_version_metadata().expect("Could not verify package version metadata");
 
         debug!("starting get manifest call");
         let future =
             async { handle_get_manifests("hello-world".to_string(), "v3.1".to_string()).await };
         let result = executor::block_on(future);
         check_get_manifest_result(result);
-        Ok(())
     }
 
     fn check_package_version_metadata() -> anyhow::Result<()> {

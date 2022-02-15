@@ -257,7 +257,7 @@ fn store_blob_in_filesystem(
     let append = append_to_blob(&blob_upload_dest_data, bytes)?;
 
     // check if there is enough local allocated disk space
-    let available_space = get_space_available(ARTIFACTS_DIR);
+    let available_space = get_space_available(ARTIFACTS_DIR.as_str());
     if available_space.is_err() {
         return Err(available_space.err().unwrap().to_string().into());
     }
