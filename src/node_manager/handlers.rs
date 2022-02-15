@@ -15,18 +15,17 @@
 */
 
 use super::ArtifactManager;
-use super::HashAlgorithm;
-
 use super::Hash;
+use super::HashAlgorithm;
 
 use crate::metadata_manager::metadata::Metadata;
 use crate::network::kademlia_thread_safe_proxy::KademliaThreadSafeProxy;
+use crate::util::env_util::*;
 use anyhow::{Context, Result};
 use byte_unit::Byte;
 use lazy_static::lazy_static;
 use libp2p::{identity, kad::record::store::MemoryStore, PeerId};
 use log::{debug, error, info};
-use std::env;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::panic::UnwindSafe;
@@ -43,10 +42,10 @@ lazy_static! {
     pub static ref KADEMLIA_PROXY: KademliaThreadSafeProxy = KademliaThreadSafeProxy::default();
     pub static ref ARTIFACTS_DIR: String = log_static_initialization_failure(
         "Pyrsia Artifact directory",
-        env::var("PYRSIA_ARTIFACT_PATH").with_context(|| "Pyrsia artifact directory not set")
+        Ok(read_var("PYRSIA_ARTIFACT_PATH", "pyrsia"))
     );
     pub static ref ART_MGR: ArtifactManager = {
-        let dev_mode = env::var("DEV_MODE").unwrap_or_else(|_| "off".to_string());
+        let dev_mode = read_var("DEV_MODE", "off");
         if dev_mode.to_lowercase() == "on" {
             log_static_initialization_failure(
                 "Artifact Manager Directory",
@@ -157,6 +156,7 @@ mod tests {
     use super::*;
     use anyhow::Context;
     use assay::assay;
+    use std::env;
     use std::fs::File;
     use std::path::Path;
     use std::path::PathBuf;
