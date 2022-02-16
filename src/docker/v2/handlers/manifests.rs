@@ -827,8 +827,15 @@ mod tests {
     }
 
     #[test]
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+          ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+        )]
     fn test_fetch_manifest_if_not_in_pyrsia_expecting_fetch_from_dockerhub_success_and_store_in_pyrsia(
-    ) -> Result<(), Box<dyn StdError>> {
+    ) {
         let name = "alpine";
         let reference = "sha256:e7d88de73db3d3fd9b2d63aa7f447a10fd0220b7cbf39803c803f2af9ba256b3";
 
@@ -837,7 +844,6 @@ mod tests {
         let result = test_async!(fetch_manifest(name.to_string(), reference.to_string()));
         verify_fetch_manifest_result_if_not_in_pyrsia(result);
         assert!(!(check_manifest_is_stored_in_pyrsia("alpine_manifest.json").is_err()));
-        Ok(())
     }
 
     fn check_package_version_metadata() -> anyhow::Result<()> {
