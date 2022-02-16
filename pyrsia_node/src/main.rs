@@ -77,7 +77,7 @@ async fn main() {
                 .default_value(DEFAULT_HOST)
                 .takes_value(true)
                 .required(false)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Sets the host address to bind to for the Docker API"),
         )
         .arg(
@@ -88,7 +88,7 @@ async fn main() {
                 .default_value(DEFAULT_PORT)
                 .takes_value(true)
                 .required(false)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Sets the port to listen to for the Docker API"),
         )
         .arg(
@@ -97,7 +97,7 @@ async fn main() {
                 .long("peer")
                 .takes_value(true)
                 .required(false)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Provide an explicit peerId to connect with"),
         )
         .get_matches();
@@ -130,9 +130,6 @@ async fn main() {
         swarm.dial(addr).unwrap();
         info!("Dialed {:?}", to_dial)
     }
-
-    // Read full lines from stdin
-    let mut stdin = io::BufReader::new(io::stdin()).lines();
 
     // Listen on all interfaces and whatever port the OS assigns
     swarm
@@ -184,13 +181,11 @@ async fn main() {
     );
 
     tokio::spawn(server);
-    let tx4 = tx.clone();
 
     // Kick it off
     loop {
         let evt = {
             tokio::select! {
-                line = stdin.next_line() => Some(EventType::Input(line.expect("can get line").expect("can read line from stdin"))),
                 message = rx.recv() => Some(EventType::Message(message.expect("message exists"))),
 
                 new_hash = blobs_need_hash.select_next_some() => {
@@ -220,8 +215,10 @@ async fn main() {
                         .floodsub_mut()
                         .publish(floodsub_topic.clone(), resp.as_bytes());
                 }
-                EventType::Input(line) => match line.as_str() {
-                    "peers" => swarm.behaviour_mut().list_peers_cmd().await,
+                EventType::Message(message) => match message.as_str() {
+                    cmd if cmd.starts_with("peers") || cmd.starts_with("status") => {
+                        swarm.behaviour_mut().list_peers(local_peer_id).await
+                    }
                     cmd if cmd.starts_with("magnet:") => {
                         info!(
                             "{}",
@@ -231,15 +228,6 @@ async fn main() {
                                 .publish(gossip_topic.clone(), cmd)
                                 .unwrap()
                         )
-                    }
-                    _ => match tx4.send(line).await {
-                        Ok(_) => debug!("line sent"),
-                        Err(_) => error!("failed to send stdin input"),
-                    },
-                },
-                EventType::Message(message) => match message.as_str() {
-                    cmd if cmd.starts_with("peers") || cmd.starts_with("status") => {
-                        swarm.behaviour_mut().list_peers(local_peer_id).await
                     }
                     cmd if cmd.starts_with("get_blobs") => {
                         swarm.behaviour_mut().lookup_blob(message).await
@@ -254,5 +242,4 @@ async fn main() {
 enum EventType {
     Response(String),
     Message(String),
-    Input(String),
 }

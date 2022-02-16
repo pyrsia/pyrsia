@@ -15,12 +15,12 @@
 */
 
 use super::ArtifactManager;
-use super::HashAlgorithm;
-
 use super::Hash;
+use super::HashAlgorithm;
 
 use crate::metadata_manager::metadata::Metadata;
 use crate::network::kademlia_thread_safe_proxy::KademliaThreadSafeProxy;
+use crate::util::env_util::*;
 use anyhow::{Context, Result};
 use byte_unit::Byte;
 use lazy_static::lazy_static;
@@ -32,7 +32,6 @@ use std::panic::UnwindSafe;
 use std::str;
 use std::{fs, panic};
 
-pub const ARTIFACTS_DIR: &str = "pyrsia";
 //TODO: read from CLI config file
 pub const ALLOCATED_SPACE_FOR_ARTIFACTS: &str = "10.84 GB";
 
@@ -41,17 +40,23 @@ lazy_static! {
     pub static ref LOCAL_PEER_ID: PeerId = PeerId::from(LOCAL_KEY.public());
     pub static ref MEMORY_STORE: MemoryStore = MemoryStore::new(*LOCAL_PEER_ID);
     pub static ref KADEMLIA_PROXY: KademliaThreadSafeProxy = KademliaThreadSafeProxy::default();
+    pub static ref ARTIFACTS_DIR: String = log_static_initialization_failure(
+        "Pyrsia Artifact directory",
+        Ok(read_var("PYRSIA_ARTIFACT_PATH", "pyrsia"))
+    );
     pub static ref ART_MGR: ArtifactManager = {
+        let dev_mode = read_var("DEV_MODE", "off");
+        if dev_mode.to_lowercase() == "on" {
+            log_static_initialization_failure(
+                "Artifact Manager Directory",
+                fs::create_dir_all(ARTIFACTS_DIR.as_str())
+                    .with_context(|| "Failed to create artifact manager directory in dev mode"),
+            );
+        }
         log_static_initialization_failure(
-            "Artifact Manager Directory",
-            fs::create_dir_all(ARTIFACTS_DIR).with_context(|| {
-                format!(
-                    "Failed to create artifact manager directory {}",
-                    ARTIFACTS_DIR
-                )
-            }),
-        );
-        log_static_initialization_failure("Artifact Manager", ArtifactManager::new(ARTIFACTS_DIR))
+            "Artifact Manager",
+            ArtifactManager::new(ARTIFACTS_DIR.as_str()),
+        )
     };
     pub static ref METADATA_MGR: Metadata =
         log_static_initialization_failure("Metadata Manager", Metadata::new());
@@ -147,7 +152,10 @@ mod tests {
     use super::HashAlgorithm;
     use super::*;
     use anyhow::Context;
+    use assay::assay;
+    use std::env;
     use std::fs::File;
+    use std::path::Path;
     use std::path::PathBuf;
     use tempfile::Builder;
 
@@ -158,9 +166,24 @@ mod tests {
         0x25, 0x7, 0xbe, 0x2, 0x46, 0xea, 0x35, 0xe0, 0x9, 0x8c, 0xf6, 0x5, 0x4d, 0x36, 0x44, 0xc1,
         0x4f,
     ];
+    fn tear_down() {
+        if Path::new(&env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
+            fs::remove_dir_all(env::var("PYRSIA_ARTIFACT_PATH").unwrap()).expect(&format!(
+                "unable to remove test directory {}",
+                env::var("PYRSIA_ARTIFACT_PATH").unwrap()
+            ));
+        }
+    }
 
     #[test]
-    fn put_and_get_artifact_test() -> Result<(), anyhow::Error> {
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+          ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+        )]
+    fn put_and_get_artifact_test() {
         debug!("put_and_get_artifact_test started !!");
         //put the artifact
         put_artifact(
@@ -183,9 +206,6 @@ mod tests {
             Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
         };
         assert_eq!(s, s1);
-
-        debug!("put_and_get_artifact_test ended !!");
-        Ok(())
     }
 
     #[test]
@@ -196,7 +216,12 @@ mod tests {
     }
 
     #[test]
-    fn test_disk_usage() -> Result<(), anyhow::Error> {
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "PyrisaTest"),
+          ("DEV_MODE", "on")
+        ]  )]
+    fn test_disk_usage() {
         let tmp_dir = Builder::new().prefix("PyrisaTest").tempdir()?;
         let tmp_path = tmp_dir.path().to_owned();
         assert!(tmp_path.exists());
@@ -212,12 +237,15 @@ mod tests {
 
         let usage_pct_after = disk_usage(name).context("Error from disk_usage")?;
         assert_eq!("0.000047", format!("{:.6}", usage_pct_after));
-
-        Ok(())
     }
 
     #[test]
-    fn test_get_space_available() -> Result<(), anyhow::Error> {
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "PyrisaTest"),
+          ("DEV_MODE", "on")
+        ]  )]
+    fn test_get_space_available() {
         let tmp_dir = Builder::new().prefix("PyrisaTest").tempdir()?;
         let tmp_path = tmp_dir.path().to_owned();
         assert!(tmp_path.exists());
@@ -237,8 +265,6 @@ mod tests {
         let space_available_after =
             get_space_available(name).context("Error from get_space_available")?;
         assert!(space_available_after < space_available_before);
-
-        Ok(())
     }
 
     fn get_file_reader() -> Result<File, anyhow::Error> {
