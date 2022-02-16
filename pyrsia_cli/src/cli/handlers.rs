@@ -19,13 +19,13 @@ use super::node::*;
 use clap::ArgMatches;
 use std::collections::HashSet;
 
-pub fn handle_config_add(config_matches: &ArgMatches) {
+pub fn config_add(config_matches: &ArgMatches) {
     let node_config = config_matches.value_of("add").unwrap();
     let _result = add_config(String::from(node_config));
     println!("Node configured:      {}", node_config);
 }
 
-pub fn handle_config_show() {
+pub fn config_show() {
     let result = get_config();
     let _url = match result {
         Ok(url) => {
@@ -37,7 +37,7 @@ pub fn handle_config_show() {
     };
 }
 
-pub async fn handle_node_ping() {
+pub async fn node_ping() {
     let result = ping().await;
     let _resp = match result {
         Ok(resp) => {
@@ -49,7 +49,7 @@ pub async fn handle_node_ping() {
     };
 }
 
-pub async fn handle_node_status() {
+pub async fn node_status() {
     let result = status().await;
     let _resp = match result {
         Ok(resp) => {
@@ -61,7 +61,7 @@ pub async fn handle_node_status() {
     };
 }
 
-pub async fn handle_node_list() {
+pub async fn node_list() {
     let result = peers_connected().await;
     let _resp = match result {
         Ok(resp) => {

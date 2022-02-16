@@ -48,6 +48,7 @@ pub fn cli_parser() -> ArgMatches {
                     Arg::new("remove")
                         .long("remove")
                         .short('r')
+                        .visible_alias("rm")
                         .help("Removes the stored node configuration"),
                 )
                 .arg(
@@ -80,6 +81,7 @@ pub fn cli_parser() -> ArgMatches {
                 .arg(
                     Arg::new("list")
                         .short('l')
+                        .visible_alias("ls")
                         .help("Shows list of connected Peers"),
                 ),
         )
