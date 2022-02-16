@@ -46,9 +46,7 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
 };
-use tokio::{
-    sync::{mpsc, Mutex},
-};
+use tokio::sync::{mpsc, Mutex};
 use warp::Filter;
 
 const DEFAULT_HOST: &str = "127.0.0.1";
