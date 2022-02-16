@@ -39,7 +39,7 @@ use warp::http::StatusCode;
 use warp::{Rejection, Reply};
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
-pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Reply, Rejection> {
+pub async fn fetch_manifest(name: String, tag: String) -> Result<impl Reply, Rejection> {
     let manifest_content;
     debug!("Fetching manifest for {} with tag: {}", name, tag);
 
@@ -115,7 +115,7 @@ pub async fn handle_get_manifests(name: String, tag: String) -> Result<impl Repl
 const LOCATION: &str = "Location";
 
 // Handles PUT endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
-pub async fn handle_put_manifest(
+pub async fn put_manifest(
     name: String,
     reference: String,
     bytes: Bytes,
@@ -256,8 +256,6 @@ async fn get_manifest_from_docker_hub_with_token(
 
     let bytes = response.bytes().await.map_err(RegistryError::from)?;
 
-    debug!("Storing manifest pulled from dockerHub in artifact manager");
-
     let mut hash = String::new();
     match store_manifest_in_artifact_manager(bytes.clone()) {
         Ok(artifact_hash) => {
@@ -301,12 +299,10 @@ async fn get_manifest_from_docker_hub_with_token(
 fn get_artifact_manifest(artifacts: &[Artifact]) -> Option<&Artifact> {
     for artifact in artifacts {
         if let Some(mime_type) = artifact.mime_type() {
-            debug!("mime type is: {}", mime_type);
             if mime_type.eq(MEDIA_TYPE_SCHEMA_1)
                 || mime_type.eq(MEDIA_TYPE_IMAGE_MANIFEST)
                 || mime_type.eq(MEDIA_TYPE_MANIFEST_LIST)
             {
-                debug!("found where mime type is: {}", mime_type);
                 return Some(artifact);
             }
         }
@@ -651,8 +647,11 @@ mod tests {
     use serde::de::StdError;
     use std::env;
     use std::fs;
+    use std::fs::File;
+    use std::io::Read;
     use std::panic;
     use std::path::Path;
+    use std::path::PathBuf;
     use std::str;
     use warp::http::header::HeaderMap;
 
@@ -756,6 +755,12 @@ mod tests {
   ]
 }"##;
 
+    macro_rules! test_async {
+        ($e:expr) => {
+            tokio_test::block_on($e)
+        };
+    }
+
     fn tear_down() {
         if Path::new(&env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
             fs::remove_dir_all(env::var("PYRSIA_ARTIFACT_PATH").unwrap()).expect(&format!(
@@ -773,13 +778,13 @@ mod tests {
     ],
     teardown = tear_down()
     )]
-    fn test_handle_put_manifest_expecting_success_response_with_manifest_stored_in_artifact_manager_and_package_version_in_metadata_manager(
+    fn test_put_manifest_expecting_success_response_with_manifest_stored_in_artifact_manager_and_package_version_in_metadata_manager(
     ) {
         let name = "httpbin";
         let reference = "v2.4";
 
         let future = async {
-            handle_put_manifest(
+            put_manifest(
                 name.to_string(),
                 reference.to_string(),
                 Bytes::from(MANIFEST_V1_JSON.as_bytes()),
@@ -787,11 +792,11 @@ mod tests {
             .await
         };
         let result = executor::block_on(future);
-        check_put_manifest_result(result);
-        check_artifact_manager_side_effects()
-            .expect("Could not verify artifact in artifact manager");
-        check_package_version_metadata().expect("Could not verify package version metadata");
+        verify_put_manifest_result(result);
+        check_artifact_manager_side_effects()?;
+        check_package_version_metadata()?;
     }
+
     #[test]
     #[assay(
         env = [
@@ -800,12 +805,12 @@ mod tests {
         ],
         teardown = tear_down()
         )]
-    fn test_handle_get_manifest() {
+    fn test_fetch_manifest() {
         let name = "httpbin";
         let reference = "v2.4";
 
         let future = async {
-            handle_put_manifest(
+            put_manifest(
                 name.to_string(),
                 reference.to_string(),
                 Bytes::from(MANIFEST_V1_JSON.as_bytes()),
@@ -813,14 +818,32 @@ mod tests {
             .await
         };
         let result = executor::block_on(future);
-        check_put_manifest_result(result);
-        check_package_version_metadata().expect("Could not verify package version metadata");
+        verify_put_manifest_result(result);
+        check_package_version_metadata()?;
 
-        debug!("starting get manifest call");
-        let future =
-            async { handle_get_manifests("hello-world".to_string(), "v3.1".to_string()).await };
+        let future = async { fetch_manifest("hello-world".to_string(), "v3.1".to_string()).await };
         let result = executor::block_on(future);
-        check_get_manifest_result(result);
+        verify_fetch_manifest_result(result);
+    }
+
+    #[test]
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+          ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+        )]
+    fn test_fetch_manifest_if_not_in_pyrsia_expecting_fetch_from_dockerhub_success_and_store_in_pyrsia(
+    ) {
+        let name = "alpine";
+        let reference = "sha256:e7d88de73db3d3fd9b2d63aa7f447a10fd0220b7cbf39803c803f2af9ba256b3";
+
+        assert!(check_manifest_is_stored_in_pyrsia("alpine_manifest.json").is_err());
+
+        let result = test_async!(fetch_manifest(name.to_string(), reference.to_string()));
+        verify_fetch_manifest_result_if_not_in_pyrsia(result);
+        assert!(!(check_manifest_is_stored_in_pyrsia("alpine_manifest.json").is_err()));
     }
 
     fn check_package_version_metadata() -> anyhow::Result<()> {
@@ -831,7 +854,26 @@ mod tests {
         Ok(())
     }
 
-    fn check_get_manifest_result(result: Result<impl Reply, Rejection>) {
+    fn verify_fetch_manifest_result_if_not_in_pyrsia(result: Result<impl Reply, Rejection>) {
+        match result {
+            Ok(reply) => {
+                let response = reply.into_response();
+                assert_eq!(response.status(), 200);
+
+                let mut headers = HeaderMap::new();
+                headers.insert("content-length", "528".parse().unwrap());
+                assert_eq!(
+                    response.headers().get("content-length").unwrap(),
+                    headers["content-length"]
+                );
+            }
+            Err(_) => {
+                assert!(false)
+            }
+        };
+    }
+
+    fn verify_fetch_manifest_result(result: Result<impl Reply, Rejection>) {
         match result {
             Ok(reply) => {
                 let response = reply.into_response();
@@ -850,7 +892,7 @@ mod tests {
         };
     }
 
-    fn check_put_manifest_result(result: Result<impl Reply, Rejection>) {
+    fn verify_put_manifest_result(result: Result<impl Reply, Rejection>) {
         match result {
             Ok(reply) => {
                 let response = reply.into_response();
@@ -865,12 +907,33 @@ mod tests {
         };
     }
 
+    fn get_test_file_reader(file_name: &str) -> Result<File, anyhow::Error> {
+        let mut curr_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        curr_dir.push("tests/resources/");
+        curr_dir.push(file_name);
+
+        let path = String::from(curr_dir.to_string_lossy());
+        let reader = File::open(path.as_str()).unwrap();
+        Ok(reader)
+    }
+
     fn check_artifact_manager_side_effects() -> Result<(), Box<dyn StdError>> {
         let manifest_sha512: Vec<u8> = raw_sha512(MANIFEST_V1_JSON.as_bytes().to_vec()).to_vec();
         let manifest_content = get_artifact(manifest_sha512.as_ref(), HashAlgorithm::SHA512)?;
         assert!(!manifest_content.is_empty());
         assert_eq!(4698, manifest_content.len());
         Ok(())
+    }
+
+    fn check_manifest_is_stored_in_pyrsia(file_name: &str) -> Result<Vec<u8>, Box<dyn StdError>> {
+        let mut file = get_test_file_reader(file_name)?;
+        let mut data = Vec::new();
+        file.read_to_end(&mut data).expect("Unable to read data");
+        let manifest_sha512: Vec<u8> = raw_sha512(data).to_vec();
+        Ok(get_artifact(
+            manifest_sha512.as_ref(),
+            HashAlgorithm::SHA512,
+        )?)
     }
 
     #[test]

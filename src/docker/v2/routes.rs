@@ -40,7 +40,7 @@ pub fn make_docker_routes(
 
     let v2_manifests = warp::path!("v2" / "library" / String / "manifests" / String)
         .and(warp::get().or(warp::head()).unify())
-        .and_then(handle_get_manifests);
+        .and_then(fetch_manifest);
     let v2_manifests_put_docker = warp::path!("v2" / "library" / String / "manifests" / String)
         .and(warp::put())
         .and(warp::header::exact(
@@ -48,7 +48,7 @@ pub fn make_docker_routes(
             "application/vnd.docker.distribution.manifest.v2+json",
         ))
         .and(warp::body::bytes())
-        .and_then(handle_put_manifest);
+        .and_then(put_manifest);
 
     let v2_blobs = warp::path!("v2" / "library" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())

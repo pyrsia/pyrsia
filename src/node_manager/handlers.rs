@@ -85,11 +85,8 @@ fn log_static_initialization_failure<T: UnwindSafe>(
 
 //get_artifact: given artifact_hash(artifactName) pulls artifact for  artifact_manager and
 //              returns read object to read the bytes of artifact
-pub fn get_artifact(
-    art_hash: &[u8],
-    art_algorithm: HashAlgorithm,
-) -> Result<Vec<u8>, anyhow::Error> {
-    let hash = Hash::new(art_algorithm, art_hash)?;
+pub fn get_artifact(art_hash: &[u8], algorithm: HashAlgorithm) -> Result<Vec<u8>, anyhow::Error> {
+    let hash = Hash::new(algorithm, art_hash)?;
     let result = ART_MGR.pull_artifact(&hash)?;
     let mut buf_reader: BufReader<File> = BufReader::new(result);
     let mut blob_content = Vec::new();
@@ -102,9 +99,9 @@ pub fn get_artifact(
 pub fn put_artifact(
     artifact_hash: &[u8],
     art_reader: Box<dyn Read>,
-    art_algorithm: HashAlgorithm,
+    algorithm: HashAlgorithm,
 ) -> Result<bool, anyhow::Error> {
-    let hash = Hash::new(art_algorithm, artifact_hash)?;
+    let hash = Hash::new(algorithm, artifact_hash)?;
     info!("put_artifact hash: {}", hash);
     let mut buf_reader = BufReader::new(art_reader);
     ART_MGR
@@ -164,7 +161,7 @@ mod tests {
 
     use super::Hash;
 
-    const GOOD_ART_HASH: [u8; 32] = [
+    const VALID_ARTIFACT_HASH: [u8; 32] = [
         0x86, 0x5c, 0x8d, 0x98, 0x8b, 0xe4, 0x66, 0x9f, 0x3e, 0x48, 0xf7, 0x3b, 0x98, 0xf9, 0xbc,
         0x25, 0x7, 0xbe, 0x2, 0x46, 0xea, 0x35, 0xe0, 0x9, 0x8c, 0xf6, 0x5, 0x4d, 0x36, 0x44, 0xc1,
         0x4f,
@@ -190,14 +187,14 @@ mod tests {
         debug!("put_and_get_artifact_test started !!");
         //put the artifact
         put_artifact(
-            &GOOD_ART_HASH,
+            &VALID_ARTIFACT_HASH,
             Box::new(get_file_reader()?),
             HashAlgorithm::SHA256,
         )
         .context("Error from put_artifact")?;
 
         // pull artiafct
-        let file = get_artifact(&GOOD_ART_HASH, HashAlgorithm::SHA256)
+        let file = get_artifact(&VALID_ARTIFACT_HASH, HashAlgorithm::SHA256)
             .context("Error from get_artifact")?;
 
         //validate pulled artifact with the actual data
@@ -274,7 +271,6 @@ mod tests {
         // test artifact file in resources/test dir
         let mut curr_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         curr_dir.push("tests/resources/artifact_test.json");
-        println!("curr_dir is: {}", curr_dir.display());
 
         let path = String::from(curr_dir.to_string_lossy());
         let reader = File::open(path.as_str()).unwrap();
@@ -282,7 +278,7 @@ mod tests {
     }
 
     fn create_artifact(am: ArtifactManager) -> Result<(), anyhow::Error> {
-        let hash = Hash::new(HashAlgorithm::SHA256, &GOOD_ART_HASH)?;
+        let hash = Hash::new(HashAlgorithm::SHA256, &VALID_ARTIFACT_HASH)?;
         let push_result = am
             .push_artifact(&mut get_file_reader()?, &hash)
             .context("Error while pushing artifact")?;
