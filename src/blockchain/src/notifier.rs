@@ -7,12 +7,14 @@ use crate::blockchain::Blockchain;
 #[derive(Hash, Eq, PartialEq, Clone)]
 pub struct BlockchainError;
 
-
-
 // But we require certain bounds to get things done...
 impl Blockchain {
     // should we borrow or own this transaction?
-    pub fn submit_transaction<CB: 'static + FnOnce(Transaction) + FnOnce(Transaction)>(&mut self, trans: Transaction, on_done: CB) {
+    pub fn submit_transaction<CB: 'static + FnOnce(Transaction) + FnOnce(Transaction)>(
+        &mut self,
+        trans: Transaction,
+        on_done: CB,
+    ) {
         self.trans_observers.insert(trans, Box::new(on_done));
     }
     // block_chain.add_block_listener(|block| {
@@ -25,7 +27,10 @@ impl Blockchain {
         }
     }
 
-    pub fn add_block_listener<CB: 'static +  FnMut(Block) + FnOnce(Block)>(&mut self, on_block: CB) -> &mut Self {
+    pub fn add_block_listener<CB: 'static + FnMut(Block) + FnOnce(Block)>(
+        &mut self,
+        on_block: CB,
+    ) -> &mut Self {
         self.block_observers.push(Box::new(on_block));
         self
     }
