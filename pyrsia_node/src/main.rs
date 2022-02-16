@@ -26,7 +26,6 @@ extern crate warp;
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::handlers::blobs::GetBlobsHandle;
 use pyrsia::docker::v2::routes::*;
-use pyrsia::document_store::document_store::DocumentStore;
 use pyrsia::document_store::document_store::IndexSpec;
 use pyrsia::logging::*;
 use pyrsia::network::swarm::{self, MyBehaviourSwarm};
@@ -41,15 +40,14 @@ use libp2p::{
     swarm::SwarmEvent,
     Multiaddr, PeerId,
 };
-use log::{debug, error, info};
+use log::{debug, info};
 use std::{
     env,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
 };
 use tokio::{
-    io::{self, AsyncBufReadExt},
-    sync::{mpsc, Mutex, MutexGuard},
+    sync::{mpsc, Mutex},
 };
 use warp::Filter;
 
@@ -60,10 +58,11 @@ const DEFAULT_PORT: &str = "7888";
 async fn main() {
     pretty_env_logger::init();
 
-    // create the connection to the documentStore.
+    // Initiate the document store with it's first document
     let index_one = "index_one";
     let field1 = "most_significant_field";
-    let idx1 = IndexSpec::new(index_one, vec![field1]);
+    // The actual first index is not necessary here, it is preserved in the documentStore
+    IndexSpec::new(index_one, vec![field1]);
 
     let matches: ArgMatches = App::new("Pyrsia Node")
         .version("0.1.0")
@@ -208,13 +207,6 @@ async fn main() {
 
         if let Some(event) = evt {
             match event {
-                EventType::Response(resp) => {
-                    //here we have to manage which events to publish to floodsub
-                    swarm
-                        .behaviour_mut()
-                        .floodsub_mut()
-                        .publish(floodsub_topic.clone(), resp.as_bytes());
-                }
                 EventType::Message(message) => match message.as_str() {
                     cmd if cmd.starts_with("peers") || cmd.starts_with("status") => {
                         swarm.behaviour_mut().list_peers(local_peer_id).await
@@ -240,6 +232,5 @@ async fn main() {
 }
 
 enum EventType {
-    Response(String),
     Message(String),
 }
