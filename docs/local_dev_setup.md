@@ -119,17 +119,24 @@ then your node is likely not running. Go back to step 3 to make sure the Pyrsia 
 
 Multiple Pyrsia Nodes can be started on the same computer by changing the ports they use as follows
 
-```
-DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 7888
 
-# RUST_LOG=debug DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 7888 # Use this environment variable if you would like to see debug logs
-```
+- Node 1:
 
-```
-DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 8181
+   ```
+   DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 7888
 
-# RUST_LOG=debug DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 8181 # Use this environment variable if you would like to see debug logs
-```
+   # RUST_LOG=debug DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 7888 # Use this environment variable if you would like to see debug logs
+   ```
+
+- Node 2:
+
+   ```
+   DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 8181
+
+   # RUST_LOG=debug DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 8181 # Use this environment variable if you would like to see debug logs
+   ```
+
+Re-running the status command, there should be an connect peer.
 
 ```sh 
 $ ./pyrsia node -s
@@ -139,7 +146,8 @@ Total Disk Available:    983112
 ```
 
 In a real life deployment these nodes will be spread over the network and will all run on their own 7888 port.
-`Word of caution: Running the peers for a few hours does generate network traffic and hence can drain your computer power. Ensure you are plugged into power if you are running multiple peers for a long time`
+
+> ⚠️ Word of caution: Running the peers for a few hours does generate network traffic and hence can drain your computer power. Ensure you are plugged into power if you are running multiple peers for a long time`
 
 ## Testing a Node directly
 
@@ -148,7 +156,3 @@ To test the pyrsia_node status you can use `curl`  and
 ```
 curl --location --request GET 'http://localhost:7888/status'
 ```
-
-
-
-
