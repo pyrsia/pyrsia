@@ -13,12 +13,14 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use super::header::*;
+
 use anyhow::Error;
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use super::header::*;
 
 // TransactionType define the type of transaction, currently only create
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -98,7 +100,6 @@ pub struct Transaction {
     pub submmitter: Address,
     pub timestamp: u64,
     pub payload: Vec<u8>,
-    pub nonce: u128,
     pub transaction_hash: HashDigest,
     pub signature: TransactionSignature,
 }
@@ -114,7 +115,6 @@ impl Transaction {
             submmitter: partial_transaction.submmitter,
             timestamp: partial_transaction.timestamp,
             payload: partial_transaction.payload,
-            nonce: partial_transaction.nonce,
             transaction_hash: hash,
             signature: Signature::new(&bincode::serialize(&hash).unwrap(), ed25519_keypair),
         }
@@ -128,16 +128,10 @@ pub struct PartialTransaction {
     pub submmitter: Address,
     pub timestamp: u64,
     pub payload: Vec<u8>,
-    pub nonce: u128,
 }
 
 impl PartialTransaction {
-    pub fn new(
-        trans_type: TransactionType,
-        submmitter: Address,
-        payload: Vec<u8>,
-        nonce: u128,
-    ) -> Self {
+    pub fn new(trans_type: TransactionType, submmitter: Address, payload: Vec<u8>) -> Self {
         Self {
             trans_type,
             submmitter,
@@ -146,7 +140,6 @@ impl PartialTransaction {
                 .unwrap()
                 .as_secs(),
             payload,
-            nonce,
         }
     }
 }
@@ -161,7 +154,6 @@ impl Display for Block {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::Rng;
 
     #[test]
     fn test_build_block() -> Result<(), String> {
@@ -171,22 +163,11 @@ mod tests {
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
-            PartialTransaction::new(
-                TransactionType::Create,
-                local_id,
-                data.as_bytes().to_vec(),
-                rand::thread_rng().gen::<u128>(),
-            ),
+            PartialTransaction::new(TransactionType::Create, local_id, data.as_bytes().to_vec()),
             &keypair,
         );
         transactions.push(transaction);
-        let block_header = Header::new(PartialHeader::new(
-            hash(b""),
-            local_id,
-            hash(b""),
-            1,
-            rand::thread_rng().gen::<u128>(),
-        ));
+        let block_header = Header::new(PartialHeader::new(hash(b""), local_id, hash(b""), 1));
         let block = Block::new(block_header, transactions.to_vec(), &keypair);
 
         assert_eq!(1, block.header.number);
