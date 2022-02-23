@@ -34,6 +34,11 @@ jobs:
           project: Pyrsia Development
           column: In Progress
           repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
+      - if: github.event.pull_request.user.login == 'dependabot'
+        uses: madrapps/add-reviewers@v1
+        with:
+          token: ${{ secrets.ORG_ACCESS_TOKEN }}
+          reviewers: pyrsia/collaborators
     
   darfting-pr:
     runs-on: ubuntu-latest
