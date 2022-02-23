@@ -62,6 +62,7 @@ features = []
 [dev-dependencies]
 string_manipulation = {path="tests/string_manipulation"}
 expectest = "0.10.0"
+cargo-make = "~0.35"
 
 [workspace]
 members = [
