@@ -1,5 +1,5 @@
 /*
-   Copyright 2022 JFrog Ltd
+   Copyright 2021 JFrog Ltd
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ use libp2p::request_response::{
 use libp2p::swarm::{ProtocolsHandlerUpgrErr, SwarmBuilder, SwarmEvent};
 use libp2p::{NetworkBehaviour, Swarm};
 use log::{debug, info, warn};
+use std::collections::hash_map::Entry::Vacant;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -165,14 +166,18 @@ impl Client {
     }
 }
 
+type PendingDialMap = HashMap<PeerId, oneshot::Sender<Result<(), Box<dyn Error + Send>>>>;
+type PendingListPeersMap = HashMap<QueryId, oneshot::Sender<Vec<PeerId>>>;
+type PendingRequestArtifactMap =
+    HashMap<RequestId, oneshot::Sender<Result<Vec<u8>, Box<dyn Error + Send>>>>;
+
 pub struct EventLoop {
     swarm: Swarm<ComposedBehaviour>,
     command_receiver: mpsc::Receiver<Command>,
     event_sender: mpsc::Sender<Event>,
-    pending_dial: HashMap<PeerId, oneshot::Sender<Result<(), Box<dyn Error + Send>>>>,
-    pending_list_peers: HashMap<QueryId, oneshot::Sender<Vec<PeerId>>>,
-    pending_request_artifact:
-        HashMap<RequestId, oneshot::Sender<Result<Vec<u8>, Box<dyn Error + Send>>>>,
+    pending_dial: PendingDialMap,
+    pending_list_peers: PendingListPeersMap,
+    pending_request_artifact: PendingRequestArtifactMap,
 }
 
 impl EventLoop {
@@ -326,7 +331,7 @@ impl EventLoop {
                 peer_addr,
                 sender,
             } => {
-                if !self.pending_dial.contains_key(&peer_id) {
+                if let Vacant(_) = self.pending_dial.entry(peer_id) {
                     self.swarm
                         .behaviour_mut()
                         .kademlia

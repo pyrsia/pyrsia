@@ -59,7 +59,7 @@ pub fn make_docker_routes(
         .and_then(move |name, hash| handle_get_blobs(p2p_client.clone(), peer_id, name, hash));
     let v2_blobs_post = warp::path!("v2" / "library" / String / "blobs" / "uploads")
         .and(warp::post())
-        .and_then(move |name| handle_post_blob(name));
+        .and_then(handle_post_blob);
     let v2_blobs_patch = warp::path!("v2" / "library" / String / "blobs" / "uploads" / String)
         .and(warp::patch())
         .and(warp::body::bytes())
