@@ -84,6 +84,7 @@ string_manipulation = {path="tests/string_manipulation"}
 expectest = "0.10.0"
 tokio-test = "0.4.2"
 assay = "0.1.0"
+cargo-make = "~0.35"
 
 [workspace]
 members = [
