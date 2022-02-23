@@ -40,7 +40,7 @@ pub fn handle_config_show() {
 pub async fn handle_node_ping() {
     let result = ping().await;
     let _resp = match result {
-        Ok(resp) => {
+        Ok(_msg) => {
             println!("Connection Successfull !!")
         }
         Err(error) => {
