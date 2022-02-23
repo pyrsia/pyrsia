@@ -15,32 +15,30 @@
 */
 
 use super::handlers::swarm::*;
-use std::sync::Arc;
-use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::Mutex;
+use crate::network::p2p;
 use warp::Filter;
 
 pub fn make_node_routes(
-    tx: Sender<String>,
-    rx: Arc<Mutex<Receiver<String>>>,
+    p2p_client: p2p::Client,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    let tx1 = tx.clone();
-    let rx1 = rx.clone();
-    let tx2 = tx.clone();
+    let p2p_client_peers = p2p_client.clone();
+    let p2p_client_magnet = p2p_client.clone();
+    let p2p_client_status = p2p_client.clone();
+
     let peers = warp::path!("peers")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(move || handle_get_peers(tx2.clone(), rx1.clone()));
+        .and_then(move || handle_get_peers(p2p_client_peers.clone()));
 
     let magnet = warp::path!("magnet")
         .and(warp::post())
         .and(warp::path::end())
-        .and_then(move || handle_add_magnet(tx1.clone()));
+        .and_then(move || handle_add_magnet(p2p_client_magnet.clone()));
 
     let status = warp::path!("status")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(move || handle_get_status(tx.clone(), rx.clone()));
+        .and_then(move || handle_get_status(p2p_client_status.clone()));
 
     warp::any().and(peers.or(magnet).or(status))
 }

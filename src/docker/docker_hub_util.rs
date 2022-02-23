@@ -24,7 +24,7 @@ struct Bearer {
     expires_in: u64,
 }
 
-pub async fn get_docker_hub_auth_token(name: &str) -> Result<String, warp::Rejection> {
+pub async fn get_docker_hub_auth_token(name: &str) -> Result<String, RegistryError> {
     let auth_url = format!("https://auth.docker.io/token?client_id=Pyrsia&service=registry.docker.io&scope=repository:library/{}:pull", name);
 
     let token: Bearer = get(auth_url)
@@ -41,7 +41,7 @@ pub async fn get_docker_hub_auth_token(name: &str) -> Result<String, warp::Rejec
 mod tests {
     use super::*;
     use serde::de::StdError;
-    use warp::{Rejection, Reply};
+    use warp::Reply;
 
     macro_rules! async_test {
         ($e:expr) => {
@@ -57,7 +57,7 @@ mod tests {
         Ok(())
     }
 
-    fn check_get_docker_hub_auth_token(result: Result<impl Reply, Rejection>) {
+    fn check_get_docker_hub_auth_token(result: Result<String, RegistryError>) {
         match result {
             Ok(reply) => {
                 let response = reply.into_response();
