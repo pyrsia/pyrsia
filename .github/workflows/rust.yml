@@ -34,7 +34,7 @@ jobs:
     # Install cargo deb and strip
     - name: Install cargo-deb cargo-strip
       if: runner.os == 'Linux'
-      uses: actions-rs/cargo@v1.0.1
+      uses: actions-rs/cargo@v1.0.3
       with: 
         command: install
         args: cargo-deb cargo-strip --force
@@ -60,7 +60,7 @@ jobs:
     # Create Pyrsia .deb file
     - name: Package Pyrsia as deb file
       if: runner.os == 'Linux'
-      uses: actions-rs/cargo@v1.0.1
+      uses: actions-rs/cargo@v1.0.3
       with:
         command: deb
         args: --no-build -v
