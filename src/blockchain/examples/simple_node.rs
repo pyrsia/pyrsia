@@ -120,7 +120,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut transactions = vec![];
 
-    storage::append_genesis_block(filepath.clone(), &ed25519_keypair);
+    storage::append_genesis_block(&filepath, &ed25519_keypair);
 
     let local_id = header::hash(&block::get_publickey_from_keypair(&ed25519_keypair).encode());
     // Kick it off
@@ -137,7 +137,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     &ed25519_keypair,
                 );
                 transactions.push(transaction);
-                let (parent_hash, previous_number, previous_commiter) = storage::read_last_block(filepath.clone());
+                let (parent_hash, previous_number, previous_commiter) = storage::read_last_block(&filepath);
 
                 if check_number == APART_ONE_COMMIT && previous_commiter == local_id {
                         println!("The Commit Permission is limited, Please wait others commit");
@@ -149,7 +149,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!("---------");
                 println!("Add a New Block : {:?}", block);
                 swarm.behaviour_mut().floodsub.publish(floodsub_topic.clone(), bincode::serialize(&block).unwrap());
-                storage::write_block(filepath.clone(), block);
+                storage::write_block(&filepath, block);
             }
             event = swarm.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {
