@@ -34,7 +34,7 @@ async fn main() {
     match matches.subcommand() {
         // config subcommand
         Some(("config", config_matches)) => {
-            if config_matches.is_present("add") {
+            if config_matches.is_present("add") || config_matches.is_present("edit") {
                 config_add();
             }
             if config_matches.is_present("show") {

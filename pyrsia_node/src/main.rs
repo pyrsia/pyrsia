@@ -32,7 +32,7 @@ use pyrsia::network::swarm::{self, MyBehaviourSwarm};
 use pyrsia::network::transport::{new_tokio_tcp_transport, TcpTokioTransport};
 use pyrsia::node_api::routes::make_node_routes;
 
-use clap::{App, Arg, ArgMatches};
+use clap::{command, Arg, ArgMatches};
 use futures::StreamExt;
 use libp2p::{
     core::identity,
@@ -62,11 +62,8 @@ async fn main() {
     // The actual first index is not necessary here, it is preserved in the documentStore
     IndexSpec::new(index_one, vec![field1]);
 
-    let matches: ArgMatches = App::new("Pyrsia Node")
-        .version("0.1.0")
-        .author(clap::crate_authors!(", "))
-        .about("Application to connect to and participate in the Pyrsia network")
-        .arg(
+    let matches: ArgMatches = command!()
+        .args(&[
             Arg::new("host")
                 .short('H')
                 .long("host")
@@ -76,8 +73,6 @@ async fn main() {
                 .required(false)
                 .multiple_occurrences(false)
                 .help("Sets the host address to bind to for the Docker API"),
-        )
-        .arg(
             Arg::new("port")
                 .short('p')
                 .long("port")
@@ -87,8 +82,6 @@ async fn main() {
                 .required(false)
                 .multiple_occurrences(false)
                 .help("Sets the port to listen to for the Docker API"),
-        )
-        .arg(
             Arg::new("peer")
                 //.short("p")
                 .long("peer")
@@ -96,7 +89,7 @@ async fn main() {
                 .required(false)
                 .multiple_occurrences(false)
                 .help("Provide an explicit peerId to connect with"),
-        )
+        ])
         .get_matches();
 
     let local_key: identity::Keypair = identity::Keypair::generate_ed25519();
