@@ -64,7 +64,7 @@ fn create_upload_directory(name: &str, id: &str) -> std::io::Result<()> {
     ))
 }
 
-fn store_blob_in_filesystem(
+pub fn store_blob_in_filesystem(
     name: &str,
     id: &str,
     digest: &str,
