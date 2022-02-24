@@ -13,12 +13,15 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use super::header::*;
+
 use anyhow::Error;
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use super::crypto::hash_algorithm::HashDigest;
+use super::header::*;
 
 // TransactionType define the type of transaction, currently only create
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -108,7 +111,7 @@ impl Transaction {
         partial_transaction: PartialTransaction,
         ed25519_keypair: &identity::ed25519::Keypair,
     ) -> Self {
-        let hash = hash(&(bincode::serialize(&partial_transaction).unwrap()));
+        let hash = HashDigest::new(&(bincode::serialize(&partial_transaction).unwrap()));
         Self {
             trans_type: partial_transaction.trans_type,
             submmitter: partial_transaction.submmitter,
@@ -166,7 +169,7 @@ mod tests {
     #[test]
     fn test_build_block() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = hash(&get_publickey_from_keypair(&keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(&keypair).encode());
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
@@ -181,9 +184,9 @@ mod tests {
         );
         transactions.push(transaction);
         let block_header = Header::new(PartialHeader::new(
-            hash(b""),
+            HashDigest::new(b""),
             local_id,
-            hash(b""),
+            HashDigest::new(b""),
             1,
             rand::thread_rng().gen::<u128>(),
         ));

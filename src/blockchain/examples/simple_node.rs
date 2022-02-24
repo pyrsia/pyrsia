@@ -33,11 +33,12 @@ use libp2p::{
     PeerId,
     Transport,
 };
-
-use pyrsia_blockchain_network::*;
 use rand::Rng;
 use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
+
+use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
+use pyrsia_blockchain_network::*;
 
 pub const CONTINUE_COMMIT: &str = "1"; //allow to continuously commit
 pub const APART_ONE_COMMIT: &str = "2"; //must be at least one ledger apart to commit
@@ -123,7 +124,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     storage::append_genesis_block(filepath.clone(), &ed25519_keypair);
 
-    let local_id = header::hash(&block::get_publickey_from_keypair(&ed25519_keypair).encode());
+    let local_id = HashDigest::new(&block::get_publickey_from_keypair(&ed25519_keypair).encode());
     // Kick it off
     loop {
         tokio::select! {

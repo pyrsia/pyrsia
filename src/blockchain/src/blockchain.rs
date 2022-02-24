@@ -13,12 +13,15 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use super::block::*;
-use super::header::*;
+
 use libp2p::identity;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
+
+use super::block::*;
+use super::crypto::hash_algorithm::HashDigest;
+use super::header::*;
 
 /// BlockchainId identifies the current chain
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -76,12 +79,12 @@ pub struct GenesisBlock {
 
 impl GenesisBlock {
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
-        let local_id = hash(&get_publickey_from_keypair(keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(keypair).encode());
         let config = Config::new();
         let header = Header::new(PartialHeader::new(
-            hash(b""),
+            HashDigest::new(b""),
             local_id,
-            hash(&(bincode::serialize(&config).unwrap())),
+            HashDigest::new(&(bincode::serialize(&config).unwrap())),
             0,
             rand::thread_rng().gen::<u128>(),
         ));
@@ -122,8 +125,8 @@ pub fn new_block(
     parent_hash: HashDigest,
     previous_number: u128,
 ) -> Block {
-    let local_id = hash(&get_publickey_from_keypair(keypair).encode());
-    let transaction_root = hash(&bincode::serialize(transactions).unwrap());
+    let local_id = HashDigest::new(&get_publickey_from_keypair(keypair).encode());
+    let transaction_root = HashDigest::new(&bincode::serialize(transactions).unwrap());
     let block_header = Header::new(PartialHeader::new(
         parent_hash,
         local_id,
@@ -159,7 +162,7 @@ mod tests {
             identity::Keypair::Rsa(_) => todo!(),
             identity::Keypair::Secp256k1(_) => todo!(),
         };
-        let local_id = hash(&get_publickey_from_keypair(&ed25519_keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
         let mut chain = Blockchain::new(&ed25519_keypair);
 
         let mut transactions = vec![];

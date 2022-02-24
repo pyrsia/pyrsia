@@ -14,9 +14,18 @@
    limitations under the License.
 */
 
-pub mod block;
-pub mod blockchain;
-pub mod crypto;
-pub mod header;
-pub mod network;
-pub mod storage;
+use multihash::{Code, Multihash, MultihashDigest};
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+pub struct HashDigest {
+    multihash: Multihash,
+}
+
+impl HashDigest {
+    pub fn new(msg: &[u8]) -> Self {
+        Self {
+            multihash: Code::Keccak256.digest(msg),
+        }
+    }
+}

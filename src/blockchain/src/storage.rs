@@ -13,8 +13,10 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use super::*;
 use libp2p::identity;
+
+use super::crypto::hash_algorithm::HashDigest;
+use super::*;
 
 pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
 
@@ -38,7 +40,7 @@ pub fn append_genesis_block(path: String, key: &identity::ed25519::Keypair) {
 }
 
 //read a last block from the file, and return this block hash, this block number and this block committer
-pub fn read_last_block(path: String) -> (header::HashDigest, u128, header::Address) {
+pub fn read_last_block(path: String) -> (HashDigest, u128, header::Address) {
     use std::io::{BufRead, BufReader};
     let file = std::fs::File::open(path).unwrap();
 
@@ -58,7 +60,7 @@ pub fn read_last_block(path: String) -> (header::HashDigest, u128, header::Addre
 }
 
 // Unformat the genesis block json string
-pub fn parse_genesis_block(line: &String) -> (header::HashDigest, u128, header::Address) {
+pub fn parse_genesis_block(line: &String) -> (HashDigest, u128, header::Address) {
     let genesis_block: blockchain::GenesisBlock = serde_json::from_str(line).unwrap();
     (
         genesis_block.header.current_hash,
@@ -92,7 +94,7 @@ mod tests {
     #[test]
     fn test_write_read() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = header::hash(&block::get_publickey_from_keypair(&keypair).encode());
+        let local_id = HashDigest::new(&block::get_publickey_from_keypair(&keypair).encode());
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = block::Transaction::new(
@@ -106,9 +108,9 @@ mod tests {
         );
         transactions.push(transaction);
         let block_header = header::Header::new(header::PartialHeader::new(
-            header::hash(b""),
+            HashDigest::new(b""),
             local_id,
-            header::hash(b""),
+            HashDigest::new(b""),
             1,
             rand::thread_rng().gen::<u128>(),
         ));
