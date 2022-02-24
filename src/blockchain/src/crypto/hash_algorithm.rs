@@ -14,18 +14,32 @@
    limitations under the License.
 */
 
+extern crate aleph_bft;
+
 use multihash::{Code, Multihash, MultihashDigest};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HashDigest {
     multihash: Multihash,
 }
 
 impl HashDigest {
+    // TODO(prince-chrismc): Define Hash size constant
+
     pub fn new(msg: &[u8]) -> Self {
         Self {
             multihash: Code::Keccak256.digest(msg),
         }
+    }
+
+    // TODO(prince-chrismc): Define `to_bytes` for fixed sized array
+}
+
+impl aleph_bft::Hasher for HashDigest {
+    type Hash = [u8; 32];
+
+    fn hash(x: &[u8]) -> Self::Hash {
+        Code::Keccak256.digest(x).to_bytes().try_into().unwrap()
     }
 }
