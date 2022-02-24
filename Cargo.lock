@@ -696,9 +696,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.0.14"
+version = "3.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b63edc3f163b3c71ec8aa23f9bd6070f77edbf3d1d198b164afa90ff00e4ec62"
+checksum = "5177fac1ab67102d8989464efd043c6ff44191b1557ec1ddd489b4f7e1447e77"
 dependencies = [
  "atty",
  "bitflags",
@@ -726,6 +726,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30ed07550be01594c6026cff2a1d7fe9c8f683caa798e12b68694ac9e88286a3"
 dependencies = [
  "cache-padded",
+]
+
+[[package]]
+name = "confy"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2913470204e9e8498a0f31f17f90a0de801ae92c8c5ac18c49af4819e6786697"
+dependencies = [
+ "directories",
+ "serde",
+ "toml",
 ]
 
 [[package]]
@@ -1011,6 +1022,16 @@ dependencies = [
  "crypto-common",
  "generic-array 0.14.5",
  "subtle",
+]
+
+[[package]]
+name = "directories"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "551a778172a450d7fc12e629ca3b0428d00f6afa9a43da1b630d54604e97371c"
+dependencies = [
+ "cfg-if 0.1.10",
+ "dirs-sys",
 ]
 
 [[package]]
@@ -3320,12 +3341,15 @@ name = "pyrsia_cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 3.0.14",
+ "clap 3.1.2",
+ "confy",
  "expectest",
  "futures",
  "pyrsia",
  "reqwest",
+ "serde",
  "tokio",
+ "toml",
  "walkdir",
 ]
 
@@ -3333,7 +3357,7 @@ dependencies = [
 name = "pyrsia_node"
 version = "0.1.0"
 dependencies = [
- "clap 3.0.14",
+ "clap 3.1.2",
  "futures",
  "libp2p",
  "log",

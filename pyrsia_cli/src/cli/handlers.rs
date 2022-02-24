@@ -16,20 +16,39 @@
 
 use super::config::*;
 use super::node::*;
-use clap::ArgMatches;
 use std::collections::HashSet;
+use std::io;
+use std::io::BufRead;
 
-pub fn config_add(config_matches: &ArgMatches) {
-    let node_config = config_matches.value_of("add").unwrap();
-    let _result = add_config(String::from(node_config));
-    println!("Node configured:      {}", node_config);
+pub fn config_add() {
+    println!("Enter host: ");
+    let mut new_cfg = CliConfig {
+        host: io::stdin().lock().lines().next().unwrap().unwrap(),
+        ..Default::default()
+    };
+
+    println!("Enter port: ");
+    new_cfg.port = io::stdin().lock().lines().next().unwrap().unwrap();
+
+    println!("Enter disk space to be allocated to pyrsia: ");
+    new_cfg.disk_allocated = io::stdin().lock().lines().next().unwrap().unwrap();
+
+    let result = add_config(new_cfg);
+    match result {
+        Ok(_result) => {
+            println!("Node configuration Saved !!");
+        }
+        Err(error) => {
+            println!("Error Saving Node Configuration:       {}", error);
+        }
+    };
 }
 
 pub fn config_show() {
     let result = get_config();
-    let _url = match result {
-        Ok(url) => {
-            println!("Node URL:      {}", url)
+    match result {
+        Ok(config) => {
+            println!("{}", config)
         }
         Err(error) => {
             println!("No Node Configured:       {}", error);
@@ -39,8 +58,8 @@ pub fn config_show() {
 
 pub async fn node_ping() {
     let result = ping().await;
-    let _resp = match result {
-        Ok(resp) => {
+    match result {
+        Ok(_resp) => {
             println!("Connection Successfull !!")
         }
         Err(error) => {
