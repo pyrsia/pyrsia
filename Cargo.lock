@@ -3347,6 +3347,7 @@ dependencies = [
  "anyhow",
  "clap 3.1.2",
  "confy",
+ "directories",
  "expectest",
  "futures",
  "pyrsia",

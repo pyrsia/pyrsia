@@ -70,11 +70,57 @@ pub fn get_config() -> Result<CliConfig> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use directories::ProjectDirs;
     use expectest::expect;
     use expectest::prelude::*;
+    use std::path::PathBuf;
 
     #[test]
     fn test_get_config_errors_when_config_file_not_found() {
-        expect!(get_config()).to(be_err());
+        expect!(get_config()).to(be_ok());
+        tear_down();
+    }
+    fn tear_down() {
+        let config_dir_str = get_configuration_directory();
+
+        let path: PathBuf = [
+            config_dir_str.to_owned(),
+            format!("{}.toml", CONF_FILE.to_owned()),
+        ]
+        .iter()
+        .collect();
+
+        if path.exists() {
+            std::fs::remove_dir_all(path.parent().unwrap()).expect("Failed to remove directory");
+        }
+    }
+
+    #[test]
+    fn test_config_file_update() {
+        let cfg: CliConfig = get_config().expect("could not get conf file");
+        assert_eq!(cfg.port, "7888".to_string());
+        let cfg = CliConfig {
+            port: "7878".to_string(),
+            ..cfg
+        };
+
+        add_config(cfg).expect("could not update conf file");
+        let new_cfg: CliConfig = get_config().expect("could not get conf file");
+        assert_eq!(new_cfg.port, "7878".to_string());
+        tear_down();
+    }
+
+    fn get_configuration_directory() -> String {
+        let project = ProjectDirs::from("rs", "", CONF_FILE).expect("bad config dir");
+
+        let config_dir_option = project.config_dir().to_str();
+
+        if let Some(x) = config_dir_option {
+            println!("directory path is: {}", x);
+            return x.to_string();
+        } else {
+            assert!(false);
+            return "".to_string();
+        }
     }
 }

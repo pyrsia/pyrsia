@@ -22,3 +22,5 @@ path = "src/main.rs"
 
 [dev-dependencies]
 expectest = "0.10.0"
+directories = "^2.0"
+
