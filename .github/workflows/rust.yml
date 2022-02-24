@@ -85,66 +85,6 @@ jobs:
         key_passphrase: ${{ secrets.GPG_SECRET }}
         github_repository: pyrsia/pyrsia.github.io
     
-  # Create the Synapse binaries and .deb file, add it to the apt repo and
-  # push the changes to the website github repo
-  synapse-package:
-      needs: [build]
-      runs-on: ubuntu-latest
-      steps:
-      # Install cargo deb and strip
-      - name: Install cargo-deb
-        uses: actions-rs/cargo@v1.0.1
-        with: 
-          command: install
-          args: cargo-deb cargo-strip --force
-
-      # Checkout Synapse
-      - name: Checkout Synapse
-        uses: actions/checkout@v2
-        with:
-          repository: pyrsia/synapse
-
-      # Need to add build number to version number
-      - name: Add Build to Version Number
-        run: |
-          sed -i.bak "/^version = \"1.0.0\"/s/\"\$/+${{ github.run_number }}\"/" Cargo.toml
-
-      # Create the Synapse Binaries
-      - name: Build Synapse
-        run: |
-          cargo build --workspace   --release
-      
-      - name: Strip Synapse
-        run: |
-          cargo strip
-
-      # Create Synapse .deb file
-      - name: Package Synapse as deb file
-        uses: actions-rs/cargo@v1.0.1
-        with:
-          command: deb
-          args: --no-build -v
-
-      # Add the synapse .deb file to the apt repo which is part of
-      # the github website repo
-      - name: Updload Synapse .deb to website repo
-        uses: sbtaylor15/apt-repo-action@v2.0.4
-        # Only when we push on the main repository should we upload the results
-        if: github.repository_owner == 'pyrsia' && github.event_name == 'push'
-        with:
-          github_token: ${{ secrets.APT }}
-          repo_supported_version: |
-            focal
-          repo_supported_arch: |
-            amd64
-          page_branch: gh-pages
-          file: /github/workspace/target/debian/synapse-bt_1.0.0+${{ github.run_number }}_amd64.deb
-          file_target_version: focal
-          public_key: ${{ secrets.GPG_PUBLIC }}
-          private_key: ${{ secrets.GPG_PRIVATE }}
-          key_passphrase: ${{ secrets.GPG_SECRET }}
-          github_repository: pyrsia/pyrsia.github.io
-
   coverage:
     needs: [build]
     runs-on: ubuntu-latest
@@ -181,7 +121,7 @@ jobs:
   
   docker:
     runs-on: ubuntu-latest
-    needs: [build, synapse-package]
+    needs: [build]
     if: github.repository_owner == 'pyrsia' && github.event_name == 'push'
     steps:
     - uses: actions/checkout@v2
