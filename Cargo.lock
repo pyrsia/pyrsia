@@ -3345,10 +3345,10 @@ name = "pyrsia_cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "assay",
  "clap 3.1.2",
  "confy",
  "directories",
- "expectest",
  "futures",
  "pyrsia",
  "reqwest",
