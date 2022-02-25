@@ -17,10 +17,10 @@
 use crate::artifact_manager::HashAlgorithm;
 use crate::network::p2p;
 use crate::node_manager::handlers::get_artifact;
-use libp2p::Multiaddr;
 use libp2p::core::PeerId;
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::ResponseChannel;
+use libp2p::Multiaddr;
 use log::{error, info};
 
 /// Reach out to another node with the specified address
@@ -47,7 +47,11 @@ pub async fn dial_other_peer(mut p2p_client: p2p::Client, to_dial: Multiaddr) ->
 
 /// Respond to a RequestArtifact event by getting the artifact from
 /// the ArtifactManager.
-pub async fn handle_request_artifact(mut p2p_client: p2p::Client, hash: &str, channel: ResponseChannel<p2p::ArtifactResponse>) {
+pub async fn handle_request_artifact(
+    mut p2p_client: p2p::Client,
+    hash: &str,
+    channel: ResponseChannel<p2p::ArtifactResponse>,
+) {
     let decoded_hash = hex::decode(&hash.get(7..).unwrap()).unwrap();
     match get_artifact(&decoded_hash, HashAlgorithm::SHA256) {
         Ok(content) => p2p_client.respond_artifact(content, channel).await,

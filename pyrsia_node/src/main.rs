@@ -41,7 +41,7 @@ async fn main() {
 
     let final_peer_id = match args.peer {
         Some(to_dial) => dial_other_peer(p2p_client.clone(), to_dial).await,
-        None => None
+        None => None,
     };
 
     // Listen on all interfaces and whatever port the OS assigns
