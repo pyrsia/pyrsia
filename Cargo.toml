@@ -82,7 +82,7 @@ features = []
 string_manipulation = {path="tests/string_manipulation"}
 expectest = "0.10.0"
 tokio-test = "0.4.2"
-assay = "0.1.0"
+assay = "0.1.1"
 
 [workspace]
 members = [
