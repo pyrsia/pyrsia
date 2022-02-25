@@ -12,11 +12,10 @@ repository = "https://github.com/pyrsia/pyrsia"
 assets = [
     ["target/release/pyrsia_node", "usr/bin/", "755"],
     ["target/release/pyrsia", "usr/bin/", "755"],
-    ["readme.md", "usr/share/doc/pyrsia/README", "644"],
-    ["installers/debian/synapse.toml", "usr/share/pyrsia/synapse.toml", "644"]
+    ["readme.md", "usr/share/doc/pyrsia/README", "644"]
    ]
 section = "devel"
-depends = "openssl, synapse-bt"
+depends = "openssl"
 maintainer-scripts = "installers/debian/"
 systemd-units = { unit-name = "pyrsia", unit-scripts = "installers/debian/" }
 
