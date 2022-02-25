@@ -29,7 +29,7 @@ use libp2p::request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseCodec, RequestResponseEvent,
     RequestResponseMessage, ResponseChannel,
 };
-use libp2p::swarm::{ProtocolsHandlerUpgrErr, SwarmBuilder, SwarmEvent};
+use libp2p::swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent};
 use libp2p::{NetworkBehaviour, Swarm};
 use log::{debug, info, warn};
 use std::collections::hash_map::Entry::Vacant;
@@ -218,7 +218,7 @@ impl EventLoop {
         &mut self,
         event: SwarmEvent<
             ComposedEvent,
-            EitherError<io::Error, ProtocolsHandlerUpgrErr<io::Error>>,
+            EitherError<io::Error, ConnectionHandlerUpgrErr<io::Error>>,
         >,
     ) {
         match event {
