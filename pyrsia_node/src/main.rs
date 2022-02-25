@@ -46,7 +46,7 @@ async fn main() {
 
     // Listen on all interfaces and whatever port the OS assigns
     p2p_client
-        .listen("/ip4/0.0.0.0/tcp/0".parse().unwrap())
+        .listen(args.listen_address)
         .await
         .expect("Listening should not fail");
 

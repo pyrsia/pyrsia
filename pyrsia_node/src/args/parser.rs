@@ -18,6 +18,7 @@ use clap::Parser;
 use libp2p::Multiaddr;
 
 const DEFAULT_HOST: &str = "127.0.0.1";
+const DEFAULT_LISTEN_ADDRESS: &str = "/ip4/0.0.0.0/tcp/0";
 const DEFAULT_PORT: &str = "7888";
 
 /// Application to connect to and participate in the Pyrsia network
@@ -27,6 +28,9 @@ pub struct PyrsiaNodeArgs {
     /// The host address to bind to for the Docker API
     #[clap(long, short = 'H', default_value = DEFAULT_HOST)]
     pub host: String,
+    /// The address to listen to for incoming requests from other pyrsia nodes
+    #[clap(long = "listen", short = 'L', default_value = DEFAULT_LISTEN_ADDRESS)]
+    pub listen_address: Multiaddr,
     /// the port to listen to for the Docker API
     #[clap(long, short, default_value = DEFAULT_PORT)]
     pub port: String,
