@@ -54,7 +54,7 @@ pub async fn handle_get_blobs(
                 hash
             );
 
-            let blob_stored = get_blob_from_elsewhere(p2p_client, peer_id, &name, &hash).await?;
+            let blob_stored = get_blob_from_network(p2p_client, peer_id, &name, &hash).await?;
             if blob_stored {
                 blob_content =
                     get_artifact(&decoded_hash, HashAlgorithm::SHA256).map_err(|_| {
@@ -215,7 +215,8 @@ fn store_blob_in_filesystem(
     Ok(push_result)
 }
 
-async fn get_blob_from_elsewhere(
+// Request the content of the artifact from the pyrsia network
+async fn get_blob_from_network(
     p2p_client: p2p::Client,
     peer_id: Option<PeerId>,
     name: &str,

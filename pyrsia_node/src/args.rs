@@ -14,6 +14,4 @@
    limitations under the License.
 */
 
-pub mod handlers;
-pub mod kademlia_thread_safe_proxy;
-pub mod p2p;
+pub mod parser;

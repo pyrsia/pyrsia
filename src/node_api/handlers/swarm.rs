@@ -38,12 +38,12 @@ pub async fn handle_get_peers(mut p2p_client: p2p::Client) -> Result<impl Reply,
     debug!("Got received_peers: {:?}", peers);
 
     let str_peers: Vec<String> = peers.into_iter().map(|p| p.to_string()).collect();
-    let ser_peers = serde_json::to_string(&str_peers).unwrap();
+    let str_peers_as_json = serde_json::to_string(&str_peers).unwrap();
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
         .status(StatusCode::OK)
-        .body(ser_peers)
+        .body(str_peers_as_json)
         .unwrap())
 }
 
@@ -71,11 +71,11 @@ pub async fn handle_get_status(mut p2p_client: p2p::Client) -> Result<impl Reply
         disk_usage: format!("{:.4}", disk_space_result.unwrap()),
     };
 
-    let ser_status = serde_json::to_string(&status).unwrap();
+    let status_as_json = serde_json::to_string(&status).unwrap();
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/json")
         .status(StatusCode::OK)
-        .body(ser_status)
+        .body(status_as_json)
         .unwrap())
 }
