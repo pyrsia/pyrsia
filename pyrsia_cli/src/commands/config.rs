@@ -88,7 +88,7 @@ mod tests {
             std::fs::remove_dir_all(path.parent().unwrap()).expect("Failed to remove directory");
         }
     }
-    
+
     #[assay(teardown = tear_down())]
     fn test_config_file_update() {
         let cfg: CliConfig = get_config().expect("could not get conf file");
