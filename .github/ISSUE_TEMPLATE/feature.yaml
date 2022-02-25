@@ -1,0 +1,22 @@
+name: "💡 Feature suggestion ✅"
+description: Suggest new features and propose new ideas
+labels: ["triage", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please make sure to [search for existing suggestions](https://github.com/pyrsia/pyrsia/issues) before creating a new feature-request.
+
+  - type: textarea
+    attributes:
+      label: Suggestion details
+      placeholder: Tell us about the new suggestion
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Additional details
+      placeholder: Any additional details including images, links, media
+    validations:
+      required: false

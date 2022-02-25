@@ -13,13 +13,12 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use std::fmt::{Display, Formatter};
-use std::time::{SystemTime, UNIX_EPOCH};
-
+use super::header::*;
+use anyhow::Error;
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
-
-use super::header::*;
+use std::fmt::{Display, Formatter};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 // TransactionType define the type of transaction, currently only create
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
@@ -30,16 +29,19 @@ pub enum TransactionType {
 // struct Signature define a general structure of signature
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Signature {
-    signature: Vec<u8>,
-    pubkey: [u8; 32], //identity::ed25519::PublicKey a byte array in compressed form
+    signature: ed25519_dalek::Signature,
 }
 
 impl Signature {
+    pub fn from_bytes(msg: &[u8]) -> Result<Self, Error> {
+        let sig = ed25519_dalek::Signature::from_bytes(msg)?;
+        Ok(Self { signature: sig })
+    }
+    pub fn to_bytes(self) -> [u8; ed25519_dalek::Signature::BYTE_SIZE] {
+        self.signature.to_bytes()
+    }
     pub fn new(msg: &[u8], keypair: &identity::ed25519::Keypair) -> Self {
-        Self {
-            signature: sign(msg, keypair),
-            pubkey: get_publickey_from_keypair(keypair).encode(),
-        }
+        Signature::from_bytes(&keypair.sign(msg)).unwrap()
     }
 }
 
@@ -83,20 +85,9 @@ impl Block {
         }
     }
 
+    //After merging Aleph consensus algorithm, it would be implemented
     pub fn verify(&self) -> bool {
-        let pubkey = match libp2p::identity::ed25519::PublicKey::decode(&self.signature.pubkey) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("{}", e);
-                return false;
-            }
-        };
-
-        verify(
-            &pubkey,
-            &bincode::serialize(&self.header.current_hash).unwrap(),
-            &self.signature.signature,
-        )
+        true
     }
 }
 
@@ -160,11 +151,6 @@ impl PartialTransaction {
     }
 }
 
-///ToDO
-pub fn verify(pubkey: &identity::ed25519::PublicKey, msg: &[u8], sig: &[u8]) -> bool {
-    (*pubkey).verify(msg, sig)
-}
-
 impl Display for Block {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let json = serde_json::to_string_pretty(&self).expect("json format error");
@@ -174,9 +160,8 @@ impl Display for Block {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
-
     use super::*;
+    use rand::Rng;
 
     #[test]
     fn test_build_block() -> Result<(), String> {
@@ -203,13 +188,7 @@ mod tests {
             rand::thread_rng().gen::<u128>(),
         ));
         let block = Block::new(block_header, transactions.to_vec(), &keypair);
-        let pubkey = libp2p::identity::ed25519::PublicKey::decode(&block.signature.pubkey).unwrap();
 
-        assert!(verify(
-            &pubkey,
-            &bincode::serialize(&block.header.current_hash).unwrap(),
-            &block.signature.signature,
-        ));
         assert_eq!(1, block.header.number);
         Ok(())
     }
