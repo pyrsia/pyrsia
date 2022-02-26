@@ -80,7 +80,7 @@ features = []
 
 [dev-dependencies]
 string_manipulation = {path="tests/string_manipulation"}
-expectest = "0.10.0"
+expectest = "0.12.0"
 tokio-test = "0.4.2"
 assay = "0.1.0"
 

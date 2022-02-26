@@ -19,4 +19,4 @@ name = "pyrsia"
 path = "src/main.rs"
 
 [dev-dependencies]
-expectest = "0.10.0"
+expectest = "0.12.0"
