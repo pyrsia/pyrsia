@@ -100,7 +100,6 @@ mod tests {
                 block::TransactionType::Create,
                 local_id,
                 data.as_bytes().to_vec(),
-                rand::thread_rng().gen::<u128>(),
             ),
             &keypair,
         );
@@ -110,7 +109,6 @@ mod tests {
             local_id,
             header::hash(b""),
             1,
-            rand::thread_rng().gen::<u128>(),
         ));
 
         let block = block::Block::new(block_header, transactions.to_vec(), &keypair);

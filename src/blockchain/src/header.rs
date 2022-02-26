@@ -17,6 +17,7 @@
 use multihash::{Code, Multihash, MultihashDigest};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
+use rand::Rng;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct HashDigest {
@@ -33,7 +34,7 @@ pub struct Header {
     pub transactions_root: HashDigest, //256bit Keccak Hash of the root node of Transaction Tries
     pub timestamp: u64,
     pub number: u128,
-    pub nonce: u128,
+    nonce: u128, // Adds a salt to harden
     pub current_hash: HashDigest, //256bit Keccak Hash of the Current Block Header, excluding itself
 }
 
@@ -65,7 +66,7 @@ pub struct PartialHeader {
     pub transactions_root: HashDigest, //256bit Keccak Hash of the root node of Transaction Tries
     pub timestamp: u64,
     pub number: u128,
-    pub nonce: u128,
+    nonce: u128,
 }
 
 impl PartialHeader {
@@ -74,7 +75,6 @@ impl PartialHeader {
         committer: Address,
         transactions_root: HashDigest,
         number: u128,
-        nonce: u128,
     ) -> Self {
         Self {
             parent_hash,
@@ -85,7 +85,7 @@ impl PartialHeader {
                 .unwrap()
                 .as_secs(),
             number,
-            nonce,
+            nonce: rand::thread_rng().gen::<u128>(),
         }
     }
 }
@@ -108,7 +108,6 @@ mod tests {
     use super::super::block;
     use super::*;
     use libp2p::identity;
-    use rand::Rng;
 
     #[test]
     fn test_build_block_header() -> Result<(), String> {
@@ -120,7 +119,6 @@ mod tests {
             local_id,
             hash(b""),
             5,
-            rand::thread_rng().gen::<u128>(),
         ));
 
         assert_eq!(5, header.number);

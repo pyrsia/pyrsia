@@ -19,6 +19,7 @@ use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::{SystemTime, UNIX_EPOCH};
+use rand::Rng;
 
 // TransactionType define the type of transaction, currently only create
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -98,7 +99,7 @@ pub struct Transaction {
     pub submmitter: Address,
     pub timestamp: u64,
     pub payload: Vec<u8>,
-    pub nonce: u128,
+    nonce: u128, // Adds a salt to harden
     pub transaction_hash: HashDigest,
     pub signature: TransactionSignature,
 }
@@ -128,7 +129,7 @@ pub struct PartialTransaction {
     pub submmitter: Address,
     pub timestamp: u64,
     pub payload: Vec<u8>,
-    pub nonce: u128,
+    nonce: u128,
 }
 
 impl PartialTransaction {
@@ -136,7 +137,6 @@ impl PartialTransaction {
         trans_type: TransactionType,
         submmitter: Address,
         payload: Vec<u8>,
-        nonce: u128,
     ) -> Self {
         Self {
             trans_type,
@@ -146,7 +146,7 @@ impl PartialTransaction {
                 .unwrap()
                 .as_secs(),
             payload,
-            nonce,
+            nonce: rand::thread_rng().gen::<u128>(),
         }
     }
 }
@@ -161,7 +161,6 @@ impl Display for Block {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::Rng;
 
     #[test]
     fn test_build_block() -> Result<(), String> {
@@ -175,7 +174,6 @@ mod tests {
                 TransactionType::Create,
                 local_id,
                 data.as_bytes().to_vec(),
-                rand::thread_rng().gen::<u128>(),
             ),
             &keypair,
         );
@@ -185,7 +183,6 @@ mod tests {
             local_id,
             hash(b""),
             1,
-            rand::thread_rng().gen::<u128>(),
         ));
         let block = Block::new(block_header, transactions.to_vec(), &keypair);
 
