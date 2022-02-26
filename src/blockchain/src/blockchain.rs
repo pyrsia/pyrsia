@@ -162,11 +162,7 @@ mod tests {
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
-            PartialTransaction::new(
-                TransactionType::Create,
-                local_id,
-                data.as_bytes().to_vec(),
-            ),
+            PartialTransaction::new(TransactionType::Create, local_id, data.as_bytes().to_vec()),
             &ed25519_keypair,
         );
         transactions.push(transaction);

@@ -15,9 +15,9 @@
 */
 
 use multihash::{Code, Multihash, MultihashDigest};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
-use rand::Rng;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct HashDigest {
@@ -34,7 +34,7 @@ pub struct Header {
     pub transactions_root: HashDigest, //256bit Keccak Hash of the root node of Transaction Tries
     pub timestamp: u64,
     pub number: u128,
-    nonce: u128, // Adds a salt to harden
+    nonce: u128,                  // Adds a salt to harden
     pub current_hash: HashDigest, //256bit Keccak Hash of the Current Block Header, excluding itself
 }
 
@@ -114,12 +114,7 @@ mod tests {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = hash(&block::get_publickey_from_keypair(&keypair).encode());
 
-        let header = Header::new(PartialHeader::new(
-            hash(b""),
-            local_id,
-            hash(b""),
-            5,
-        ));
+        let header = Header::new(PartialHeader::new(hash(b""), local_id, hash(b""), 5));
 
         assert_eq!(5, header.number);
         Ok(())

@@ -16,10 +16,10 @@
 use super::header::*;
 use anyhow::Error;
 use libp2p::identity;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::{SystemTime, UNIX_EPOCH};
-use rand::Rng;
 
 // TransactionType define the type of transaction, currently only create
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -133,11 +133,7 @@ pub struct PartialTransaction {
 }
 
 impl PartialTransaction {
-    pub fn new(
-        trans_type: TransactionType,
-        submmitter: Address,
-        payload: Vec<u8>,
-    ) -> Self {
+    pub fn new(trans_type: TransactionType, submmitter: Address, payload: Vec<u8>) -> Self {
         Self {
             trans_type,
             submmitter,
@@ -170,20 +166,11 @@ mod tests {
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
-            PartialTransaction::new(
-                TransactionType::Create,
-                local_id,
-                data.as_bytes().to_vec(),
-            ),
+            PartialTransaction::new(TransactionType::Create, local_id, data.as_bytes().to_vec()),
             &keypair,
         );
         transactions.push(transaction);
-        let block_header = Header::new(PartialHeader::new(
-            hash(b""),
-            local_id,
-            hash(b""),
-            1,
-        ));
+        let block_header = Header::new(PartialHeader::new(hash(b""), local_id, hash(b""), 1));
         let block = Block::new(block_header, transactions.to_vec(), &keypair);
 
         assert_eq!(1, block.header.number);

@@ -24,13 +24,10 @@ use libp2p::{
     floodsub::{self, Floodsub},
     identity,
     mdns::Mdns,
-    mplex,
-    noise,
+    mplex, noise,
     swarm::{SwarmBuilder, SwarmEvent},
     tcp::TokioTcpConfig,
-    Multiaddr,
-    PeerId,
-    Transport,
+    Multiaddr, PeerId, Transport,
 };
 
 use pyrsia_blockchain_network::*;
