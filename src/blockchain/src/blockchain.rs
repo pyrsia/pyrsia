@@ -29,12 +29,6 @@ pub enum BlockchainId {
     Pyrsia,
 }
 
-/// Define Supported Hash Algorithm
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum HashAlgorithm {
-    Keccak,
-}
-
 /// Define Supported Signature Algorithm
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SignatureAlgorithm {
@@ -45,8 +39,6 @@ pub enum SignatureAlgorithm {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
     pub blockchain_id: BlockchainId,
-    pub hash_algorithm: HashAlgorithm,
-    pub hash_size: u32, //sizes of u8
     pub signature_algorithm: SignatureAlgorithm,
     pub key_size: u32,
 }
@@ -55,8 +47,6 @@ impl Config {
     pub fn new() -> Self {
         Self {
             blockchain_id: BlockchainId::Pyrsia,
-            hash_algorithm: HashAlgorithm::Keccak,
-            hash_size: 32, //256bits
             signature_algorithm: SignatureAlgorithm::Ed25519,
             key_size: 32, //256bits
         }
