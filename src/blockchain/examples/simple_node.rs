@@ -35,6 +35,7 @@ use libp2p::{
 };
 
 use pyrsia_blockchain_network::*;
+use rand::Rng;
 use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
 
@@ -133,13 +134,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         block::TransactionType::Create,
                         local_id,
                         line.as_bytes().to_vec(),
+                        rand::thread_rng().gen::<u128>(),
                     ),
                     &ed25519_keypair,
                 );
                 transactions.push(transaction);
                 let (parent_hash, previous_number, previous_commiter) = storage::read_last_block(&filepath);
 
-                if check_number == APART_ONE_COMMIT && previous_commiter == local_id {
+                if check_number==APART_ONE_COMMIT && previous_commiter == local_id{
                         println!("The Commit Permission is limited, Please wait others commit");
                         continue;
                 }

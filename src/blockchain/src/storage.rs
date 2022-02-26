@@ -13,10 +13,8 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-
-use libp2p::identity;
-
 use super::*;
+use libp2p::identity;
 
 pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
 
@@ -89,6 +87,7 @@ pub fn write_block(path: &str, block: block::Block) {
 mod tests {
     use super::*;
     use libp2p::identity;
+    use rand::Rng;
 
     #[test]
     fn test_write_read() -> Result<(), String> {
@@ -101,6 +100,7 @@ mod tests {
                 block::TransactionType::Create,
                 local_id,
                 data.as_bytes().to_vec(),
+                rand::thread_rng().gen::<u128>(),
             ),
             &keypair,
         );
@@ -110,6 +110,7 @@ mod tests {
             local_id,
             header::hash(b""),
             1,
+            rand::thread_rng().gen::<u128>(),
         ));
 
         let block = block::Block::new(block_header, transactions.to_vec(), &keypair);
