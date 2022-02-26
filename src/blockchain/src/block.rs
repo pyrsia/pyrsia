@@ -18,6 +18,7 @@ use anyhow::Error;
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 // TransactionType define the type of transaction, currently only create
@@ -27,9 +28,15 @@ pub enum TransactionType {
 }
 
 // struct Signature define a general structure of signature
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Signature {
     signature: ed25519_dalek::Signature,
+}
+
+impl Hash for Signature {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.signature.to_bytes().hash(state);
+    }
 }
 
 impl Signature {

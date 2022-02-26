@@ -326,7 +326,8 @@ mod tests {
                     called.set(true);
                 }
             })
-            .notify_block_event(block);
+            .add_block(block);
+
         assert!(called.get()); // called is still false
         Ok(())
     }
