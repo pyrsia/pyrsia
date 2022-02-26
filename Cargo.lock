@@ -4034,7 +4034,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "assay",
- "async-std",
  "async-trait",
  "base64 0.9.3",
  "bincode",

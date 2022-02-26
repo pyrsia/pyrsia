@@ -14,7 +14,6 @@
    limitations under the License.
 */
 
-use async_std::io;
 use async_trait::async_trait;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
@@ -36,6 +35,7 @@ use std::collections::hash_map::Entry::Vacant;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::io;
 use std::iter;
 
 pub async fn new() -> Result<(Client, impl Stream<Item = Event>, EventLoop), Box<dyn Error>> {
