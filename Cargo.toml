@@ -64,7 +64,7 @@ synapse-rpc = { git = "https://github.com/pyrsia/synapse", branch = "main" }
 tempfile = "3.2.0"
 test-log = "0.2.8"
 thiserror = "1.0.30"
-tokio = { version = "1.14.0", features = [ "macros", "rt-multi-thread", "io-std" ] }
+tokio = { version = "1.17.0", features = [ "macros", "rt-multi-thread", "io-std" ] }
 tungstenite = "0.6.0"
 unqlite = "1.5.0"
 url = "1.5.1"
