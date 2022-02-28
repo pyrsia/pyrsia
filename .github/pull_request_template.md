@@ -21,7 +21,7 @@ This PR does... by accomplishing ... and it can be review by ...
 Make certain your Pull Request has the following.
 
 -->
-- [ ] I've included a brief description below and a good title of the proposed changes and how to review them.
+- [ ] I've included a good title and brief description along with how to review them.
 - [ ] I've read the [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md).
 - [ ] I've linked any associated an [issue](https://github.com/pyrsia/pyrsia/issues).
 - [ ] I've read ["What is a Good PR?"](https://github.com/pyrsia/pyrsia/blob/main/docs/good_pr.md)
