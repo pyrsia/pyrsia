@@ -5,16 +5,16 @@ Before submitting your Pull Request, please go over our check list.
 
 -->
 
+## Description
+
+Fixes pyrsia/pyrsia#
+
+This PR does... by accomplishing ... and it can be review by ...
+
+## Screenshots (optional)
+
+
 ## PR Checklist
-
-<!--
-
-Locally run the build process (required for code changes, or you can remove this section).
-For a complete list of steps, check out the [developer workflow](https://github.com/ppyrsia/pyrsia/blob/main/docs/dev_workflow.md)!
-
--->
-- [ ] I've built the code `cargo build --workspace`.
-- [ ] I've run the unit tests `cargo test --workspace`.
 
 <!--
 
@@ -27,10 +27,13 @@ Make certain your Pull Request has the following.
 - [ ] I've read ["What is a Good PR?"](https://github.com/pyrsia/pyrsia/blob/main/docs/good_pr.md)
 - [ ] I've requested a review  from "pyrsia/collaborators"
 
-## Description
+<!--
 
-Fixes pyrsia/pyrsia#
+Locally run the build process (required for code changes, or you can remove this section).
+For a complete list of steps, check out the [developer workflow](https://github.com/ppyrsia/pyrsia/blob/main/docs/dev_workflow.md)!
 
-This PR does... by accomplishing ...
+-->
+### Code Contributions
 
-## Screenshots (optional)
+- [ ] I've built the code `cargo build --workspace`.
+- [ ] I've run the unit tests `cargo test --workspace`.
