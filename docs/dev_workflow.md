@@ -29,7 +29,7 @@ cargo build --workspace --release
 
 We have dedicated ourselves to the community and following the standard practices such as https://github.com/rust-dev-tools/fmt-rfcs.
 
-❗ We are strict about letting warnings into our code base. This is enforced by our Action jobs.
+❗ We are strict about letting warnings into our code base. This is partially enforced by our Action jobs.
 
 ```sh
 cargo fmt
