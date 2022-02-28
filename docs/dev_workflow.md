@@ -50,7 +50,7 @@ It goes without saying, this is hugely important to use. Make sure to run this i
 ❗ This is enforced by our Action jobs.
 
 ```
-cargo audity
+cargo audit
 ```
 
 ### Install Audit
