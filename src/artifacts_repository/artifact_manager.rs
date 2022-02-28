@@ -17,30 +17,19 @@
 extern crate lava_torrent;
 extern crate walkdir;
 
-use crate::node_manager::handlers::{KADEMLIA_PROXY, LOCAL_PEER_ID};
+use crate::artifacts_repository::hash_util::*;
 use anyhow::{anyhow, bail, Context, Error, Result};
 use fs_extra::dir::get_size;
-use lava_torrent::bencode::BencodeElem;
-use lava_torrent::torrent;
-use lava_torrent::torrent::v1::Torrent;
-use libp2p::kad;
-use libp2p_kad::{Quorum, Record};
 use log::{debug, error, info, warn}; //log_enabled, Level,
-use multihash::{Multihash, MultihashGeneric};
 use path::PathBuf;
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256, Sha512};
 use std::ffi::{OsStr, OsString};
-use std::fmt::{Display, Formatter};
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::{BufWriter, Read, Write};
 use std::path;
 use std::path::Path;
-use std::str::FromStr;
 use strum::IntoEnumIterator;
-use strum_macros::{EnumIter, EnumString};
 use walkdir::{DirEntry, WalkDir};
 
 ///
@@ -50,155 +39,8 @@ use walkdir::{DirEntry, WalkDir};
 /// An artifact is a file that is identified by a hash algorithm and a hash code. To know more about
 /// an artifact, we must consult the metadata that refers to the artifact.
 
-// We will provide implementations of this trait for each hash algorithm that we support.
-trait Digester {
-    fn update_hash(&mut self, input: &[u8]);
-
-    fn finalize_hash(&mut self, hash_buffer: &mut [u8]);
-
-    fn hash_size_in_bytes(&self) -> usize;
-}
-
-impl Digester for Sha256 {
-    fn update_hash(&mut self, input: &[u8]) {
-        self.update(input);
-    }
-
-    fn finalize_hash(&mut self, hash_buffer: &mut [u8]) {
-        hash_buffer.clone_from_slice(self.clone().finalize().as_slice());
-    }
-
-    fn hash_size_in_bytes(&self) -> usize {
-        256 / 8
-    }
-}
-
-impl Digester for Sha512 {
-    fn update_hash(&mut self, input: &[u8]) {
-        self.update(input);
-    }
-
-    fn finalize_hash(&mut self, hash_buffer: &mut [u8]) {
-        hash_buffer.clone_from_slice(self.clone().finalize().as_slice());
-    }
-
-    fn hash_size_in_bytes(&self) -> usize {
-        512 / 8
-    }
-}
-
-/// The types of hash algorithms that the artifact manager supports
-#[derive(EnumIter, Clone, Debug, PartialEq, EnumString, Serialize, Deserialize)]
-pub enum HashAlgorithm {
-    SHA256,
-    SHA512,
-}
-
-impl HashAlgorithm {
-    /// Translate a string that names a hash algorithm to the enum variant.
-    pub fn str_to_hash_algorithm(algorithm_name: &str) -> Result<HashAlgorithm, anyhow::Error> {
-        HashAlgorithm::from_str(&algorithm_name.to_uppercase()).with_context(|| {
-            format!(
-                "{} is not the name of a supported HashAlgorithm.",
-                algorithm_name
-            )
-        })
-    }
-
-    fn digest_factory(&self) -> Box<dyn Digester> {
-        match self {
-            HashAlgorithm::SHA256 => Box::new(Sha256::new()),
-            HashAlgorithm::SHA512 => Box::new(Sha512::new()),
-        }
-    }
-
-    /// Translate a HashAlgorithm to a string.
-    pub fn hash_algorithm_to_str(&self) -> &'static str {
-        match self {
-            HashAlgorithm::SHA256 => "SHA256",
-            HashAlgorithm::SHA512 => "SHA512",
-        }
-    }
-
-    fn hash_length_in_bytes(&self) -> usize {
-        match self {
-            HashAlgorithm::SHA256 => 256 / 8,
-            HashAlgorithm::SHA512 => 512 / 8,
-        }
-    }
-}
-
-impl std::fmt::Display for HashAlgorithm {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(HashAlgorithm::hash_algorithm_to_str(self))
-    }
-}
-
-#[derive(PartialEq, Debug)]
-pub struct Hash {
-    algorithm: HashAlgorithm,
-    bytes: Vec<u8>,
-}
-
-// Code values used to indicate hash algorithms in Multihash. These values come from https://github.com/multiformats/multicodec/blob/master/table.csv
-const MH_SHA2_256: u64 = 0x12;
-const MH_SHA2_512: u64 = 0x13;
-
-impl<'a> Hash {
-    pub fn new(algorithm: HashAlgorithm, bytes: &'a [u8]) -> Result<Self, anyhow::Error> {
-        let expected_length: usize = algorithm.hash_length_in_bytes();
-        if bytes.len() == expected_length {
-            Ok(Hash {
-                algorithm,
-                bytes: bytes.to_vec(),
-            })
-        } else {
-            Err(anyhow!(format!("The hash value does not have the correct length for the algorithm. The expected length is {} bytes, but the length of the supplied hash is {}.", expected_length, bytes.len())))
-        }
-    }
-
-    pub fn to_multihash(&self) -> Result<Multihash> {
-        match self.algorithm {
-            HashAlgorithm::SHA256 => MultihashGeneric::wrap(MH_SHA2_256, &self.bytes),
-            HashAlgorithm::SHA512 => MultihashGeneric::wrap(MH_SHA2_512, &self.bytes),
-        }
-        .context("Error creating a multihash from a Hash struct")
-    }
-
-    pub fn from_multihash(mh: Multihash) -> Result<Hash> {
-        match mh.code() {
-            MH_SHA2_256 => Hash::new(HashAlgorithm::SHA256, mh.digest()),
-            MH_SHA2_512 => Hash::new(HashAlgorithm::SHA512, mh.digest()),
-            _ => bail!(
-                "Unable to create Hash struct from multihash with unknown type code 0x{:x}",
-                mh.code()
-            ),
-        }
-    }
-}
-
-impl Display for Hash {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!(
-            "{}:{}",
-            self.algorithm.hash_algorithm_to_str(),
-            hex::encode(&self.bytes)
-        ))
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// TODO: What is above this comment should be moved to a separate hash module.
-// What is below stays
-///////////////////////////////////////////////////////////////////////////////
-
 fn encode_bytes_as_file_name(bytes: &[u8]) -> String {
     hex::encode(bytes)
-}
-
-fn decode_bytes_from_file_name(file_name: &str) -> Result<Vec<u8>> {
-    hex::decode(file_name)
-        .with_context(|| format!("Error converting hex string \"{}\" to bytes", file_name))
 }
 
 // The base file path (no extension on the file name) that will correspond to this hash.
@@ -302,11 +144,10 @@ impl<'a> Write for WriteHashDecorator<'a> {
 /// Pyrsia needs to know about.
 pub struct ArtifactManager {
     pub repository_path: PathBuf,
-    repository_path_component_count: u16,
+    pub repository_path_component_count: u16,
 }
 
 const FILE_EXTENSION: &str = "file";
-const TORRENT_EXTENSION: &str = "torrent";
 
 impl ArtifactManager {
     /// Create a new ArtifactManager that works with artifacts in the given directory
@@ -382,107 +223,11 @@ impl ArtifactManager {
                     &*do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
                 if actual_hash == expected_hash.bytes {
                     rename_to_permanent(expected_hash, &base_path, &tmp_path)?;
-                    let torrent_file_path = create_torrent_file_from(&base_path)?;
-                    self.add_torrent_to_dht(torrent_file_path.as_path())?;
                     Ok(true)
                 } else {
                     handle_wrong_hash(expected_hash, tmp_path, actual_hash)
                 }
             }
-        }
-    }
-
-    fn add_torrent_to_dht(&self, torrent_path: &Path) -> Result<()> {
-        fn create_dht_record(multihash: &Multihash, torrent: Torrent) -> Result<Record> {
-            let mut torrent_bytes = Vec::new();
-            torrent
-                .write_into(&mut torrent_bytes)
-                .map_err(|err| anyhow!("Error writing torrent: {}", err))?;
-            let dht_record = kad::Record {
-                key: libp2p::kad::record::Key::new(&multihash.to_bytes()),
-                value: torrent_bytes,
-                publisher: Some(*LOCAL_PEER_ID),
-                expires: None,
-            };
-            Ok(dht_record)
-        }
-
-        fn read_torrent_from_file(torrent_path: &Path) -> Result<Torrent, Error> {
-            Torrent::read_from_file(torrent_path).map_err(|err| {
-                anyhow!(
-                    "Error reading torrent file at {}\n{}",
-                    torrent_path.display(),
-                    err
-                )
-            })
-        }
-
-        fn put_record_in_dht(torrent_path: &Path, dht_record: Record) -> Result<()> {
-            // TODO We should look at configuring a numeric quorum size.
-            match KADEMLIA_PROXY.put_record(dht_record, Quorum::Majority) {
-                Ok(query_id) => {
-                    info!("QueryId {:?} to add torrent to dht: {}", query_id, torrent_path.display());
-                    Ok(())
-                }
-                Err(error) => bail!(
-                    "Error putting a record in the Kademlia DHT to advertise torrent: {:?}\nTorrent path is {}",
-                    error, torrent_path.display()
-                )
-            }
-        }
-
-        debug!("Adding torrent to dht: {}", torrent_path.display());
-        let multihash = self.path_to_hash(torrent_path)?.to_multihash()?;
-        let torrent = read_torrent_from_file(torrent_path)?;
-        let dht_record = create_dht_record(&multihash, torrent).with_context(|| {
-            format!(
-                "Error creating DHT record for torrent {}",
-                torrent_path.display()
-            )
-        })?;
-        put_record_in_dht(torrent_path, dht_record)
-    }
-
-    fn path_to_hash(&self, torrent_path: &Path) -> Result<Hash> {
-        let hash_algorithm = self.get_hash_algorithm_from_path(torrent_path)?;
-        match torrent_path.file_stem() {
-            None => {
-                bail!(
-                    "torrent path does not have a valid file name stem: {}",
-                    torrent_path.display()
-                )
-            }
-            Some(file_stem) => Hash::new(
-                hash_algorithm,
-                &decode_bytes_from_file_name(&*file_stem.to_string_lossy())?,
-            ),
-        }
-    }
-
-    fn get_hash_algorithm_from_path(&self, torrent_path: &Path) -> Result<HashAlgorithm> {
-        let mut components = torrent_path.components();
-        let no_algorithm_directory = || {
-            bail!(
-                "Torrent path does not contain a hash algorithm directory: {}",
-                torrent_path.display()
-            )
-        };
-        debug!(
-            "get_hash_algorithm_from_path: repo_path is {}\nTorrent path is {}",
-            self.repository_path.display(),
-            torrent_path.display()
-        );
-        for _ in 0..self.repository_path_component_count {
-            if components.next().is_none() {
-                return no_algorithm_directory();
-            }
-        }
-        match components
-            .next()
-            .map(|component| component.as_os_str().to_string_lossy().to_string())
-        {
-            None => no_algorithm_directory(),
-            Some(algorithm_name) => HashAlgorithm::str_to_hash_algorithm(&algorithm_name),
         }
     }
 
@@ -558,48 +303,6 @@ fn compute_hash_of_file<'a>(
     }
     let mut hash_buffer = [0u8; HASH_BUFFER_SIZE];
     Ok(actual_hash(&mut hash_buffer, &mut digester).to_vec())
-}
-
-fn create_torrent_file_from(path: &Path) -> Result<PathBuf> {
-    let torrent_content = create_torrent_content(path)?;
-    let relative_torrent_path = path.with_extension(TORRENT_EXTENSION);
-    write_torrent_to_file(torrent_content, &relative_torrent_path)?;
-    let absolute_torrent_path = fs::canonicalize(relative_torrent_path)?;
-    debug!(
-        "Absolute torrent path is {}",
-        absolute_torrent_path.display()
-    );
-    Ok(absolute_torrent_path)
-}
-
-fn write_torrent_to_file(torrent_content: Torrent, torrent_path: &Path) -> Result<()> {
-    match torrent_content.write_into_file(torrent_path.to_path_buf()) {
-        Ok(_) => {
-            debug!("Wrote torrent file: {}", torrent_path.display());
-            Ok(())
-        }
-        Err(error) => bail!(
-            "Error writing torrent to file {}: {}",
-            torrent_path.display(),
-            error
-        ),
-    }
-}
-
-const DEFAULT_TORRENT_PIECE_SIZE: i64 = 1048576;
-
-fn create_torrent_content(path: &Path) -> Result<Torrent> {
-    let peer_id = &*LOCAL_PEER_ID;
-    match torrent::v1::TorrentBuilder::new(path, DEFAULT_TORRENT_PIECE_SIZE)
-        .add_extra_field(
-            "x_create_by".to_string(),
-            BencodeElem::String(format!("Pyrsia Node: {}", peer_id)),
-        )
-        .build()
-    {
-        Ok(torrent) => Ok(torrent),
-        Err(error) => bail!("Error creating torrent for {}: {}", path.display(), error),
-    }
 }
 
 fn inaccessible_repo_directory_error(repository_path: &str) -> Result<ArtifactManager, Error> {
@@ -748,11 +451,9 @@ fn is_accessible_directory(repository_path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::artifact_manager::{ArtifactManager, Hash, HashAlgorithm};
     use anyhow::{anyhow, Context};
     use env_logger::Target;
     use log::{info, LevelFilter};
-    use num_traits::cast::AsPrimitive;
     use rand::{Rng, RngCore};
     use std::env;
     use std::fs;
@@ -829,17 +530,6 @@ mod tests {
     }
 
     #[test]
-    pub fn hash_to_multihash_to_hash() -> Result<()> {
-        let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
-        let hash2 = Hash::from_multihash(hash.to_multihash()?)?;
-        assert_eq!(
-            hash, hash2,
-            "Hash converted to multihash converted to hash should equal the original hash"
-        );
-        Ok(())
-    }
-
-    #[test]
     pub fn push_artifact_then_pull_it() -> Result<(), anyhow::Error> {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
         let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
@@ -856,17 +546,7 @@ mod tests {
         am.push_artifact(&mut string_reader, &hash)
             .context("Error from push_artifact")?;
 
-        let mut path_buf = check_artifact_is_written_correctly(&dir_name)?;
-
-        // Check that torrent file was written correctly
-        let mut torrent_path_buf = path_buf.clone();
-        torrent_path_buf.set_extension(TORRENT_EXTENSION);
-        let absolute_torrent_path_buf = fs::canonicalize(torrent_path_buf)?;
-        let torrent_path = absolute_torrent_path_buf.as_path();
-        let torrent = read_torrent_from_file(&torrent_path);
-        check_torrent(&mut path_buf, &torrent);
-
-        find_torrent_in_dht(&am, &torrent_path)?;
+        let _path_buf = check_artifact_is_written_correctly(&dir_name)?;
 
         // Currently the space_used method does not include the size of directories in the directory tree, so this is how we obtain an independent result to check it.
         let size_of_files_in_directory_tree =
@@ -892,12 +572,6 @@ mod tests {
         Ok(())
     }
 
-    fn find_torrent_in_dht(am: &ArtifactManager, path: &Path) -> Result<()> {
-        let _multihash = am.path_to_hash(path)?.to_multihash()?;
-        //TODO The test to see if the torrent is in the DHT involves code that will be in the next PR.
-        Ok(())
-    }
-
     fn check_artifact_is_written_correctly(dir_name: &String) -> Result<PathBuf> {
         let mut path_buf = PathBuf::from(dir_name.clone());
         path_buf.push("SHA256");
@@ -908,10 +582,6 @@ mod tests {
         Ok(path_buf)
     }
 
-    fn read_torrent_from_file(torrent_path_buf: &Path) -> Torrent {
-        torrent::v1::Torrent::read_from_file(torrent_path_buf).expect("Reading torrent file")
-    }
-
     fn check_able_to_pull_artifact(hash: &Hash, am: &ArtifactManager) -> Result<()> {
         let mut reader = am
             .pull_artifact(&hash)
@@ -920,35 +590,6 @@ mod tests {
         reader.read_to_string(&mut read_buffer)?;
         assert_eq!(TEST_ARTIFACT_DATA, read_buffer);
         Ok(())
-    }
-
-    fn check_torrent(path_buf: &mut PathBuf, torrent: &Torrent) {
-        assert!(torrent.announce.is_none());
-        let file_metadata = fs::metadata(path_buf.clone())
-            .expect(&format!("Expected file to exist: {}", path_buf.display()));
-        let torrent_length_as_u64: u64 = torrent.length.as_();
-        assert_eq!(
-            file_metadata.len(),
-            torrent_length_as_u64,
-            "file length in torrent"
-        );
-        assert_eq!(
-            path_buf.file_name().unwrap().to_str().unwrap(),
-            &torrent.name,
-            "file name in torrent"
-        );
-        assert_eq!(
-            DEFAULT_TORRENT_PIECE_SIZE, torrent.piece_length,
-            "piece length"
-        );
-    }
-
-    #[test]
-    pub fn hash_length_does_not_match_algorithm_test() {
-        assert!(
-            Hash::new(HashAlgorithm::SHA512, &[0u8; 7]).is_err(),
-            "A 56 bit hash value for SHA512 should be an error"
-        )
     }
 
     #[test]
