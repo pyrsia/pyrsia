@@ -56,3 +56,8 @@ cargo audity
 ### Install Audit
 
 - RustSec's Audit: https://github.com/rustsec/rustsec/tree/main/cargo-audit#installation
+
+## End-to-End testing
+
+It's strongly encouraged to run a full test to make sure interaction with external tools are not broken.
+You can follow the [Local Development Setup](local_dev_setup.md) guide to perform this.
