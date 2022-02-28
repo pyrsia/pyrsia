@@ -42,8 +42,8 @@ jobs:
             github.rest.pulls.requestReviewers({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.pull_request.number,
-              team_reviewers: ["pyrsia/collaborators"]
+              pull_number: context.payload.number,
+              team_reviewers: ["pyrsia/maintainers"],
             });
     
   darfting-pr:
