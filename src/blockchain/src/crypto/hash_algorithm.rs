@@ -19,7 +19,7 @@ extern crate aleph_bft;
 use multihash::{Code, Multihash, MultihashDigest};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HashDigest {
     multihash: Multihash,
 }

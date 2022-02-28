@@ -86,8 +86,8 @@ dependencies = [
  "futures-timer",
  "log",
  "parity-scale-codec",
- "parking_lot",
- "rand 0.8.4",
+ "parking_lot 0.11.2",
+ "rand 0.8.5",
 ]
 
 [[package]]

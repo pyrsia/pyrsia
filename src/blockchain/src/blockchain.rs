@@ -14,11 +14,11 @@
    limitations under the License.
 */
 
-use std::collections::HashMap;
-use std::fmt::{Debug, Display, Formatter};
 use libp2p::identity;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt::{self, Debug, Display, Formatter};
 
 use super::block::*;
 use super::crypto::hash_algorithm::HashDigest;
