@@ -760,6 +760,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
 
 [[package]]
+name = "core2"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b49ba7ef1ad6107f8824dbe97de947cbaac53c44e7f9756a1fba0d37c1eec505"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1940,7 +1949,7 @@ dependencies = [
  "libp2p-wasm-ext",
  "libp2p-websocket",
  "libp2p-yamux",
- "multiaddr",
+ "multiaddr 0.13.0",
  "parking_lot 0.11.2",
  "pin-project 1.0.10",
  "rand 0.7.3",
@@ -1982,7 +1991,7 @@ dependencies = [
  "instant",
  "lazy_static",
  "log",
- "multiaddr",
+ "multiaddr 0.13.0",
  "multihash 0.14.0",
  "multistream-select 0.10.4",
  "parking_lot 0.11.2",
@@ -2002,9 +2011,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-core"
-version = "0.31.1"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c4178afd65bf7c56744b4e0a6cfa6e9b694fe666efba596e03a46f79454d8d"
+checksum = "9164ec41455856e8187addc870bb4fe1ea2ee28e1a9244831d449a2429b32c1a"
 dependencies = [
  "asn1_der",
  "bs58",
@@ -2153,9 +2162,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-kad"
-version = "0.34.0"
+version = "0.35.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0eeaa28a4c7a8c574874e090c2a731ecc7b81595911fee425b552c799a20abbb"
+checksum = "aead5ee2322a7b825c7633065370909c8383046f955cda5b56797e6904db7a72"
 dependencies = [
  "arrayvec 0.5.2",
  "asynchronous-codec",
@@ -2165,8 +2174,8 @@ dependencies = [
  "futures",
  "futures-timer",
  "instant",
- "libp2p-core 0.31.1",
- "libp2p-swarm 0.33.0",
+ "libp2p-core 0.32.0",
+ "libp2p-swarm 0.34.0",
  "log",
  "prost",
  "prost-build",
@@ -2389,18 +2398,21 @@ dependencies = [
 
 [[package]]
 name = "libp2p-swarm"
-version = "0.33.0"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db8ae0811c7a05b6edc6684eb5cc69b055cbb715ad780e6b97872d90308503c1"
+checksum = "53ab2d4eb8ef2966b10fdf859245cdd231026df76d3c6ed2cf9e418a8f688ec9"
 dependencies = [
  "either",
+ "fnv",
  "futures",
  "futures-timer",
  "instant",
- "libp2p-core 0.31.1",
+ "libp2p-core 0.32.0",
  "log",
+ "pin-project 1.0.10",
  "rand 0.7.3",
  "smallvec",
+ "thiserror",
  "void",
 ]
 
@@ -2727,6 +2739,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "multiaddr"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c580bfdd8803cce319b047d239559a22f809094aaea4ac13902a1fdcfcd4261"
+dependencies = [
+ "arrayref",
+ "bs58",
+ "byteorder",
+ "data-encoding",
+ "multihash 0.16.1",
+ "percent-encoding 2.1.0",
+ "serde",
+ "static_assertions",
+ "unsigned-varint",
+ "url 2.2.2",
+]
+
+[[package]]
 name = "multihash"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2734,7 +2764,7 @@ checksum = "752a61cd890ff691b4411423d23816d5866dd5621e4d1c5687a53b94b5a979d8"
 dependencies = [
  "digest 0.9.0",
  "generic-array 0.14.5",
- "multihash-derive",
+ "multihash-derive 0.7.2",
  "sha2 0.9.9",
  "unsigned-varint",
 ]
@@ -2750,10 +2780,23 @@ dependencies = [
  "blake3",
  "digest 0.9.0",
  "generic-array 0.14.5",
- "multihash-derive",
+ "multihash-derive 0.7.2",
  "serde",
  "sha2 0.9.9",
  "sha3 0.9.1",
+ "unsigned-varint",
+]
+
+[[package]]
+name = "multihash"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7392bffd88bc0c4f8297e36a777ab9f80b7127409c4a1acb8fee99c9f27addcd"
+dependencies = [
+ "core2",
+ "digest 0.10.3",
+ "multihash-derive 0.8.0",
+ "sha2 0.10.2",
  "unsigned-varint",
 ]
 
@@ -2762,6 +2805,20 @@ name = "multihash-derive"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "424f6e86263cd5294cbd7f1e95746b95aca0e0d66bff31e5a40d6baa87b4aa99"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "synstructure",
+]
+
+[[package]]
+name = "multihash-derive"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc076939022111618a5026d3be019fd8b366e76314538ff9a1b59ffbcbf98bcd"
 dependencies = [
  "proc-macro-crate",
  "proc-macro-error",
@@ -3477,7 +3534,7 @@ dependencies = [
  "lava_torrent",
  "lazy_static",
  "libp2p",
- "libp2p-kad 0.33.0",
+ "libp2p-kad 0.35.0",
  "log",
  "maplit",
  "multihash 0.15.0",
