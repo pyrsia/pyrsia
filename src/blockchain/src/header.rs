@@ -26,15 +26,21 @@ pub struct HashDigest {
 pub type Address = HashDigest;
 
 // struct Header define the header of a block
+//      parent_hash: 256bit Keccak Hash of the Parent Block(previous Block idx)
+//      committer:  the committer node's PeerID
+//      transactions_root: 256bit Keccak Hash of the root node of Transaction Tries
+//      timestamp: Unix tim, the number of seconds that have elapsed since the Unix epoch, excluding leap seconds
+//      number: block sequence number, the current block number should be the parent(previous) block number plus 1
+//      idx: 256bit Keccak Hash of the Current Block Header, excluding itself
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Header {
-    pub parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
-    pub committer: Address,      //the committer node's PeerID
-    pub transactions_root: HashDigest, //256bit Keccak Hash of the root node of Transaction Tries
+    pub parent_hash: HashDigest,
+    pub committer: Address,
+    pub transactions_root: HashDigest,
     pub timestamp: u64,
     pub number: u128,
     pub nonce: u128,
-    pub current_hash: HashDigest, //256bit Keccak Hash of the Current Block Header, excluding itself
+    pub idx: HashDigest,
 }
 
 impl Header {
@@ -46,7 +52,7 @@ impl Header {
             timestamp: partial_header.timestamp,
             number: partial_header.number,
             nonce: partial_header.nonce,
-            current_hash: hash(&(bincode::serialize(&partial_header).unwrap())),
+            idx: hash(&(bincode::serialize(&partial_header).unwrap())),
         }
     }
 }

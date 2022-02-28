@@ -78,10 +78,7 @@ impl Block {
         Self {
             header,
             transactions,
-            signature: Signature::new(
-                &bincode::serialize(&header.current_hash).unwrap(),
-                ed25519_keypair,
-            ),
+            signature: Signature::new(&bincode::serialize(&header.idx).unwrap(), ed25519_keypair),
         }
     }
 
