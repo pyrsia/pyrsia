@@ -22,7 +22,7 @@ use super::crypto::hash_algorithm::HashDigest;
 pub type Address = HashDigest;
 
 // struct Header define the header of a block
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub struct Header {
     pub parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
     pub committer: Address,      //the committer node's PeerID
@@ -48,7 +48,7 @@ impl Header {
 }
 
 // struct PartialHeader is a part of struct header for easily count the hash value of block
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PartialHeader {
     pub parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
     pub committer: Address,      //the committer node's PeerID
