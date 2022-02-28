@@ -6,6 +6,8 @@ When developing new features for Pyrsia, we aim for the best quality code possib
 
 The base line is making sure all the code compiles and every test passes.
 
+❗ This is enforced by our Action jobs.
+
 ```sh
 cargo build --worksapce
 cargo test --workspace
