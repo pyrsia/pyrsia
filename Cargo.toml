@@ -44,7 +44,7 @@ hyper-tls = "0.5.0"
 itertools = "0.10.3"
 lava_torrent = "0.5.0"
 lazy_static = "1.4.0"
-libp2p = { version = "0.41.1", features=["tcp-tokio"]}
+libp2p = { version = "0.42.2", features=["tcp-tokio"]}
 libp2p-kad = "0.33.0"
 log = { version = "0.4.14", features = ["max_level_trace", "release_max_level_info"] }
 maplit = "1.0.2"
