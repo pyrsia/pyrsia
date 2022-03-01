@@ -292,12 +292,7 @@ mod tests {
         };
         let local_id = hash(&get_publickey_from_keypair(&ed25519_keypair).encode());
 
-        let block_header = Header::new(PartialHeader::new(
-            hash(b""),
-            local_id,
-            hash(b""),
-            1,
-        ));
+        let block_header = Header::new(PartialHeader::new(hash(b""), local_id, hash(b""), 1));
 
         let block = Block::new(
             block_header,
