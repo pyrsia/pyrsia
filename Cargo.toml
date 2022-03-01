@@ -60,7 +60,7 @@ serial_test = "0.5.1"
 sha2 = { version = "0.9.8" }
 stringreader = "0.1.1"
 strum = "0.24.0"
-strum_macros = "0.22.0"
+strum_macros = "0.24.0"
 tempfile = "3.2.0"
 test-log = "0.2.8"
 thiserror = "1.0.30"
