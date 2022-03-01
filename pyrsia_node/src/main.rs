@@ -33,9 +33,10 @@ use warp::Filter;
 async fn main() {
     pretty_env_logger::init();
 
-    // Initiate the document store with it's first document
-    let index_one = "index_one";
-    let field1 = "most_significant_field";
+    let args = args::parser::PyrsiaNodeArgs::parse();
+
+    let (mut p2p_client, mut p2p_events, event_loop) = p2p::new().await.unwrap();
+
     tokio::spawn(event_loop.run());
 
     let final_peer_id = match args.peer {
@@ -45,6 +46,7 @@ async fn main() {
 
     // Listen on all interfaces and whatever port the OS assigns
     p2p_client
+        .listen(args.listen_address)
         .await
         .expect("Listening should not fail");
 
