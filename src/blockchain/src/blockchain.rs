@@ -254,7 +254,7 @@ mod tests {
             identity::Keypair::Rsa(_) => todo!(),
             identity::Keypair::Secp256k1(_) => todo!(),
         };
-        let local_id = hash(&get_publickey_from_keypair(&ed25519_keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
         let mut chain = Blockchain::new(&ed25519_keypair);
 
         let transaction = Transaction::new(
@@ -288,12 +288,12 @@ mod tests {
             identity::Keypair::Rsa(_) => todo!(),
             identity::Keypair::Secp256k1(_) => todo!(),
         };
-        let local_id = hash(&get_publickey_from_keypair(&ed25519_keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
 
         let block_header = Header::new(PartialHeader::new(
-            hash(b""),
+            HashDigest::new(b""),
             local_id,
-            hash(b""),
+            HashDigest::new(b""),
             1,
             rand::thread_rng().gen::<u128>(),
         ));
