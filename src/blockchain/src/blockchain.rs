@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use super::block::*;
 use super::header::*;
+use super::signature::Signature;
 
 /// BlockchainId identifies the current chain
 #[derive(Serialize, Deserialize, Debug, Clone)]
