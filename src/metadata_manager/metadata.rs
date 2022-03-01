@@ -325,7 +325,7 @@ fn insert_metadata<'a, T: Signed<'a> + Debug>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artifact_manager::HashAlgorithm;
+    use crate::artifacts_repository::hash_util::HashAlgorithm;
     use crate::model::namespace::NamespaceBuilder;
     use crate::node_manager::handlers::METADATA_MGR;
     use crate::node_manager::model::artifact::ArtifactBuilder;

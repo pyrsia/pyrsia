@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use crate::artifact_manager::HashAlgorithm;
+use crate::artifacts_repository::hash_util::HashAlgorithm;
 use crate::network::p2p;
 use crate::node_manager::handlers::get_artifact;
 use libp2p::core::PeerId;
