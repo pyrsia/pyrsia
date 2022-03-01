@@ -25,8 +25,8 @@ extern crate pyrsia;
 
 #[tokio::main]
 async fn main() {
-    //parsing command line arguments
 
+    // parsing command line arguments
     let matches = cli_parser();
 
     // checking and preparing responses for each command and arguments
