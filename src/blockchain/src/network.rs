@@ -44,7 +44,7 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for Behaviour {
                 None => String::from("./first"),
             };
 
-            storage::write_block(filepath, block);
+            storage::write_block(&filepath, block);
         }
     }
 }
