@@ -34,6 +34,17 @@ jobs:
           project: Pyrsia Development
           column: In Progress
           repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
+      - if: github.event.pull_request.user.login == 'dependabot'
+        uses: actions/github-script@v6.0.0
+        with:
+          github-token: ${{ secrets.ORG_ACCESS_TOKEN }}
+          script: |
+            github.rest.pulls.requestReviewers({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.number,
+              team_reviewers: ["pyrsia/collaborators"],
+            });
     
   darfting-pr:
     runs-on: ubuntu-latest

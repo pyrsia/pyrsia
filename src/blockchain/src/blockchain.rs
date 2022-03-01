@@ -23,6 +23,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use super::block::*;
 use super::crypto::hash_algorithm::HashDigest;
 use super::header::*;
+use super::signature::Signature;
 
 /// BlockchainId identifies the current chain
 #[derive(Serialize, Deserialize, Debug, Clone)]

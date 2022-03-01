@@ -14,45 +14,20 @@
    limitations under the License.
 */
 
-use anyhow::Error;
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::crypto::hash_algorithm::HashDigest;
 use super::header::*;
+use super::signature::Signature;
 
 // TransactionType define the type of transaction, currently only create
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum TransactionType {
     Create,
-}
-
-// struct Signature define a general structure of signature
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct Signature {
-    signature: ed25519_dalek::Signature,
-}
-
-impl Hash for Signature {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.signature.to_bytes().hash(state);
-    }
-}
-
-impl Signature {
-    pub fn from_bytes(msg: &[u8]) -> Result<Self, Error> {
-        let sig = ed25519_dalek::Signature::from_bytes(msg)?;
-        Ok(Self { signature: sig })
-    }
-    pub fn to_bytes(self) -> [u8; ed25519_dalek::Signature::BYTE_SIZE] {
-        self.signature.to_bytes()
-    }
-    pub fn new(msg: &[u8], keypair: &identity::ed25519::Keypair) -> Self {
-        Signature::from_bytes(&keypair.sign(msg)).unwrap()
-    }
 }
 
 // ToDo
