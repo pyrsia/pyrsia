@@ -28,7 +28,9 @@ pub struct AuthorityPen {
 
 impl AuthorityPen {
     pub fn new(/*index: NodeIndex,*/ keypair: Keypair) -> Self {
-        Self { /*index,*/ keypair }
+        Self {
+            /*index,*/ keypair,
+        }
     }
 
     pub fn sign(&self, msg: &[u8]) -> Signature {

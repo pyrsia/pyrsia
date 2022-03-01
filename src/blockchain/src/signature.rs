@@ -14,10 +14,10 @@
    limitations under the License.
 */
 
-use serde::{Deserialize, Serialize};
+use aleph_bft::SignatureSet;
 use codec::{Decode, Encode};
 use libp2p::core::identity::ed25519::Keypair;
-use aleph_bft::{SignatureSet};
+use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
 pub type Error = ed25519_dalek::SignatureError;
@@ -47,7 +47,6 @@ impl Signature {
         Signature::from_bytes(&signed).expect("signed data should always be valid")
     }
 }
-
 
 impl Encode for Signature {
     fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {

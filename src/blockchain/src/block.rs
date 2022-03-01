@@ -17,7 +17,7 @@
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
-use std::hash::{Hash};
+use std::hash::Hash;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::header::*;
