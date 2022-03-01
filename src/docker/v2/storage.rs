@@ -14,6 +14,5 @@
    limitations under the License.
 */
 
-pub mod handlers;
-pub mod routes;
-pub mod storage;
+pub mod blobs;
+pub use crate::artifacts_repository::hash_util::HashAlgorithm;
