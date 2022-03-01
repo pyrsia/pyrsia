@@ -87,7 +87,6 @@ pub fn write_block(path: &str, block: block::Block) {
 mod tests {
     use super::*;
     use libp2p::identity;
-    use rand::Rng;
 
     #[test]
     fn test_write_read() -> Result<(), String> {
