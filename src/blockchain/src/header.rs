@@ -15,10 +15,11 @@
 */
 
 use multihash::{Code, Multihash, MultihashDigest};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub struct HashDigest {
     multihash: Multihash,
 }
@@ -26,14 +27,14 @@ pub struct HashDigest {
 pub type Address = HashDigest;
 
 // struct Header define the header of a block
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub struct Header {
     pub parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
     pub committer: Address,      //the committer node's PeerID
     pub transactions_root: HashDigest, //256bit Keccak Hash of the root node of Transaction Tries
     pub timestamp: u64,
     pub number: u128,
-    pub nonce: u128,
+    nonce: u128,                  // Adds a salt to harden
     pub current_hash: HashDigest, //256bit Keccak Hash of the Current Block Header, excluding itself
 }
 
@@ -58,14 +59,14 @@ pub fn hash(msg: &[u8]) -> HashDigest {
 }
 
 // struct PartialHeader is a part of struct header for easily count the hash value of block
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PartialHeader {
     pub parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
     pub committer: Address,      //the committer node's PeerID
     pub transactions_root: HashDigest, //256bit Keccak Hash of the root node of Transaction Tries
     pub timestamp: u64,
     pub number: u128,
-    pub nonce: u128,
+    nonce: u128,
 }
 
 impl PartialHeader {
@@ -74,7 +75,6 @@ impl PartialHeader {
         committer: Address,
         transactions_root: HashDigest,
         number: u128,
-        nonce: u128,
     ) -> Self {
         Self {
             parent_hash,
@@ -85,7 +85,7 @@ impl PartialHeader {
                 .unwrap()
                 .as_secs(),
             number,
-            nonce,
+            nonce: rand::thread_rng().gen::<u128>(),
         }
     }
 }
@@ -108,20 +108,13 @@ mod tests {
     use super::super::block;
     use super::*;
     use libp2p::identity;
-    use rand::Rng;
 
     #[test]
     fn test_build_block_header() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = hash(&block::get_publickey_from_keypair(&keypair).encode());
 
-        let header = Header::new(PartialHeader::new(
-            hash(b""),
-            local_id,
-            hash(b""),
-            5,
-            rand::thread_rng().gen::<u128>(),
-        ));
+        let header = Header::new(PartialHeader::new(hash(b""), local_id, hash(b""), 5));
 
         assert_eq!(5, header.number);
         Ok(())

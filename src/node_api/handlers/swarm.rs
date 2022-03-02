@@ -15,61 +15,27 @@
 */
 
 use super::{RegistryError, RegistryErrorCode};
+use crate::network::p2p;
 use crate::node_manager::{handlers::*, model::cli::Status};
-use log::{debug, error};
-use std::sync::Arc;
-use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::Mutex;
+use log::debug;
 use warp::{http::StatusCode, Rejection, Reply};
 
-pub async fn handle_add_magnet(tx: Sender<String>) -> Result<impl Reply, Rejection> {
-    match tx.send(String::from("magnet")).await {
-        Ok(_) => debug!("request for magnet sent"),
-        Err(_) => error!("failed to send magnet"),
-    }
-    debug!("Got magnet link");
+pub async fn handle_get_peers(mut p2p_client: p2p::Client) -> Result<impl Reply, Rejection> {
+    let peers = p2p_client.list_peers().await;
+    debug!("Got received_peers: {:?}", peers);
+
+    let str_peers: Vec<String> = peers.into_iter().map(|p| p.to_string()).collect();
+    let str_peers_as_json = serde_json::to_string(&str_peers).unwrap();
+
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
         .status(StatusCode::OK)
-        .body("Successfully sent magnet link")
+        .body(str_peers_as_json)
         .unwrap())
 }
 
-pub async fn handle_get_peers(
-    tx: Sender<String>,
-    rx: Arc<Mutex<Receiver<String>>>,
-) -> Result<impl Reply, Rejection> {
-    match tx.send(String::from("peers")).await {
-        Ok(_) => debug!("request for peers sent"),
-        Err(_) => error!("failed to send stdin input"),
-    }
-
-    let peers = rx.lock().await.recv().await.unwrap();
-    println!("Got received_peers: {}", peers);
-    Ok(warp::http::response::Builder::new()
-        .header("Content-Type", "application/octet-stream")
-        .status(StatusCode::OK)
-        .body(peers)
-        .unwrap())
-}
-
-pub async fn handle_get_status(
-    tx: Sender<String>,
-    rx: Arc<Mutex<Receiver<String>>>,
-) -> Result<impl Reply, Rejection> {
-    match tx.send(String::from("peers")).await {
-        Ok(_) => debug!("request for peers sent"),
-        Err(_) => error!("failed to send stdin input"),
-    }
-
-    let peers = rx.lock().await.recv().await.unwrap();
-    debug!("peers empty: {:?}", peers.is_empty());
-    let mut peers_total = 0;
-    if !peers.is_empty() {
-        let res: Vec<String> = peers.split(',').map(|s| s.to_string()).collect();
-        debug!("peers count: {}", res.len());
-        peers_total = res.len();
-    }
+pub async fn handle_get_status(mut p2p_client: p2p::Client) -> Result<impl Reply, Rejection> {
+    let peers = p2p_client.list_peers().await;
 
     let art_count_result = get_arts_count();
     if art_count_result.is_err() {
@@ -87,16 +53,16 @@ pub async fn handle_get_status(
 
     let status = Status {
         artifact_count: art_count_result.unwrap(),
-        peers_count: peers_total,
+        peers_count: peers.len(),
         disk_allocated: String::from(ALLOCATED_SPACE_FOR_ARTIFACTS),
         disk_usage: format!("{:.4}", disk_space_result.unwrap()),
     };
 
-    let ser_status = serde_json::to_string(&status).unwrap();
+    let status_as_json = serde_json::to_string(&status).unwrap();
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/json")
         .status(StatusCode::OK)
-        .body(ser_status)
+        .body(status_as_json)
         .unwrap())
 }
