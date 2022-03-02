@@ -25,13 +25,13 @@ pub struct HashDigest {
 
 pub type Address = HashDigest;
 
-// struct Header define the header of a block
-//      parent_hash: 256bit Keccak Hash of the Parent Block(previous Block idx)
-//      committer:  the committer node's PeerID
-//      transactions_root: 256bit Keccak Hash of the root node of Transaction Tries
-//      timestamp: Unix tim, the number of seconds that have elapsed since the Unix epoch, excluding leap seconds
-//      number: block sequence number, the current block number should be the parent(previous) block number plus 1
-//      idx: 256bit Keccak Hash of the Current Block Header, excluding itself
+/// struct Header define the header of a block
+///      parent_hash: 256bit Keccak Hash of the Parent Block(previous Block hash)
+///      committer:  the committer node's PeerID
+///      transactions_root: 256bit Keccak Hash of the root node of Transactions Merkle tree
+///      timestamp: Unix tim, the number of seconds that have elapsed since the Unix epoch, excluding leap seconds
+///      number: block sequence number, the current block number should be the parent(previous) block number plus 1
+///      hash: block id, 256bit Keccak Hash of the Current Block Header, excluding itself
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Header {
     pub parent_hash: HashDigest,
@@ -40,7 +40,7 @@ pub struct Header {
     pub timestamp: u64,
     pub number: u128,
     pub nonce: u128,
-    pub idx: HashDigest,
+    pub hash: HashDigest,
 }
 
 impl Header {
@@ -52,7 +52,7 @@ impl Header {
             timestamp: partial_header.timestamp,
             number: partial_header.number,
             nonce: partial_header.nonce,
-            idx: hash(&(bincode::serialize(&partial_header).unwrap())),
+            hash: hash(&(bincode::serialize(&partial_header).unwrap())),
         }
     }
 }

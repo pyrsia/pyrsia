@@ -51,7 +51,7 @@ pub fn read_last_block(path: String) -> (header::HashDigest, u128, header::Addre
     };
 
     (
-        block.header.idx,
+        block.header.hash,
         block.header.number,
         block.header.committer,
     )
@@ -61,7 +61,7 @@ pub fn read_last_block(path: String) -> (header::HashDigest, u128, header::Addre
 pub fn parse_genesis_block(line: &String) -> (header::HashDigest, u128, header::Address) {
     let genesis_block: blockchain::GenesisBlock = serde_json::from_str(line).unwrap();
     (
-        genesis_block.header.idx,
+        genesis_block.header.hash,
         genesis_block.header.number,
         genesis_block.header.committer,
     )
