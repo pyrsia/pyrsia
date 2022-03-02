@@ -22,6 +22,6 @@ path = "src/main.rs"
 
 [dev-dependencies]
 directories = "^2.0"
-assay = "0.1.0"
+assay = "0.1.1"
 
 

@@ -55,6 +55,10 @@ pub fn add_config(new_cfg: CliConfig) -> Result<()> {
     if !new_cfg.port.is_empty() {
         cfg.port = new_cfg.port
     }
+    // need more validation for checking units
+    if !new_cfg.disk_allocated.is_empty() {
+        cfg.disk_allocated = new_cfg.disk_allocated
+    }
 
     confy::store(CONF_FILE, &cfg)?;
 
