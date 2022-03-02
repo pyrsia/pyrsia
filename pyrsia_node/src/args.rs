@@ -14,10 +14,4 @@
    limitations under the License.
 */
 
-pub mod authority_pen;
-pub mod block;
-pub mod blockchain;
-pub mod header;
-pub mod network;
-pub mod signature;
-pub mod storage;
+pub mod parser;

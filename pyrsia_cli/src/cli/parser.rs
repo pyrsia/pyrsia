@@ -14,22 +14,23 @@
    limitations under the License.
 */
 
-use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, ArgMatches};
+use clap::{crate_authors, crate_description, crate_version, Arg, ArgMatches, Command};
 
 pub fn cli_parser() -> ArgMatches {
-    App::new("pyrsia")
+    Command::new("pyrsia")
         .author(crate_authors!("\n"))
         .version(crate_version!())
         .about(crate_description!())
-        .setting(AppSettings::SubcommandRequiredElseHelp)
+        .subcommand_required(true)
+        .arg_required_else_help(true)
         // Config subcommand
         .subcommand(
-            App::new("config")
+            Command::new("config")
                 .short_flag('c')
                 .long_flag("config")
                 .about("Pyrsia config commands")
-                .setting(AppSettings::ArgRequiredElseHelp)
-                .setting(AppSettings::AllowHyphenValues)
+                .arg_required_else_help(true)
+                .allow_hyphen_values(true)
                 .arg(
                     Arg::new("add")
                         .short('a')
@@ -59,12 +60,12 @@ pub fn cli_parser() -> ArgMatches {
         )
         // Node subcommand
         .subcommand(
-            App::new("node")
+            Command::new("node")
                 .short_flag('n')
                 .long_flag("node")
                 .about("Node commands")
-                .setting(AppSettings::ArgRequiredElseHelp)
-                .setting(AppSettings::AllowHyphenValues)
+                .arg_required_else_help(true)
+                .allow_hyphen_values(true)
                 .arg(
                     Arg::new("ping")
                         .short('p')

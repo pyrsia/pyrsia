@@ -22,13 +22,10 @@ use cli::parser::*;
 extern crate clap;
 
 extern crate pyrsia;
-// use pyrsia::model;
 
 #[tokio::main]
 async fn main() {
-    // model::package_version::LicenseTextMimeType::Text;
-    //parsing command line arguments
-
+    // parsing command line arguments
     let matches = cli_parser();
 
     // checking and preparing responses for each command and arguments

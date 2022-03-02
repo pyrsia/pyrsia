@@ -14,10 +14,26 @@
    limitations under the License.
 */
 
-pub mod authority_pen;
-pub mod block;
-pub mod blockchain;
-pub mod header;
-pub mod network;
-pub mod signature;
-pub mod storage;
+// TODO(prince-chrismc): Re-introduce `NodeIndex` to associate with `PeerId` when adding `KeyBox`
+// use aleph_bft::NodeIndex;
+use libp2p::core::identity::ed25519::Keypair;
+
+use super::signature::Signature;
+
+#[derive(Clone)]
+pub struct AuthorityPen {
+    // index: NodeIndex,
+    keypair: Keypair,
+}
+
+impl AuthorityPen {
+    pub fn new(/*index: NodeIndex,*/ keypair: Keypair) -> Self {
+        Self {
+            /*index,*/ keypair,
+        }
+    }
+
+    pub fn sign(&self, msg: &[u8]) -> Signature {
+        Signature::new(msg, &self.keypair)
+    }
+}

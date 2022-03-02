@@ -17,4 +17,5 @@
 pub mod handlers;
 pub mod model;
 
-pub use crate::artifact_manager::*;
+pub use crate::artifacts_repository::artifact_manager::*;
+pub use crate::artifacts_repository::hash_util::*;

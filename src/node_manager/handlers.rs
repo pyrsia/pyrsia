@@ -215,7 +215,6 @@ mod tests {
         assert!(!untrusted_key_pair.private_key.is_empty());
     }
 
-    #[test]
     #[assay(
         env = [
           ("PYRSIA_ARTIFACT_PATH", "PyrisaTest"),
@@ -231,15 +230,13 @@ mod tests {
         let am: ArtifactManager = ArtifactManager::new(name)?;
 
         let usage_pct_before = disk_usage(name).context("Error from disk_usage")?;
-        assert_eq!("0.0", format!("{:.1}", usage_pct_before));
 
         create_artifact(am).context("Error creating artifact")?;
 
         let usage_pct_after = disk_usage(name).context("Error from disk_usage")?;
-        assert_eq!("0.000047", format!("{:.6}", usage_pct_after));
+        assert!(usage_pct_before < usage_pct_after);
     }
 
-    #[test]
     #[assay(
         env = [
           ("PYRSIA_ARTIFACT_PATH", "PyrisaTest"),
@@ -253,10 +250,6 @@ mod tests {
         let name = tmp_path.to_str().unwrap();
 
         let am: ArtifactManager = ArtifactManager::new(name)?;
-
-        // The amount of space available will vary with the testing environment. The exact decrease
-        // in the amount of space available will depend on the internal details of the artifact
-        // manager, so we are just looking for a decrease after we have added an artifact.
         let space_available_before =
             get_space_available(name).context("Error from get_space_available")?;
 
