@@ -6,3 +6,4 @@ cargo clippy;
 rustup component add rustfmt;
 cargo fmt --check;
 cargo "test --workspace";
+cargo build;
