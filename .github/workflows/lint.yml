@@ -10,7 +10,7 @@ jobs:
   security-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - run: mkdir -p $HOME/.cargo
       - run: cp .github/workflows/.cargo/audit.toml $HOME/.cargo
       - uses: actions-rs/audit-check@v1
@@ -20,7 +20,7 @@ jobs:
   rustfmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - run: rustup component add rustfmt
       - run: cargo fmt -- --check # Prints diff in the action logs
       - if: failure()
@@ -29,7 +29,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - run: rustup component add clippy
       - uses: actions-rs/clippy-check@v1
         with:
@@ -39,7 +39,7 @@ jobs:
   license-header:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: viperproject/check-license-header@v1
         with:
           path: .
@@ -48,7 +48,7 @@ jobs:
   inclusive-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run Woke for Inclusive Linting
         run: |
             curl -sSfL https://git.io/getwoke | bash -s --
