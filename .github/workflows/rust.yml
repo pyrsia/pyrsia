@@ -44,8 +44,7 @@ jobs:
         .github/workflows/build.sh 
         sccache --show-stats
 
-  # Linux Build Job with .deb creation and upload
-  build:
+  build-push-linux:
     runs-on: ubuntu-latest
     env:
       RUSTC_WRAPPER: /home/runner/.cargo/bin/sccache
