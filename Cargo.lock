@@ -4153,6 +4153,7 @@ dependencies = [
  "bincode",
  "ed25519-dalek",
  "futures",
+ "hex",
  "libp2p 0.41.2",
  "log",
  "multihash 0.15.0",
