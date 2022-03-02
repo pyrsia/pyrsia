@@ -15,7 +15,6 @@
 */
 
 use libp2p::identity;
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
@@ -78,7 +77,6 @@ impl GenesisBlock {
             local_id,
             HashDigest::new(&(bincode::serialize(&config).unwrap())),
             0,
-            rand::thread_rng().gen::<u128>(),
         ));
 
         Self {
@@ -180,7 +178,6 @@ pub fn new_block(
         local_id,
         transaction_root,
         previous_number + 1,
-        rand::thread_rng().gen::<u128>(),
     ));
     Block::new(block_header, transactions.to_vec(), keypair)
 }
@@ -219,12 +216,7 @@ mod tests {
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
-            PartialTransaction::new(
-                TransactionType::Create,
-                local_id,
-                data.as_bytes().to_vec(),
-                rand::thread_rng().gen::<u128>(),
-            ),
+            PartialTransaction::new(TransactionType::Create, local_id, data.as_bytes().to_vec()),
             &ed25519_keypair,
         );
         transactions.push(transaction);
@@ -263,7 +255,6 @@ mod tests {
                 TransactionType::Create,
                 local_id,
                 "some transaction".as_bytes().to_vec(),
-                rand::thread_rng().gen::<u128>(),
             ),
             &ed25519_keypair,
         );
@@ -295,8 +286,7 @@ mod tests {
             HashDigest::new(b""),
             local_id,
             HashDigest::new(b""),
-            1,
-            rand::thread_rng().gen::<u128>(),
+            1
         ));
 
         let block = Block::new(

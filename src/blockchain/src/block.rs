@@ -15,6 +15,7 @@
 */
 
 use libp2p::identity;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
@@ -83,7 +84,7 @@ pub struct Transaction {
     pub submitter: Address,
     pub timestamp: u64,
     pub payload: Vec<u8>,
-    pub nonce: u128,
+    nonce: u128, // Adds a salt to harden
     pub transaction_hash: HashDigest,
     pub signature: TransactionSignature,
 }
@@ -113,16 +114,11 @@ pub struct PartialTransaction {
     pub submitter: Address,
     pub timestamp: u64,
     pub payload: Vec<u8>,
-    pub nonce: u128,
+    nonce: u128,
 }
 
 impl PartialTransaction {
-    pub fn new(
-        trans_type: TransactionType,
-        submitter: Address,
-        payload: Vec<u8>,
-        nonce: u128,
-    ) -> Self {
+    pub fn new(trans_type: TransactionType, submitter: Address, payload: Vec<u8>) -> Self {
         Self {
             trans_type,
             submitter,
@@ -131,7 +127,7 @@ impl PartialTransaction {
                 .unwrap()
                 .as_secs(),
             payload,
-            nonce,
+            nonce: rand::thread_rng().gen::<u128>(),
         }
     }
 }
@@ -146,7 +142,6 @@ impl Display for Block {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::Rng;
 
     #[test]
     fn test_build_block() -> Result<(), String> {
@@ -156,12 +151,7 @@ mod tests {
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
-            PartialTransaction::new(
-                TransactionType::Create,
-                local_id,
-                data.as_bytes().to_vec(),
-                rand::thread_rng().gen::<u128>(),
-            ),
+            PartialTransaction::new(TransactionType::Create, local_id, data.as_bytes().to_vec()),
             &keypair,
         );
         transactions.push(transaction);
@@ -169,8 +159,7 @@ mod tests {
             HashDigest::new(b""),
             local_id,
             HashDigest::new(b""),
-            1,
-            rand::thread_rng().gen::<u128>(),
+            1
         ));
         let block = Block::new(block_header, transactions.to_vec(), &keypair);
 

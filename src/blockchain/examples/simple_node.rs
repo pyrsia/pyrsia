@@ -24,14 +24,10 @@ use libp2p::{
     floodsub::{self, Floodsub},
     identity,
     mdns::Mdns,
-    mplex,
-    noise,
+    mplex, noise,
     swarm::{SwarmBuilder, SwarmEvent},
-    // `TokioTcpConfig` is available through the `tcp-tokio` feature.
     tcp::TokioTcpConfig,
-    Multiaddr,
-    PeerId,
-    Transport,
+    Multiaddr, PeerId, Transport,
 };
 use rand::Rng;
 use std::error::Error;
@@ -40,10 +36,9 @@ use tokio::io::{self, AsyncBufReadExt};
 use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
 use pyrsia_blockchain_network::*;
 
-pub const CONTINUE_COMMIT: &str = "1"; //allow to continuously commit
-pub const APART_ONE_COMMIT: &str = "2"; //must be at least one ledger apart to commit
+pub const CONTINUE_COMMIT: &str = "1"; // Allow to continuously commit
+pub const APART_ONE_COMMIT: &str = "2"; // Must be at least one ledger apart to commit
 
-/// The `tokio::main` attribute sets up a tokio runtime.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     // Create a random PeerId
@@ -122,7 +117,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut transactions = vec![];
 
-    storage::append_genesis_block(filepath.clone(), &ed25519_keypair);
+    storage::append_genesis_block(&filepath, &ed25519_keypair);
 
     let local_id = HashDigest::new(&block::get_publickey_from_keypair(&ed25519_keypair).encode());
     // Kick it off
@@ -135,25 +130,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         block::TransactionType::Create,
                         local_id,
                         line.as_bytes().to_vec(),
-                        rand::thread_rng().gen::<u128>(),
                     ),
                     &ed25519_keypair,
                 );
                 transactions.push(transaction);
-                let (parent_hash, previous_number, previous_commiter)=storage::read_last_block(filepath.clone());
+                let (parent_hash, previous_number, previous_commiter) = storage::read_last_block(&filepath);
 
-                if check_number==APART_ONE_COMMIT && previous_commiter == local_id{
-
+                if check_number == APART_ONE_COMMIT && previous_commiter == local_id {
                         println!("The Commit Permission is limited, Please wait others commit");
                         continue;
-
                 }
+
                 let block = blockchain::new_block(&ed25519_keypair, &transactions, parent_hash, previous_number);
                 println!("---------");
                 println!("---------");
                 println!("Add a New Block : {:?}", block);
                 swarm.behaviour_mut().floodsub.publish(floodsub_topic.clone(), bincode::serialize(&block).unwrap());
-                storage::write_block(filepath.clone(), block);
+                storage::write_block(&filepath, block);
             }
             event = swarm.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {

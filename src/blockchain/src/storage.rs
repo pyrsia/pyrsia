@@ -21,7 +21,7 @@ use super::*;
 pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
 
 //Add genesis block to the file
-pub fn append_genesis_block(path: String, key: &identity::ed25519::Keypair) {
+pub fn append_genesis_block(path: &str, key: &identity::ed25519::Keypair) {
     use blockchain::GenesisBlock;
     use std::fs::OpenOptions;
     use std::io::Write;
@@ -40,7 +40,7 @@ pub fn append_genesis_block(path: String, key: &identity::ed25519::Keypair) {
 }
 
 //read a last block from the file, and return this block hash, this block number and this block committer
-pub fn read_last_block(path: String) -> (HashDigest, u128, header::Address) {
+pub fn read_last_block(path: &str) -> (header::HashDigest, u128, header::Address) {
     use std::io::{BufRead, BufReader};
     let file = std::fs::File::open(path).unwrap();
 
@@ -60,7 +60,7 @@ pub fn read_last_block(path: String) -> (HashDigest, u128, header::Address) {
 }
 
 // Unformat the genesis block json string
-pub fn parse_genesis_block(line: &String) -> (HashDigest, u128, header::Address) {
+pub fn parse_genesis_block(line: &str) -> (header::HashDigest, u128, header::Address) {
     let genesis_block: blockchain::GenesisBlock = serde_json::from_str(line).unwrap();
     (
         genesis_block.header.current_hash,
@@ -69,7 +69,7 @@ pub fn parse_genesis_block(line: &String) -> (HashDigest, u128, header::Address)
     )
 }
 //Write a block to the file
-pub fn write_block(path: String, block: block::Block) {
+pub fn write_block(path: &str, block: block::Block) {
     use std::fs::OpenOptions;
     use std::io::Write;
 
@@ -89,7 +89,6 @@ pub fn write_block(path: String, block: block::Block) {
 mod tests {
     use super::*;
     use libp2p::identity;
-    use rand::Rng;
 
     #[test]
     fn test_write_read() -> Result<(), String> {
@@ -102,7 +101,6 @@ mod tests {
                 block::TransactionType::Create,
                 local_id,
                 data.as_bytes().to_vec(),
-                rand::thread_rng().gen::<u128>(),
             ),
             &keypair,
         );
@@ -112,13 +110,12 @@ mod tests {
             local_id,
             HashDigest::new(b""),
             1,
-            rand::thread_rng().gen::<u128>(),
         ));
 
         let block = block::Block::new(block_header, transactions.to_vec(), &keypair);
-        append_genesis_block(BLOCK_FILE_PATH.to_string(), &keypair);
-        write_block(BLOCK_FILE_PATH.to_string(), block);
-        let (_, number, _) = read_last_block(BLOCK_FILE_PATH.to_string());
+        append_genesis_block(BLOCK_FILE_PATH, &keypair);
+        write_block(BLOCK_FILE_PATH, block);
+        let (_, number, _) = read_last_block(BLOCK_FILE_PATH);
 
         assert_eq!(1, number);
         Ok(())
