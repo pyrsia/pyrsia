@@ -142,7 +142,7 @@ jobs:
   # Docker build that uses the published .deb file from the Linux build
   docker:
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [build-push-linux]
     if: github.repository_owner == 'pyrsia' && github.event_name == 'push'
     steps:
     - uses: actions/checkout@v3
