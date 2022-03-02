@@ -1,6 +1,8 @@
 [package]
 name = "pyrsia_node"
 version = "0.1.0"
+description = "Pyrsia Node instance which can connect and participate in the Pyrsia network with other nodes"
+authors = ["pyrsiaoss <pyrsiaopensource@gmail.com>"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

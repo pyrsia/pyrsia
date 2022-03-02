@@ -79,7 +79,6 @@ features = []
 
 [dev-dependencies]
 assay = "0.1.1"
-expectest = "0.12.0"
 string_manipulation = {path="tests/string_manipulation"}
 tokio-test = "0.4.2"
 
