@@ -28,6 +28,7 @@ pub struct Signature {
     signature: ed25519_dalek::Signature,
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Signature {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.signature.to_bytes().hash(state);
