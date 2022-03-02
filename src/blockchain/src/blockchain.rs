@@ -286,7 +286,7 @@ mod tests {
             HashDigest::new(b""),
             local_id,
             HashDigest::new(b""),
-            1
+            1,
         ));
 
         let block = Block::new(
