@@ -13,14 +13,14 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use std::collections::HashMap;
-use std::fmt;
-use std::fmt::{Debug, Display, Formatter};
 
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt::{self, Debug, Display, Formatter};
 
 use super::block::*;
+use super::crypto::hash_algorithm::HashDigest;
 use super::header::*;
 use super::signature::Signature;
 
@@ -28,12 +28,6 @@ use super::signature::Signature;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BlockchainId {
     Pyrsia,
-}
-
-/// Define Supported Hash Algorithm
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum HashAlgorithm {
-    Keccak,
 }
 
 /// Define Supported Signature Algorithm
@@ -46,9 +40,6 @@ pub enum SignatureAlgorithm {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
     pub blockchain_id: BlockchainId,
-    pub hash_algorithm: HashAlgorithm,
-    pub hash_size: u32,
-    //sizes of u8
     pub signature_algorithm: SignatureAlgorithm,
     pub key_size: u32,
 }
@@ -57,8 +48,6 @@ impl Config {
     pub fn new() -> Self {
         Self {
             blockchain_id: BlockchainId::Pyrsia,
-            hash_algorithm: HashAlgorithm::Keccak,
-            hash_size: 32, //256bits
             signature_algorithm: SignatureAlgorithm::Ed25519,
             key_size: 32, //256bits
         }
@@ -81,12 +70,12 @@ pub struct GenesisBlock {
 
 impl GenesisBlock {
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
-        let local_id = hash(&get_publickey_from_keypair(keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(keypair).encode());
         let config = Config::new();
         let header = Header::new(PartialHeader::new(
-            hash(b""),
+            HashDigest::new(b""),
             local_id,
-            hash(&(bincode::serialize(&config).unwrap())),
+            HashDigest::new(&(bincode::serialize(&config).unwrap())),
             0,
         ));
 
@@ -182,8 +171,8 @@ pub fn new_block(
     parent_hash: HashDigest,
     previous_number: u128,
 ) -> Block {
-    let local_id = hash(&get_publickey_from_keypair(keypair).encode());
-    let transaction_root = hash(&bincode::serialize(transactions).unwrap());
+    let local_id = HashDigest::new(&get_publickey_from_keypair(keypair).encode());
+    let transaction_root = HashDigest::new(&bincode::serialize(transactions).unwrap());
     let block_header = Header::new(PartialHeader::new(
         parent_hash,
         local_id,
@@ -221,7 +210,7 @@ mod tests {
             identity::Keypair::Rsa(_) => todo!(),
             identity::Keypair::Secp256k1(_) => todo!(),
         };
-        let local_id = hash(&get_publickey_from_keypair(&ed25519_keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
         let mut chain = Blockchain::new(&ed25519_keypair);
 
         let mut transactions = vec![];
@@ -258,7 +247,7 @@ mod tests {
             identity::Keypair::Rsa(_) => todo!(),
             identity::Keypair::Secp256k1(_) => todo!(),
         };
-        let local_id = hash(&get_publickey_from_keypair(&ed25519_keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
         let mut chain = Blockchain::new(&ed25519_keypair);
 
         let transaction = Transaction::new(
@@ -291,9 +280,14 @@ mod tests {
             identity::Keypair::Rsa(_) => todo!(),
             identity::Keypair::Secp256k1(_) => todo!(),
         };
-        let local_id = hash(&get_publickey_from_keypair(&ed25519_keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
 
-        let block_header = Header::new(PartialHeader::new(hash(b""), local_id, hash(b""), 1));
+        let block_header = Header::new(PartialHeader::new(
+            HashDigest::new(b""),
+            local_id,
+            HashDigest::new(b""),
+            1,
+        ));
 
         let block = Block::new(
             block_header,
