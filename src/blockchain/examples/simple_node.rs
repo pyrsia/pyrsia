@@ -29,7 +29,6 @@ use libp2p::{
     tcp::TokioTcpConfig,
     Multiaddr, PeerId, Transport,
 };
-use rand::Rng;
 use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
 
