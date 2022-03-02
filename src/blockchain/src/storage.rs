@@ -40,7 +40,7 @@ pub fn append_genesis_block(path: &str, key: &identity::ed25519::Keypair) {
 }
 
 //read a last block from the file, and return this block hash, this block number and this block committer
-pub fn read_last_block(path: &str) -> (header::HashDigest, u128, header::Address) {
+pub fn read_last_block(path: &str) -> (HashDigest, u128, header::Address) {
     use std::io::{BufRead, BufReader};
     let file = std::fs::File::open(path).unwrap();
 
@@ -60,7 +60,7 @@ pub fn read_last_block(path: &str) -> (header::HashDigest, u128, header::Address
 }
 
 // Unformat the genesis block json string
-pub fn parse_genesis_block(line: &str) -> (header::HashDigest, u128, header::Address) {
+pub fn parse_genesis_block(line: &str) -> (HashDigest, u128, header::Address) {
     let genesis_block: blockchain::GenesisBlock = serde_json::from_str(line).unwrap();
     (
         genesis_block.header.current_hash,
