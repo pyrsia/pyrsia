@@ -66,7 +66,7 @@ test-log = "0.2.8"
 thiserror = "1.0.30"
 tokio = { version = "1.17.0", features = [ "macros", "rt-multi-thread", "io-std" ] }
 unqlite = "1.5.0"
-url = "1.5.1"
+url = "2.2.2"
 uuid = { version = "0.8.2", features = [ "v4" ] }
 warp = { version = "0.3.1", default-features = false }
 walkdir = "2.3.2"
