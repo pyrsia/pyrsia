@@ -763,6 +763,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "confy"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2913470204e9e8498a0f31f17f90a0de801ae92c8c5ac18c49af4819e6786697"
+dependencies = [
+ "directories",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "constant_time_eq"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1100,6 +1111,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "directories"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "551a778172a450d7fc12e629ca3b0428d00f6afa9a43da1b630d54604e97371c"
+dependencies = [
+ "cfg-if 0.1.10",
+ "dirs-sys",
+]
+
+[[package]]
 name = "dirs"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1251,15 +1272,6 @@ name = "event-listener"
 version = "2.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77f3309417938f28bf8228fcff79a4a37103981e3e186d2ccd19c74b38f4eb71"
-
-[[package]]
-name = "expectest"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78817c0b64aab8153fbd7532339fbac1a54e43c715802715a288163ca6024978"
-dependencies = [
- "num-traits",
-]
 
 [[package]]
 name = "fake-simd"
@@ -3281,6 +3293,7 @@ dependencies = [
  "core2",
  "digest 0.10.3",
  "multihash-derive 0.8.0",
+ "parity-scale-codec 3.0.0",
  "serde",
  "serde-big-array",
  "sha2 0.10.2",
@@ -4050,7 +4063,6 @@ dependencies = [
  "easy-hasher",
  "env_logger 0.9.0",
  "error-chain",
- "expectest",
  "filename",
  "fs_extra",
  "futures",
@@ -4119,12 +4131,16 @@ name = "pyrsia_cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "assay",
  "clap 3.1.3",
- "expectest",
+ "confy",
+ "directories",
  "futures",
  "pyrsia",
  "reqwest",
+ "serde",
  "tokio",
+ "toml",
  "walkdir",
 ]
 
