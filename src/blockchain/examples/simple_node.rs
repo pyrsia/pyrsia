@@ -18,6 +18,8 @@ extern crate pretty_env_logger;
 extern crate pyrsia_blockchain_network;
 extern crate tokio;
 
+use std::error::Error;
+
 use futures::StreamExt;
 use libp2p::{
     core::upgrade,
@@ -27,19 +29,22 @@ use libp2p::{
     mplex,
     noise,
     swarm::{SwarmBuilder, SwarmEvent},
-    // `TokioTcpConfig` is available through the `tcp-tokio` feature.
     tcp::TokioTcpConfig,
     Multiaddr,
+    // `TokioTcpConfig` is available through the `tcp-tokio` feature.
     PeerId,
     Transport,
 };
-
-use pyrsia_blockchain_network::*;
 use rand::Rng;
-use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
 
-pub const CONTINUE_COMMIT: &str = "1"; //allow to continuously commit
+use pyrsia_blockchain_network::blockchain::Blockchain;
+use pyrsia_blockchain_network::*;
+
+pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
+// this should be cli or use a temp store
+pub const CONTINUE_COMMIT: &str = "1";
+//allow to continuously commit
 pub const APART_ONE_COMMIT: &str = "2"; //must be at least one ledger apart to commit
 
 /// The `tokio::main` attribute sets up a tokio runtime.
@@ -47,6 +52,13 @@ pub const APART_ONE_COMMIT: &str = "2"; //must be at least one ledger apart to c
 async fn main() -> Result<(), Box<dyn Error>> {
     // Create a random PeerId
     let id_keys = blockchain::generate_ed25519();
+    let ed25519_keypair = match id_keys {
+        identity::Keypair::Ed25519(v) => v,
+        identity::Keypair::Rsa(_) => todo!(),
+        identity::Keypair::Secp256k1(_) => todo!(),
+    };
+    let mut chain = Blockchain::new(&ed25519_keypair);
+
     let peer_id = PeerId::from(id_keys.public());
     println!("Local peer id: {:?}", peer_id);
     let filepath = match std::env::args().nth(1) {
@@ -113,15 +125,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Listen on all interfaces and whatever port the OS assigns
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
-    let ed25519_keypair = match id_keys {
-        identity::Keypair::Ed25519(v) => v,
-        identity::Keypair::Rsa(_) => todo!(),
-        identity::Keypair::Secp256k1(_) => todo!(),
-    };
-
     let mut transactions = vec![];
-
-    storage::append_genesis_block(filepath.clone(), &ed25519_keypair);
 
     let local_id = header::hash(&block::get_publickey_from_keypair(&ed25519_keypair).encode());
     // Kick it off
@@ -138,19 +142,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     ),
                     &ed25519_keypair,
                 );
-                transactions.push(transaction);
-                let (parent_hash, previous_number, previous_commiter)=storage::read_last_block(filepath.clone());
+                blockchain.add_block_listener(move |b: Block| {
+                    println!("---------");
+                    println!("---------");
+                    println!("Add a New Block : {:?}", b);
+                    write_block(filepath.clone(),b);
+                });
+                // eventually this will trigger a block action
+                blockchain.submit_transaction(transaction.clone(),move |t: Transaction| {
+                    writeln!("transaction {} submitted",t)
+                });
 
-                if check_number==APART_ONE_COMMIT && previous_commiter == local_id{
-
-                        println!("The Commit Permission is limited, Please wait others commit");
-                        continue;
-
-                }
-                let block = blockchain::new_block(&ed25519_keypair, &transactions, parent_hash, previous_number);
-                println!("---------");
-                println!("---------");
-                println!("Add a New Block : {:?}", block);
                 swarm.behaviour_mut().floodsub.publish(floodsub_topic.clone(), bincode::serialize(&block).unwrap());
                 storage::write_block(filepath.clone(), block);
             }
@@ -163,9 +165,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
+//Write a block to the file
+pub fn write_block(path: String, block: block::Block) {
+    use std::fs::OpenOptions;
+    use std::io::Write;
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .create(true)
+        .open(path)
+        .expect("cannot open file");
+
+    file.write_all(serde_json::to_string(&block).unwrap().as_bytes())
+        .expect("write failed");
+    file.write_all(b"\n").expect("write failed");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn test_main() -> Result<(), String> {
         let result = main();

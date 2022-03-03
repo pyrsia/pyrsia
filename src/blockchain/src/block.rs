@@ -13,24 +13,35 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use super::header::*;
+use std::fmt::{Debug, Display, Formatter};
+use std::hash::{Hash, Hasher};
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use anyhow::Error;
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
-use std::hash::{Hash, Hasher};
-use std::time::{SystemTime, UNIX_EPOCH};
+
+use super::header::*;
 
 // TransactionType define the type of transaction, currently only create
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum TransactionType {
     Create,
+    AddAuthority,
+    RevokeAuthority,
 }
 
 // struct Signature define a general structure of signature
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Signature {
     signature: ed25519_dalek::Signature,
+}
+
+impl Display for Signature {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let json = serde_json::to_string_pretty(&self).expect("json format error");
+        write!(f, "{}", json)
+    }
 }
 
 impl Hash for Signature {
@@ -167,8 +178,9 @@ impl Display for Block {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rand::Rng;
+
+    use super::*;
 
     #[test]
     fn test_build_block() -> Result<(), String> {
