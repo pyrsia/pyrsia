@@ -14,11 +14,11 @@
    limitations under the License.
 */
 
-pub mod authority_pen;
 pub mod block;
 pub mod blockchain;
 pub mod crypto;
 pub mod header;
+pub mod identities;
 pub mod network;
 pub mod signature;
 pub mod storage;

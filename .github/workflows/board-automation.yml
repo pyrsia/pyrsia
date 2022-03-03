@@ -4,7 +4,7 @@ on:
   issues:
     types: [opened, reopened, labeled]
   pull_request_target:
-    types: [opened, reopened, labeled, converted_to_draft, ready_for_review, review_requested]
+    types: [opened, closed, reopened, labeled, converted_to_draft, ready_for_review, review_requested]
 
 jobs:
   triage-new-issues:
@@ -87,3 +87,16 @@ jobs:
       (github.event.action == 'opened'  || github.event.action == 'reopened' || github.event.action == 'ready_for_review')
     steps:
       - uses: toshimaru/auto-author-assign@v1.4.0
+
+  rm-closed-pr:
+    runs-on: ubuntu-latest
+    if: |
+      github.repository_owner == 'pyrsia'
+      github.event_name == 'pull_request_target' && github.event.action == 'closed'
+    steps:
+      - uses: alex-page/github-project-automation-plus@v0.8.1
+        with:
+          project: Pyrsia Development
+          action: delete
+          column: Backlog for the Demo
+          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
