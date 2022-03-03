@@ -14,26 +14,7 @@
    limitations under the License.
 */
 
-// TODO(prince-chrismc): Re-introduce `NodeIndex` to associate with `PeerId` when adding `KeyBox`
-// use aleph_bft::NodeIndex;
-use libp2p::core::identity::ed25519::Keypair;
-
-use super::signature::Signature;
-
-#[derive(Clone)]
-pub struct AuthorityPen {
-    // index: NodeIndex,
-    keypair: Keypair,
-}
-
-impl AuthorityPen {
-    pub fn new(/*index: NodeIndex,*/ keypair: Keypair) -> Self {
-        Self {
-            /*index,*/ keypair,
-        }
-    }
-
-    pub fn sign(&self, msg: &[u8]) -> Signature {
-        Signature::new(msg, &self.keypair)
-    }
-}
+pub mod authority_pen;
+pub mod authority_verifier;
+pub mod verify_key;
+use super::signature;
