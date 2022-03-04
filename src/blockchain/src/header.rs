@@ -14,15 +14,11 @@
    limitations under the License.
 */
 
-use multihash::{Code, Multihash, MultihashDigest};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
-pub struct HashDigest {
-    multihash: Multihash,
-}
+use super::crypto::hash_algorithm::HashDigest;
 
 pub type Address = HashDigest;
 
@@ -47,14 +43,8 @@ impl Header {
             timestamp: partial_header.timestamp,
             number: partial_header.number,
             nonce: partial_header.nonce,
-            current_hash: hash(&(bincode::serialize(&partial_header).unwrap())),
+            current_hash: HashDigest::new(&(bincode::serialize(&partial_header).unwrap())),
         }
-    }
-}
-
-pub fn hash(msg: &[u8]) -> HashDigest {
-    HashDigest {
-        multihash: Code::Keccak256.digest(msg),
     }
 }
 
@@ -112,9 +102,14 @@ mod tests {
     #[test]
     fn test_build_block_header() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = hash(&block::get_publickey_from_keypair(&keypair).encode());
+        let local_id = HashDigest::new(&block::get_publickey_from_keypair(&keypair).encode());
 
-        let header = Header::new(PartialHeader::new(hash(b""), local_id, hash(b""), 5));
+        let header = Header::new(PartialHeader::new(
+            HashDigest::new(b""),
+            local_id,
+            HashDigest::new(b""),
+            5,
+        ));
 
         assert_eq!(5, header.number);
         Ok(())

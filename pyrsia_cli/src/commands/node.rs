@@ -21,55 +21,38 @@ use super::config::get_config;
 use pyrsia::model::cli::Status;
 
 pub async fn ping() -> Result<String, reqwest::Error> {
-    let result = get_config();
-    let mut url = String::new();
-    let _data = match result {
-        Ok(data) => {
-            url = data;
-        }
-        Err(error) => {
-            println!("Error: {}", error);
-        }
-    };
     //TODO: implement ping api in Node
-    let node_url = format!("http://{}/v2", url);
+    let node_url = format!("http://{}/v2", get_url());
     let response = reqwest::get(node_url).await?.text().await?;
     Ok(response)
 }
 
 pub async fn peers_connected() -> Result<String, reqwest::Error> {
-    let result = get_config();
-    let mut url = String::new();
-    let _data = match result {
-        Ok(data) => {
-            url = data;
-        }
-        Err(error) => {
-            println!("Error: {}", error);
-        }
-    };
-
-    let node_url = format!("http://{}/peers", url);
-
+    let node_url = format!("http://{}/peers", get_url());
     let response = reqwest::get(node_url).await?.text().await?;
-
     Ok(response)
 }
 
 pub async fn status() -> Result<Status, reqwest::Error> {
+    let node_url = format!("http://{}/status", get_url());
+
+    let response = reqwest::get(node_url).await?.json::<Status>().await?;
+    Ok(response)
+}
+
+pub fn get_url() -> String {
     let result = get_config();
-    let mut url = String::new();
-    let _data = match result {
+    let mut host = String::new();
+    let mut port = String::new();
+    match result {
         Ok(data) => {
-            url = data;
+            host = data.host;
+            port = data.port;
         }
         Err(error) => {
             println!("Error: {}", error);
         }
     };
 
-    let node_url = format!("http://{}/status", url);
-
-    let response = reqwest::get(node_url).await?.json::<Status>().await?;
-    Ok(response)
+    format!("{}:{}", host, port)
 }

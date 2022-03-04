@@ -33,21 +33,21 @@ async fn main() {
     match matches.subcommand() {
         // config subcommand
         Some(("config", config_matches)) => {
-            if config_matches.is_present("add") {
-                handle_config_add(config_matches);
+            if config_matches.is_present("add") || config_matches.is_present("edit") {
+                config_add();
             }
             if config_matches.is_present("show") {
-                handle_config_show();
+                config_show();
             }
         }
 
         Some(("node", node_matches)) => {
             if node_matches.is_present("ping") {
-                handle_node_ping().await;
+                node_ping().await;
             } else if node_matches.is_present("list") {
-                handle_node_list().await;
+                node_list().await;
             } else if node_matches.is_present("status") {
-                handle_node_status().await;
+                node_status().await;
             } else {
                 println!("No help topic for '{:?}'", node_matches)
             }
