@@ -22,6 +22,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use super::block::*;
 use super::crypto::hash_algorithm::HashDigest;
 use super::header::*;
+use super::signature::Signature;
 
 /// BlockchainId identifies the current chain
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -211,13 +212,13 @@ mod tests {
         chain.add_block(new_block(
             &ed25519_keypair,
             &transactions,
-            chain.genesis_block.header.current_hash,
+            chain.genesis_block.header.hash,
             chain.genesis_block.header.number,
         ));
         chain.add_block(new_block(
             &ed25519_keypair,
             &transactions,
-            chain.blocks[0].header.current_hash,
+            chain.blocks[0].header.hash,
             chain.blocks[0].header.number,
         ));
         assert_eq!(true, chain.blocks.last().unwrap().verify());
@@ -293,6 +294,7 @@ mod tests {
                 }
             })
             .add_block(block);
+
         assert!(called.get()); // called is still false
         Ok(())
     }

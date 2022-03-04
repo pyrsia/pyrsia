@@ -22,16 +22,22 @@ use super::crypto::hash_algorithm::HashDigest;
 
 pub type Address = HashDigest;
 
-// struct Header define the header of a block
+/// struct Header define the header of a block
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub struct Header {
-    pub parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
-    pub committer: Address,      //the committer node's PeerID
-    pub transactions_root: HashDigest, //256bit Keccak Hash of the root node of Transaction Tries
+    ///      parent_hash: 256bit Keccak Hash of the Parent Block(previous Block hash)
+    pub parent_hash: HashDigest,
+    ///      committer:  the committer node's PeerID
+    pub committer: Address,
+    ///      transactions_root: 256bit Keccak Hash of the root node of Transactions Merkle tree
+    pub transactions_root: HashDigest,
+    ///      timestamp: Unix tim, the number of seconds that have elapsed since the Unix epoch, excluding leap seconds
     pub timestamp: u64,
+    ///      number: block sequence number, the current block number should be the parent(previous) block number plus 1
     pub number: u128,
-    nonce: u128,                  // Adds a salt to harden
-    pub current_hash: HashDigest, //256bit Keccak Hash of the Current Block Header, excluding itself
+    nonce: u128, // Adds a salt to harden
+    ///      hash: block id, 256bit Keccak Hash of the Current Block Header, excluding itself
+    pub hash: HashDigest,
 }
 
 impl Header {
@@ -43,7 +49,7 @@ impl Header {
             timestamp: partial_header.timestamp,
             number: partial_header.number,
             nonce: partial_header.nonce,
-            current_hash: HashDigest::new(&(bincode::serialize(&partial_header).unwrap())),
+            hash: HashDigest::new(&(bincode::serialize(&partial_header).unwrap())),
         }
     }
 }

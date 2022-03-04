@@ -34,7 +34,7 @@ impl VerifyKey {
 
 impl Encode for VerifyKey {
     fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-        self.public.encode().using_encoded(f)
+        self.public().encode().using_encoded(f)
     }
 
     fn size_hint(&self) -> usize {
