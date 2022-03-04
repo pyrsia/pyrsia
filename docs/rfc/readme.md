@@ -60,6 +60,14 @@ be implemented.
 - Submit a pull request. As a pull request, the proposal will receive feedback from the larger community, and the author should be prepared to revise it in response.
 - Build consensus and integrate feedback. Proposals that have broad support are much more likely to make progress than those that don't receive any comments.
 
+### Reviewing a proposal
+
+Periodically, the team will attempt to review the active proposals. We try to dicuss proposals at the bi-weekly team
+["Architecture"](https://pyrsia.io/events/) meeting, we schedual additional meetings as need. Actions are recorded in the meeting minutes.
+Every accepted feature should have a core team champion, who will represent the feature and its progress.
+
+### Proposal resolution
+
 Eventually, the team will decide whether the proposal is a candidate for adoption.
 
 - A proposal can be modified based upon feedback from the team and community. Significant modifications may trigger a new final comment period.
@@ -76,11 +84,6 @@ Modifications to accepted proposals can be done in followup PRs.
 ## Implementing a proposal
 
 The author of a proposal is not obligated to implement it. Of course, the proposal author (like any other community member) is welcome to post an implementation for review.
-
-## Reviewing a proposal
-
-Periodically, the team will attempt to review the active proposals. We try to accept proposals at the monthly team meeting, 
-and actions are recorded in the meeting minutes. Every accepted feature should have a core team champion, who will represent the feature and its progress.
 
 ***
 
