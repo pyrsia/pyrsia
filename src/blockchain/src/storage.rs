@@ -53,7 +53,7 @@ pub fn read_last_block(path: &str) -> (HashDigest, u128, header::Address) {
     };
 
     (
-        block.header.current_hash,
+        block.header.hash,
         block.header.number,
         block.header.committer,
     )
@@ -63,7 +63,7 @@ pub fn read_last_block(path: &str) -> (HashDigest, u128, header::Address) {
 pub fn parse_genesis_block(line: &str) -> (HashDigest, u128, header::Address) {
     let genesis_block: blockchain::GenesisBlock = serde_json::from_str(line).unwrap();
     (
-        genesis_block.header.current_hash,
+        genesis_block.header.hash,
         genesis_block.header.number,
         genesis_block.header.committer,
     )

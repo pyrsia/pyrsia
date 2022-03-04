@@ -82,7 +82,7 @@ impl GenesisBlock {
         Self {
             header,
             config,
-            signature: Signature::new(&bincode::serialize(&header.current_hash).unwrap(), keypair),
+            signature: Signature::new(&bincode::serialize(&header.hash).unwrap(), keypair),
         }
     }
 }
@@ -225,13 +225,13 @@ mod tests {
         chain.add_block(new_block(
             &ed25519_keypair,
             &transactions,
-            chain.genesis_block.header.current_hash,
+            chain.genesis_block.header.hash,
             chain.genesis_block.header.number,
         ));
         chain.add_block(new_block(
             &ed25519_keypair,
             &transactions,
-            chain.blocks[0].header.current_hash,
+            chain.blocks[0].header.hash,
             chain.blocks[0].header.number,
         ));
         assert_eq!(true, chain.blocks.last().unwrap().verify());
