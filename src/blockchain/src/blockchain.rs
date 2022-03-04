@@ -233,7 +233,7 @@ mod tests {
             identity::Keypair::Rsa(_) => todo!(),
             identity::Keypair::Secp256k1(_) => todo!(),
         };
-        let local_id = hash(&get_publickey_from_keypair(&ed25519_keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
         let mut chain = Blockchain::new(&ed25519_keypair);
 
         let transaction = Transaction::new(
