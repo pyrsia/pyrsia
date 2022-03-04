@@ -2,6 +2,9 @@
 
 When developing new features for Pyrsia, we aim for the best quality code possible. Here's the steps with some "How To"s on getting there.
 
+We also have "pre commit" scripts (located in the root of the repository) which will run on of these steps.
+This is a easy way to prepare your changes ahead of opening a pull request.
+
 ## Builds and Tests Pass
 
 The base line is making sure all the code compiles and every test passes.
