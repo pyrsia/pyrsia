@@ -54,7 +54,7 @@ In short, to get a major feature added, one must first get the RFC merged into t
 be implemented.
 
 - Fork this repository [pyrsia/pyrsia](https://github.com/pyrsia/pyrsia/fork)
-- Copy `docs/rfcs/0000-template.md` to `docs/rfcs/0000-my-feature.md`
+- Copy `docs/rfc/0000-template.md` to `docs/rfc/0000-my-feature.md`
   - where 'my-feature' is the title in kebab case; don't assign a number yet.
 - Fill in the proposal. Put care into the details: **Proposals that do not present convincing motivation, demonstrate understanding of the impact of the design, or are disingenuous about the drawbacks or alternatives tend to be poorly-received**.
 - Submit a pull request. As a pull request, the proposal will receive feedback from the larger community, and the author should be prepared to revise it in response.
