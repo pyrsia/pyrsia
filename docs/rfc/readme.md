@@ -88,6 +88,6 @@ and actions are recorded in the meeting minutes. Every accepted feature should h
 
 This has been havily inspired by other community driven projects and their RFC process.
 
-- https://github.com/react-native-community/discussions-and-proposals
-- https://github.com/rust-lang/rfcs
-- https://www.python.org/dev/peps
+- [React Native Proposals](https://github.com/react-native-community/discussions-and-proposals)
+- [Rust RFC](https://github.com/rust-lang/rfcs)
+- [Python PEPS](https://www.python.org/dev/peps)
