@@ -14,75 +14,37 @@
    limitations under the License.
 */
 
-use clap::{crate_authors, crate_description, crate_version, Arg, ArgMatches, Command};
+use clap::{arg, command, AppSettings, ArgMatches, Command};
 
 pub fn cli_parser() -> ArgMatches {
-    Command::new("pyrsia")
-        .author(crate_authors!("\n"))
-        .version(crate_version!())
-        .about(crate_description!())
+    command!()
         .subcommand_required(true)
         .arg_required_else_help(true)
+        .global_setting(AppSettings::DeriveDisplayOrder)
         // Config subcommand
-        .subcommand(
+        .subcommands(vec![
             Command::new("config")
                 .short_flag('c')
-                .long_flag("config")
                 .about("Pyrsia config commands")
                 .arg_required_else_help(true)
-                .allow_hyphen_values(true)
-                .arg(
-                    Arg::new("add")
-                        .short('a')
-                        .long("add")
-                        .help("Adds a node configuration")
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::new("edit")
-                        .long("edit")
-                        .short('e')
-                        .help("Edits a node configuration")
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::new("remove")
-                        .long("remove")
-                        .short('r')
-                        .help("Removes the stored node configuration"),
-                )
-                .arg(
-                    Arg::new("show")
-                        .long("show")
-                        .short('s')
-                        .help("Shows the stored node configuration"),
-                ),
-        )
-        // Node subcommand
-        .subcommand(
+                .disable_version_flag(true)
+                .args(&[
+                    arg!(--add      "Adds a node configuration"),
+                    arg!(--edit     "Edits a node configuration"),
+                    arg!(--remove   "Removes the stored node configuration").visible_alias("rm"),
+                    arg!(--show     "Shows the stored node configuration"),
+                ]),
+            // Node subcommand
             Command::new("node")
                 .short_flag('n')
-                .long_flag("node")
                 .about("Node commands")
                 .arg_required_else_help(true)
-                .allow_hyphen_values(true)
-                .arg(
-                    Arg::new("ping")
-                        .short('p')
-                        .long("ping")
-                        .help("Ping configured pyrsia node"),
-                )
-                .arg(
-                    Arg::new("status")
-                        .long("status")
-                        .short('s')
-                        .help("Shows node information"),
-                )
-                .arg(
-                    Arg::new("list")
-                        .short('l')
-                        .help("Shows list of connected Peers"),
-                ),
-        )
+                .disable_version_flag(true)
+                .args(&[
+                    arg!(--ping       "Pings configured pyrsia node"),
+                    arg!(-s --status     "Shows node information"),
+                    arg!(-l --list       "Shows list of connected Peers").visible_alias("ls"),
+                ]),
+        ])
         .get_matches()
 }

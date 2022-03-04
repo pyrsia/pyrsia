@@ -6,11 +6,13 @@ edition = "2021"
 
 [dependencies]
 pyrsia = {path=".."}
-
 anyhow = "1.0"
 clap = { version = "3.1.3", features= ["cargo"] }
+confy = "0.4.0"
 futures = { version = "0.3.*"}
 reqwest = { version = "0.11", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.5.8"
 tokio = { version = "1", features = [ "full"] }
 walkdir = "2.3.2"
 
@@ -19,4 +21,7 @@ name = "pyrsia"
 path = "src/main.rs"
 
 [dev-dependencies]
-expectest = "0.12.0"
+directories = "^2.0"
+assay = "0.1.1"
+
+

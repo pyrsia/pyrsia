@@ -35,7 +35,6 @@ mod tests {
     use super::*;
     use assay::assay;
 
-    #[test]
     #[assay(
         env = [
           ("DEV_MODE", "on")
@@ -44,7 +43,6 @@ mod tests {
         assert_eq!("on", read_var("DEV_MODE", "off"));
     }
 
-    #[test]
     #[assay(
         env = [
           ("DEV_MODE", "on ")
@@ -53,7 +51,6 @@ mod tests {
         assert_eq!("on", read_var("DEV_MODE", "off"));
     }
 
-    #[test]
     #[assay(
         env = [
             ("DEV_MODE", "")
@@ -62,7 +59,6 @@ mod tests {
         assert_eq!("off", read_var("DEV_MODE", "off"));
     }
 
-    #[test]
     #[assay]
     fn test_value_absent() {
         assert_eq!("absent", read_var("DEV_MODE", "absent"));
