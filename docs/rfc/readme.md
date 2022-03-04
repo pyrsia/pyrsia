@@ -20,7 +20,7 @@ Because the RFCs are maintained as text files in a versioned repository, their r
 
 ## When you need to follow this process
 
-You should consider using this process if you intend to make "substantial" changes to Yarn or its documentation. Some examples that would benefit
+You should consider using this process if you intend to make "substantial" changes to Pyrsia or its documentation. Some examples that would benefit
 from an RFC are:
 
 - A new feature that creates new API surface area.
