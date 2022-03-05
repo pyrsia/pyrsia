@@ -8,9 +8,8 @@ a consensus among the Pyrsia community.
 
 ## Why are RFCs needed?
 
-An RFCs is a design document providing information to the Pyrsia community, or describing a new feature for Pyrsia or
-its processes or environment. The RFC should provide a concise technical specification of the feature and a rationale for the feature.
-Strong RFCs included detailed research on the idea and may be accompanied by a proof of concept
+An RFCs is a design document providing information to the Pyrsia community. The RFC should provide a concise technical specification of
+the feature and a rationale for the feature. Strong RFCs included detailed research on the idea and may be accompanied by a proof of concept
 
 We intend RFCs to be the primary mechanisms for proposing major new features, for collecting community input on an issue, and for documenting
 the design decisions that have gone into Pyrsia.
