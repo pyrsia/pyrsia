@@ -4093,6 +4093,7 @@ version = "0.1.0"
 dependencies = [
  "aleph-bft",
  "anyhow",
+ "async-trait",
  "bincode",
  "ed25519-dalek",
  "futures",

@@ -14,25 +14,27 @@
    limitations under the License.
 */
 
-// TODO(prince-chrismc): Re-introduce `NodeIndex` to associate with `PeerId` when adding `KeyBox`
-// use aleph_bft::NodeIndex;
-use libp2p::core::identity::ed25519::Keypair;
+use aleph_bft::NodeIndex;
+use libp2p::core::identity::ed25519::{Keypair, PublicKey};
 
 use super::signature::Signature;
 
 #[derive(Clone)]
 pub struct AuthorityPen {
-    // index: NodeIndex,
+    index: NodeIndex,
     keypair: Keypair,
 }
 
 impl AuthorityPen {
-    pub fn new(/*index: NodeIndex,*/ keypair: Keypair) -> Self {
-        Self {
-            /*index,*/ keypair,
-        }
+    pub fn new(index: NodeIndex, keypair: Keypair) -> Self {
+        Self { index, keypair }
     }
-
+    pub fn index(&self) -> NodeIndex {
+        self.index
+    }
+    pub fn public(&self) -> PublicKey {
+        self.keypair.public()
+    }
     pub fn sign(&self, msg: &[u8]) -> Signature {
         Signature::new(msg, &self.keypair)
     }
@@ -45,7 +47,7 @@ mod tests {
     #[test]
     fn test_auth_pen_sign() {
         let keypair = Keypair::generate();
-        let auth_pen = AuthorityPen::new(keypair.clone());
+        let auth_pen = AuthorityPen::new(0.into(), keypair.clone());
         let signed = auth_pen.sign(b"hello world!");
 
         assert!(keypair.public().verify(b"hello world!", &signed.to_bytes()));
