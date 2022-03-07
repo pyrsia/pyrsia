@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-printf "Welcome to the Pyrsia local tests.\nThis might take sometime, please do not interrupt if the screen is blank.\n"
+printf "Running Pyrsia pre-commit validation.\n"
+printf "This might take sometime, please do not interrupt if the screen is blank.\n"
 if [[ "$1" == "clean" ]] ; then
 	printf "Cleaning old build artifacts.\n"
 	cargo clean
