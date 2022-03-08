@@ -4,7 +4,7 @@ Many changes, including bug fixes and documentation improvements can be implemen
 normal GitHub pull request workflow.
 
 Some changes though are "substantial", and we ask that these be put through a bit of a design process and produce
-a consensus among the Pyrsia community. See [when to follo this process](#when-you-need-to-follow-this-process) below.
+a consensus among the Pyrsia community. See [when to follow this process](#when-you-need-to-follow-this-process) below.
 
 #### Summary
 
