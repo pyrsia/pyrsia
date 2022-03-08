@@ -155,8 +155,7 @@ pub fn append_to_blob(blob: &str, mut bytes: Bytes) -> std::io::Result<(u64, u64
         .append(true)
         .open(blob)?;
     let mut total_bytes_read: u64 = 0;
-    let initial_file_length: u64;
-    initial_file_length = file.metadata()?.len();
+    let initial_file_length: u64 = file.metadata()?.len();
     while bytes.has_remaining() {
         let bytes_remaining = bytes.remaining();
         let bytes_to_read = if bytes_remaining <= 4096 {
@@ -188,7 +187,7 @@ fn store_blob_in_filesystem(
     digest: &str,
     bytes: Bytes,
 ) -> Result<bool, Box<dyn std::error::Error>> {
-    let blob_upload_dest_dir = create_upload_directory(name, &id.to_string())?;
+    let blob_upload_dest_dir = create_upload_directory(name, id)?;
     let mut blob_upload_dest_data = blob_upload_dest_dir.clone();
     blob_upload_dest_data.push_str("/data");
     let append = append_to_blob(&blob_upload_dest_data, bytes)?;
