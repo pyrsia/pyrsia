@@ -1,7 +1,7 @@
 - Feature Name: (fill me in with a unique ident, `my_awesome_feature`)
 - Start Date: (fill me in with today's date, YYYY-MM-DD)
 - RFC PR: [pyrsia/pyrsia#0000](https://github.com/pyrsia/pyrsia/pull/0000)
-- Rust Issue: [pyrsia/pyrsia#0000](https://github.com/pyrsia/pyrsia/issues/0000)
+- Pyrsia Issue: [pyrsia/pyrsia#0000](https://github.com/pyrsia/pyrsia/issues/0000)
 
 # Summary
 
@@ -19,7 +19,7 @@ Explain the proposal as if it was already included in the language and you were 
 - Explaining the feature largely in terms of examples.
 - Explaining how Pysia users should *think* about the feature, and how it should impact the way they use Pyrsia. It should explain the impact as concretely as possible.
 - If applicable, provide sample error messages, deprecation warnings, or migration guidance.
-- If applicable, describe the differences between teaching this to existing Rust programmers and new Rust programmers.
+- If applicable, describe the differences between teaching this to existing Pyrsia users and new Pyrsia users.
 
 For implementation-oriented RFCs (e.g. for compiler internals), this section should focus on how compiler contributors should think about the change, and give examples of its concrete impact. For policy RFCs, this section should provide an example-driven introduction to the policy, and explain its impact in concrete terms.
 
