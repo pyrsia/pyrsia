@@ -4,7 +4,18 @@ Many changes, including bug fixes and documentation improvements can be implemen
 normal GitHub pull request workflow.
 
 Some changes though are "substantial", and we ask that these be put through a bit of a design process and produce
-a consensus among the Pyrsia community.
+a consensus among the Pyrsia community. See [when to follo this process](#when-you-need-to-follow-this-process) below.
+
+#### Summary
+
+The process can be broken down as follows:
+
+1. [Reach out on community forms and open an issue](#before-creating-an-rfc)
+2. [Follow the template and open a PR](#the-proposal-process)
+3. [Attend our meeting and promote your proposal](#approach-the-community)
+4. [Schedual a review meeting](#reviewing-a-proposal)
+
+Lastly, [Proposal resolution](#proposal-resolution) may take several different forms.
 
 ## Why are RFCs needed?
 
@@ -32,7 +43,7 @@ Quite often, even proposals that seem "obvious" can be significantly improved on
 The RFC process can also be helpful to encourage discussions about a proposed feature as it is being designed, and incorporate important
 constraints into the design while it's easier to change, before the design has been fully implemented.
 
-## Before creating an RFC
+## Before Creating an RFC
 
 A hastily-proposed RFC can hurt its chances of acceptance. Low quality proposals, proposals for previously-rejected features, or those that don't fit
 into the near-term roadmap, may be quickly rejected, which can be demotivating for the unprepared contributor. Laying some groundwork ahead of the RFC
@@ -47,7 +58,7 @@ GitHub issue.
 As a rule of thumb, receiving encouraging feedback from long-standing project developers, and particularly members of the relevant sub-team is a good indication
 that the RFC is worth pursuing.
 
-## The process
+## The Proposal Process
 
 In short, to get a major feature added, one must first get the RFC merged into the RFC repository as a markdown file. At that point the RFC is "active" and may
 be implemented.
@@ -57,9 +68,12 @@ be implemented.
   - where 'my-feature' is the title in kebab case; don't assign a number yet.
 - Fill in the proposal. Put care into the details: **Proposals that do not present convincing motivation, demonstrate understanding of the impact of the design, or are disingenuous about the drawbacks or alternatives tend to be poorly-received**.
 - Submit a pull request. As a pull request, the proposal will receive feedback from the larger community, and the author should be prepared to revise it in response.
-- Build consensus and integrate feedback. Proposals that have broad support are much more likely to make progress than those that don't receive any comments.
 
-### Reviewing a proposal
+### Approach the Community
+
+Build consensus and integrate feedback. Proposals that have broad support are much more likely to make progress than those that don't receive any comments.
+
+### Reviewing a Proposal
 
 Periodically, the team will attempt to review the active proposals. We try to dicuss proposals at the bi-weekly team
 ["Architecture"](https://pyrsia.io/events/) meeting, we schedual additional meetings as need. Actions are recorded in the meeting minutes.
