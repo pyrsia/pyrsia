@@ -18,6 +18,7 @@ extern crate pretty_env_logger;
 extern crate pyrsia_blockchain_network;
 extern crate tokio;
 
+use std::error::Error;
 use futures::StreamExt;
 use libp2p::{
     core::upgrade,
@@ -46,7 +47,7 @@ pub const CONTINUE_COMMIT: &str = "1";
 pub const APART_ONE_COMMIT: &str = "2"; // Must be at least one ledger apart to commit
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>> {
     // Create a random PeerId
     let id_keys = generate_ed25519();
     let peer_id = PeerId::from(id_keys.public());
@@ -103,7 +104,7 @@ async fn main() {
             .executor(Box::new(|fut| {
                 tokio::spawn(fut);
             }))
-            .build();
+            .build()
     };
 
     // Reach out to another node if specified
@@ -129,12 +130,12 @@ async fn main() {
     loop {
         tokio::select! {
             line = stdin.next_line() => {
-                let line = line?.expect("stdin closed");
+                let l = line.expect("stdin closed");
                 let transaction = Transaction::new(
                     PartialTransaction::new(
                         TransactionType::Create,
                         local_id,
-                        line.as_bytes().to_vec(),
+                        l.unwrap().as_bytes().to_vec(),
                     ),
                     &ed25519_keypair,
                 );
