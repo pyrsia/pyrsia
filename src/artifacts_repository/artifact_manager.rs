@@ -357,7 +357,7 @@ fn rename_to_permanent(
     base_path: &Path,
     tmp_path: &Path,
 ) -> Result<bool, anyhow::Error> {
-    fs::rename(tmp_path.to_path_buf(), base_path.to_path_buf()).with_context(|| {
+    fs::rename(tmp_path, base_path).with_context(|| {
         format!(
             "Attempting to rename from temporary file name{} to permanent{}",
             tmp_path.to_str().unwrap(),
