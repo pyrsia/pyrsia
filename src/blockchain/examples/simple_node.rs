@@ -18,7 +18,6 @@ extern crate pretty_env_logger;
 extern crate pyrsia_blockchain_network;
 extern crate tokio;
 
-use std::error::Error;
 use futures::StreamExt;
 use libp2p::{
     core::upgrade,
@@ -30,6 +29,7 @@ use libp2p::{
     tcp::TokioTcpConfig,
     Multiaddr, PeerId, Transport,
 };
+use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
 
 use pyrsia_blockchain_network::network::Behaviour;
