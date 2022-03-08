@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+exit_on_error() {
+    exit_msg=$1
+    if [[ "$exit_msg" != "" ]]; then
+        >&2 printf "$exit_msg\n"
+        exit 1
+    fi
+}
+
 printf "Running Pyrsia pre-commit validation.\n"
 printf "This might take sometime, please do not interrupt if the screen is blank.\n"
 if [[ "$1" == "clean" ]] ; then
