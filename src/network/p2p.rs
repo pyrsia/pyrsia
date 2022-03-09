@@ -43,8 +43,7 @@ use std::iter;
 pub async fn new() -> Result<(Client, impl Stream<Item = Event>, EventLoop), Box<dyn Error>> {
     let local_keys = identity::Keypair::generate_ed25519();
 
-    let identify_config =
-        IdentifyConfig::new(String::from("ipfs/1.0.0"), local_keys.public().clone());
+    let identify_config = IdentifyConfig::new(String::from("ipfs/1.0.0"), local_keys.public());
     let local_peer_id = local_keys.public().to_peer_id();
 
     let swarm = SwarmBuilder::new(
@@ -231,8 +230,8 @@ impl EventLoop {
                 info,
             })) => {
                 println!("Identify::Received: {}; {:?}", peer_id, info);
-                if let Some(addr) = info.listen_addrs.iter().next() {
-                    if let Some(sender) = self.pending_dial.remove(&addr) {
+                if let Some(addr) = info.listen_addrs.get(0) {
+                    if let Some(sender) = self.pending_dial.remove(addr) {
                         let _ = sender.send(Ok(()));
                     }
 
