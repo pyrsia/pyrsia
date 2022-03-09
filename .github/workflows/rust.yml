@@ -68,7 +68,7 @@ jobs:
     - name: Install cargo-deb cargo-strip
       if: runner.os == 'Linux'
       uses: actions-rs/cargo@v1.0.3
-      with: 
+      with:
         command: install
         args: cargo-deb cargo-strip --force
 
@@ -79,8 +79,8 @@ jobs:
 
     - name: Build Release Binaries
       run: |
-        cargo build --workspace --verbose  --release
-    
+        cargo build --workspace --examples --verbose --release
+
     - name: Execute Test Cases
       run: |
         cargo test --workspace --verbose
@@ -117,7 +117,7 @@ jobs:
         private_key: ${{ secrets.GPG_PRIVATE }}
         key_passphrase: ${{ secrets.GPG_SECRET }}
         github_repository: pyrsia/pyrsia.github.io
-    
+
   coverage:
     needs: [check-tests]
     runs-on: ubuntu-latest
@@ -151,7 +151,7 @@ jobs:
       with:
         token: ${{secrets.CODECOV_TOKEN}}
         fail_ci_if_error: ${{ github.repository_owner == 'pyrsia' }}
-  
+
   docker:
     runs-on: ubuntu-latest
     needs: [build]

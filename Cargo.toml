@@ -22,6 +22,7 @@ systemd-units = { unit-name = "pyrsia", unit-scripts = "installers/debian/" }
 [dependencies]
 signed = {path="src/signed"}
 signed_struct = { path = "src/signed_struct" }
+pyrsia_blockchain_network = { path = "src/blockchain" }
 
 anyhow = "1.0.51"
 async-trait = "0.1.52"
@@ -90,6 +91,11 @@ members = [
     "src/signed_struct",
     "src/blockchain"
 ]
+
+
+[[example]]
+name = "blockchain_node_example"
+path = "src/blockchain/examples/simple_node.rs"
 
 [profile.dev]
 opt-level = 0
