@@ -22,7 +22,9 @@ use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, Protoco
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::identity;
 use libp2p::kad::record::store::MemoryStore;
-use libp2p::kad::{GetClosestPeersOk, Kademlia, KademliaEvent, QueryId, QueryResult};
+use libp2p::kad::{
+    GetClosestPeersOk, GetProvidersOk, Kademlia, KademliaEvent, QueryId, QueryResult,
+};
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseCodec, RequestResponseEvent,
@@ -32,7 +34,7 @@ use libp2p::swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent};
 use libp2p::{NetworkBehaviour, Swarm};
 use log::{debug, info, warn};
 use std::collections::hash_map::Entry::Vacant;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::io;
@@ -107,7 +109,7 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
-    pub async fn list_peers(&mut self) -> Vec<PeerId> {
+    pub async fn list_peers(&mut self) -> HashSet<PeerId> {
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::ListPeers {
@@ -119,10 +121,21 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
-    pub async fn lookup_blob(&mut self, hash: String) -> Result<(), Box<dyn Error + Send>> {
+    pub async fn provide(&mut self, hash: String) {
+        debug!("p2p::Client::provide {:?}", hash);
+
         let (sender, receiver) = oneshot::channel();
         self.sender
-            .send(Command::LookupBlob { hash, sender })
+            .send(Command::Provide { hash, sender })
+            .await
+            .expect("Command receiver not to be dropped.");
+        receiver.await.expect("Sender not to be dropped.")
+    }
+
+    pub async fn list_providers(&mut self, hash: String) -> HashSet<PeerId> {
+        let (sender, receiver) = oneshot::channel();
+        self.sender
+            .send(Command::ListProviders { hash, sender })
             .await
             .expect("Command receiver not to be dropped.");
         receiver.await.expect("Sender not to be dropped.")
@@ -130,14 +143,18 @@ impl Client {
 
     pub async fn request_artifact(
         &mut self,
-        peer: PeerId,
+        peer: &PeerId,
         hash: String,
     ) -> Result<Vec<u8>, Box<dyn Error + Send>> {
         debug!("p2p::Client::request_artifact {:?}: {:?}", peer, hash);
 
         let (sender, receiver) = oneshot::channel();
         self.sender
-            .send(Command::RequestArtifact { hash, peer, sender })
+            .send(Command::RequestArtifact {
+                hash,
+                peer: *peer,
+                sender,
+            })
             .await
             .expect("Command receiver not to be dropped.");
         receiver.await.expect("Sender not to be dropped.")
@@ -158,7 +175,8 @@ impl Client {
 }
 
 type PendingDialMap = HashMap<PeerId, oneshot::Sender<Result<(), Box<dyn Error + Send>>>>;
-type PendingListPeersMap = HashMap<QueryId, oneshot::Sender<Vec<PeerId>>>;
+type PendingListPeersMap = HashMap<QueryId, oneshot::Sender<HashSet<PeerId>>>;
+type PendingStartProvidingMap = HashMap<QueryId, oneshot::Sender<()>>;
 type PendingRequestArtifactMap =
     HashMap<RequestId, oneshot::Sender<Result<Vec<u8>, Box<dyn Error + Send>>>>;
 
@@ -168,6 +186,8 @@ pub struct EventLoop {
     event_sender: mpsc::Sender<Event>,
     pending_dial: PendingDialMap,
     pending_list_peers: PendingListPeersMap,
+    pending_start_providing: PendingStartProvidingMap,
+    pending_list_providers: PendingListPeersMap,
     pending_request_artifact: PendingRequestArtifactMap,
 }
 
@@ -183,6 +203,8 @@ impl EventLoop {
             event_sender,
             pending_dial: Default::default(),
             pending_list_peers: Default::default(),
+            pending_start_providing: Default::default(),
+            pending_list_providers: Default::default(),
             pending_request_artifact: Default::default(),
         }
     }
@@ -224,7 +246,38 @@ impl EventLoop {
                     .pending_list_peers
                     .remove(&id)
                     .expect("Completed query to be previously pending.")
-                    .send(peers);
+                    .send(HashSet::from_iter(peers));
+            }
+            SwarmEvent::Behaviour(ComposedEvent::Kademlia(
+                KademliaEvent::OutboundQueryCompleted {
+                    id,
+                    result: QueryResult::StartProviding(_),
+                    ..
+                },
+            )) => {
+                let sender: oneshot::Sender<()> = self
+                    .pending_start_providing
+                    .remove(&id)
+                    .expect("Completed query to be previously pending.");
+                let _ = sender.send(());
+            }
+            SwarmEvent::Behaviour(ComposedEvent::Kademlia(
+                KademliaEvent::OutboundQueryCompleted {
+                    id,
+                    result:
+                        QueryResult::GetProviders(Ok(GetProvidersOk {
+                            key: _key,
+                            providers,
+                            ..
+                        })),
+                    ..
+                },
+            )) => {
+                let _ = self
+                    .pending_list_providers
+                    .remove(&id)
+                    .expect("Completed query to be previously pending.")
+                    .send(providers);
             }
             SwarmEvent::Behaviour(ComposedEvent::Kademlia(_)) => {}
             SwarmEvent::Behaviour(ComposedEvent::RequestResponse(
@@ -348,13 +401,22 @@ impl EventLoop {
                     .get_closest_peers(peer_id);
                 self.pending_list_peers.insert(query_id, sender);
             }
-            Command::LookupBlob {
-                hash: _hash,
-                sender,
-            } => {
-                sender
-                    .send(Ok(()))
-                    .expect("Connection to peer to still be open.");
+            Command::Provide { hash, sender } => {
+                let query_id = self
+                    .swarm
+                    .behaviour_mut()
+                    .kademlia
+                    .start_providing(hash.into_bytes().into())
+                    .expect("No store error.");
+                self.pending_start_providing.insert(query_id, sender);
+            }
+            Command::ListProviders { hash, sender } => {
+                let query_id = self
+                    .swarm
+                    .behaviour_mut()
+                    .kademlia
+                    .get_providers(hash.into_bytes().into());
+                self.pending_list_providers.insert(query_id, sender);
             }
             Command::RequestArtifact { hash, peer, sender } => {
                 let request_id = self
@@ -413,11 +475,15 @@ enum Command {
     },
     ListPeers {
         peer_id: PeerId,
-        sender: oneshot::Sender<Vec<PeerId>>,
+        sender: oneshot::Sender<HashSet<PeerId>>,
     },
-    LookupBlob {
+    Provide {
         hash: String,
-        sender: oneshot::Sender<Result<(), Box<dyn Error + Send>>>,
+        sender: oneshot::Sender<()>,
+    },
+    ListProviders {
+        hash: String,
+        sender: oneshot::Sender<HashSet<PeerId>>,
     },
     RequestArtifact {
         hash: String,
@@ -436,7 +502,8 @@ impl Display for Command {
             Command::Listen { .. } => "Listen",
             Command::Dial { .. } => "Dial",
             Command::ListPeers { .. } => "ListPeers",
-            Command::LookupBlob { .. } => "LookupBlob",
+            Command::Provide { .. } => "Provide",
+            Command::ListProviders { .. } => "ListProviders",
             Command::RequestArtifact { .. } => "RequestArtifact",
             Command::RespondArtifact { .. } => "RespondArtifact",
         };

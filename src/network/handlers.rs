@@ -24,7 +24,7 @@ use libp2p::Multiaddr;
 use log::{error, info};
 
 /// Reach out to another node with the specified address
-pub async fn dial_other_peer(mut p2p_client: p2p::Client, to_dial: Multiaddr) -> Option<PeerId> {
+pub async fn dial_other_peer(mut p2p_client: p2p::Client, to_dial: Multiaddr) {
     let peer_id = match to_dial.clone().pop() {
         Some(Protocol::P2p(hash)) => Ok(PeerId::from_multihash(hash).expect("Valid hash.")),
         _ => Err("Expect peer multiaddr to contain peer ID."),
@@ -36,11 +36,9 @@ pub async fn dial_other_peer(mut p2p_client: p2p::Client, to_dial: Multiaddr) ->
                 .await
                 .expect("Dial to succeed.");
             info!("Dialed {:?}", to_dial);
-            Some(peer_id)
         }
         Err(e) => {
             error!("Failed to dial peer: {}", e);
-            None
         }
     }
 }
