@@ -50,6 +50,11 @@ This crate will **not** provide
 
 This can be built from the project root since it's apart of the workspace.
 
+```
+cargo build --workspace
+cargo test --workspace
+```
+
 ### Running the example Node
 
 ```
