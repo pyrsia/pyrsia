@@ -32,10 +32,10 @@ use libp2p::{
 use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
 
-use pyrsia_blockchain_network::network::Behaviour;
 use pyrsia_blockchain_network::block::{Block, PartialTransaction, Transaction, TransactionType};
 use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
+use pyrsia_blockchain_network::network::Behaviour;
 
 pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
 
