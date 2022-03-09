@@ -4,6 +4,9 @@ This crate provides the "input" and "output" trait for interacting with the netw
 
 ### Simplified Workflow
 
+In the diagram below "Node" is the application build on top of this crate, it will in put "transactions" and it should obtain a status indicating
+if the block has been finalized on the chain or not.
+
 ```mermaid
 graph TD
     A[Node] -->|Submit Transaction| B(Publish on Network)
@@ -13,11 +16,6 @@ graph TD
     D --> F[Rejected]
 ```
 
-## Requirements
-
-- Track Authorities, may come and go, with no external dependencies
-- Immutable record of artifacts
-
 ## Philosophy
 
 For the user of this crate, they should be able to:
@@ -26,6 +24,13 @@ For the user of this crate, they should be able to:
   1. Generic payload (any struct that implements our trait)
   2. Few concrete types for the core funcationality of the blockchain (e.g consensus)
 - Returning finalized blocks
+
+## Requirements
+
+- Track Authorities, may come and go, with no external dependencies
+- Immutable record of transactions
+
+## Objectives
 
 This crate will be responsible for:
 
