@@ -1,6 +1,6 @@
 # Pyrsia Library
 
-Principale set of module which make up the [Node](../pyrsia_node) and [CLI](../pyrsia_cli) components.
+Principle set of module which make up the [Node](../pyrsia_node) and [CLI](../pyrsia_cli) components.
 
 ## Terminology
 
