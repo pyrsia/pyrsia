@@ -770,7 +770,6 @@ mod tests {
         }
     }
 
-    #[test]
     #[assay(
     env = [
       ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
@@ -797,7 +796,6 @@ mod tests {
         check_package_version_metadata()?;
     }
 
-    #[test]
     #[assay(
         env = [
           ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
@@ -827,13 +825,7 @@ mod tests {
     }
 
     #[test]
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-          ("DEV_MODE", "on")
-        ],
-        teardown = tear_down()
-        )]
+    #[ignore]
     fn test_fetch_manifest_if_not_in_pyrsia_expecting_fetch_from_dockerhub_success_and_store_in_pyrsia(
     ) {
         let name = "alpine";

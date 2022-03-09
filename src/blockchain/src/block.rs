@@ -18,9 +18,9 @@ use libp2p::identity;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
-use std::hash::Hash;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use super::crypto::hash_algorithm::HashDigest;
 use super::header::*;
 use super::signature::Signature;
 
@@ -28,6 +28,8 @@ use super::signature::Signature;
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum TransactionType {
     Create,
+    AddAuthority,
+    RevokeAuthority,
 }
 
 // ToDo
@@ -63,10 +65,7 @@ impl Block {
         Self {
             header,
             transactions,
-            signature: Signature::new(
-                &bincode::serialize(&header.current_hash).unwrap(),
-                ed25519_keypair,
-            ),
+            signature: Signature::new(&bincode::serialize(&header.hash).unwrap(), ed25519_keypair),
         }
     }
 
@@ -93,7 +92,7 @@ impl Transaction {
         partial_transaction: PartialTransaction,
         ed25519_keypair: &identity::ed25519::Keypair,
     ) -> Self {
-        let hash = hash(&(bincode::serialize(&partial_transaction).unwrap()));
+        let hash = HashDigest::new(&(bincode::serialize(&partial_transaction).unwrap()));
         Self {
             trans_type: partial_transaction.trans_type,
             submitter: partial_transaction.submitter,
@@ -145,7 +144,7 @@ mod tests {
     #[test]
     fn test_build_block() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = hash(&get_publickey_from_keypair(&keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(&keypair).encode());
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
@@ -154,7 +153,12 @@ mod tests {
             &keypair,
         );
         transactions.push(transaction);
-        let block_header = Header::new(PartialHeader::new(hash(b""), local_id, hash(b""), 1));
+        let block_header = Header::new(PartialHeader::new(
+            HashDigest::new(b""),
+            local_id,
+            HashDigest::new(b""),
+            1,
+        ));
         let block = Block::new(block_header, transactions.to_vec(), &keypair);
 
         assert_eq!(1, block.header.number);

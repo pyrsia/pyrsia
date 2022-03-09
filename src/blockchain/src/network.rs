@@ -39,12 +39,12 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for Behaviour {
             println!("++++++++++"); // TODO(fishseasbowl): Replace with logging methods
             println!("++++++++++");
             println!("Recevie a new block {:?}", block);
-            let filepath = match std::env::args().nth(1) {
+            let _filepath = match std::env::args().nth(1) {
                 Some(v) => v,
                 None => String::from("./first"),
             };
-
-            storage::write_block(&filepath, block);
+            // this needs to be blockchain.add_block(block)
+            //write_block(filepath, block);
         }
     }
 }

@@ -15,30 +15,107 @@
 */
 
 extern crate anyhow;
+extern crate confy;
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 
-use anyhow::{Context, Result};
+const CONF_FILE: &str = "pyrsia-cli";
 
-const CONF_FILE: &str = "pyrsia-cli.conf";
-
-pub fn add_config(content: String) -> Result<()> {
-    std::fs::write(CONF_FILE, content)
-        .with_context(|| format!("could not write to conf file `{}`", CONF_FILE))
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CliConfig {
+    pub host: String,
+    pub port: String,
+    pub disk_allocated: String,
 }
 
-pub fn get_config() -> Result<String> {
-    let content = std::fs::read_to_string(CONF_FILE)
-        .with_context(|| format!("could not read file `{}`", CONF_FILE))?;
-    Ok(content)
+impl Default for CliConfig {
+    fn default() -> Self {
+        CliConfig {
+            host: "localhost".to_string(),
+            port: "7888".to_string(),
+            disk_allocated: "5.84 GB".to_string(),
+        }
+    }
+}
+
+impl Display for CliConfig {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let config_toml = toml::to_string_pretty(&self).expect("toml format error");
+        write!(f, "{}", config_toml)
+    }
+}
+
+pub fn add_config(new_cfg: CliConfig) -> Result<()> {
+    let mut cfg: CliConfig = confy::load(CONF_FILE)?;
+    if !new_cfg.host.is_empty() {
+        cfg.host = new_cfg.host
+    }
+
+    if !new_cfg.port.is_empty() {
+        cfg.port = new_cfg.port
+    }
+    // need more validation for checking units
+    if !new_cfg.disk_allocated.is_empty() {
+        cfg.disk_allocated = new_cfg.disk_allocated
+    }
+
+    confy::store(CONF_FILE, &cfg)?;
+
+    Ok(())
+}
+
+pub fn get_config() -> Result<CliConfig> {
+    let cfg: CliConfig = confy::load(CONF_FILE)?;
+
+    Ok(cfg)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use expectest::expect;
-    use expectest::prelude::*;
+    use assay::assay;
+    use directories::ProjectDirs;
+    use std::path::PathBuf;
 
-    #[test]
-    fn test_get_config_errors_when_config_file_not_found() {
-        expect!(get_config()).to(be_err());
+    fn tear_down() {
+        let config_dir_str = get_configuration_directory();
+
+        let path: PathBuf = [
+            config_dir_str.to_owned(),
+            format!("{}.toml", CONF_FILE.to_owned()),
+        ]
+        .iter()
+        .collect();
+
+        if path.exists() {
+            std::fs::remove_dir_all(path.parent().unwrap()).expect("Failed to remove directory");
+        }
+    }
+
+    #[assay(teardown = tear_down())]
+    fn test_config_file_update() {
+        let cfg: CliConfig = get_config().expect("could not get conf file");
+        assert_eq!(cfg.port, "7888".to_string());
+        let cfg = CliConfig {
+            port: "7878".to_string(),
+            ..cfg
+        };
+
+        add_config(cfg).expect("could not update conf file");
+        let new_cfg: CliConfig = get_config().expect("could not get conf file");
+        assert_eq!(new_cfg.port, "7878".to_string());
+    }
+
+    fn get_configuration_directory() -> String {
+        let project = ProjectDirs::from("rs", "", CONF_FILE).expect("bad config dir");
+
+        let config_dir_option = project.config_dir().to_str();
+
+        if let Some(x) = config_dir_option {
+            return x.to_string();
+        } else {
+            return "".to_string();
+        }
     }
 }

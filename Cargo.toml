@@ -56,22 +56,21 @@ rand = "0.8.5"
 reqwest = { version = "0.11.6", features = ["blocking", "json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.78"
-serial_test = "0.5.1"
-sha2 = { version = "0.9.8" }
+serial_test = "0.6.0"
+sha2 = { version = "0.10.2" }
 stringreader = "0.1.1"
 strum = "0.24.0"
-strum_macros = "0.22.0"
+strum_macros = "0.24.0"
 tempfile = "3.2.0"
 test-log = "0.2.8"
 thiserror = "1.0.30"
 tokio = { version = "1.17.0", features = [ "macros", "rt-multi-thread", "io-std" ] }
-tungstenite = "0.6.0"
 unqlite = "1.5.0"
-url = "1.5.1"
+url = "2.2.2"
 uuid = { version = "0.8.2", features = [ "v4" ] }
 warp = { version = "0.3.1", default-features = false }
 walkdir = "2.3.2"
-multihash = {version = "0.15.0", features = ["serde-codec"]}
+multihash = {version = "0.16.1", features = ["serde-codec"]}
 
 [dependencies.error-chain]
 version = "0.12"
@@ -80,7 +79,6 @@ features = []
 
 [dev-dependencies]
 assay = "0.1.1"
-expectest = "0.12.0"
 string_manipulation = {path="tests/string_manipulation"}
 tokio-test = "0.4.2"
 
