@@ -28,6 +28,7 @@ For the user of this crate, they should be able to:
 ## Requirements
 
 - Track Authorities, may come and go, with no external dependencies
+  - Only a select few participants may submit transactions or publish blocks
 - Immutable record of transactions
 
 ## Objectives
