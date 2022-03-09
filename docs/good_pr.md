@@ -20,29 +20,29 @@ With that in mind, what should authors do to make this process as smooth as poss
 
 ## Signs of a weak Pull Request
 
-* Large number of changes files
-* Lots of inline code documentation
-* Numerous questions which dont understand "why was this changes"
+* Large number of changed files.
+* Lots of inline code documentation.
+* Numerous questions which don't understand "why this was changed".
 
 ### Possible solutions
 
-* Open new issues other the extra work you spot in the code if it takes more then 30 minutes.
+* Open new issues for the extra work you spot in the code if it takes more then 30 minutes.
     * Focus on the issue at hand!
-    * Clearly call out these changes in the description of code comments to inform the reviewer.
+    * Clearly call out changes in the description of code comments to inform the reviewer.
 * Document design decision in the `docs/` folder of write a blog for the website.
     * Share the link to a Google Docs describing the decision and choices made.
     * Include any meeting records where the issue was discussed
 
 ## Test cases
 
-It's always recommended to write tests for any code changes. Tests should describe the expected and undesirable scenarios.
+It's always recommended to write tests for any code changes. Tests should describe both expected and undesirable scenarios.
 
 Make sure the Pull Request has:
 * Code that is readable by itself along with test cases that supplement the narrative of how the code works.
 
 ## Process of how you build PRs
 
-It worth reading our general [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md#dev-flow).
+It is worth reading our general [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md#dev-flow).
 
 Beyond that, any optional check(s) that fail should be brought up at the next team meeting so we can evaluate the significance.
 
