@@ -17,9 +17,9 @@
 use async_trait::async_trait;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
-use libp2p::core::either::EitherError;
 use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
 use libp2p::core::{Multiaddr, PeerId};
+use libp2p::identify::{Identify, IdentifyConfig, IdentifyEvent};
 use libp2p::identity;
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::kad::{
@@ -30,9 +30,9 @@ use libp2p::request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseCodec, RequestResponseEvent,
     RequestResponseMessage, ResponseChannel,
 };
-use libp2p::swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent};
+use libp2p::swarm::{SwarmBuilder, SwarmEvent};
 use libp2p::{NetworkBehaviour, Swarm};
-use log::{debug, info, warn};
+use log::{debug, info, trace, warn};
 use std::collections::hash_map::Entry::Vacant;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
@@ -43,11 +43,14 @@ use std::iter;
 pub async fn new() -> Result<(Client, impl Stream<Item = Event>, EventLoop), Box<dyn Error>> {
     let local_keys = identity::Keypair::generate_ed25519();
 
+    let identify_config =
+        IdentifyConfig::new(String::from("ipfs/1.0.0"), local_keys.public().clone());
     let local_peer_id = local_keys.public().to_peer_id();
 
     let swarm = SwarmBuilder::new(
         libp2p::development_transport(local_keys).await?,
         ComposedBehaviour {
+            identify: Identify::new(identify_config),
             kademlia: Kademlia::new(local_peer_id, MemoryStore::new(local_peer_id)),
             request_response: RequestResponse::new(
                 FileExchangeCodec(),
@@ -90,20 +93,12 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
-    pub async fn dial(
-        &mut self,
-        peer_id: PeerId,
-        peer_addr: Multiaddr,
-    ) -> Result<(), Box<dyn Error + Send>> {
-        debug!("p2p::Client::dial {:?}/{:?}", peer_addr, peer_id);
+    pub async fn dial(&mut self, peer_addr: Multiaddr) -> Result<(), Box<dyn Error + Send>> {
+        debug!("p2p::Client::dial {:?}", peer_addr);
 
         let (sender, receiver) = oneshot::channel();
         self.sender
-            .send(Command::Dial {
-                peer_id,
-                peer_addr,
-                sender,
-            })
+            .send(Command::Dial { peer_addr, sender })
             .await
             .expect("Command receiver not to be dropped.");
         receiver.await.expect("Sender not to be dropped.")
@@ -174,7 +169,7 @@ impl Client {
     }
 }
 
-type PendingDialMap = HashMap<PeerId, oneshot::Sender<Result<(), Box<dyn Error + Send>>>>;
+type PendingDialMap = HashMap<Multiaddr, oneshot::Sender<Result<(), Box<dyn Error + Send>>>>;
 type PendingListPeersMap = HashMap<QueryId, oneshot::Sender<HashSet<PeerId>>>;
 type PendingStartProvidingMap = HashMap<QueryId, oneshot::Sender<()>>;
 type PendingRequestArtifactMap =
@@ -227,14 +222,33 @@ impl EventLoop {
         }
     }
 
-    async fn handle_event(
-        &mut self,
-        event: SwarmEvent<
-            ComposedEvent,
-            EitherError<io::Error, ConnectionHandlerUpgrErr<io::Error>>,
-        >,
-    ) {
+    async fn handle_event(&mut self, event: SwarmEvent<ComposedEvent, impl Error>) {
+        trace!("Handle SwarmEvent: {:?}", event);
         match event {
+            SwarmEvent::Behaviour(ComposedEvent::Identify(IdentifyEvent::Pushed { .. })) => {}
+            SwarmEvent::Behaviour(ComposedEvent::Identify(IdentifyEvent::Received {
+                peer_id,
+                info,
+            })) => {
+                println!("Identify::Received: {}; {:?}", peer_id, info);
+                if let Some(addr) = info.listen_addrs.iter().next() {
+                    if let Some(sender) = self.pending_dial.remove(&addr) {
+                        let _ = sender.send(Ok(()));
+                    }
+
+                    debug!(
+                        "Identify::Received: adding address {:?} for peer {}",
+                        addr.clone(),
+                        peer_id
+                    );
+                    self.swarm
+                        .behaviour_mut()
+                        .kademlia
+                        .add_address(&peer_id, addr.clone());
+                }
+            }
+            SwarmEvent::Behaviour(ComposedEvent::Identify(IdentifyEvent::Sent { .. })) => {}
+            SwarmEvent::Behaviour(ComposedEvent::Identify(IdentifyEvent::Error { .. })) => {}
             SwarmEvent::Behaviour(ComposedEvent::Kademlia(
                 KademliaEvent::OutboundQueryCompleted {
                     id,
@@ -329,23 +343,9 @@ impl EventLoop {
                     address.with(Protocol::P2p(local_peer_id.into()))
                 );
             }
-            SwarmEvent::ConnectionEstablished {
-                peer_id, endpoint, ..
-            } => {
-                if endpoint.is_dialer() {
-                    if let Some(sender) = self.pending_dial.remove(&peer_id) {
-                        let _ = sender.send(Ok(()));
-                    }
-                }
-            }
+            SwarmEvent::ConnectionEstablished { .. } => {}
             SwarmEvent::ConnectionClosed { .. } => {}
-            SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
-                if let Some(peer_id) = peer_id {
-                    if let Some(sender) = self.pending_dial.remove(&peer_id) {
-                        let _ = sender.send(Err(Box::new(error)));
-                    }
-                }
-            }
+            SwarmEvent::OutgoingConnectionError { .. } => {}
             SwarmEvent::BannedPeer { .. } => {}
             SwarmEvent::Dialing(peer_id) => {
                 debug!(
@@ -370,22 +370,11 @@ impl EventLoop {
                     Err(e) => sender.send(Err(Box::new(e))),
                 };
             }
-            Command::Dial {
-                peer_id,
-                peer_addr,
-                sender,
-            } => {
-                if let Vacant(_) = self.pending_dial.entry(peer_id) {
-                    self.swarm
-                        .behaviour_mut()
-                        .kademlia
-                        .add_address(&peer_id, peer_addr.clone());
-                    match self
-                        .swarm
-                        .dial(peer_addr.with(Protocol::P2p(peer_id.into())))
-                    {
+            Command::Dial { peer_addr, sender } => {
+                if let Vacant(_) = self.pending_dial.entry(peer_addr.clone()) {
+                    match self.swarm.dial(peer_addr.clone()) {
                         Ok(()) => {
-                            self.pending_dial.insert(peer_id, sender);
+                            self.pending_dial.insert(peer_addr, sender);
                         }
                         Err(e) => {
                             let _ = sender.send(Err(Box::new(e)));
@@ -440,14 +429,22 @@ impl EventLoop {
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "ComposedEvent")]
 struct ComposedBehaviour {
+    identify: Identify,
     kademlia: Kademlia<MemoryStore>,
     request_response: RequestResponse<FileExchangeCodec>,
 }
 
 #[derive(Debug)]
 enum ComposedEvent {
+    Identify(IdentifyEvent),
     Kademlia(KademliaEvent),
     RequestResponse(RequestResponseEvent<ArtifactRequest, ArtifactResponse>),
+}
+
+impl From<IdentifyEvent> for ComposedEvent {
+    fn from(event: IdentifyEvent) -> Self {
+        ComposedEvent::Identify(event)
+    }
 }
 
 impl From<KademliaEvent> for ComposedEvent {
@@ -469,7 +466,6 @@ enum Command {
         sender: oneshot::Sender<Result<(), Box<dyn Error + Send>>>,
     },
     Dial {
-        peer_id: PeerId,
         peer_addr: Multiaddr,
         sender: oneshot::Sender<Result<(), Box<dyn Error + Send>>>,
     },
