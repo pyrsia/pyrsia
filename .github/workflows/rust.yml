@@ -23,7 +23,7 @@ jobs:
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    - run: cargo check --workspace --verbose  --release
+    - run: cargo check --workspace --verbose --release
 
   check-tests:
     runs-on: ubuntu-latest
@@ -79,7 +79,7 @@ jobs:
 
     - name: Build Release Binaries
       run: |
-        cargo build --workspace --examples --verbose --release
+        cargo build --workspace --examples --release
 
     - name: Execute Test Cases
       run: |
