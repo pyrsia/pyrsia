@@ -45,7 +45,7 @@ impl AuthorityVerifier {
     pub fn verify(&self, msg: &[u8], sgn: &Signature, index: NodeIndex) -> bool {
         let sig = sgn.clone().to_bytes();
         match self.authorities.get(&index) {
-            Some(public_key) => public_key.verify(&msg.to_vec(), &sig),
+            Some(public_key) => public_key.verify(msg, &sig),
             None => {
                 warn!("No public key for {:?}", index);
                 false

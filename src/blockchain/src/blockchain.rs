@@ -105,7 +105,7 @@ impl Blockchain {
                         local_id,
                         "this needs to be the root authority".as_bytes().to_vec(),
                     ),
-                    &keypair,
+                    keypair,
                 )]),
                 keypair,
             )]),
