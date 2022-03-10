@@ -33,8 +33,7 @@ use uuid::Uuid;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_blobs(
-    p2p_client: p2p::Client,
-    peer_id: Option<PeerId>,
+    mut p2p_client: p2p::Client,
     name: String,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
@@ -54,7 +53,7 @@ pub async fn handle_get_blobs(
                 hash
             );
 
-            let blob_stored = get_blob_from_network(p2p_client, peer_id, &name, &hash).await?;
+            let blob_stored = get_blob_from_network(p2p_client.clone(), &name, &hash).await?;
             if blob_stored {
                 blob_content =
                     get_artifact(&decoded_hash, HashAlgorithm::SHA256).map_err(|_| {
@@ -69,6 +68,8 @@ pub async fn handle_get_blobs(
             }
         }
     }
+
+    p2p_client.provide(String::from(&hash)).await;
 
     debug!("Final Step: {:?} successfully retrieved!", hash);
     Ok(warp::http::response::Builder::new()
@@ -216,12 +217,12 @@ fn store_blob_in_filesystem(
 
 // Request the content of the artifact from the pyrsia network
 async fn get_blob_from_network(
-    p2p_client: p2p::Client,
-    peer_id: Option<PeerId>,
+    mut p2p_client: p2p::Client,
     name: &str,
     hash: &str,
 ) -> Result<bool, Rejection> {
-    Ok(match peer_id {
+    let providers = p2p_client.list_providers(String::from(hash)).await;
+    Ok(match providers.iter().next() {
         Some(peer) => match get_blob_from_other_peer(p2p_client.clone(), peer, name, hash).await {
             true => true,
             false => get_blob_from_docker_hub(name, hash).await?,
@@ -233,7 +234,7 @@ async fn get_blob_from_network(
 // Request the content of the artifact from other peer
 async fn get_blob_from_other_peer(
     mut p2p_client: p2p::Client,
-    peer_id: PeerId,
+    peer_id: &PeerId,
     name: &str,
     hash: &str,
 ) -> bool {
