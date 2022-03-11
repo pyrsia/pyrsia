@@ -725,9 +725,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.1.5"
+version = "3.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ced1892c55c910c1219e98d6fc8d71f6bddba7905866ce740066d8bfea859312"
+checksum = "d8c93436c21e4698bacadf42917db28b23017027a4deccb35dbe47a7e7840123"
 dependencies = [
  "atty",
  "bitflags",
@@ -3523,9 +3523,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da32515d9f6e6e489d7bc9d84c71b060db7247dc035bbe44eac88cf87486d8d5"
+checksum = "87f3e037eac156d1775da914196f0f37741a274155e34a0b7e427c35d2a2ecb9"
 
 [[package]]
 name = "opaque-debug"
@@ -4116,7 +4116,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "assay",
- "clap 3.1.5",
+ "clap 3.1.6",
  "confy",
  "directories",
  "futures",
@@ -4132,7 +4132,7 @@ dependencies = [
 name = "pyrsia_node"
 version = "0.1.0"
 dependencies = [
- "clap 3.1.5",
+ "clap 3.1.6",
  "futures",
  "hex",
  "libp2p 0.43.0",
