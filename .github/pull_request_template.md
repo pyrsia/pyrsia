@@ -9,7 +9,7 @@ Before submitting your Pull Request, please go over our check list.
 
 Fixes pyrsia/pyrsia#
 
-This PR does... by accomplishing ... and it can be review by ...
+This PR does... by accomplishing ... and it can be reviewed by ...
 
 ## Screenshots (optional)
 
