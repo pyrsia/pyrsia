@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 
 pub struct Status {
     pub peers_count: usize,
+    pub peer_id: String,
     pub artifact_count: usize,
     pub disk_allocated: String,
     pub disk_usage: String,
