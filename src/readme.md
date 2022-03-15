@@ -11,8 +11,6 @@ Principal set of modules which make up the [Node](../pyrsia_node) and [CLI](../p
 
 ## Sub-Crates
 
-- **[signed](signed/)**: Algorithms and notion of a signature
-- **[signed_struct](signed_struct/)**: Procedural macro to make any `struct` sign-able
 - **[blockchain](blockchain/)**: Encompases the network communication and consensus engine along with the datastructures that make a distrubte ledge possible
 
 ## Modules

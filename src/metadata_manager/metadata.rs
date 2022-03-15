@@ -20,12 +20,11 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use super::model::namespace::Namespace;
-use super::model::package_type::{PackageType, PackageTypeBuilder, PackageTypeName};
+use super::model::package_type::{PackageType, PackageTypeName};
 use super::model::package_version::PackageVersion;
 use anyhow::{bail, Result};
 use log::{error, info};
 use maplit::hashmap;
-use signed::signed::{JwsSignatureAlgorithms, SignatureKeyPair, Signed};
 use uuid::Uuid;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,21 +70,15 @@ fn ix_package_types() -> Vec<IndexSpec> {
         vec![String::from(FLD_PACKAGE_TYPES_NAME)],
     )]
 }
-fn init_package_types(key_pair: &SignatureKeyPair) -> Result<Vec<String>> {
-    let mut package_type = PackageTypeBuilder::default()
-        .id(Uuid::new_v4().to_string())
-        .name(PackageTypeName::Docker)
-        .description("docker packages".to_string())
-        .build()
-        .expect("Failed to create package type struct for pre-installation");
-    package_type.sign_json(
-        JwsSignatureAlgorithms::RS512,
-        &key_pair.private_key,
-        &key_pair.public_key,
-    )?;
-    Ok(vec![package_type.json().unwrap_or_else(|| {
-        "package type for pre-installation somehow does not have JSON".to_string()
-    })])
+fn init_package_types() -> Result<Vec<String>> {
+    let package_type = PackageType {
+        id: Uuid::new_v4().to_string(),
+        name: PackageTypeName::Docker,
+        description: "docker packages".to_string(),
+    };
+    Ok(vec![serde_json::to_string(&package_type).unwrap_or_else(
+        |_| "package type for pre-installation somehow does not have JSON".to_string(),
+    )])
 }
 
 // Definitions for name spaces
@@ -145,12 +138,8 @@ pub struct Metadata {
     package_type_docs: DocumentStore,
     namespace_docs: DocumentStore,
     package_version_docs: DocumentStore,
-    untrusted_key_pair: SignatureKeyPair,
 }
 
-/// Methods that create metadata return this enum. In the case of a duplicate, the returned value
-/// includes the json of the duplicate metadata. It can be converted to a struct by passing it to
-/// `Signed::from_json_string()`
 #[derive(Debug)]
 pub enum MetadataCreationStatus {
     Created,
@@ -160,7 +149,6 @@ pub enum MetadataCreationStatus {
 impl Metadata {
     pub fn new() -> Result<Metadata, anyhow::Error> {
         info!("Creating new instance of metadata manager");
-        let untrusted_key_pair = signed::signed::create_key_pair(JwsSignatureAlgorithms::RS512)?;
         let package_type_docs = DocumentStore::open(DS_PACKAGE_TYPES, ix_package_types())?;
         let namespace_docs = DocumentStore::open(DS_NAMESPACES, ix_namespaces())?;
         let package_version_docs = DocumentStore::open(DS_PACKAGE_VERSIONS, ix_package_versions())?;
@@ -168,28 +156,16 @@ impl Metadata {
             package_type_docs,
             namespace_docs,
             package_version_docs,
-            untrusted_key_pair: untrusted_key_pair.clone(),
         };
-        populate_with_initial_records(
-            &untrusted_key_pair,
-            &metadata.package_type_docs,
-            init_package_types,
-        )?;
+        populate_with_initial_records(&metadata.package_type_docs, init_package_types)?;
         Ok(metadata)
-    }
-
-    /// The key pair returned by this method is intended for testing only. It is generated at node
-    /// start-up and will never be registered with the block chain.  Anything signed by this will be
-    /// considered to be signed by an unknown party.
-    pub fn untrusted_key_pair(&self) -> &SignatureKeyPair {
-        &self.untrusted_key_pair
     }
 
     pub fn create_package_type(
         &self,
         pkg_type: &PackageType,
     ) -> anyhow::Result<MetadataCreationStatus> {
-        insert_metadata(&self.package_type_docs, pkg_type)
+        insert_metadata(&self.package_type_docs, serde_json::to_string(pkg_type)?)
     }
 
     pub fn get_package_type(&self, name: PackageTypeName) -> anyhow::Result<Option<PackageType>> {
@@ -199,7 +175,7 @@ impl Metadata {
         };
         match self.package_type_docs.fetch(IX_PACKAGE_TYPES_NAMES, filter) {
             Err(error) => bail!("Error fetching package type: {}", error.to_string()),
-            Ok(Some(json)) => Ok(Some(PackageType::from_json_string(&json)?)),
+            Ok(Some(json)) => Ok(Some(serde_json::from_str(&json)?)),
             Ok(None) => Ok(None),
         }
     }
@@ -208,7 +184,7 @@ impl Metadata {
         &self,
         namespace: &Namespace,
     ) -> anyhow::Result<MetadataCreationStatus> {
-        insert_metadata(&self.namespace_docs, namespace)
+        insert_metadata(&self.namespace_docs, serde_json::to_string(&namespace)?)
     }
 
     pub fn get_namespace(
@@ -228,7 +204,10 @@ impl Metadata {
         &self,
         package_version: &PackageVersion,
     ) -> anyhow::Result<MetadataCreationStatus> {
-        insert_metadata(&self.package_version_docs, package_version)
+        insert_metadata(
+            &self.package_version_docs,
+            serde_json::to_string(package_version)?,
+        )
     }
 
     pub fn get_package_version(
@@ -249,11 +228,10 @@ impl Metadata {
 // Most types of metadata come from the Pyrsia network or the node's clients. However, a few types
 // of metadata such as package type will need to be at partially pre-populated in new nodes.
 fn populate_with_initial_records(
-    key_pair: &SignatureKeyPair,
     ds: &DocumentStore,
-    initial_records: fn(&SignatureKeyPair) -> Result<Vec<String>>,
+    initial_records: fn() -> Result<Vec<String>>,
 ) -> Result<()> {
-    for record in initial_records(key_pair)? {
+    for record in initial_records()? {
         info!(
             "Inserting in collection {} pre-installed record {}",
             ds.name(),
@@ -282,7 +260,7 @@ fn fetch_namespace(
 ) -> anyhow::Result<Option<Namespace>> {
     match md.namespace_docs.fetch(index_name, filter) {
         Err(error) => bail!("Error fetching namespace: {:?}", error),
-        Ok(Some(json)) => Ok(Some(Namespace::from_json_string(&json)?)),
+        Ok(Some(json)) => Ok(Some(serde_json::from_str(&json)?)),
         Ok(None) => Ok(None),
     }
 }
@@ -294,30 +272,21 @@ fn fetch_package_version(
 ) -> anyhow::Result<Option<PackageVersion>> {
     match md.package_version_docs.fetch(index_name, filter) {
         Err(error) => bail!("Error fetching package version: {}", error.to_string()),
-        Ok(Some(json)) => Ok(Some(PackageVersion::from_json_string(&json)?)),
+        Ok(Some(json)) => Ok(Some(serde_json::from_str(&json)?)),
         Ok(None) => Ok(None),
     }
 }
 
-fn insert_metadata<'a, T: Signed<'a> + Debug>(
-    ds: &DocumentStore,
-    signed: &T,
-) -> anyhow::Result<MetadataCreationStatus> {
-    match signed.json() {
-        Some(json) => match ds.insert(&json) {
-            Ok(_) => Ok(MetadataCreationStatus::Created),
-            Err(DocumentStoreError::DuplicateRecord(record)) => {
-                Ok(MetadataCreationStatus::Duplicate { json: record })
-            }
-            Err(error) => bail!(
-                "Failed to create package_type record: {:?}\nError is {}",
-                signed,
-                error.to_string()
-            ),
-        },
-        None => bail!(
-            "A supposedly trusted metadata struct is missing its JSON: {:?}",
-            signed
+fn insert_metadata(ds: &DocumentStore, signed: String) -> anyhow::Result<MetadataCreationStatus> {
+    match ds.insert(&signed) {
+        Ok(_) => Ok(MetadataCreationStatus::Created),
+        Err(DocumentStoreError::DuplicateRecord(record)) => {
+            Ok(MetadataCreationStatus::Duplicate { json: record })
+        }
+        Err(error) => bail!(
+            "Failed to create package_type record: {:?}\nError is {}",
+            signed,
+            error.to_string()
         ),
     }
 }
@@ -330,23 +299,17 @@ mod tests {
     use crate::node_manager::handlers::METADATA_MGR;
     use crate::node_manager::model::artifact::ArtifactBuilder;
     use crate::node_manager::model::package_version::LicenseTextMimeType;
-    use crate::node_manager::model::package_version::PackageVersionBuilder;
     use rand::RngCore;
     use serde_json::{Map, Value};
-    use signed::signed;
 
     #[test]
     fn package_type_test() -> Result<()> {
         let metadata = &METADATA_MGR;
-
-        let mut package_type = PackageTypeBuilder::default()
-            .id(Uuid::new_v4().to_string())
-            .name(PackageTypeName::Docker)
-            .description("docker packages".to_string())
-            .build()?;
-        let algorithm = signed::JwsSignatureAlgorithms::RS384;
-        let key_pair = metadata.untrusted_key_pair();
-        package_type.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key)?;
+        let mut package_type = PackageType {
+            id: Uuid::new_v4().to_string(),
+            name: PackageTypeName::Docker,
+            description: "docker packages".to_string(),
+        };
         // Because the Docker package type is pre-installed, we expect an attempt to add one to
         // produce a duplicate result.
         match metadata.create_package_type(&package_type)? {
@@ -358,24 +321,14 @@ mod tests {
     #[test]
     fn namespace_test() -> Result<()> {
         let metadata = &METADATA_MGR;
-        let key_pair = metadata.untrusted_key_pair();
 
         let id = Uuid::new_v4().to_string();
         let path = append_random("all/or/nothing");
-        let timestamp = signed::now_as_iso8601_string();
-        let mut namespace = NamespaceBuilder::default()
-            .id(id)
-            .package_type(PackageTypeName::Docker)
-            .namespace_path(path.clone())
-            .creation_time(timestamp.clone())
-            .modified_time(timestamp.clone())
-            .build()?;
-
-        namespace.sign_json(
-            JwsSignatureAlgorithms::RS512,
-            &key_pair.private_key,
-            &key_pair.public_key,
-        )?;
+        let mut namespace = Namespace {
+            id,
+            package_type: PackageTypeName::Docker,
+            namespace_path: path,
+        };
         match metadata.create_namespace(&namespace)? {
             MetadataCreationStatus::Created => {
                 let namespace2 = metadata
@@ -399,7 +352,6 @@ mod tests {
             0x42, 0xfe, 0xc5, 0xc0,
         ];
         let name1 = "roadRunner".to_string();
-        let creation_time1 = signed::now_as_iso8601_string();
         let url1 = "https://example.com".to_string();
         let size1: u64 = 12345678;
         let mime_type1 = "application/binary".to_string();
@@ -408,7 +360,6 @@ mod tests {
             .hash(hash1)
             .algorithm(HashAlgorithm::SHA256)
             .name(name1)
-            .creation_time(creation_time1)
             .url(url1)
             .size(size1)
             .mime_type(mime_type1)
@@ -425,8 +376,6 @@ mod tests {
         let license_text_mimetype = LicenseTextMimeType::Text;
         let license_url = "https://example.com".to_string();
         let pv_metadata: serde_json::Map<String, Value> = serde_json::Map::new();
-        let creation_time = signed::now_as_iso8601_string();
-        let modified_time = signed::now_as_iso8601_string();
         let tags: Vec<String> = vec![];
         let description = "Roses are red".to_string();
 
@@ -440,13 +389,10 @@ mod tests {
             .license_text_mimetype(license_text_mimetype)
             .license_url(license_url)
             .metadata(pv_metadata)
-            .creation_time(creation_time)
-            .modified_time(modified_time)
             .tags(tags)
             .description(description)
             .artifacts(artifacts)
             .build()?;
-        let algorithm = signed::JwsSignatureAlgorithms::RS384;
         let key_pair = metadata.untrusted_key_pair();
         package_version.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key)?;
 

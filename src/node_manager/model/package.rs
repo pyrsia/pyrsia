@@ -16,15 +16,11 @@
 
 extern crate serde;
 extern crate serde_json;
-extern crate signed;
-extern crate signed_struct;
 
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use signed::signed::Signed;
-use signed_struct::signed_struct;
 
-#[signed_struct]
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 /// Describes a package
 pub struct Package {
     /// The id of the namespace that this package is part of.

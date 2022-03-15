@@ -24,8 +24,7 @@ use crate::metadata_manager::metadata::MetadataCreationStatus;
 use crate::node_manager::handlers::METADATA_MGR;
 use crate::node_manager::model::artifact::{Artifact, ArtifactBuilder};
 use crate::node_manager::model::package_type::PackageTypeName;
-use crate::node_manager::model::package_version::{PackageVersion, PackageVersionBuilder};
-use crate::signed::signed::Signed;
+use crate::node_manager::model::package_version::PackageVersion;
 use anyhow::{anyhow, bail, Context};
 use bytes::Buf;
 use bytes::Bytes;
@@ -46,7 +45,7 @@ pub async fn fetch_manifest(name: String, tag: String) -> Result<impl Reply, Rej
     //get package_version from metadata
     match METADATA_MGR.get_package_version(DOCKER_NAMESPACE_ID, &name, &tag) {
         Ok(Some(package_version)) => {
-            match get_artifact_manifest(package_version.artifacts()) {
+            match get_artifact_manifest(&package_version.artifacts) {
                 Some(artifact) => {
                     debug!("Getting manifest from artifact manager.");
                     manifest_content = get_artifact(artifact.hash(), HashAlgorithm::SHA512)
@@ -200,15 +199,8 @@ fn internal_error_response(
 fn sign_and_save_package_version(
     package_version: &mut PackageVersion,
 ) -> Result<(), anyhow::Error> {
-    let key_pair = METADATA_MGR.untrusted_key_pair();
-    package_version.sign_json(
-        key_pair.signature_algorithm,
-        &key_pair.private_key,
-        &key_pair.public_key,
-    )?;
-    let pv_json = package_version
-        .json()
-        .unwrap_or_else(|| "*** missing JSON ***".to_string());
+    let pv_json = serde_json::to_string(package_version)
+        .unwrap_or_else(|_| "*** missing JSON ***".to_string());
     match METADATA_MGR.create_package_version(package_version)? {
         MetadataCreationStatus::Created => {
             info!("Saved package version from docker manifest: {}", pv_json)
@@ -433,16 +425,15 @@ fn build_package_version(
     metadata: Map<String, Value>,
     artifacts: Vec<Artifact>,
 ) -> anyhow::Result<PackageVersion> {
-    PackageVersionBuilder::default()
-        .id(new_uuid_string())
-        .namespace_id(DOCKER_NAMESPACE_ID.to_string())
-        .name(String::from(manifest_name))
-        .pkg_type(PackageTypeName::Docker)
-        .version(String::from(manifest_tag))
-        .metadata(metadata)
-        .artifacts(artifacts)
-        .build()
-        .context("Error building PackageVersion")
+    Ok(PackageVersion::new(
+        new_uuid_string(),
+        DOCKER_NAMESPACE_ID.to_string(),
+        String::from(manifest_name),
+        PackageTypeName::Docker,
+        metadata,
+        String::from(manifest_tag),
+        artifacts,
+    ))
 }
 
 fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), anyhow::Error> {
