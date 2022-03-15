@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use super::config::get_config;
 use super::ArtifactManager;
 use super::Hash;
 use super::HashAlgorithm;
@@ -31,9 +32,6 @@ use std::io::{BufReader, Read};
 use std::panic::UnwindSafe;
 use std::str;
 use std::{fs, panic};
-
-//TODO: read from CLI config file
-pub const ALLOCATED_SPACE_FOR_ARTIFACTS: &str = "10.84 GB";
 
 lazy_static! {
     pub static ref LOCAL_KEY: identity::Keypair = identity::Keypair::generate_ed25519();
@@ -119,7 +117,9 @@ pub fn get_space_available(repository_path: &str) -> Result<u64, anyhow::Error> 
     let disk_used_bytes = ART_MGR.space_used(repository_path)?;
 
     let mut available_space: u64 = 0;
-    let total_allocated_size: u64 = Byte::from_str(ALLOCATED_SPACE_FOR_ARTIFACTS)
+    let cli_config = get_config().context("Error getting cli config file")?;
+
+    let total_allocated_size: u64 = Byte::from_str(cli_config.disk_allocated)
         .unwrap()
         .get_bytes();
 
@@ -131,8 +131,9 @@ pub fn get_space_available(repository_path: &str) -> Result<u64, anyhow::Error> 
 
 pub fn disk_usage(repository_path: &str) -> Result<f64, anyhow::Error> {
     let disk_used_bytes = ART_MGR.space_used(repository_path)?;
+    let cli_config = get_config().context("Error getting cli config file")?;
 
-    let total_allocated_size: u64 = Byte::from_str(ALLOCATED_SPACE_FOR_ARTIFACTS)
+    let total_allocated_size: u64 = Byte::from_str(cli_config.disk_allocated)
         .unwrap()
         .get_bytes();
     let mut disk_usage: f64 = 0.0;

@@ -14,11 +14,10 @@
    limitations under the License.
 */
 
-extern crate pyrsia;
 extern crate reqwest;
 
 use super::config::get_config;
-use pyrsia::model::cli::Status;
+use crate::model::cli::Status;
 
 pub async fn ping() -> Result<String, reqwest::Error> {
     //TODO: implement ping api in Node
@@ -34,9 +33,24 @@ pub async fn peers_connected() -> Result<String, reqwest::Error> {
 }
 
 pub async fn status() -> Result<Status, reqwest::Error> {
+    let result = get_config();
+    let mut total_disk_allocated = String::new();
+    match result {
+        Ok(data) => {
+            total_disk_allocated = data.disk_allocated;
+        }
+        Err(error) => {
+            println!("Error: {}", error);
+        }
+    };
+
     let node_url = format!("http://{}/status", get_url());
 
-    let response = reqwest::get(node_url).await?.json::<Status>().await?;
+    let url =
+        reqwest::Url::parse_with_params(&node_url, &[("disk_allocated", total_disk_allocated)])
+            .unwrap();
+
+    let response = reqwest::get(url.as_str()).await?.json::<Status>().await?;
     Ok(response)
 }
 
