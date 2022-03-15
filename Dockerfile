@@ -23,7 +23,7 @@ COPY --from=dupdatelock /src/Cargo.lock .
 FROM builder AS dbuild
 RUN mkdir -p /out
 ENV RUST_BACKTRACE=1
-ENV DEV_MODE=on 
+ENV DEV_MODE=on
 ENV PYRSIA_ARTIFACT_PATH=pyrsia
 RUN --mount=target=/src \
     --mount=type=cache,target=/target \
@@ -40,7 +40,6 @@ RUN <<EOT bash
     apt-get update
     apt-get install -y \
         ca-certificates \
-        openssl
     rm -rf /var/lib/apt/lists/*
 EOT
 COPY --from=dbuild /out/pyrsia_node /usr/local/bin/
