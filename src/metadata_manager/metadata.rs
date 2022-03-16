@@ -15,13 +15,14 @@
 */
 extern crate anyhow;
 
+use super::model::artifact::Artifact;
+use super::model::namespace::Namespace;
+use super::model::package_type::{PackageType, PackageTypeName};
+use super::model::package_version::PackageVersion;
 use crate::document_store::document_store::{DocumentStore, DocumentStoreError, IndexSpec};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use super::model::namespace::Namespace;
-use super::model::package_type::{PackageType, PackageTypeName};
-use super::model::package_version::PackageVersion;
 use anyhow::{bail, Result};
 use log::{error, info};
 use maplit::hashmap;
@@ -295,9 +296,7 @@ fn insert_metadata(ds: &DocumentStore, signed: String) -> anyhow::Result<Metadat
 mod tests {
     use super::*;
     use crate::artifacts_repository::hash_util::HashAlgorithm;
-    use crate::model::namespace::NamespaceBuilder;
     use crate::node_manager::handlers::METADATA_MGR;
-    use crate::node_manager::model::artifact::ArtifactBuilder;
     use crate::node_manager::model::package_version::LicenseTextMimeType;
     use rand::RngCore;
     use serde_json::{Map, Value};
@@ -305,7 +304,7 @@ mod tests {
     #[test]
     fn package_type_test() -> Result<()> {
         let metadata = &METADATA_MGR;
-        let mut package_type = PackageType {
+        let package_type = PackageType {
             id: Uuid::new_v4().to_string(),
             name: PackageTypeName::Docker,
             description: "docker packages".to_string(),
@@ -324,10 +323,14 @@ mod tests {
 
         let id = Uuid::new_v4().to_string();
         let path = append_random("all/or/nothing");
-        let mut namespace = Namespace {
-            id,
+        let namespace_clone = path.clone();
+        let namespace = Namespace {
+            id: id,
             package_type: PackageTypeName::Docker,
-            namespace_path: path,
+            namespace_path: namespace_clone,
+            administrators: vec![vec![]],
+            creation_time: Some(String::from("")),
+            modified_time: Some(String::from("")),
         };
         match metadata.create_namespace(&namespace)? {
             MetadataCreationStatus::Created => {
@@ -356,17 +359,18 @@ mod tests {
         let size1: u64 = 12345678;
         let mime_type1 = "application/binary".to_string();
         let source1 = "https://info.com".to_string();
-        let artifacts = vec![ArtifactBuilder::default()
-            .hash(hash1)
-            .algorithm(HashAlgorithm::SHA256)
-            .name(name1)
-            .url(url1)
-            .size(size1)
-            .mime_type(mime_type1)
-            .metadata(Map::new())
-            .source_url(source1)
-            .build()?];
 
+        let artifacts = vec![Artifact {
+            hash: hash1,
+            algorithm: HashAlgorithm::SHA256,
+            name: Some(name1),
+            url: Some(url1),
+            size: Some(size1),
+            mime_type: Some(mime_type1),
+            metadata: Map::new(),
+            source_url: Some(source1),
+            creation_time: Some(String::from("")),
+        }];
         let id = append_random("id");
         let namespace_id = append_random("NS");
         let name = append_random("name");
@@ -379,22 +383,25 @@ mod tests {
         let tags: Vec<String> = vec![];
         let description = "Roses are red".to_string();
 
-        let mut package_version: PackageVersion = PackageVersionBuilder::default()
-            .id(id)
-            .namespace_id(namespace_id.clone())
-            .name(name.clone())
-            .pkg_type(package_type)
-            .version(version.clone())
-            .license_text(license_text)
-            .license_text_mimetype(license_text_mimetype)
-            .license_url(license_url)
-            .metadata(pv_metadata)
-            .tags(tags)
-            .description(description)
-            .artifacts(artifacts)
-            .build()?;
-        let key_pair = metadata.untrusted_key_pair();
-        package_version.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key)?;
+        let package_version: PackageVersion = PackageVersion {
+            id: id,
+            namespace_id: namespace_id.clone(),
+            name: name.clone(),
+            pkg_type: package_type,
+            version: version.clone(),
+            license_text: Some(license_text),
+            license_text_mimetype: Some(license_text_mimetype),
+            metadata: pv_metadata,
+            creation_time: Some(String::from("")),
+            modified_time: Some(String::from("")),
+            license_url: Some(license_url),
+            tags: tags,
+            description: Some(description),
+            artifacts: artifacts,
+        };
+
+        // let key_pair = metadata.untrusted_key_pair();
+        // package_version.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key)?;
 
         match metadata.create_package_version(&package_version)? {
             MetadataCreationStatus::Created => (),
