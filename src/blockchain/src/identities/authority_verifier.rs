@@ -24,7 +24,7 @@ use super::signature::{MultiSignature, Signature};
 #[derive(Clone, Default)]
 pub struct AuthorityVerifier {
     authorities: HashMap<NodeIndex, PublicKey>,
-    // TODO(prince-chrismc): Re-introduce `NodeIndex` to associate with `PeerId` when adding `KeyBox`
+    // TODO(prince-chrismc): Re-introduce `NodeIndex` to associate with `PeerId` when adding `network`
     // peers_by_index: HashMap<NodeIndex, PeerId>,
 }
 

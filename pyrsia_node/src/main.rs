@@ -39,10 +39,9 @@ async fn main() {
 
     tokio::spawn(event_loop.run());
 
-    let final_peer_id = match args.peer {
-        Some(to_dial) => dial_other_peer(p2p_client.clone(), to_dial).await,
-        None => None,
-    };
+    if let Some(to_dial) = args.peer {
+        dial_other_peer(p2p_client.clone(), to_dial).await;
+    }
 
     // Listen on all interfaces and whatever port the OS assigns
     p2p_client
@@ -63,7 +62,7 @@ async fn main() {
         port.parse::<u16>().unwrap(),
     );
 
-    let docker_routes = make_docker_routes(p2p_client.clone(), final_peer_id);
+    let docker_routes = make_docker_routes(p2p_client.clone());
     let node_api_routes = make_node_routes(p2p_client.clone());
     let all_routes = docker_routes.or(node_api_routes);
 

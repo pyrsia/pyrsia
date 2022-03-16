@@ -14,7 +14,6 @@
    limitations under the License.
 */
 extern crate libp2p;
-extern crate libp2p_kad;
 extern crate std;
 
 use crate::node_manager::handlers::LOCAL_PEER_ID;
