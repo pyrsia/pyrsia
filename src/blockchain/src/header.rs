@@ -31,7 +31,7 @@ pub struct Header {
     pub committer: Address,
     /// 256bit Keccak Hash of the root node of Transactions Merkle tree
     pub transactions_root: HashDigest,
-    /// Unix time, the number of seconds that have elapsed since the Unix epoch, excluding leap seconds
+    /// Unix timestamp, see https://en.wikipedia.org/wiki/Unix_time
     pub timestamp: u64,
     /// block sequence number, the current block number should be the parent(previous) block number plus 1
     pub number: u128,
