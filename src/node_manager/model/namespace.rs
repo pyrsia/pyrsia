@@ -16,15 +16,12 @@
 
 extern crate serde;
 extern crate serde_json;
-extern crate signed;
-extern crate signed_struct;
+
+use serde::{Deserialize, Serialize};
 
 use crate::node_manager::model::package_type::PackageTypeName;
-use signed::signed::Signed;
-use signed_struct::signed_struct;
 
-#[signed_struct]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
 /// Describes a name space.
 pub struct Namespace {
     /// A uuid that uniquely identifies the name space
@@ -34,7 +31,6 @@ pub struct Namespace {
     /// Many name spaces are hierarchical. Different package types punctuate the path of a name space. Instead of using punctuation, we put the elements of the path in a Vec.
     namespace_path: String,
     /// Updates to a name space should be signed by an identity associated with one of the public keys in the administrators field.
-    #[builder(default = "Vec::new()")]
     administrators: Vec<Vec<u8>>,
     /// ISO-8601 creation time
     creation_time: Option<String>,

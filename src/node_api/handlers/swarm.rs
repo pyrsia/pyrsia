@@ -54,6 +54,7 @@ pub async fn handle_get_status(mut p2p_client: p2p::Client) -> Result<impl Reply
     let status = Status {
         artifact_count: art_count_result.unwrap(),
         peers_count: peers.len(),
+        peer_id: p2p_client.local_peer_id.to_string(),
         disk_allocated: String::from(ALLOCATED_SPACE_FOR_ARTIFACTS),
         disk_usage: format!("{:.4}", disk_space_result.unwrap()),
     };
