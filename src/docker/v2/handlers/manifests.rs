@@ -406,11 +406,11 @@ fn package_version_from_schema1(
     let mut artifacts: Vec<Artifact> = Vec::new();
     let size64 = u64::try_from(size)?;
     artifacts.push(Artifact {
-        url: Some(String::from("")),
-        name: Some(String::from("")),
+        url: None,
+        name: None,
         metadata: Map::new(),
-        creation_time: Some(String::from("")),
-        source_url: Some(String::from("")),
+        creation_time: None,
+        source_url: None,
         algorithm: hash_algorithm,
         hash: hash,
         mime_type: Some(MEDIA_TYPE_SCHEMA_1.to_string()),
@@ -452,11 +452,11 @@ fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), an
         algorithm: HashAlgorithm::SHA256,
         hash: digest,
         mime_type: Some(MEDIA_TYPE_BLOB_GZIPPED.to_string()),
-        creation_time: Some(String::from("")),
-        source_url: Some(String::from("")),
-        size: Some(12345678),
-        url: Some(String::from("")),
-        name: Some(String::from("")),
+        creation_time: None,
+        source_url: None,
+        size: None,
+        url: None,
+        name: None,
         metadata: Map::new(),
     });
     Ok(())
@@ -510,7 +510,7 @@ fn package_version_from_manifest_list(
     docker_name: &str,
     docker_reference: &str,
     hash_algorithm: HashAlgorithm,
-    hash: Vec<u8>,
+    _hash: Vec<u8>,
     size: usize,
 ) -> Result<PackageVersion, anyhow::Error> {
     debug!("Processing manifest list");
@@ -521,7 +521,7 @@ fn package_version_from_manifest_list(
     artifacts.push(
         ArtifactBuilder::default()
             .algorithm(hash_algorithm)
-            .hash(hash)
+            .hash(_hash)
             .mime_type(MEDIA_TYPE_MANIFEST_LIST.to_string())
             .size(size64)
             .build()?,
@@ -542,7 +542,7 @@ fn package_version_from_image_manifest(
     docker_name: &str,
     docker_reference: &str,
     hash_algorithm: HashAlgorithm,
-    hash: Vec<u8>,
+    _hash: Vec<u8>,
     size: usize,
 ) -> Result<PackageVersion, anyhow::Error> {
     debug!("Processing image manifest");
@@ -553,7 +553,7 @@ fn package_version_from_image_manifest(
     artifacts.push(
         ArtifactBuilder::default()
             .algorithm(hash_algorithm)
-            .hash(hash)
+            .hash(_hash)
             .mime_type(MEDIA_TYPE_IMAGE_MANIFEST.to_string())
             .size(size64)
             .build()?,

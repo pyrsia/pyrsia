@@ -300,13 +300,6 @@ mod tests {
     use crate::node_manager::model::package_version::LicenseTextMimeType;
     use rand::RngCore;
     use serde_json::{Map, Value};
-   
-   // Now with millisecond precision and time zone "Z"
-   pub fn now_as_iso8601_string() -> String {
-       time::OffsetDateTime::now_utc()
-           .format(&time::format_description::well_known::Rfc3339)
-           .unwrap()
-   }
 
     #[test]
     fn package_type_test() -> Result<()> {
