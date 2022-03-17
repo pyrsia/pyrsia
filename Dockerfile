@@ -39,7 +39,7 @@ RUN <<EOT bash
     set -e
     apt-get update
     apt-get install -y \
-        ca-certificates \
+        ca-certificates
     rm -rf /var/lib/apt/lists/*
 EOT
 COPY --from=dbuild /out/pyrsia_node /usr/local/bin/
