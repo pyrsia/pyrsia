@@ -503,7 +503,7 @@ fn package_version_from_manifest_list(
     docker_name: &str,
     docker_reference: &str,
     hash_algorithm: HashAlgorithm,
-    _hash: Vec<u8>,
+    hash: Vec<u8>,
     size: usize,
 ) -> Result<PackageVersion, anyhow::Error> {
     debug!("Processing manifest list");
@@ -514,7 +514,7 @@ fn package_version_from_manifest_list(
     artifacts.push(
         ArtifactBuilder::default()
             .algorithm(hash_algorithm)
-            .hash(_hash)
+            .hash(hash)
             .mime_type(MEDIA_TYPE_MANIFEST_LIST.to_string())
             .size(size64)
             .build()?,
@@ -535,7 +535,7 @@ fn package_version_from_image_manifest(
     docker_name: &str,
     docker_reference: &str,
     hash_algorithm: HashAlgorithm,
-    _hash: Vec<u8>,
+    hash: Vec<u8>,
     size: usize,
 ) -> Result<PackageVersion, anyhow::Error> {
     debug!("Processing image manifest");
@@ -546,7 +546,7 @@ fn package_version_from_image_manifest(
     artifacts.push(
         ArtifactBuilder::default()
             .algorithm(hash_algorithm)
-            .hash(_hash)
+            .hash(hash)
             .mime_type(MEDIA_TYPE_IMAGE_MANIFEST.to_string())
             .size(size64)
             .build()?,
