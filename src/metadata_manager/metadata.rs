@@ -15,7 +15,6 @@
 */
 extern crate anyhow;
 
-use super::model::artifact::ArtifactBuilder;
 use super::model::namespace::Namespace;
 use super::model::package_type::{PackageType, PackageTypeName};
 use super::model::package_version::PackageVersion;
@@ -295,6 +294,7 @@ fn insert_metadata(ds: &DocumentStore, signed: String) -> anyhow::Result<Metadat
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::model::artifact::ArtifactBuilder;
     use crate::artifacts_repository::hash_util::HashAlgorithm;
     use crate::node_manager::handlers::METADATA_MGR;
     use crate::node_manager::model::package_version::LicenseTextMimeType;
