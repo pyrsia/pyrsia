@@ -141,12 +141,6 @@ pub struct Metadata {
     package_version_docs: DocumentStore,
 }
 
-pub fn now_as_iso8601_string() -> String {
-    time::OffsetDateTime::now_utc()
-        .format(&time::format_description::well_known::Rfc3339)
-        .unwrap()
-}
-
 #[derive(Debug)]
 pub enum MetadataCreationStatus {
     Created,
@@ -351,6 +345,11 @@ mod tests {
     }
 
     #[test]
+    fn now_as_iso8601_string() -> String {
+        time::OffsetDateTime::now_utc()
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap()
+    }
     fn package_version_test() -> Result<()> {
         let metadata = &METADATA_MGR;
         info!("Got metadata instance");
