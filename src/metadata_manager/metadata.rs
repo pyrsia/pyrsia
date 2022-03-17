@@ -343,13 +343,12 @@ mod tests {
         }
         Ok(())
     }
-
-    #[test]
     fn now_as_iso8601_string() -> String {
         time::OffsetDateTime::now_utc()
             .format(&time::format_description::well_known::Rfc3339)
             .unwrap()
     }
+    #[test]
     fn package_version_test() -> Result<()> {
         let metadata = &METADATA_MGR;
         info!("Got metadata instance");
@@ -387,7 +386,8 @@ mod tests {
         let pv_metadata: serde_json::Map<String, Value> = serde_json::Map::new();
         let tags: Vec<String> = vec![];
         let description = "Roses are red".to_string();
-
+        let creation_time_value = now_as_iso8601_string();
+        let modified_time_value = now_as_iso8601_string();
         let package_version: PackageVersion = PackageVersion {
             id: id,
             namespace_id: namespace_id.clone(),
@@ -397,8 +397,8 @@ mod tests {
             license_text: Some(license_text),
             license_text_mimetype: Some(license_text_mimetype),
             metadata: pv_metadata,
-            creation_time: Some(String::from("")),
-            modified_time: Some(String::from("")),
+            creation_time: Some(creation_time_value),
+            modified_time: Some(modified_time_value),
             license_url: Some(license_url),
             tags: tags,
             description: Some(description),

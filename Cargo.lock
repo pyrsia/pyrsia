@@ -4019,7 +4019,6 @@ dependencies = [
  "lava_torrent",
  "lazy_static",
  "libp2p 0.43.0",
- "libp2p-kad 0.35.0",
  "log",
  "maplit",
  "multihash 0.16.1",

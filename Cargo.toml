@@ -43,7 +43,6 @@ itertools = "0.10.3"
 lava_torrent = "0.5.0"
 lazy_static = "1.4.0"
 libp2p = { version = "0.43.0", features=["tcp-tokio"]}
-libp2p-kad = "0.35.0"
 log = { version = "0.4.14", features = ["max_level_trace", "release_max_level_trace"] }
 maplit = "1.0.2"
 num-traits = "0.2.14"
