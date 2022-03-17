@@ -15,7 +15,7 @@
 */
 extern crate anyhow;
 
-use super::model::artifact::Artifact;
+use super::model::artifact::ArtifactBuilder;
 use super::model::namespace::Namespace;
 use super::model::package_type::{PackageType, PackageTypeName};
 use super::model::package_version::PackageVersion;
@@ -139,6 +139,12 @@ pub struct Metadata {
     package_type_docs: DocumentStore,
     namespace_docs: DocumentStore,
     package_version_docs: DocumentStore,
+}
+
+pub fn now_as_iso8601_string() -> String {
+    time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap()
 }
 
 #[derive(Debug)]
@@ -359,18 +365,18 @@ mod tests {
         let size1: u64 = 12345678;
         let mime_type1 = "application/binary".to_string();
         let source1 = "https://info.com".to_string();
-
-        let artifacts = vec![Artifact {
-            hash: hash1,
-            algorithm: HashAlgorithm::SHA256,
-            name: Some(name1),
-            url: Some(url1),
-            size: Some(size1),
-            mime_type: Some(mime_type1),
-            metadata: Map::new(),
-            source_url: Some(source1),
-            creation_time: Some(String::from("")),
-        }];
+        let creation_time1 = now_as_iso8601_string();
+        let artifacts = vec![ArtifactBuilder::default()
+            .hash(hash1)
+            .algorithm(HashAlgorithm::SHA256)
+            .name(name1)
+            .creation_time(creation_time1)
+            .url(url1)
+            .size(size1)
+            .mime_type(mime_type1)
+            .metadata(Map::new())
+            .source_url(source1)
+            .build()?];
         let id = append_random("id");
         let namespace_id = append_random("NS");
         let name = append_random("name");
@@ -399,9 +405,6 @@ mod tests {
             description: Some(description),
             artifacts: artifacts,
         };
-
-        // let key_pair = metadata.untrusted_key_pair();
-        // package_version.sign_json(algorithm, &key_pair.private_key, &key_pair.public_key)?;
 
         match metadata.create_package_version(&package_version)? {
             MetadataCreationStatus::Created => (),

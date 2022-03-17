@@ -27,30 +27,30 @@ use serde_json::{Map, Value};
 #[derive(Builder, Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Artifact {
     /// The hash value that identifies the artifact.
-    pub hash: Vec<u8>,
+    hash: Vec<u8>,
     /// The hash algorithm used to compute the hash value.
-    pub algorithm: HashAlgorithm,
+    algorithm: HashAlgorithm,
     /// The name of this artifact.
     #[builder(setter(strip_option), default)]
-    pub name: Option<String>,
+    name: Option<String>,
     /// ISO-8601 creation time
     #[builder(setter(strip_option), default)]
-    pub creation_time: Option<String>,
+    creation_time: Option<String>,
     /// A URL associated with the artifact.
     #[builder(setter(strip_option), default)]
-    pub url: Option<String>,
+    url: Option<String>,
     /// The size of the artifact.
     #[builder(setter(strip_option), default)]
-    pub size: Option<u64>,
+    size: Option<u64>,
     /// The mime type of the artifact
     #[builder(setter(strip_option), default)]
-    pub mime_type: Option<String>,
+    mime_type: Option<String>,
     /// Attributes of an artifact that don't fit into one of this struct's fields can go in here as JSON
     #[builder(default)]
-    pub metadata: Map<String, Value>,
+    metadata: Map<String, Value>,
     /// The URL of the source of the artifact
     #[builder(setter(strip_option), default)]
-    pub source_url: Option<String>,
+    source_url: Option<String>,
 }
 
 #[allow(unused)]
@@ -98,17 +98,11 @@ mod tests {
 
     #[test]
     fn builder_test() -> anyhow::Result<()> {
-        let artifact: Artifact = Artifact {
-            creation_time: Some(String::from("")),
-            source_url: Some(String::from("")),
-            url: Some(String::from("")),
-            hash: vec![0x38u8, 0x4fu8],
-            algorithm: HashAlgorithm::SHA256,
-            metadata: Map::new(),
-            size: Some(60),
-            mime_type: Some(String::new()),
-            name: Some(String::from("acme")),
-        };
+        let artifact: Artifact = ArtifactBuilder::default()
+            .hash(vec![0x38u8, 0x4fu8])
+            .algorithm(HashAlgorithm::SHA256)
+            .name("acme".to_string())
+            .build()?;
         println!("{:?}", artifact);
         match artifact.name() {
             Some(name) => assert_eq!("acme", name),

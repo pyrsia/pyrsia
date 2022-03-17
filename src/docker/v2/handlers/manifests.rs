@@ -405,17 +405,14 @@ fn package_version_from_schema1(
     metadata.insert(MEDIA_TYPE.to_string(), json!(MEDIA_TYPE_SCHEMA_1));
     let mut artifacts: Vec<Artifact> = Vec::new();
     let size64 = u64::try_from(size)?;
-    artifacts.push(Artifact {
-        url: None,
-        name: None,
-        metadata: Map::new(),
-        creation_time: None,
-        source_url: None,
-        algorithm: hash_algorithm,
-        hash: hash,
-        mime_type: Some(MEDIA_TYPE_SCHEMA_1.to_string()),
-        size: Some(size64),
-    });
+    artifacts.push(
+        ArtifactBuilder::default()
+            .algorithm(hash_algorithm)
+            .hash(hash)
+            .mime_type(MEDIA_TYPE_SCHEMA_1.to_string())
+            .size(size64)
+            .build()?,
+    );
     for fslayer in fslayers {
         add_fslayers(&mut artifacts, fslayer)?;
     }
@@ -448,17 +445,13 @@ fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), an
         .as_str()
         .context("invalid blobSum")?;
     let digest = extract_digest(hex_digest)?;
-    artifacts.push(Artifact {
-        algorithm: HashAlgorithm::SHA256,
-        hash: digest,
-        mime_type: Some(MEDIA_TYPE_BLOB_GZIPPED.to_string()),
-        creation_time: None,
-        source_url: None,
-        size: None,
-        url: None,
-        name: None,
-        metadata: Map::new(),
-    });
+    artifacts.push(
+        ArtifactBuilder::default()
+            .algorithm(HashAlgorithm::SHA256)
+            .hash(digest)
+            .mime_type(MEDIA_TYPE_BLOB_GZIPPED.to_string())
+            .build()?,
+    );
     Ok(())
 }
 
