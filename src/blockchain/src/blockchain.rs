@@ -14,20 +14,15 @@
    limitations under the License.
 */
 
-use libp2p::identity;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
 
+use libp2p::identity;
+use serde::{Deserialize, Serialize, Serializer};
+use serde::ser::{Error, Ok};
+
 use super::block::*;
 use super::crypto::hash_algorithm::HashDigest;
-use super::header::*;
-
-/// BlockchainId identifies the current chain
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum BlockchainId {
-    Pyrsia,
-}
 
 /// Define Supported Signature Algorithm
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -35,49 +30,28 @@ pub enum SignatureAlgorithm {
     Ed25519,
 }
 
-/// Define Configuration Information
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Config {
-    pub blockchain_id: BlockchainId,
-    pub signature_algorithm: SignatureAlgorithm,
-    pub key_size: u32,
-}
-
-impl Config {
-    pub fn new() -> Self {
-        Self {
-            blockchain_id: BlockchainId::Pyrsia,
-            signature_algorithm: SignatureAlgorithm::Ed25519,
-            key_size: 32, //256bits
-        }
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct Blockchain {
+    keypair: identity::ed25519::Keypair,
     #[serde(skip)]
     // this should actually be a Map<Transaction,Vec<OnTransactionSettled>> but that's later
-    pub trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
+    trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
     #[serde(skip)]
-    pub block_observers: Vec<Box<dyn FnMut(Block)>>,
-    pub blocks: Vec<Block>,
+    block_observers: Vec<Box<dyn FnMut(Block)>>,
+    blocks: Vec<Block>,
 }
 
 impl Debug for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let Blockchain {
+            keypair,
             trans_observers: _,
             blocks,
             block_observers: _,
         } = self;
 
         f.debug_struct("Blockchain")
+            .field("keypair", &"***")
             .field("blocks", blocks)
             .field("trans_observers", &self.trans_observers.len())
             .field("block_observers", &self.block_observers.len())
@@ -85,30 +59,38 @@ impl Debug for Blockchain {
     }
 }
 
+impl Serialize for Blockchain{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let mut seq = serializer.serialize_seq(Some(self.blocks.len()))?;
+        for e in self {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
 impl Blockchain {
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
+
         let local_id = HashDigest::new(&get_publickey_from_keypair(&keypair).encode());
+        let transaction = Transaction::new(
+            TransactionType::AddAuthority,
+            local_id,
+            "this needs to be the root authority".as_bytes().to_vec(),
+            &keypair,
+        );
+        // this is the "genesis" blocks
+        let block = Block::new(
+            local_id,
+            1,
+            Vec::from([transaction], keypair),
+            keypair
+        );
         Self {
+            keypair: keypair.clone(),
             trans_observers: Default::default(),
             block_observers: vec![],
-            // this is the "genesis" blocks
-            blocks: Vec::from([Block::new(
-                Header::new(PartialHeader::new(
-                    HashDigest::new(b""),
-                    local_id,
-                    HashDigest::new(b""),
-                    1,
-                )),
-                Vec::from([Transaction::new(
-                    PartialTransaction::new(
-                        TransactionType::AddAuthority,
-                        local_id,
-                        "this needs to be the root authority".as_bytes().to_vec(),
-                    ),
-                    &keypair,
-                )]),
-                keypair,
-            )]),
+            blocks: Vec::from([block])
         }
     }
     pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction)>(
@@ -151,22 +133,6 @@ impl Blockchain {
 
 // Create a new block
 // why isn't this just Block::new
-pub fn new_block(
-    keypair: &identity::ed25519::Keypair,
-    transactions: &[Transaction],
-    parent_hash: HashDigest,
-    previous_number: u128,
-) -> Block {
-    let local_id = HashDigest::new(&get_publickey_from_keypair(keypair).encode());
-    let transaction_root = HashDigest::new(&bincode::serialize(transactions).unwrap());
-    let block_header = Header::new(PartialHeader::new(
-        parent_hash,
-        local_id,
-        transaction_root,
-        previous_number + 1,
-    ));
-    Block::new(block_header, transactions.to_vec(), keypair)
-}
 
 //ToDo
 pub fn generate_ed25519() -> identity::Keypair {
@@ -210,7 +176,7 @@ mod tests {
             &ed25519_keypair,
             &transactions,
             chain.blocks[0].header.hash,
-            chain.blocks[0].header.number,
+            chain.blocks[0].header.ordinal,
         ));
         assert_eq!(true, chain.blocks.last().unwrap().verify());
         assert_eq!(2, chain.blocks.len());
@@ -268,7 +234,8 @@ mod tests {
         ));
 
         let block = Block::new(
-            block_header,
+            local_id,
+            1u128,
             Vec::new(),
             &identity::ed25519::Keypair::generate(),
         );
