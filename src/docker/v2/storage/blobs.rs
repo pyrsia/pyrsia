@@ -14,7 +14,7 @@
   limitations under the License.
 */
 
-pub use crate::artifacts_repository::hash_util::HashAlgorithm;
+use crate::artifacts_repository::hash_util::HashAlgorithm;
 use crate::node_manager::handlers::*;
 use bytes::{Buf, Bytes};
 use log::debug;
