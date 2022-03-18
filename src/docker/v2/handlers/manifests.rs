@@ -149,7 +149,7 @@ pub async fn put_manifest(
                 "Created PackageVersion from manifest: {:?}",
                 package_version
             );
-            if let Err(err) = sign_and_save_package_version(&mut package_version) {
+            if let Err(err) = save_package_version(&mut package_version) {
                 return Ok(internal_error_response(
                     "Failed to sign and save package version from docker manifest",
                     &err,
@@ -196,7 +196,7 @@ fn internal_error_response(
         .unwrap() // I couldn't find a way to return an internal server error that does not use unwrap or somethign else that can panic
 }
 
-fn sign_and_save_package_version(
+fn save_package_version(
     package_version: &mut PackageVersion,
 ) -> Result<(), anyhow::Error> {
     let pv_json = serde_json::to_string(package_version)
@@ -277,7 +277,7 @@ async fn get_manifest_from_docker_hub_with_token(
                 "Created PackageVersion from manifest: {:?}",
                 package_version
             );
-            if let Err(err) = sign_and_save_package_version(&mut package_version) {
+            if let Err(err) = save_package_version(&mut package_version) {
                 return Err(warp::reject::custom(RegistryError {
                     code: RegistryErrorCode::Unknown(err.to_string()),
                 }));

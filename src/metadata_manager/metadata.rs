@@ -15,7 +15,6 @@
 */
 extern crate anyhow;
 
-use super::model::artifact::ArtifactBuilder;
 use super::model::namespace::Namespace;
 use super::model::package_type::{PackageType, PackageTypeName};
 use super::model::package_version::PackageVersion;
@@ -278,15 +277,15 @@ fn fetch_package_version(
     }
 }
 
-fn insert_metadata(ds: &DocumentStore, signed: String) -> anyhow::Result<MetadataCreationStatus> {
-    match ds.insert(&signed) {
+fn insert_metadata(ds: &DocumentStore, metadata: String) -> anyhow::Result<MetadataCreationStatus> {
+    match ds.insert(&metadata) {
         Ok(_) => Ok(MetadataCreationStatus::Created),
         Err(DocumentStoreError::DuplicateRecord(record)) => {
             Ok(MetadataCreationStatus::Duplicate { json: record })
         }
         Err(error) => bail!(
             "Failed to create package_type record: {:?}\nError is {}",
-            signed,
+            metadata,
             error.to_string()
         ),
     }
@@ -297,6 +296,7 @@ mod tests {
     use super::*;
     use crate::artifacts_repository::hash_util::HashAlgorithm;
     use crate::node_manager::handlers::METADATA_MGR;
+    use crate::node_manager::model::artifact::ArtifactBuilder;
     use crate::node_manager::model::package_version::LicenseTextMimeType;
     use rand::RngCore;
     use serde_json::{Map, Value};
