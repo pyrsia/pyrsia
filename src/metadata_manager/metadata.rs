@@ -277,7 +277,7 @@ fn fetch_package_version(
     }
 }
 
-fn insert_metadata(ds: &DocumentStore, signed: String) -> anyhow::Result<MetadataCreationStatus> {
+fn insert_metadata(ds: &DocumentStore, metadata: String) -> anyhow::Result<MetadataCreationStatus> {
     match ds.insert(&signed) {
         Ok(_) => Ok(MetadataCreationStatus::Created),
         Err(DocumentStoreError::DuplicateRecord(record)) => {
