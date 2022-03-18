@@ -196,7 +196,7 @@ fn internal_error_response(
         .unwrap() // I couldn't find a way to return an internal server error that does not use unwrap or somethign else that can panic
 }
 
-fn sign_and_save_package_version(
+fn save_package_version(
     package_version: &mut PackageVersion,
 ) -> Result<(), anyhow::Error> {
     let pv_json = serde_json::to_string(package_version)
