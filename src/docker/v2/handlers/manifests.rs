@@ -193,12 +193,11 @@ fn internal_error_response(
     warp::http::response::Builder::new()
         .status(StatusCode::INTERNAL_SERVER_ERROR)
         .body("Internal server error")
-        .unwrap() // I couldn't find a way to return an internal server error that does not use unwrap or somethign else that can panic
+        .unwrap()
+    // I couldn't find a way to return an internal server error that does not use unwrap or somethign else that can panic
 }
 
-fn save_package_version(
-    package_version: &mut PackageVersion,
-) -> Result<(), anyhow::Error> {
+fn save_package_version(package_version: &mut PackageVersion) -> Result<(), anyhow::Error> {
     let pv_json = serde_json::to_string(package_version)
         .unwrap_or_else(|_| "*** missing JSON ***".to_string());
     match METADATA_MGR.create_package_version(package_version)? {
