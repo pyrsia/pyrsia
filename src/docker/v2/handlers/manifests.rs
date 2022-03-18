@@ -933,9 +933,9 @@ mod tests {
         )?;
         assert_eq!(32, package_version.id().len());
         assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
-        assert_eq!("hello-world", package_version.name());
-        assert_eq!(PackageTypeName::Docker, *package_version.pkg_type());
-        assert_eq!("v3.1", package_version.version());
+        assert_eq!("hello-world", package_version.name);
+        assert_eq!(PackageTypeName::Docker, *package_version.pkg_type);
+        assert_eq!("v3.1", package_version.version);
         assert!(package_version.license_text.is_none());
         assert!(package_version.license_text_mimetype.is_none());
         assert!(package_version.license_url.is_none());
