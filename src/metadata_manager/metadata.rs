@@ -329,8 +329,8 @@ mod tests {
             package_type: PackageTypeName::Docker,
             namespace_path: namespace_clone,
             administrators: vec![vec![]],
-            creation_time: Some(String::from("")),
-            modified_time: Some(String::from("")),
+            creation_time: Some(now_as_iso8601_string()),
+            modified_time: Some(now_as_iso8601_string()),
         };
         match metadata.create_namespace(&namespace)? {
             MetadataCreationStatus::Created => {
