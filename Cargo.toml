@@ -60,7 +60,6 @@ strum_macros = "0.24.0"
 tempfile = "3.2.0"
 test-log = "0.2.8"
 thiserror = "1.0.30"
-time = { version = "0.3.6", features = ["formatting", "parsing"] }
 tokio = { version = "1.17.0", features = [ "macros", "rt-multi-thread", "io-std" ] }
 unqlite = "1.5.0"
 url = "2.2.2"
@@ -77,6 +76,7 @@ features = []
 [dev-dependencies]
 assay = "0.1.1"
 string_manipulation = {path="tests/string_manipulation"}
+time = { version = "0.3.6", features = ["formatting", "parsing"] }
 tokio-test = "0.4.2"
 
 [workspace]
