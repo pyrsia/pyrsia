@@ -14,9 +14,10 @@
    limitations under the License.
 */
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::crypto::hash_algorithm::HashDigest;
 
@@ -29,73 +30,47 @@ pub struct Header {
     pub parent_hash: HashDigest,
     /// the committer node's PeerID
     pub committer: Address,
-    /// 256bit Keccak Hash of the root node of Transactions Merkle tree
-    pub transactions_root: HashDigest,
     /// Unix timestamp, see https://en.wikipedia.org/wiki/Unix_time
     pub timestamp: u64,
     /// block sequence number, the current block number should be the parent(previous) block number plus 1
-    pub number: u128,
+    pub ordinal: u128,
     /// Adds a salt to harden
     nonce: u128,
     /// block id, 256bit Keccak Hash of the Current Block Header, excluding itself
+    ///      hash: block id, 256bit Keccak Hash of the Current Block Header, excluding itself
     pub hash: HashDigest,
 }
 
-impl Header {
-    pub fn new(partial_header: PartialHeader) -> Self {
-        Self {
-            parent_hash: partial_header.parent_hash,
-            committer: partial_header.committer,
-            transactions_root: partial_header.transactions_root,
-            timestamp: partial_header.timestamp,
-            number: partial_header.number,
-            nonce: partial_header.nonce,
-            hash: HashDigest::new(&(bincode::serialize(&partial_header).unwrap())),
-        }
-    }
-}
-
-// struct PartialHeader is a part of struct header for easily count the hash value of block
+// this struct exists only for generating a hash
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct PartialHeader {
-    pub parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
-    pub committer: Address,      //the committer node's PeerID
-    pub transactions_root: HashDigest, //256bit Keccak Hash of the root node of Transaction Tries
-    pub timestamp: u64,
-    pub number: u128,
+struct PartialHeader {
+    parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
+    committer: Address,      //the committer node's PeerID
+    timestamp: u64,
+    ordinal: u128,
     nonce: u128,
 }
-
-impl PartialHeader {
-    pub fn new(
-        parent_hash: HashDigest,
-        committer: Address,
-        transactions_root: HashDigest,
-        number: u128,
-    ) -> Self {
-        Self {
+impl Header {
+    pub fn new(parent_hash: HashDigest,
+               committer: Address,
+               ordinal: u128) -> Self {
+        let partial = PartialHeader{
             parent_hash,
             committer,
-            transactions_root,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
-            number,
+            ordinal,
             nonce: rand::thread_rng().gen::<u128>(),
-        }
-    }
-}
-
-impl From<Header> for PartialHeader {
-    fn from(header: Header) -> PartialHeader {
+        };
         Self {
-            parent_hash: header.parent_hash,
-            committer: header.committer,
-            transactions_root: header.transactions_root,
-            timestamp: header.timestamp,
-            number: header.number,
-            nonce: header.nonce,
+            parent_hash : partial.parent_hash,
+            committer : partial.committer,
+            timestamp: partial.timestamp,
+            ordinal : partial.ordinal,
+            nonce: partial.nonce,
+            hash: HashDigest::new(&(bincode::serialize(&partial).unwrap())),
         }
     }
 }
@@ -105,19 +80,21 @@ mod tests {
     use super::*;
     use libp2p::identity;
 
+    use super::*;
+    use super::super::block;
+
     #[test]
     fn test_build_block_header() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = HashDigest::new(&keypair.public().encode());
 
-        let header = Header::new(PartialHeader::new(
+        let header = Header::new(
             HashDigest::new(b""),
             local_id,
-            HashDigest::new(b""),
             5,
-        ));
+        );
 
-        assert_eq!(5, header.number);
+        assert_eq!(5, header.ordinal);
         Ok(())
     }
 }
