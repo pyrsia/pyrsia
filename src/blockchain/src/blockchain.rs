@@ -16,7 +16,6 @@
 
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
-
 use libp2p::identity;
 use serde::{Deserialize, Serialize, Serializer};
 use serde::ser::{Error, Ok};
