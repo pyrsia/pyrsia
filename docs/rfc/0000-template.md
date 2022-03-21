@@ -21,7 +21,7 @@ Explain the proposal as if it was already included in the language and you were 
 - If applicable, provide sample error messages, deprecation warnings, or migration guidance.
 - If applicable, describe the differences between teaching this to existing Pyrsia users and new Pyrsia users.
 
-For implementation-oriented RFCs (e.g. for compiler internals), this section should focus on how compiler contributors should think about the change, and give examples of its concrete impact. For policy RFCs, this section should provide an example-driven introduction to the policy, and explain its impact in concrete terms.
+For implementation-oriented RFCs (e.g. for peer-to-peer networking technology stack), this section should focus on how compiler contributors should think about the change, and give examples of its concrete impact. 
 
 # Reference-level explanation
 

@@ -13,7 +13,7 @@ The process can be broken down as follows:
 1. [Reach out on community forms and open an issue](#before-creating-an-rfc)
 2. [Follow the template and open a PR](#the-proposal-process)
 3. [Attend our meeting and promote your proposal](#approach-the-community)
-4. [Schedual a review meeting](#reviewing-a-proposal)
+4. [Schedule a review meeting](#reviewing-a-proposal)
 
 Lastly, [Proposal resolution](#proposal-resolution) may take several different forms.
 
@@ -66,7 +66,7 @@ be implemented.
 - Fork this repository [pyrsia/pyrsia](https://github.com/pyrsia/pyrsia/fork)
 - Copy `docs/rfc/0000-template.md` to `docs/rfc/0000-my-feature.md`
   - where 'my-feature' is the title in kebab case; don't assign a number yet.
-- Fill in the proposal. Put care into the details: **Proposals that do not present convincing motivation, demonstrate understanding of the impact of the design, or are disingenuous about the drawbacks or alternatives tend to be poorly-received**.
+- Please put in enough time and research in putting a proposal together and we strongly encourage getting some feedback from part of the team before making your proposal final.
 - Submit a pull request. As a pull request, the proposal will receive feedback from the larger community, and the author should be prepared to revise it in response.
 
 ### Approach the Community
@@ -76,8 +76,7 @@ Build consensus and integrate feedback. Proposals that have broad support are mu
 ### Reviewing a Proposal
 
 Periodically, the team will attempt to review the active proposals. We try to dicuss proposals at the bi-weekly team
-["Architecture"](https://pyrsia.io/events/) meeting, we schedual additional meetings as need. Actions are recorded in the meeting minutes.
-Every accepted feature should have a core team champion, who will represent the feature and its progress.
+["Architecture"](https://pyrsia.io/events/) meeting, we schedule additional meetings as need. Actions are recorded in the meeting minutes.
 
 ### Proposal resolution
 
@@ -102,7 +101,7 @@ The author of a proposal is not obligated to implement it. Of course, the propos
 
 #### Inspirations
 
-This has been havily inspired by other community driven projects and their RFC process.
+This has been derived from other community driven projects. But in the end the changes to this process can be proposed to the team and this process is open to being updated.
 
 - [React Native Proposals](https://github.com/react-native-community/discussions-and-proposals)
 - [Rust RFC](https://github.com/rust-lang/rfcs)
