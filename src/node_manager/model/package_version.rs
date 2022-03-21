@@ -83,30 +83,6 @@ impl PackageVersion {
             tags: Default::default(),
         }
     }
-
-    pub fn id(&self) -> &String {
-        &self.id
-    }
-
-    pub fn namespace_id(&self) -> &String {
-        &self.namespace_id
-    }
-
-    pub fn name(&self) -> &String {
-        &self.name
-    }
-
-    pub fn pkg_type(&self) -> &PackageTypeName {
-        &self.pkg_type
-    }
-
-    pub fn version(&self) -> &String {
-        &self.version
-    }
-
-    pub fn license_text(&self) -> &Option<String> {
-        &self.license_text
-    }
 }
 
 #[derive(EnumIter, Debug, Display, PartialEq, EnumString, Serialize, Deserialize, Clone)]
