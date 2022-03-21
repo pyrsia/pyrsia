@@ -16,18 +16,25 @@
 
 use crate::artifacts_repository::hash_util::HashAlgorithm;
 use crate::network::p2p;
-use crate::node_manager::handlers::get_artifact;
+use crate::node_manager::handlers::{get_artifact, get_artifact_hashes};
 use libp2p::request_response::ResponseChannel;
 use libp2p::Multiaddr;
-use log::info;
+use log::{debug, info};
 
 /// Reach out to another node with the specified address
-pub async fn dial_other_peer(mut p2p_client: p2p::Client, to_dial: Multiaddr) {
-    p2p_client
-        .dial(to_dial.clone())
-        .await
-        .expect("Dial to succeed.");
+pub async fn dial_other_peer(mut p2p_client: p2p::Client, to_dial: &Multiaddr) {
+    p2p_client.dial(to_dial).await.expect("Dial to succeed.");
     info!("Dialed {:?}", to_dial);
+}
+
+/// Provide all known artifacts on the p2p network
+pub async fn provide_artifacts(mut p2p_client: p2p::Client) {
+    if let Ok(artifact_hashes) = get_artifact_hashes() {
+        debug!("Start providing {} artifacts", artifact_hashes.len());
+        for artifact_hash in artifact_hashes.iter() {
+            p2p_client.provide(artifact_hash).await;
+        }
+    }
 }
 
 /// Respond to a RequestArtifact event by getting the artifact from

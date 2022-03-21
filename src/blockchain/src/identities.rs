@@ -16,5 +16,6 @@
 
 pub mod authority_pen;
 pub mod authority_verifier;
+pub mod key_box;
 pub mod verify_key;
 use super::signature;
