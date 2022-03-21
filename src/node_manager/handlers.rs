@@ -19,12 +19,10 @@ use super::Hash;
 use super::HashAlgorithm;
 
 use crate::metadata_manager::metadata::Metadata;
-use crate::network::kademlia_thread_safe_proxy::KademliaThreadSafeProxy;
 use crate::util::env_util::*;
 use anyhow::{Context, Result};
 use byte_unit::Byte;
 use lazy_static::lazy_static;
-use libp2p::{identity, kad::record::store::MemoryStore, PeerId};
 use log::{debug, error, info};
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -36,10 +34,6 @@ use std::{fs, panic};
 pub const ALLOCATED_SPACE_FOR_ARTIFACTS: &str = "10.84 GB";
 
 lazy_static! {
-    pub static ref LOCAL_KEY: identity::Keypair = identity::Keypair::generate_ed25519();
-    pub static ref LOCAL_PEER_ID: PeerId = PeerId::from(LOCAL_KEY.public());
-    pub static ref MEMORY_STORE: MemoryStore = MemoryStore::new(*LOCAL_PEER_ID);
-    pub static ref KADEMLIA_PROXY: KademliaThreadSafeProxy = KademliaThreadSafeProxy::default();
     pub static ref ARTIFACTS_DIR: String = log_static_initialization_failure(
         "Pyrsia Artifact directory",
         Ok(read_var("PYRSIA_ARTIFACT_PATH", "pyrsia"))
