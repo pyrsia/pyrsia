@@ -71,8 +71,7 @@ impl Serialize for Blockchain{
 
 impl Blockchain {
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
-
-        let local_id = HashDigest::new(&get_publickey_from_keypair(&keypair).encode());
+        let local_id = HashDigest::new(&keypair.public().encode());
         let transaction = Transaction::new(
             TransactionType::AddAuthority,
             local_id,
@@ -131,15 +130,6 @@ impl Blockchain {
     }
 }
 
-// Create a new block
-// why isn't this just Block::new
-
-//ToDo
-pub fn generate_ed25519() -> identity::Keypair {
-    //RFC8032
-    identity::Keypair::generate_ed25519()
-}
-
 impl Display for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let json = serde_json::to_string_pretty(&self).expect("json format error");
@@ -156,24 +146,19 @@ mod tests {
 
     #[test]
     fn test_build_blockchain() -> Result<(), String> {
-        let keypair = generate_ed25519();
-        let ed25519_keypair = match keypair {
-            identity::Keypair::Ed25519(v) => v,
-            identity::Keypair::Rsa(_) => todo!(),
-            identity::Keypair::Secp256k1(_) => todo!(),
-        };
-        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
-        let mut chain = Blockchain::new(&ed25519_keypair);
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = HashDigest::new(&keypair.public().encode());
+        let mut chain = Blockchain::new(&keypair);
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
             PartialTransaction::new(TransactionType::Create, local_id, data.as_bytes().to_vec()),
-            &ed25519_keypair,
+            &keypair,
         );
         transactions.push(transaction);
         chain.add_block(new_block(
-            &ed25519_keypair,
+            &keypair,
             &transactions,
             chain.blocks[0].header.hash,
             chain.blocks[0].header.ordinal,
@@ -185,14 +170,9 @@ mod tests {
 
     #[test]
     fn test_add_trans_listener() -> Result<(), String> {
-        let keypair = generate_ed25519();
-        let ed25519_keypair = match keypair {
-            identity::Keypair::Ed25519(v) => v,
-            identity::Keypair::Rsa(_) => todo!(),
-            identity::Keypair::Secp256k1(_) => todo!(),
-        };
-        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
-        let mut chain = Blockchain::new(&ed25519_keypair);
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = HashDigest::new(&keypair.public().encode());
+        let mut chain = Blockchain::new(&keypair);
 
         let transaction = Transaction::new(
             PartialTransaction::new(
@@ -200,7 +180,7 @@ mod tests {
                 local_id,
                 "some transaction".as_bytes().to_vec(),
             ),
-            &ed25519_keypair,
+            &keypair,
         );
         let called = Rc::new(Cell::new(false));
         chain
@@ -219,13 +199,8 @@ mod tests {
 
     #[test]
     fn test_add_block_listener() -> Result<(), String> {
-        let ed25519_keypair = match generate_ed25519() {
-            identity::Keypair::Ed25519(v) => v,
-            identity::Keypair::Rsa(_) => todo!(),
-            identity::Keypair::Secp256k1(_) => todo!(),
-        };
-        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
-
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = HashDigest::new(&keypair.public().encode());
         let block_header = Header::new(PartialHeader::new(
             HashDigest::new(b""),
             local_id,
@@ -239,7 +214,7 @@ mod tests {
             Vec::new(),
             &identity::ed25519::Keypair::generate(),
         );
-        let mut chain = Blockchain::new(&ed25519_keypair);
+        let mut chain = Blockchain::new(&keypair);
         let called = Rc::new(Cell::new(false));
 
         chain

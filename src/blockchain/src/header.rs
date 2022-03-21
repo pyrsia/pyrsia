@@ -26,16 +26,17 @@ pub type Address = HashDigest;
 /// struct Header define the header of a block
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub struct Header {
-    ///      parent_hash: 256bit Keccak Hash of the Parent Block(previous Block hash)
+    /// 256bit Keccak Hash of the Parent Block(previous Block hash)
     pub parent_hash: HashDigest,
-    ///      committer:  the committer node's PeerID
+    /// the committer node's PeerID
     pub committer: Address,
-    ///      timestamp: Unix tim, the number of seconds that have elapsed since the Unix epoch, excluding leap seconds
+    /// Unix timestamp, see https://en.wikipedia.org/wiki/Unix_time
     pub timestamp: u64,
-    ///      number: block sequence number, the current block number should be the parent(previous) block number plus 1
+    /// block sequence number, the current block number should be the parent(previous) block number plus 1
     pub ordinal: u128,
+    /// Adds a salt to harden
     nonce: u128,
-    // Adds a salt to harden
+    /// block id, 256bit Keccak Hash of the Current Block Header, excluding itself
     ///      hash: block id, 256bit Keccak Hash of the Current Block Header, excluding itself
     pub hash: HashDigest,
 }
@@ -76,6 +77,7 @@ impl Header {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use libp2p::identity;
 
     use super::*;
@@ -84,7 +86,7 @@ mod tests {
     #[test]
     fn test_build_block_header() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = HashDigest::new(&block::get_publickey_from_keypair(&keypair).encode());
+        let local_id = HashDigest::new(&keypair.public().encode());
 
         let header = Header::new(
             HashDigest::new(b""),
