@@ -25,7 +25,7 @@ the feature and a rationale for the feature. Strong RFCs included detailed resea
 We intend RFCs to be the primary mechanisms for proposing major new features, for collecting community input on an issue, and for documenting
 the design decisions that have gone into Pyrsia.
 
-The RFC author is responsible for building consensus within the community and documenting dissenting opinions.
+The RFC author is strongly encouraged to facilitate the discussion when the proposal is brought up at community events.
 Because the RFCs are maintained as text files in a versioned repository, their revision history is the historical record of the feature proposal.
 
 ## When you need to follow this process
