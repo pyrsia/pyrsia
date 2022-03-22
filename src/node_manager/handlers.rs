@@ -154,8 +154,8 @@ pub fn get_space_available() -> Result<u64, anyhow::Error> {
     Ok(available_space)
 }
 
-pub fn disk_usage(repository_path: &str) -> Result<f64, anyhow::Error> {
-    let disk_used_bytes = ART_MGR.space_used(repository_path)?;
+pub fn disk_usage() -> Result<f64, anyhow::Error> {
+    let disk_used_bytes = ART_MGR.space_used()?;
     let cli_config = get_config().context("Error getting cli config file")?;
     let total_allocated_size: u64 = Byte::from_str(cli_config.disk_allocated)
         .unwrap()
