@@ -15,8 +15,7 @@
 */
 
 use libp2p::identity;
-use serde::ser::SerializeSeq;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
 
@@ -32,10 +31,11 @@ pub enum SignatureAlgorithm {
     Ed25519,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Blockchain {
-    #[serde(skip)]
-    keypair: identity::ed25519::Keypair,
+    // TODO(chb0github): Why were you trying to add this?
+    // #[serde(skip)]
+    // keypair: Option<identity::ed25519::Keypair>,
     #[serde(skip)]
     // this should actually be a Map<Transaction,Vec<OnTransactionSettled>> but that's later
     trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
@@ -46,32 +46,13 @@ pub struct Blockchain {
 
 impl Debug for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Blockchain {
-            keypair,
-            trans_observers: _,
-            blocks,
-            block_observers: _,
-        } = self;
 
         f.debug_struct("Blockchain")
             .field("keypair", &"***")
-            .field("blocks", blocks)
+            .field("blocks", &self.blocks)
             .field("trans_observers", &self.trans_observers.len())
             .field("block_observers", &self.block_observers.len())
             .finish()
-    }
-}
-
-impl Serialize for Blockchain {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(Some(self.blocks.len()))?;
-        for e in self {
-            seq.serialize_element(e)?;
-        }
-        seq.end()
     }
 }
 
@@ -87,7 +68,7 @@ impl Blockchain {
         // this is the "genesis" blocks
         let block = Block::new(local_id, 1, Vec::from([transaction]), keypair);
         Self {
-            keypair: keypair.clone(),
+            // keypair: Some(keypair.clone()),
             trans_observers: Default::default(),
             block_observers: vec![],
             blocks: Vec::from([block]),
