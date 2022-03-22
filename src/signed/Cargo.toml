@@ -13,7 +13,7 @@ openssl = "0.10.38"
 time = { version = "0.3.6", features = ["formatting", "parsing"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
-syn = { version = "1.0.82", features = ["derive", "parsing", "extra-traits"]}
+syn = { version = "1.0.89", features = ["derive", "parsing", "extra-traits"]}
 log = "0.4.14"
 env_logger = "0.9.0"
 pretty_env_logger = "0.4.0"
