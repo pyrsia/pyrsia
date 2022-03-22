@@ -81,23 +81,29 @@ pub struct Client {
 }
 
 impl Client {
-    pub async fn listen(&mut self, addr: Multiaddr) -> Result<(), Box<dyn Error + Send>> {
+    pub async fn listen(&mut self, addr: &Multiaddr) -> Result<(), Box<dyn Error + Send>> {
         debug!("p2p::Client::listen {:?}", addr);
 
         let (sender, receiver) = oneshot::channel();
         self.sender
-            .send(Command::Listen { addr, sender })
+            .send(Command::Listen {
+                addr: addr.clone(),
+                sender,
+            })
             .await
             .expect("Command receiver not to be dropped.");
         receiver.await.expect("Sender not to be dropped.")
     }
 
-    pub async fn dial(&mut self, peer_addr: Multiaddr) -> Result<(), Box<dyn Error + Send>> {
+    pub async fn dial(&mut self, peer_addr: &Multiaddr) -> Result<(), Box<dyn Error + Send>> {
         debug!("p2p::Client::dial {:?}", peer_addr);
 
         let (sender, receiver) = oneshot::channel();
         self.sender
-            .send(Command::Dial { peer_addr, sender })
+            .send(Command::Dial {
+                peer_addr: peer_addr.clone(),
+                sender,
+            })
             .await
             .expect("Command receiver not to be dropped.");
         receiver.await.expect("Sender not to be dropped.")
@@ -115,12 +121,15 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
-    pub async fn provide(&mut self, hash: String) {
+    pub async fn provide(&mut self, hash: &str) {
         debug!("p2p::Client::provide {:?}", hash);
 
         let (sender, receiver) = oneshot::channel();
         self.sender
-            .send(Command::Provide { hash, sender })
+            .send(Command::Provide {
+                hash: String::from(hash),
+                sender,
+            })
             .await
             .expect("Command receiver not to be dropped.");
         receiver.await.expect("Sender not to be dropped.")

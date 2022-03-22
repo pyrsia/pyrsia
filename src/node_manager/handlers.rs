@@ -92,6 +92,31 @@ pub fn get_artifact(art_hash: &[u8], algorithm: HashAlgorithm) -> Result<Vec<u8>
     Ok(blob_content)
 }
 
+//get_artifact_hashes: retrieve a list of hashes of all artifacts that are stored in
+//                     the artifact_manager
+pub fn get_artifact_hashes() -> Result<Vec<String>, anyhow::Error> {
+    let artifacts = ART_MGR.list_artifacts()?;
+    Ok(artifacts
+        .into_iter()
+        .map(|artifact| {
+            let hash_type = artifact
+                .parent()
+                .unwrap()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap();
+            let hash_value = artifact.file_name().unwrap().to_str().unwrap();
+            let extension_dot = hash_value.rfind('.').unwrap();
+            format!(
+                "{}:{}",
+                hash_type.to_lowercase(),
+                hash_value.get(0..extension_dot).unwrap()
+            )
+        })
+        .collect())
+}
+
 //put_artifact: given artifact_hash(artifactName) & artifact_path push artifact to artifact_manager
 //              and returns the boolean as true or false if it was able to create or not
 pub fn put_artifact(
@@ -113,8 +138,8 @@ pub fn get_arts_count() -> Result<usize, anyhow::Error> {
         .context("Error while getting artifacts count")
 }
 
-pub fn get_space_available(repository_path: &str) -> Result<u64, anyhow::Error> {
-    let disk_used_bytes = ART_MGR.space_used(repository_path)?;
+pub fn get_space_available() -> Result<u64, anyhow::Error> {
+    let disk_used_bytes = ART_MGR.space_used()?;
 
     let mut available_space: u64 = 0;
     let cli_config = get_config().context("Error getting cli config file")?;
@@ -132,7 +157,6 @@ pub fn get_space_available(repository_path: &str) -> Result<u64, anyhow::Error> 
 pub fn disk_usage(repository_path: &str) -> Result<f64, anyhow::Error> {
     let disk_used_bytes = ART_MGR.space_used(repository_path)?;
     let cli_config = get_config().context("Error getting cli config file")?;
-
     let total_allocated_size: u64 = Byte::from_str(cli_config.disk_allocated)
         .unwrap()
         .get_bytes();
@@ -149,7 +173,6 @@ pub fn disk_usage(repository_path: &str) -> Result<f64, anyhow::Error> {
 #[cfg(test)]
 
 mod tests {
-    use super::ArtifactManager;
     use super::HashAlgorithm;
     use super::*;
     use anyhow::Context;
@@ -158,7 +181,6 @@ mod tests {
     use std::fs::File;
     use std::path::Path;
     use std::path::PathBuf;
-    use tempfile::Builder;
 
     use super::Hash;
 
@@ -183,8 +205,7 @@ mod tests {
         ],
         teardown = tear_down()
         )]
-    fn put_and_get_artifact_test() {
-        debug!("put_and_get_artifact_test started !!");
+    fn test_put_and_get_artifact() {
         //put the artifact
         put_artifact(
             &VALID_ARTIFACT_HASH,
@@ -217,47 +238,58 @@ mod tests {
 
     #[assay(
         env = [
-          ("PYRSIA_ARTIFACT_PATH", "PyrisaTest"),
+          ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
           ("DEV_MODE", "on")
         ]  )]
     fn test_disk_usage() {
-        let tmp_dir = Builder::new().prefix("PyrisaTest").tempdir()?;
-        let tmp_path = tmp_dir.path().to_owned();
-        assert!(tmp_path.exists());
+        let usage_pct_before = disk_usage().context("Error from disk_usage")?;
 
-        let name = tmp_path.to_str().unwrap();
+        create_artifact().context("Error creating artifact")?;
 
-        let am: ArtifactManager = ArtifactManager::new(name)?;
-
-        let usage_pct_before = disk_usage(name).context("Error from disk_usage")?;
-
-        create_artifact(am).context("Error creating artifact")?;
-
-        let usage_pct_after = disk_usage(name).context("Error from disk_usage")?;
+        let usage_pct_after = disk_usage().context("Error from disk_usage")?;
         assert!(usage_pct_before < usage_pct_after);
     }
 
     #[assay(
         env = [
-          ("PYRSIA_ARTIFACT_PATH", "PyrisaTest"),
+          ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
           ("DEV_MODE", "on")
         ]  )]
     fn test_get_space_available() {
-        let tmp_dir = Builder::new().prefix("PyrisaTest").tempdir()?;
-        let tmp_path = tmp_dir.path().to_owned();
-        assert!(tmp_path.exists());
-
-        let name = tmp_path.to_str().unwrap();
-
-        let am: ArtifactManager = ArtifactManager::new(name)?;
         let space_available_before =
-            get_space_available(name).context("Error from get_space_available")?;
+            get_space_available().context("Error from get_space_available")?;
 
-        create_artifact(am).context("Error creating artifact")?;
+        create_artifact().context("Error creating artifact")?;
 
         let space_available_after =
-            get_space_available(name).context("Error from get_space_available")?;
+            get_space_available().context("Error from get_space_available")?;
+        debug!(
+            "Before: {}; After: {}",
+            space_available_before, space_available_after
+        );
         assert!(space_available_after < space_available_before);
+    }
+
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
+          ("DEV_MODE", "on")
+        ]  )]
+    fn test_get_artifact_hashes_is_empty() {
+        let artifact_hashes = get_artifact_hashes().context("Error from get_artifact_hashes")?;
+        assert!(artifact_hashes.is_empty());
+    }
+
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
+          ("DEV_MODE", "on")
+        ]  )]
+    fn test_get_artifact_hashes() {
+        create_artifact().context("Error creating artifact")?;
+
+        let artifact_hashes = get_artifact_hashes().context("Error from get_artifact_hashes")?;
+        assert!(artifact_hashes.len() == 1);
     }
 
     fn get_file_reader() -> Result<File, anyhow::Error> {
@@ -270,9 +302,9 @@ mod tests {
         Ok(reader)
     }
 
-    fn create_artifact(am: ArtifactManager) -> Result<(), anyhow::Error> {
+    fn create_artifact() -> Result<(), anyhow::Error> {
         let hash = Hash::new(HashAlgorithm::SHA256, &VALID_ARTIFACT_HASH)?;
-        let push_result = am
+        let push_result = ART_MGR
             .push_artifact(&mut get_file_reader()?, &hash)
             .context("Error while pushing artifact")?;
 

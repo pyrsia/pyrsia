@@ -12,7 +12,7 @@ libp2p = { version = "0.41.1", features=["tcp-tokio"]}
 rand = "0.8.5"
 tokio = { version = "1.17.0", features = ["io-util", "io-std", "macros", "rt", "rt-multi-thread", "sync", "time"] }
 serde_json = "1.0"
-once_cell = "1.5"
+once_cell = "1.10"
 log = "0.4"
 futures = "0.3.19"
 ed25519-dalek = { version = "1.0.1", features=["serde"]}
@@ -20,6 +20,7 @@ anyhow = "1.0.55"
 aleph-bft = "0.8.4"
 codec = {package = "parity-scale-codec", version = "2.3.1", default-features = false, features = ["derive"]}
 hex = "0.4.3"
+async-trait = "0.1.52"
 
 [[example]]
 name = "simple_node"
