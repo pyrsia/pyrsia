@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use clap::{arg, command, AppSettings, ArgMatches, Command, crate_version};
+use clap::{arg, command, crate_version, AppSettings, ArgMatches, Command};
 use const_format::formatcp;
 
 pub fn cli_parser() -> ArgMatches {
