@@ -14,14 +14,17 @@
    limitations under the License.
 */
 
+use libp2p::identity;
+use serde::ser::SerializeSeq;
+use serde::{Deserialize, Serialize, Serializer};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
-use libp2p::identity;
-use serde::{Deserialize, Serialize, Serializer};
-use serde::ser::{Error, Ok};
 
-use super::block::*;
 use super::crypto::hash_algorithm::HashDigest;
+use super::structures::{
+    block::Block,
+    transaction::{Transaction, TransactionType},
+};
 
 /// Define Supported Signature Algorithm
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -31,6 +34,7 @@ pub enum SignatureAlgorithm {
 
 #[derive(Deserialize)]
 pub struct Blockchain {
+    #[serde(skip)]
     keypair: identity::ed25519::Keypair,
     #[serde(skip)]
     // this should actually be a Map<Transaction,Vec<OnTransactionSettled>> but that's later
@@ -58,8 +62,11 @@ impl Debug for Blockchain {
     }
 }
 
-impl Serialize for Blockchain{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+impl Serialize for Blockchain {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let mut seq = serializer.serialize_seq(Some(self.blocks.len()))?;
         for e in self {
             seq.serialize_element(e)?;
@@ -78,17 +85,12 @@ impl Blockchain {
             &keypair,
         );
         // this is the "genesis" blocks
-        let block = Block::new(
-            local_id,
-            1,
-            Vec::from([transaction], keypair),
-            keypair
-        );
+        let block = Block::new(local_id, 1, Vec::from([transaction]), keypair);
         Self {
             keypair: keypair.clone(),
             trans_observers: Default::default(),
             block_observers: vec![],
-            blocks: Vec::from([block])
+            blocks: Vec::from([block]),
         }
     }
     pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction)>(
@@ -142,6 +144,7 @@ mod tests {
     use std::rc::Rc;
 
     use super::*;
+    use crate::structures::header::Header;
 
     #[test]
     fn test_build_blockchain() -> Result<(), String> {
@@ -152,15 +155,17 @@ mod tests {
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
-            PartialTransaction::new(TransactionType::Create, local_id, data.as_bytes().to_vec()),
+            TransactionType::AddAuthority,
+            local_id,
+            data.as_bytes().to_vec(),
             &keypair,
         );
         transactions.push(transaction);
-        chain.add_block(new_block(
-            &keypair,
-            &transactions,
+        chain.add_block(Block::new(
             chain.blocks[0].header.hash,
             chain.blocks[0].header.ordinal,
+            transactions,
+            &keypair,
         ));
         assert_eq!(true, chain.blocks.last().unwrap().verify());
         assert_eq!(2, chain.blocks.len());
@@ -174,11 +179,9 @@ mod tests {
         let mut chain = Blockchain::new(&keypair);
 
         let transaction = Transaction::new(
-            PartialTransaction::new(
-                TransactionType::Create,
-                local_id,
-                "some transaction".as_bytes().to_vec(),
-            ),
+            TransactionType::AddAuthority,
+            local_id,
+            "some transaction".as_bytes().to_vec(),
             &keypair,
         );
         let called = Rc::new(Cell::new(false));
@@ -200,12 +203,11 @@ mod tests {
     fn test_add_block_listener() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = HashDigest::new(&keypair.public().encode());
-        let block_header = Header::new(PartialHeader::new(
+        let block_header = Header::new(
             HashDigest::new(b""),
             local_id,
-            HashDigest::new(b""),
             1,
-        ));
+        );
 
         let block = Block::new(
             local_id,

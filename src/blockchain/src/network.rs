@@ -20,7 +20,7 @@ use libp2p::{
     NetworkBehaviour,
 };
 
-use super::*;
+use super::structures::block::Block;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(event_process = true)]
@@ -35,7 +35,7 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for Behaviour {
     fn inject_event(&mut self, message: FloodsubEvent) {
         if let FloodsubEvent::Message(message) = message {
             //println!("Received: '{:?}' from {:?}", &message.data, message.source);
-            let block: block::Block = bincode::deserialize::<block::Block>(&message.data).unwrap();
+            let block: Block = bincode::deserialize::<Block>(&message.data).unwrap();
             println!("++++++++++"); // TODO(fishseasbowl): Replace with logging methods
             println!("++++++++++");
             println!("Recevie a new block {:?}", block);

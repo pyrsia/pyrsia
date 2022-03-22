@@ -15,11 +15,10 @@
 */
 
 use std::time::{SystemTime, UNIX_EPOCH};
-
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use super::crypto::hash_algorithm::HashDigest;
+use crate::crypto::hash_algorithm::HashDigest;
 
 pub type Address = HashDigest;
 
@@ -30,7 +29,7 @@ pub struct Header {
     pub parent_hash: HashDigest,
     /// the committer node's PeerID
     pub committer: Address,
-    /// Unix timestamp, see https://en.wikipedia.org/wiki/Unix_time
+    /// Unix timestamp in seconds, see https://en.wikipedia.org/wiki/Unix_time
     pub timestamp: u64,
     /// block sequence number, the current block number should be the parent(previous) block number plus 1
     pub ordinal: u128,
@@ -79,9 +78,6 @@ impl Header {
 mod tests {
     use super::*;
     use libp2p::identity;
-
-    use super::*;
-    use super::super::block;
 
     #[test]
     fn test_build_block_header() -> Result<(), String> {
