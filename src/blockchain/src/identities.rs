@@ -14,10 +14,8 @@
    limitations under the License.
 */
 
-pub mod block;
-pub mod blockchain;
-pub mod crypto;
-pub mod header;
-pub mod identities;
-pub mod network;
-pub mod signature;
+pub mod authority_pen;
+pub mod authority_verifier;
+pub mod key_box;
+pub mod verify_key;
+use super::signature;

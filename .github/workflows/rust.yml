@@ -12,7 +12,7 @@ jobs:
   check-workspace:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: actions/cache@v2
       with:
         path: |
@@ -28,7 +28,7 @@ jobs:
   check-tests:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: actions/cache@v2
       with:
         path: |
@@ -48,7 +48,7 @@ jobs:
         matrix:
             os: [macos-latest, ubuntu-latest]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: actions/cache@v2
       with:
         path: |
@@ -122,7 +122,7 @@ jobs:
     needs: [check-tests]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - uses: actions/cache@v2
@@ -157,7 +157,7 @@ jobs:
     needs: [build]
     if: github.repository_owner == 'pyrsia' && github.event_name == 'push'
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 2
 
@@ -176,7 +176,7 @@ jobs:
         tags: pyrsiaoss/pyrsia-node:latest
 
     - name: Only build if CodeCoverage.Dockerfile changed
-      uses: tj-actions/changed-files@v17
+      uses: tj-actions/changed-files@v18.1
       id: changed-files
 
     - name: Build and Push Code Coverage Base Image

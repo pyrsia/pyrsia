@@ -14,7 +14,6 @@
    limitations under the License.
 */
 extern crate libp2p;
-extern crate libp2p_kad;
 extern crate std;
 
 use crate::node_manager::handlers::LOCAL_PEER_ID;
@@ -57,7 +56,7 @@ impl KademliaThreadSafeProxy {
         (*self.ref_cell()).borrow_mut().get_closest_peers(key)
     }
 
-    pub fn get_record(&self, key: &record::Key, quorum: Quorum) -> QueryId {
+    pub fn get_record(&self, key: record::Key, quorum: Quorum) -> QueryId {
         (*self.ref_cell()).borrow_mut().get_record(key, quorum)
     }
 
@@ -106,8 +105,8 @@ mod tests {
     #[test]
     pub fn get_record_test_just_to_check_that_it_returns_a_different_query_id_each_call() {
         let key = record::Key::from(vec![0xde, 0xad, 0xbe, 0xef]);
-        let q1 = KADEMLIA_PROXY.get_record(&key, Quorum::One);
-        let q2 = KADEMLIA_PROXY.get_record(&key, Quorum::One);
+        let q1 = KADEMLIA_PROXY.get_record(key.clone(), Quorum::One);
+        let q2 = KADEMLIA_PROXY.get_record(key.clone(), Quorum::One);
         assert_ne!(q1, q2, "Query IDs should not be equal");
     }
 

@@ -4,7 +4,7 @@ Description=Pyrsia Node
 [Service]
 WorkingDirectory=/usr/local/var
 Environment="PYRSIA_ARTIFACT_PATH=/usr/local/var/pyrsia"
-Environment="RUST_LOG=info"
+Environment="RUST_LOG=debug"
 ExecStart=/usr/bin/pyrsia_node
 
 [Install]

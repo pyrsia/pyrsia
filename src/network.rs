@@ -14,11 +14,6 @@
    limitations under the License.
 */
 
-pub mod behavior;
-mod client;
-pub mod error;
-pub mod http;
+pub mod handlers;
 pub mod kademlia_thread_safe_proxy;
-pub mod swarm;
-pub mod torrent;
-pub mod transport;
+pub mod p2p;

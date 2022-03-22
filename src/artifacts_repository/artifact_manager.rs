@@ -186,12 +186,31 @@ impl ArtifactManager {
         }
         Ok(total_files)
     }
+
+    /// List all artifacts that are known locally.
+    pub fn list_artifacts(&self) -> Result<Vec<PathBuf>, Error> {
+        let mut artifacts = Vec::new();
+
+        for entry in WalkDir::new(self.repository_path.clone())
+            .into_iter()
+            .filter_entry(is_directory_or_artifact_file)
+            .filter_map(|file| file.ok())
+        {
+            if let Ok(metadata) = entry.metadata() {
+                if metadata.is_file() {
+                    artifacts.push(entry.into_path());
+                }
+            }
+        }
+
+        Ok(artifacts)
+    }
+
     /// Calculate the repository size by recursively adding size of each directory inside it.
-    /// Parameters are:
-    /// * path — directory path of which size need to be calculated.
     /// Returns the size
-    pub fn space_used(&self, repository_path: &str) -> Result<u64, Error> {
-        get_size(repository_path).context("Error while calculating the size of artifact manager")
+    pub fn space_used(&self) -> Result<u64, Error> {
+        get_size(self.repository_path.as_os_str())
+            .context("Error while calculating the size of artifact manager")
     }
 
     /// Push an artifact to this node's local repository.
@@ -357,7 +376,7 @@ fn rename_to_permanent(
     base_path: &Path,
     tmp_path: &Path,
 ) -> Result<bool, anyhow::Error> {
-    fs::rename(tmp_path.to_path_buf(), base_path.to_path_buf()).with_context(|| {
+    fs::rename(tmp_path, base_path).with_context(|| {
         format!(
             "Attempting to rename from temporary file name{} to permanent{}",
             tmp_path.to_str().unwrap(),
@@ -539,7 +558,7 @@ mod tests {
 
         // Check the space before pushing artifact
         let space_before = am
-            .space_used(dir_name.as_str())
+            .space_used()
             .context("Error getting space used by ArtifactManager")?;
         assert_eq!(0, space_before);
 
@@ -553,7 +572,7 @@ mod tests {
             fs_extra::dir::get_size(&*am.repository_path.to_string_lossy())?;
         // Check the space used after pushing artifact
         let space_after = am
-            .space_used(dir_name.as_str())
+            .space_used()
             .context("Error getting space used by ArtifactManager")?;
         assert_eq!(
             size_of_files_in_directory_tree, space_after,
@@ -565,8 +584,27 @@ mod tests {
         assert_eq!(
             1,
             am.artifacts_count()?,
-            "artifact manager should have a 1 artifact"
+            "artifact manager should have 1 artifact"
         );
+
+        let artifacts = am.list_artifacts()?;
+        assert_eq!(
+            1,
+            artifacts.len(),
+            "artifact manager should list 1 artifact"
+        );
+        let file_name = format!(
+            "{}/{}.file",
+            dir_name.as_str(),
+            &hash.to_string().replace(":", "/")
+        );
+        assert!(artifacts
+            .get(0)
+            .unwrap()
+            .as_os_str()
+            .to_str()
+            .unwrap()
+            .ends_with(&file_name));
 
         remove_dir_all(&dir_name);
         Ok(())

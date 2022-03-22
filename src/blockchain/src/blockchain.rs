@@ -13,27 +13,20 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use std::collections::HashMap;
-use std::fmt;
-use std::fmt::{Debug, Display, Formatter};
 
 use libp2p::identity;
-use rand::Rng;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt::{self, Debug, Display, Formatter};
 
 use super::block::*;
+use super::crypto::hash_algorithm::HashDigest;
 use super::header::*;
 
 /// BlockchainId identifies the current chain
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BlockchainId {
     Pyrsia,
-}
-
-/// Define Supported Hash Algorithm
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum HashAlgorithm {
-    Keccak,
 }
 
 /// Define Supported Signature Algorithm
@@ -46,9 +39,6 @@ pub enum SignatureAlgorithm {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
     pub blockchain_id: BlockchainId,
-    pub hash_algorithm: HashAlgorithm,
-    pub hash_size: u32,
-    //sizes of u8
     pub signature_algorithm: SignatureAlgorithm,
     pub key_size: u32,
 }
@@ -57,8 +47,6 @@ impl Config {
     pub fn new() -> Self {
         Self {
             blockchain_id: BlockchainId::Pyrsia,
-            hash_algorithm: HashAlgorithm::Keccak,
-            hash_size: 32, //256bits
             signature_algorithm: SignatureAlgorithm::Ed25519,
             key_size: 32, //256bits
         }
@@ -71,34 +59,6 @@ impl Default for Config {
     }
 }
 
-/// Define Genesis Block
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GenesisBlock {
-    pub header: Header,
-    pub config: Config,
-    pub signature: BlockSignature,
-}
-
-impl GenesisBlock {
-    pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
-        let local_id = hash(&get_publickey_from_keypair(keypair).encode());
-        let config = Config::new();
-        let header = Header::new(PartialHeader::new(
-            hash(b""),
-            local_id,
-            hash(&(bincode::serialize(&config).unwrap())),
-            0,
-            rand::thread_rng().gen::<u128>(),
-        ));
-
-        Self {
-            header,
-            config,
-            signature: Signature::new(&bincode::serialize(&header.current_hash).unwrap(), keypair),
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct Blockchain {
     #[serde(skip)]
@@ -106,7 +66,6 @@ pub struct Blockchain {
     pub trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
     #[serde(skip)]
     pub block_observers: Vec<Box<dyn FnMut(Block)>>,
-    pub genesis_block: GenesisBlock,
     pub blocks: Vec<Block>,
 }
 
@@ -114,13 +73,11 @@ impl Debug for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let Blockchain {
             trans_observers: _,
-            genesis_block,
             blocks,
             block_observers: _,
         } = self;
 
         f.debug_struct("Blockchain")
-            .field("genesis_block", genesis_block)
             .field("blocks", blocks)
             .field("trans_observers", &self.trans_observers.len())
             .field("block_observers", &self.block_observers.len())
@@ -129,6 +86,31 @@ impl Debug for Blockchain {
 }
 
 impl Blockchain {
+    pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
+        let local_id = HashDigest::new(&get_publickey_from_keypair(&keypair).encode());
+        Self {
+            trans_observers: Default::default(),
+            block_observers: vec![],
+            // this is the "genesis" blocks
+            blocks: Vec::from([Block::new(
+                Header::new(PartialHeader::new(
+                    HashDigest::new(b""),
+                    local_id,
+                    HashDigest::new(b""),
+                    1,
+                )),
+                Vec::from([Transaction::new(
+                    PartialTransaction::new(
+                        TransactionType::AddAuthority,
+                        local_id,
+                        "this needs to be the root authority".as_bytes().to_vec(),
+                    ),
+                    &keypair,
+                )]),
+                keypair,
+            )]),
+        }
+    }
     pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction)>(
         &mut self,
         trans: Transaction,
@@ -159,15 +141,6 @@ impl Blockchain {
             .for_each(|notify| notify(block.clone()));
         self
     }
-    #[warn(dead_code)]
-    pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
-        Self {
-            trans_observers: Default::default(),
-            block_observers: vec![],
-            genesis_block: GenesisBlock::new(keypair),
-            blocks: vec![],
-        }
-    }
 
     #[warn(dead_code)]
     pub fn add_block(&mut self, block: Block) {
@@ -177,20 +150,20 @@ impl Blockchain {
 }
 
 // Create a new block
+// why isn't this just Block::new
 pub fn new_block(
     keypair: &identity::ed25519::Keypair,
     transactions: &[Transaction],
     parent_hash: HashDigest,
     previous_number: u128,
 ) -> Block {
-    let local_id = hash(&get_publickey_from_keypair(keypair).encode());
-    let transaction_root = hash(&bincode::serialize(transactions).unwrap());
+    let local_id = HashDigest::new(&get_publickey_from_keypair(keypair).encode());
+    let transaction_root = HashDigest::new(&bincode::serialize(transactions).unwrap());
     let block_header = Header::new(PartialHeader::new(
         parent_hash,
         local_id,
         transaction_root,
         previous_number + 1,
-        rand::thread_rng().gen::<u128>(),
     ));
     Block::new(block_header, transactions.to_vec(), keypair)
 }
@@ -223,33 +196,20 @@ mod tests {
             identity::Keypair::Rsa(_) => todo!(),
             identity::Keypair::Secp256k1(_) => todo!(),
         };
-        let local_id = hash(&get_publickey_from_keypair(&ed25519_keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
         let mut chain = Blockchain::new(&ed25519_keypair);
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
-            PartialTransaction::new(
-                TransactionType::Create,
-                local_id,
-                data.as_bytes().to_vec(),
-                rand::thread_rng().gen::<u128>(),
-            ),
+            PartialTransaction::new(TransactionType::Create, local_id, data.as_bytes().to_vec()),
             &ed25519_keypair,
         );
         transactions.push(transaction);
-        let g_block = GenesisBlock::new(&ed25519_keypair);
-        assert_eq!(0, g_block.header.number);
         chain.add_block(new_block(
             &ed25519_keypair,
             &transactions,
-            chain.genesis_block.header.current_hash,
-            chain.genesis_block.header.number,
-        ));
-        chain.add_block(new_block(
-            &ed25519_keypair,
-            &transactions,
-            chain.blocks[0].header.current_hash,
+            chain.blocks[0].header.hash,
             chain.blocks[0].header.number,
         ));
         assert_eq!(true, chain.blocks.last().unwrap().verify());
@@ -265,7 +225,7 @@ mod tests {
             identity::Keypair::Rsa(_) => todo!(),
             identity::Keypair::Secp256k1(_) => todo!(),
         };
-        let local_id = hash(&get_publickey_from_keypair(&ed25519_keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
         let mut chain = Blockchain::new(&ed25519_keypair);
 
         let transaction = Transaction::new(
@@ -273,7 +233,6 @@ mod tests {
                 TransactionType::Create,
                 local_id,
                 "some transaction".as_bytes().to_vec(),
-                rand::thread_rng().gen::<u128>(),
             ),
             &ed25519_keypair,
         );
@@ -299,14 +258,13 @@ mod tests {
             identity::Keypair::Rsa(_) => todo!(),
             identity::Keypair::Secp256k1(_) => todo!(),
         };
-        let local_id = hash(&get_publickey_from_keypair(&ed25519_keypair).encode());
+        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
 
         let block_header = Header::new(PartialHeader::new(
-            hash(b""),
+            HashDigest::new(b""),
             local_id,
-            hash(b""),
+            HashDigest::new(b""),
             1,
-            rand::thread_rng().gen::<u128>(),
         ));
 
         let block = Block::new(

@@ -82,6 +82,14 @@ impl From<Box<dyn Error>> for RegistryError {
     }
 }
 
+impl From<Box<dyn Error + Send>> for RegistryError {
+    fn from(err: Box<dyn Error + Send>) -> RegistryError {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(err.to_string()),
+        }
+    }
+}
+
 impl Reject for RegistryError {}
 
 pub async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {

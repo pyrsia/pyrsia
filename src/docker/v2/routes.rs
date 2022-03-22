@@ -15,14 +15,15 @@
    limitations under the License.
 */
 
+use crate::network::p2p;
+
 use super::handlers::blobs::*;
 use super::handlers::manifests::*;
 use std::collections::HashMap;
 use warp::Filter;
 
 pub fn make_docker_routes(
-    tx_blobs: GetBlobsHandle,
-    tx: tokio::sync::mpsc::Sender<String>,
+    p2p_client: p2p::Client,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let empty_json = "{}";
     let v2_base = warp::path("v2")
@@ -53,10 +54,10 @@ pub fn make_docker_routes(
     let v2_blobs = warp::path!("v2" / "library" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(move |name, hash| handle_get_blobs(tx_blobs.clone(), name, hash));
+        .and_then(move |name, hash| handle_get_blobs(p2p_client.clone(), name, hash));
     let v2_blobs_post = warp::path!("v2" / "library" / String / "blobs" / "uploads")
         .and(warp::post())
-        .and_then(move |name| handle_post_blob(tx.clone(), name));
+        .and_then(handle_post_blob);
     let v2_blobs_patch = warp::path!("v2" / "library" / String / "blobs" / "uploads" / String)
         .and(warp::patch())
         .and(warp::body::bytes())
