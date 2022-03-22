@@ -1,6 +1,7 @@
 [package]
 name = "pyrsia_cli"
-version = "0.1.0"
+version = "0.1.1"
+build = "build.rs"
 description = "Zero-Trust Decentralized Package Network"
 edition = "2021"
 
@@ -24,4 +25,6 @@ path = "src/main.rs"
 directories = "^2.0"
 assay = "0.1.1"
 
-
+[build-dependencies]
+anyhow = "1.0"
+vergen = "7.0.0"

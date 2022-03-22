@@ -46,5 +46,6 @@ pub fn cli_parser() -> ArgMatches {
                     arg!(-l --list       "Shows list of connected Peers").visible_alias("ls"),
                 ]),
         ])
+        .version(env!("VERGEN_GIT_SHA"))
         .get_matches()
 }
