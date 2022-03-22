@@ -45,7 +45,7 @@ pub async fn handle_get_status(mut p2p_client: p2p::Client) -> Result<impl Reply
         }));
     }
 
-    let disk_space_result = disk_usage(ARTIFACTS_DIR.as_str());
+    let disk_space_result = disk_usage();
     if disk_space_result.is_err() {
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(disk_space_result.err().unwrap().to_string()),
