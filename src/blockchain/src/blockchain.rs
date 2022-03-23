@@ -48,7 +48,7 @@ impl Debug for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 
         f.debug_struct("Blockchain")
-            .field("keypair", &"***")
+            // .field("keypair", &"***")
             .field("blocks", &self.blocks)
             .field("trans_observers", &self.trans_observers.len())
             .field("block_observers", &self.block_observers.len())

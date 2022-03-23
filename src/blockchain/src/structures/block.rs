@@ -28,7 +28,7 @@ pub type BlockSignature = Signature;
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Block {
     pub header: Header,
-    // TODO(fishseabowl): Should be a Merkle Tree to speed up validation
+    // TODO(fishseabowl): Should be a Merkle Tree to speed up validation with root hash
     pub transactions: Vec<Transaction>,
     pub signature: BlockSignature,
 }
@@ -53,7 +53,7 @@ impl Block {
         }
     }
 
-    //After merging Aleph consensus algorithm, it would be implemented
+    // After merging Aleph consensus algorithm, it would be implemented
     pub fn verify(&self) -> bool {
         true
     }

@@ -32,7 +32,8 @@ use libp2p::{
 use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
 
-use pyrsia_blockchain_network::block::{Block, PartialTransaction, Transaction, TransactionType};
+use pyrsia_blockchain_network::structures::block::Block;
+use pyrsia_blockchain_network::structures::transaction::{Transaction, TransactionType};
 use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
 use pyrsia_blockchain_network::network::Behaviour;
@@ -120,11 +121,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             line = stdin.next_line() => {
                 let l = line.expect("stdin closed");
                 let transaction = Transaction::new(
-                    PartialTransaction::new(
-                        TransactionType::Create,
+                        TransactionType::AddAuthority,
                         local_id,
                         l.unwrap().as_bytes().to_vec(),
-                    ),
                     &id_keys,
                 );
 

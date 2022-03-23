@@ -43,7 +43,7 @@ impl PartialTransaction {
         self,
         ed25519_keypair: &identity::ed25519::Keypair,
     ) -> Result<Transaction, bincode::Error> {
-        let hash = HashDigest::new(&(bincode::serialize(&self)?));
+        let hash = calculate_hash(&self)?;
         Ok(Transaction {
             type_id: self.type_id,
             submitter: self.submitter,
@@ -54,6 +54,24 @@ impl PartialTransaction {
             signature: Signature::new(&bincode::serialize(&hash)?, ed25519_keypair),
         })
     }
+}
+
+impl From<Transaction> for PartialTransaction {
+    fn from(transaction: Transaction) -> Self{
+        PartialTransaction {
+            type_id: transaction.type_id,
+            submitter: transaction.submitter,
+            timestamp: transaction.timestamp,
+            payload: transaction.payload,
+            nonce: transaction.nonce,
+
+        }
+    }
+}
+
+fn calculate_hash(incomplete_transaction: &PartialTransaction) -> Result<HashDigest, bincode::Error>{
+    let binary = bincode::serialize(incomplete_transaction)?;
+    Ok(HashDigest::new(&binary))
 }
 
 pub type TransactionSignature = Signature;
@@ -89,11 +107,11 @@ impl Transaction {
             .convert_to_transaction(ed25519_keypair)
             .unwrap()
     }
-    pub fn hash(self) -> HashDigest {
-        self.hash
+    pub fn hash(&self) -> HashDigest {
+        self.hash.clone()
     }
-    pub fn signature(self) -> TransactionSignature {
-        self.signature
+    pub fn signature(&self) -> TransactionSignature {
+        self.signature.clone()
     }
 }
 
@@ -112,8 +130,11 @@ mod tests {
             b"Hello First Transaction".to_vec(),
             &keypair,
         );
+        let partial: PartialTransaction = transaction.clone().into();
+        let expected_hash = calculate_hash(&partial).unwrap();
+        let expected_signature = Signature::new(&bincode::serialize(&expected_hash).unwrap(), &keypair);
 
-        assert_eq!(5, transaction.hash());
-        assert_eq!(5, transaction.signature());
+        assert_eq!(expected_hash, transaction.hash());
+        assert_eq!(expected_signature, transaction.signature());
     }
 }

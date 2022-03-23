@@ -36,7 +36,6 @@ pub struct Header {
     /// Adds a salt to harden
     nonce: u128,
     /// block id, 256bit Keccak Hash of the Current Block Header, excluding itself
-    ///      hash: block id, 256bit Keccak Hash of the Current Block Header, excluding itself
     pub hash: HashDigest,
 }
 
