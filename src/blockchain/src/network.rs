@@ -13,6 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+
 use libp2p::{
     floodsub::{Floodsub, FloodsubEvent},
     mdns::{Mdns, MdnsEvent},
@@ -24,7 +25,6 @@ use super::structures::block::Block;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(event_process = true)]
-
 pub struct Behaviour {
     pub floodsub: Floodsub,
     pub mdns: Mdns,
