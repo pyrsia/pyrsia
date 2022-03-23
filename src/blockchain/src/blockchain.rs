@@ -46,7 +46,6 @@ pub struct Blockchain {
 
 impl Debug for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-
         f.debug_struct("Blockchain")
             // .field("keypair", &"***")
             .field("blocks", &self.blocks)

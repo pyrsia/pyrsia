@@ -14,9 +14,9 @@
    limitations under the License.
 */
 
-use std::time::{SystemTime, UNIX_EPOCH};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::crypto::hash_algorithm::HashDigest;
 
@@ -33,7 +33,7 @@ struct PartialHeader {
 }
 
 impl From<Header> for PartialHeader {
-    fn from(header: Header) -> Self{
+    fn from(header: Header) -> Self {
         PartialHeader {
             parent_hash: header.parent_hash,
             committer: header.committer,
@@ -44,7 +44,7 @@ impl From<Header> for PartialHeader {
     }
 }
 
-fn calculate_hash(incomplete_header: &PartialHeader) -> Result<HashDigest, bincode::Error>{
+fn calculate_hash(incomplete_header: &PartialHeader) -> Result<HashDigest, bincode::Error> {
     let bytes = bincode::serialize(incomplete_header)?;
     Ok(HashDigest::new(&bytes))
 }
@@ -67,10 +67,8 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn new(parent_hash: HashDigest,
-               committer: Address,
-               ordinal: u128) -> Self {
-        let partial = PartialHeader{
+    pub fn new(parent_hash: HashDigest, committer: Address, ordinal: u128) -> Self {
+        let partial = PartialHeader {
             parent_hash,
             committer,
             timestamp: SystemTime::now()
@@ -81,10 +79,10 @@ impl Header {
             nonce: rand::thread_rng().gen::<u128>(),
         };
         Self {
-            parent_hash : partial.parent_hash,
-            committer : partial.committer,
+            parent_hash: partial.parent_hash,
+            committer: partial.committer,
             timestamp: partial.timestamp,
-            ordinal : partial.ordinal,
+            ordinal: partial.ordinal,
             nonce: partial.nonce,
             hash: calculate_hash(&partial).unwrap(),
         }
@@ -105,11 +103,7 @@ mod tests {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = HashDigest::new(&keypair.public().encode());
 
-        let header = Header::new(
-            HashDigest::new(b""),
-            local_id,
-            5,
-        );
+        let header = Header::new(HashDigest::new(b""), local_id, 5);
 
         let partial: PartialHeader = header.clone().into();
         let expected_hash = calculate_hash(&partial).unwrap();

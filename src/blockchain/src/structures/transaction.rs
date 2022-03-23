@@ -57,19 +57,20 @@ impl PartialTransaction {
 }
 
 impl From<Transaction> for PartialTransaction {
-    fn from(transaction: Transaction) -> Self{
+    fn from(transaction: Transaction) -> Self {
         PartialTransaction {
             type_id: transaction.type_id,
             submitter: transaction.submitter,
             timestamp: transaction.timestamp,
             payload: transaction.payload,
             nonce: transaction.nonce,
-
         }
     }
 }
 
-fn calculate_hash(incomplete_transaction: &PartialTransaction) -> Result<HashDigest, bincode::Error>{
+fn calculate_hash(
+    incomplete_transaction: &PartialTransaction,
+) -> Result<HashDigest, bincode::Error> {
     let bytes = bincode::serialize(incomplete_transaction)?;
     Ok(HashDigest::new(&bytes))
 }
@@ -132,7 +133,8 @@ mod tests {
         );
         let partial: PartialTransaction = transaction.clone().into();
         let expected_hash = calculate_hash(&partial).unwrap();
-        let expected_signature = Signature::new(&bincode::serialize(&expected_hash).unwrap(), &keypair);
+        let expected_signature =
+            Signature::new(&bincode::serialize(&expected_hash).unwrap(), &keypair);
 
         assert_eq!(expected_hash, transaction.hash());
         assert_eq!(expected_signature, transaction.signature());
