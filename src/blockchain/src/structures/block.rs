@@ -30,7 +30,7 @@ pub struct Block {
     pub header: Header,
     // TODO(fishseabowl): Should be a Merkle Tree to speed up validation with root hash
     pub transactions: Vec<Transaction>,
-    pub signature: BlockSignature,
+    signature: BlockSignature,
 }
 
 impl Block {
@@ -49,8 +49,12 @@ impl Block {
             header,
             transactions,
             // TODO(prince-chrismc): Why does this not include the transactions?
-            signature: Signature::new(&bincode::serialize(&header.hash).unwrap(), signing_key),
+            signature: Signature::new(&bincode::serialize(&header.hash()).unwrap(), signing_key),
         }
+    }
+
+    pub fn signature(&self) -> BlockSignature {
+        self.signature.clone()
     }
 
     // After merging Aleph consensus algorithm, it would be implemented
@@ -76,18 +80,17 @@ mod tests {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = HashDigest::new(&keypair.public().encode());
 
-        let mut transactions = vec![];
-        let data = "Hello First Transaction";
-        let transaction = Transaction::new(
+        let transactions = vec![Transaction::new(
             TransactionType::AddAuthority,
             local_id,
-            data.as_bytes().to_vec(),
+            b"Hello First Transaction".to_vec(),
             &keypair,
-        );
-        transactions.push(transaction);
+        )];
         let block = Block::new(HashDigest::new(b""), 1, transactions.to_vec(), &keypair);
+        let expected_signature = Signature::new(&bincode::serialize(&block.header.hash()).unwrap(), &keypair);
 
         assert_eq!(1, block.header.ordinal);
+        assert_eq!(expected_signature, block.signature());
         Ok(())
     }
 }

@@ -22,6 +22,33 @@ use crate::crypto::hash_algorithm::HashDigest;
 
 pub type Address = HashDigest;
 
+// this struct exists only for generating a hash
+#[derive(Serialize)]
+struct PartialHeader {
+    parent_hash: HashDigest,
+    committer: Address,
+    timestamp: u64,
+    ordinal: u128,
+    nonce: u128,
+}
+
+impl From<Header> for PartialHeader {
+    fn from(header: Header) -> Self{
+        PartialHeader {
+            parent_hash: header.parent_hash,
+            committer: header.committer,
+            timestamp: header.timestamp,
+            ordinal: header.ordinal,
+            nonce: header.nonce,
+        }
+    }
+}
+
+fn calculate_hash(incomplete_header: &PartialHeader) -> Result<HashDigest, bincode::Error>{
+    let bytes = bincode::serialize(incomplete_header)?;
+    Ok(HashDigest::new(&bytes))
+}
+
 /// struct Header define the header of a block
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub struct Header {
@@ -36,18 +63,9 @@ pub struct Header {
     /// Adds a salt to harden
     nonce: u128,
     /// block id, 256bit Keccak Hash of the Current Block Header, excluding itself
-    pub hash: HashDigest,
+    hash: HashDigest,
 }
 
-// this struct exists only for generating a hash
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
-struct PartialHeader {
-    parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
-    committer: Address,      //the committer node's PeerID
-    timestamp: u64,
-    ordinal: u128,
-    nonce: u128,
-}
 impl Header {
     pub fn new(parent_hash: HashDigest,
                committer: Address,
@@ -68,8 +86,12 @@ impl Header {
             timestamp: partial.timestamp,
             ordinal : partial.ordinal,
             nonce: partial.nonce,
-            hash: HashDigest::new(&(bincode::serialize(&partial).unwrap())),
+            hash: calculate_hash(&partial).unwrap(),
         }
+    }
+
+    pub fn hash(&self) -> HashDigest {
+        self.hash.clone()
     }
 }
 
@@ -79,7 +101,7 @@ mod tests {
     use libp2p::identity;
 
     #[test]
-    fn test_build_block_header() -> Result<(), String> {
+    fn test_build_block_header() {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = HashDigest::new(&keypair.public().encode());
 
@@ -89,7 +111,10 @@ mod tests {
             5,
         );
 
+        let partial: PartialHeader = header.clone().into();
+        let expected_hash = calculate_hash(&partial).unwrap();
+
         assert_eq!(5, header.ordinal);
-        Ok(())
+        assert_eq!(expected_hash, header.hash());
     }
 }

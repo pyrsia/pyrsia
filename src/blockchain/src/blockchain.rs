@@ -125,7 +125,6 @@ mod tests {
     use std::rc::Rc;
 
     use super::*;
-    use crate::structures::header::Header;
 
     #[test]
     fn test_build_blockchain() -> Result<(), String> {
@@ -143,7 +142,7 @@ mod tests {
         );
         transactions.push(transaction);
         chain.add_block(Block::new(
-            chain.blocks[0].header.hash,
+            chain.blocks[0].header.hash(),
             chain.blocks[0].header.ordinal,
             transactions,
             &keypair,
@@ -184,12 +183,6 @@ mod tests {
     fn test_add_block_listener() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = HashDigest::new(&keypair.public().encode());
-        let block_header = Header::new(
-            HashDigest::new(b""),
-            local_id,
-            1,
-        );
-
         let block = Block::new(
             local_id,
             1u128,
