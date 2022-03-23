@@ -15,6 +15,7 @@ assets = [
     ["readme.md", "usr/share/doc/pyrsia/README", "644"]
    ]
 section = "devel"
+depends = "jq"  # jq is needed to update the /etc/docker/daemon.json file
 maintainer-scripts = "installers/debian/"
 systemd-units = { unit-name = "pyrsia", unit-scripts = "installers/debian/" }
 
