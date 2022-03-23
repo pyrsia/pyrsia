@@ -70,8 +70,8 @@ impl From<Transaction> for PartialTransaction {
 }
 
 fn calculate_hash(incomplete_transaction: &PartialTransaction) -> Result<HashDigest, bincode::Error>{
-    let binary = bincode::serialize(incomplete_transaction)?;
-    Ok(HashDigest::new(&binary))
+    let bytes = bincode::serialize(incomplete_transaction)?;
+    Ok(HashDigest::new(&bytes))
 }
 
 pub type TransactionSignature = Signature;
