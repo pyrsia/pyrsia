@@ -1,6 +1,7 @@
 [package]
 name = "pyrsia_cli"
-version = "0.1.0"
+version = "0.1.1"
+build = "build.rs"
 description = "Zero-Trust Decentralized Package Network"
 edition = "2021"
 
@@ -9,6 +10,7 @@ pyrsia = {path=".."}
 anyhow = "1.0"
 clap = { version = "3.1.6", features= ["cargo"] }
 confy = "0.4.0"
+const_format = "0.2.22"
 futures = { version = "0.3.*"}
 reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -24,4 +26,6 @@ path = "src/main.rs"
 directories = "^2.0"
 assay = "0.1.1"
 
-
+[build-dependencies]
+anyhow = "1.0"
+vergen = "7.0.0"
