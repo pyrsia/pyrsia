@@ -14,7 +14,6 @@
    limitations under the License.
 */
 
-
 use multihash::{Code, Multihash, MultihashDigest};
 use serde::{Deserialize, Serialize};
 

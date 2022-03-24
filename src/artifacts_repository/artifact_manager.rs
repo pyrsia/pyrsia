@@ -14,7 +14,6 @@
    limitations under the License.
 */
 
-
 use crate::artifacts_repository::hash_util::*;
 use anyhow::{anyhow, bail, Context, Error, Result};
 use fs_extra::dir::get_size;

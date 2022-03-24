@@ -14,7 +14,6 @@
    limitations under the License.
 */
 
-
 use crate::node_manager::model::package_type::PackageTypeName;
 use signed::signed::Signed;
 use signed_struct::signed_struct;

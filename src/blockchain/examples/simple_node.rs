@@ -14,7 +14,6 @@
    limitations under the License.
 */
 
-
 use futures::StreamExt;
 use libp2p::{
     core::upgrade,
