@@ -13,6 +13,9 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+use anyhow::Result;
+use vergen::{vergen, Config};
 
-pub mod handlers;
-pub mod p2p;
+fn main() -> Result<()> {
+    vergen(Config::default())
+}
