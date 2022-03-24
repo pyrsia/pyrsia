@@ -21,9 +21,9 @@ use strum_macros::Display;
 
 #[derive(PartialEq, Debug, Deserialize, Serialize)]
 pub struct PackageType {
-    id: String,
-    name: PackageTypeName,
-    description: String,
+    pub id: String,
+    pub name: PackageTypeName,
+    pub description: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Display, PartialEq, Clone)]
