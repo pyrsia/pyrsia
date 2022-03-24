@@ -95,7 +95,7 @@ impl Transaction {
         ed25519_keypair: &identity::ed25519::Keypair,
     ) -> Self {
         let partial_transaction = PartialTransaction {
-            type_id: type_id,
+            type_id,
             submitter,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -109,7 +109,7 @@ impl Transaction {
             .unwrap()
     }
     pub fn hash(&self) -> HashDigest {
-        self.hash.clone()
+        self.hash
     }
     pub fn signature(&self) -> TransactionSignature {
         self.signature.clone()

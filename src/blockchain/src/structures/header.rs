@@ -89,7 +89,7 @@ impl Header {
     }
 
     pub fn hash(&self) -> HashDigest {
-        self.hash.clone()
+        self.hash
     }
 }
 

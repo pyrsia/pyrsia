@@ -62,7 +62,7 @@ impl Blockchain {
             TransactionType::AddAuthority,
             local_id,
             "this needs to be the root authority".as_bytes().to_vec(),
-            &keypair,
+            keypair,
         );
         // this is the "genesis" blocks
         let block = Block::new(local_id, 1, Vec::from([transaction]), keypair);
