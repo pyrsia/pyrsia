@@ -34,7 +34,6 @@ use tokio::io::{self, AsyncBufReadExt};
 
 use pyrsia_blockchain_network::block::{Block, PartialTransaction, Transaction, TransactionType};
 use pyrsia_blockchain_network::blockchain::Blockchain;
-use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
 use pyrsia_blockchain_network::network::Behaviour;
 
 pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
@@ -113,7 +112,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Listen on all interfaces and whatever port the OS assigns
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
-    let local_id = HashDigest::new(&id_keys.public().encode());
     // Kick it off
     loop {
         tokio::select! {
@@ -122,7 +120,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let transaction = Transaction::new(
                     PartialTransaction::new(
                         TransactionType::Create,
-                        local_id,
+                        peer_id,
                         l.unwrap().as_bytes().to_vec(),
                     ),
                     &id_keys,

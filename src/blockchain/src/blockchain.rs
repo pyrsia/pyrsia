@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use libp2p::identity;
+use libp2p::{identity, PeerId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
@@ -87,7 +87,7 @@ impl Debug for Blockchain {
 
 impl Blockchain {
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
-        let local_id = HashDigest::new(&keypair.public().encode());
+        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
         Self {
             trans_observers: Default::default(),
             block_observers: vec![],
@@ -157,7 +157,7 @@ pub fn new_block(
     parent_hash: HashDigest,
     previous_number: u128,
 ) -> Block {
-    let local_id = HashDigest::new(&keypair.public().encode());
+    let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
     let transaction_root = HashDigest::new(&bincode::serialize(transactions).unwrap());
     let block_header = Header::new(PartialHeader::new(
         parent_hash,
@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn test_build_blockchain() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = HashDigest::new(&keypair.public().encode());
+        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
         let mut chain = Blockchain::new(&keypair);
 
         let mut transactions = vec![];
@@ -209,7 +209,7 @@ mod tests {
     #[test]
     fn test_add_trans_listener() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = HashDigest::new(&keypair.public().encode());
+        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
         let mut chain = Blockchain::new(&keypair);
 
         let transaction = Transaction::new(
@@ -238,7 +238,7 @@ mod tests {
     #[test]
     fn test_add_block_listener() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = HashDigest::new(&keypair.public().encode());
+        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
         let block_header = Header::new(PartialHeader::new(
             HashDigest::new(b""),
             local_id,
