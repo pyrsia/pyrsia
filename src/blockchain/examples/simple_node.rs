@@ -28,44 +28,38 @@ use libp2p::{
 use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
 
-use pyrsia_blockchain_network::network::Behaviour;
-
-use pyrsia_blockchain_network::block::{
-    get_publickey_from_keypair, Block, PartialTransaction, Transaction, TransactionType,
-};
-use pyrsia_blockchain_network::blockchain::generate_ed25519;
+use pyrsia_blockchain_network::block::{Block, PartialTransaction, Transaction, TransactionType};
 use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
+use pyrsia_blockchain_network::network::Behaviour;
 
 pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
-pub const CONTINUE_COMMIT: &str = "1";
-// Allow to continuously commit
-pub const APART_ONE_COMMIT: &str = "2"; // Must be at least one ledger apart to commit
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     // Create a random PeerId
-    let id_keys = generate_ed25519();
-    let peer_id = PeerId::from(id_keys.public());
+    let id_keys = identity::ed25519::Keypair::generate();
+    let peer_id = PeerId::from(identity::PublicKey::Ed25519(id_keys.public()));
 
     println!("Local peer id: {:?}", peer_id);
-    let filepath = match std::env::args().nth(1) {
+    let _filepath = match std::env::args().nth(1) {
         Some(v) => v,
         None => String::from(BLOCK_FILE_PATH),
     };
 
     // Create a keypair for authenticated encryption of the transport.
     let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
-        .into_authentic(&id_keys)
+        .into_authentic(&libp2p::identity::Keypair::Ed25519(id_keys.clone()))
         .expect("Signing libp2p-noise static DH keypair failed.");
 
-    let ed25519_keypair = match id_keys {
-        identity::Keypair::Ed25519(v) => v,
-        identity::Keypair::Rsa(_) => todo!(),
-        identity::Keypair::Secp256k1(_) => todo!(),
-    };
-
-    let mut chain = Blockchain::new(&ed25519_keypair);
+    let mut chain = Blockchain::new(&id_keys);
+    chain.add_block_listener(move |b: Block| {
+        println!("---------");
+        println!("---------");
+        println!("Add a New Block : {:?}", b);
+        // TODO(chb0github): Should be wrapped in mutex
+        // write_block(&filepath.clone(), b);
+    });
 
     // Create a tokio-based TCP transport use noise for authenticated
     // encryption and Mplex for multiplexing of substreams on a TCP stream.
@@ -103,12 +97,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .build()
     };
 
-    // Reach out to another node if specified
-    let mut check_number = String::from(CONTINUE_COMMIT);
-    if let Some(number) = std::env::args().nth(2) {
-        check_number = number;
-    }
-
     if let Some(to_dial) = std::env::args().nth(3) {
         let addr: Multiaddr = to_dial.parse()?;
         swarm.dial(addr)?;
@@ -121,7 +109,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Listen on all interfaces and whatever port the OS assigns
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
-    let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
+    let local_id = HashDigest::new(&id_keys.public().encode());
     // Kick it off
     loop {
         tokio::select! {
@@ -133,15 +121,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         local_id,
                         l.unwrap().as_bytes().to_vec(),
                     ),
-                    &ed25519_keypair,
+                    &id_keys,
                 );
-                chain.add_block_listener(move |b: Block| {
-                    println!("---------");
-                    println!("---------");
-                    println!("Add a New Block : {:?}", b);
-                    // TODO(chb0github): Should be wrapped in mutex
-                    // write_block(&filepath.clone(), b);
-                });
 
                 // eventually this will trigger a block action
                 chain.submit_transaction(transaction.clone(),move |t: Transaction| {
@@ -171,16 +152,4 @@ pub fn write_block(path: &str, block: Block) {
     file.write_all(serde_json::to_string(&block).unwrap().as_bytes())
         .expect("write failed");
     file.write_all(b"\n").expect("write failed");
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_main() -> Result<(), String> {
-        let result = main();
-        assert!(result.is_err());
-        Ok(())
-    }
 }
