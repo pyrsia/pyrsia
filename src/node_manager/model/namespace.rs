@@ -25,15 +25,15 @@ use crate::node_manager::model::package_type::PackageTypeName;
 /// Describes a name space.
 pub struct Namespace {
     /// A uuid that uniquely identifies the name space
-    pub id: String,
+    id: String,
     /// The type of package the name space is for (Docker, Conan, ...)
-    pub package_type: PackageTypeName,
+    package_type: PackageTypeName,
     /// Many name spaces are hierarchical. Different package types punctuate the path of a name space. Instead of using punctuation, we put the elements of the path in a Vec.
-    pub namespace_path: String,
+    namespace_path: String,
     /// Updates to a name space should be signed by an identity associated with one of the public keys in the administrators field.
-    pub administrators: Vec<Vec<u8>>,
+    administrators: Vec<Vec<u8>>,
     /// ISO-8601 creation time
-    pub creation_time: Option<String>,
+    creation_time: Option<String>,
     /// ISO-8601 modification time
-    pub modified_time: Option<String>,
+    modified_time: Option<String>,
 }
