@@ -14,9 +14,6 @@
    limitations under the License.
 */
 
-extern crate serde;
-extern crate signed_struct;
-
 use serde::{Deserialize, Serialize};
 use signed::signed::Signed;
 use signed_struct::signed_struct;

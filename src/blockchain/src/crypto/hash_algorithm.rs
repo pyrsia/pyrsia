@@ -14,7 +14,6 @@
    limitations under the License.
 */
 
-extern crate aleph_bft;
 
 use multihash::{Code, Multihash, MultihashDigest};
 use serde::{Deserialize, Serialize};

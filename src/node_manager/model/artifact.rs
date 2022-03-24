@@ -13,10 +13,6 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-
-extern crate serde;
-extern crate serde_json;
-
 use super::super::HashAlgorithm;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};

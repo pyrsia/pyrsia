@@ -14,9 +14,6 @@
    limitations under the License.
 */
 
-extern crate pretty_env_logger;
-extern crate pyrsia_blockchain_network;
-extern crate tokio;
 
 use futures::StreamExt;
 use libp2p::{
