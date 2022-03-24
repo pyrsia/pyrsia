@@ -36,18 +36,6 @@ pub enum TransactionType {
 pub type TransactionSignature = Signature;
 pub type BlockSignature = Signature;
 
-//ToDo
-pub fn sign(msg: &[u8], keypair: &identity::ed25519::Keypair) -> Vec<u8> {
-    (*keypair).sign(msg)
-}
-
-//ToDo
-pub fn get_publickey_from_keypair(
-    keypair: &identity::ed25519::Keypair,
-) -> identity::ed25519::PublicKey {
-    keypair.public()
-}
-
 // struct Block define a block strcuture
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Block {
@@ -144,7 +132,7 @@ mod tests {
     #[test]
     fn test_build_block() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = HashDigest::new(&get_publickey_from_keypair(&keypair).encode());
+        let local_id = HashDigest::new(&keypair.public().encode());
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
