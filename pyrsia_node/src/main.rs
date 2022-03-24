@@ -16,15 +16,16 @@
 
 pub mod args;
 
+use args::parser::PyrsiaNodeArgs;
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::make_docker_routes;
 use pyrsia::logging::*;
-use pyrsia::network::handlers::{dial_other_peer, handle_request_artifact};
-use pyrsia::network::p2p::{self};
+use pyrsia::network::handlers::{dial_other_peer, handle_request_artifact, provide_artifacts};
+use pyrsia::network::p2p::{self, Client, Event};
 use pyrsia::node_api::routes::make_node_routes;
 
 use clap::Parser;
-use futures::StreamExt;
+use futures::{Stream, StreamExt};
 use log::{debug, info};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use warp::Filter;
@@ -33,22 +34,9 @@ use warp::Filter;
 async fn main() {
     pretty_env_logger::init();
 
-    let args = args::parser::PyrsiaNodeArgs::parse();
+    let args = PyrsiaNodeArgs::parse();
 
-    let (mut p2p_client, mut p2p_events, event_loop) = p2p::new().await.unwrap();
-
-    tokio::spawn(event_loop.run());
-
-    let final_peer_id = match args.peer {
-        Some(to_dial) => dial_other_peer(p2p_client.clone(), to_dial).await,
-        None => None,
-    };
-
-    // Listen on all interfaces and whatever port the OS assigns
-    p2p_client
-        .listen(args.listen_address)
-        .await
-        .expect("Listening should not fail");
+    let (p2p_client, mut p2p_events) = setup_p2p(&args).await;
 
     // Get host and port from the settings. Defaults to DEFAULT_HOST and DEFAULT_PORT
     let host = args.host;
@@ -63,7 +51,7 @@ async fn main() {
         port.parse::<u16>().unwrap(),
     );
 
-    let docker_routes = make_docker_routes(p2p_client.clone(), final_peer_id);
+    let docker_routes = make_docker_routes(p2p_client.clone());
     let node_api_routes = make_node_routes(p2p_client.clone());
     let all_routes = docker_routes.or(node_api_routes);
 
@@ -93,4 +81,23 @@ async fn main() {
             }
         }
     }
+}
+
+async fn setup_p2p(args: &PyrsiaNodeArgs) -> (Client, impl Stream<Item = Event>) {
+    let (mut p2p_client, p2p_events, event_loop) = p2p::new().await.unwrap();
+
+    tokio::spawn(event_loop.run());
+
+    p2p_client
+        .listen(&args.listen_address)
+        .await
+        .expect("Listening should not fail");
+
+    if let Some(to_dial) = &args.peer {
+        dial_other_peer(p2p_client.clone(), to_dial).await;
+    }
+
+    provide_artifacts(p2p_client.clone()).await;
+
+    (p2p_client, p2p_events)
 }

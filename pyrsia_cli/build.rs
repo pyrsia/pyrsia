@@ -13,9 +13,9 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+use anyhow::Result;
+use vergen::{vergen, Config};
 
-pub mod authority_pen;
-pub mod authority_verifier;
-pub mod key_box;
-pub mod verify_key;
-use super::signature;
+fn main() -> Result<()> {
+    vergen(Config::default())
+}

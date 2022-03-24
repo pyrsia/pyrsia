@@ -24,7 +24,7 @@ use super::signature::{MultiSignature, Signature};
 #[derive(Clone, Default)]
 pub struct AuthorityVerifier {
     authorities: HashMap<NodeIndex, PublicKey>,
-    // TODO(prince-chrismc): Re-introduce `NodeIndex` to associate with `PeerId` when adding `KeyBox`
+    // TODO(prince-chrismc): Re-introduce `NodeIndex` to associate with `PeerId` when adding `network`
     // peers_by_index: HashMap<NodeIndex, PeerId>,
 }
 
@@ -45,7 +45,7 @@ impl AuthorityVerifier {
     pub fn verify(&self, msg: &[u8], sgn: &Signature, index: NodeIndex) -> bool {
         let sig = sgn.clone().to_bytes();
         match self.authorities.get(&index) {
-            Some(public_key) => public_key.verify(&msg.to_vec(), &sig),
+            Some(public_key) => public_key.verify(msg, &sig),
             None => {
                 warn!("No public key for {:?}", index);
                 false

@@ -21,4 +21,3 @@ pub mod header;
 pub mod identities;
 pub mod network;
 pub mod signature;
-pub mod storage;

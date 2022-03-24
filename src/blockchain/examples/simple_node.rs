@@ -32,27 +32,38 @@ use libp2p::{
 use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
 
+use pyrsia_blockchain_network::block::{Block, PartialTransaction, Transaction, TransactionType};
+use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
-use pyrsia_blockchain_network::*;
+use pyrsia_blockchain_network::network::Behaviour;
 
-pub const CONTINUE_COMMIT: &str = "1"; // Allow to continuously commit
-pub const APART_ONE_COMMIT: &str = "2"; // Must be at least one ledger apart to commit
+pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     // Create a random PeerId
-    let id_keys = blockchain::generate_ed25519();
-    let peer_id = PeerId::from(id_keys.public());
+    let id_keys = identity::ed25519::Keypair::generate();
+    let peer_id = PeerId::from(identity::PublicKey::Ed25519(id_keys.public()));
+
     println!("Local peer id: {:?}", peer_id);
-    let filepath = match std::env::args().nth(1) {
+    let _filepath = match std::env::args().nth(1) {
         Some(v) => v,
-        None => String::from(storage::BLOCK_FILE_PATH),
+        None => String::from(BLOCK_FILE_PATH),
     };
 
     // Create a keypair for authenticated encryption of the transport.
     let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
-        .into_authentic(&id_keys)
+        .into_authentic(&libp2p::identity::Keypair::Ed25519(id_keys.clone()))
         .expect("Signing libp2p-noise static DH keypair failed.");
+
+    let mut chain = Blockchain::new(&id_keys);
+    chain.add_block_listener(move |b: Block| {
+        println!("---------");
+        println!("---------");
+        println!("Add a New Block : {:?}", b);
+        // TODO(chb0github): Should be wrapped in mutex
+        // write_block(&filepath.clone(), b);
+    });
 
     // Create a tokio-based TCP transport use noise for authenticated
     // encryption and Mplex for multiplexing of substreams on a TCP stream.
@@ -74,7 +85,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Create a Swarm to manage peers and events.
     let mut swarm = {
         let mdns = Mdns::new(Default::default()).await?;
-        let mut behaviour = network::Behaviour {
+        let mut behaviour = Behaviour {
             floodsub: Floodsub::new(peer_id),
             mdns,
         };
@@ -90,16 +101,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .build()
     };
 
-    // Reach out to another node if specified
-    let mut check_number = String::from(CONTINUE_COMMIT);
-    if let Some(number) = std::env::args().nth(2) {
-        check_number = number;
-    }
-
     if let Some(to_dial) = std::env::args().nth(3) {
         let addr: Multiaddr = to_dial.parse()?;
         swarm.dial(addr)?;
-        println!("Dialed {:?}", to_dial)
+        println!("Dialed {:?}", to_dial);
     }
 
     // Read full lines from stdin
@@ -108,44 +113,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Listen on all interfaces and whatever port the OS assigns
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
-    let ed25519_keypair = match id_keys {
-        identity::Keypair::Ed25519(v) => v,
-        identity::Keypair::Rsa(_) => todo!(),
-        identity::Keypair::Secp256k1(_) => todo!(),
-    };
-
-    let mut transactions = vec![];
-
-    storage::append_genesis_block(&filepath, &ed25519_keypair);
-
-    let local_id = HashDigest::new(&block::get_publickey_from_keypair(&ed25519_keypair).encode());
+    let local_id = HashDigest::new(&id_keys.public().encode());
     // Kick it off
     loop {
         tokio::select! {
             line = stdin.next_line() => {
-                let line = line?.expect("stdin closed");
-                let transaction = block::Transaction::new(
-                    block::PartialTransaction::new(
-                        block::TransactionType::Create,
+                let l = line.expect("stdin closed");
+                let transaction = Transaction::new(
+                    PartialTransaction::new(
+                        TransactionType::Create,
                         local_id,
-                        line.as_bytes().to_vec(),
+                        l.unwrap().as_bytes().to_vec(),
                     ),
-                    &ed25519_keypair,
+                    &id_keys,
                 );
-                transactions.push(transaction);
-                let (parent_hash, previous_number, previous_commiter) = storage::read_last_block(&filepath);
 
-                if check_number == APART_ONE_COMMIT && previous_commiter == local_id {
-                        println!("The Commit Permission is limited, Please wait others commit");
-                        continue;
-                }
-
-                let block = blockchain::new_block(&ed25519_keypair, &transactions, parent_hash, previous_number);
-                println!("---------");
-                println!("---------");
-                println!("Add a New Block : {:?}", block);
-                swarm.behaviour_mut().floodsub.publish(floodsub_topic.clone(), bincode::serialize(&block).unwrap());
-                storage::write_block(&filepath, block);
+                // eventually this will trigger a block action
+                chain.submit_transaction(transaction.clone(),move |t: Transaction| {
+                    println!("transaction {:?} submitted",t);
+                });
             }
             event = swarm.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {
@@ -156,13 +142,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_main() -> Result<(), String> {
-        let result = main();
-        assert!(result.is_err());
-        Ok(())
-    }
+pub fn write_block(path: &str, block: Block) {
+    use std::fs::OpenOptions;
+    use std::io::Write;
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .create(true)
+        .open(path)
+        .expect("cannot open file");
+
+    file.write_all(serde_json::to_string(&block).unwrap().as_bytes())
+        .expect("write failed");
+    file.write_all(b"\n").expect("write failed");
 }

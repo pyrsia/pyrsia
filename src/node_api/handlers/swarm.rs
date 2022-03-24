@@ -44,7 +44,7 @@ pub async fn handle_get_status(mut p2p_client: p2p::Client) -> Result<impl Reply
         }));
     }
 
-    let disk_space_result = disk_usage(ARTIFACTS_DIR.as_str());
+    let disk_space_result = disk_usage();
     if disk_space_result.is_err() {
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(disk_space_result.err().unwrap().to_string()),
@@ -54,6 +54,7 @@ pub async fn handle_get_status(mut p2p_client: p2p::Client) -> Result<impl Reply
     let status = Status {
         artifact_count: art_count_result.unwrap(),
         peers_count: peers.len(),
+        peer_id: p2p_client.local_peer_id.to_string(),
         disk_allocated: String::from(ALLOCATED_SPACE_FOR_ARTIFACTS),
         disk_usage: format!("{:.4}", disk_space_result.unwrap()),
     };

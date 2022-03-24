@@ -33,8 +33,7 @@ use uuid::Uuid;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_blobs(
-    p2p_client: p2p::Client,
-    peer_id: Option<PeerId>,
+    mut p2p_client: p2p::Client,
     name: String,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
@@ -54,7 +53,7 @@ pub async fn handle_get_blobs(
                 hash
             );
 
-            let blob_stored = get_blob_from_network(p2p_client, peer_id, &name, &hash).await?;
+            let blob_stored = get_blob_from_network(p2p_client.clone(), &name, &hash).await?;
             if blob_stored {
                 blob_content =
                     get_artifact(&decoded_hash, HashAlgorithm::SHA256).map_err(|_| {
@@ -69,6 +68,8 @@ pub async fn handle_get_blobs(
             }
         }
     }
+
+    p2p_client.provide(&hash).await;
 
     debug!("Final Step: {:?} successfully retrieved!", hash);
     Ok(warp::http::response::Builder::new()
@@ -193,7 +194,7 @@ fn store_blob_in_filesystem(
     let append = append_to_blob(&blob_upload_dest_data, bytes)?;
 
     // check if there is enough local allocated disk space
-    let available_space = get_space_available(ARTIFACTS_DIR.as_str());
+    let available_space = get_space_available();
     if available_space.is_err() {
         return Err(available_space.err().unwrap().to_string().into());
     }
@@ -216,24 +217,40 @@ fn store_blob_in_filesystem(
 
 // Request the content of the artifact from the pyrsia network
 async fn get_blob_from_network(
-    p2p_client: p2p::Client,
-    peer_id: Option<PeerId>,
+    mut p2p_client: p2p::Client,
     name: &str,
     hash: &str,
 ) -> Result<bool, Rejection> {
-    Ok(match peer_id {
-        Some(peer) => match get_blob_from_other_peer(p2p_client.clone(), peer, name, hash).await {
-            true => true,
-            false => get_blob_from_docker_hub(name, hash).await?,
-        },
-        None => get_blob_from_docker_hub(name, hash).await?,
+    let providers = p2p_client.list_providers(String::from(hash)).await;
+    debug!(
+        "Step 2: Does {:?} exist in the Pyrsia network? Providers: {:?}",
+        hash, providers
+    );
+    Ok(match providers.iter().next() {
+        Some(peer) => {
+            debug!(
+                "Step 2: YES, {:?} exists in the Pyrsia network, fetching from peer {}.",
+                hash, peer
+            );
+            match get_blob_from_other_peer(p2p_client.clone(), peer, name, hash).await {
+                true => true,
+                false => get_blob_from_docker_hub(name, hash).await?,
+            }
+        }
+        None => {
+            debug!(
+                "Step 2: No, {:?} does not exist in the Pyrsia network, fetching from docker.io.",
+                hash
+            );
+            get_blob_from_docker_hub(name, hash).await?
+        }
     })
 }
 
 // Request the content of the artifact from other peer
 async fn get_blob_from_other_peer(
     mut p2p_client: p2p::Client,
-    peer_id: PeerId,
+    peer_id: &PeerId,
     name: &str,
     hash: &str,
 ) -> bool {
@@ -242,14 +259,12 @@ async fn get_blob_from_other_peer(
         peer_id,
         hash.get(7..).unwrap()
     );
-    debug!("Step 2: Does {:?} exist in the Pyrsia network?", hash);
     match p2p_client
         .request_artifact(peer_id, String::from(hash))
         .await
     {
         Ok(artifact) => {
             let id = Uuid::new_v4();
-            debug!("Step 2: YES, {:?} exists in the Pyrsia network.", hash);
             match store_blob_in_filesystem(
                 name,
                 &id.to_string(),
@@ -271,12 +286,8 @@ async fn get_blob_from_other_peer(
         }
         Err(error) => {
             debug!(
-                "Step 2: NO, {:?} does not exist in the Pyrsia network.",
-                hash
-            );
-            debug!(
-                "Error while fetching artifact from Pyrsia Node, so fetching from dockerhub: {}",
-                error
+                "Step 2: Error while retrieving {:?} from the Pyrsia network from peer {}: {}",
+                hash, peer_id, error
             );
             false
         }

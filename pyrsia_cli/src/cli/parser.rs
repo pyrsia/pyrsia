@@ -14,9 +14,11 @@
    limitations under the License.
 */
 
-use clap::{arg, command, AppSettings, ArgMatches, Command};
+use clap::{arg, command, crate_version, AppSettings, ArgMatches, Command};
+use const_format::formatcp;
 
 pub fn cli_parser() -> ArgMatches {
+    let version_string: &str = formatcp!("{} ({})", crate_version!(), env!("VERGEN_GIT_SHA"));
     command!()
         .subcommand_required(true)
         .arg_required_else_help(true)
@@ -46,5 +48,6 @@ pub fn cli_parser() -> ArgMatches {
                     arg!(-l --list       "Shows list of connected Peers").visible_alias("ls"),
                 ]),
         ])
+        .version(version_string)
         .get_matches()
 }

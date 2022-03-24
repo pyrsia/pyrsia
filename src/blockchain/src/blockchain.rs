@@ -22,7 +22,6 @@ use std::fmt::{self, Debug, Display, Formatter};
 use super::block::*;
 use super::crypto::hash_algorithm::HashDigest;
 use super::header::*;
-use super::signature::Signature;
 
 /// BlockchainId identifies the current chain
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -60,33 +59,6 @@ impl Default for Config {
     }
 }
 
-/// Define Genesis Block
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GenesisBlock {
-    pub header: Header,
-    pub config: Config,
-    pub signature: BlockSignature,
-}
-
-impl GenesisBlock {
-    pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
-        let local_id = HashDigest::new(&get_publickey_from_keypair(keypair).encode());
-        let config = Config::new();
-        let header = Header::new(PartialHeader::new(
-            HashDigest::new(b""),
-            local_id,
-            HashDigest::new(&(bincode::serialize(&config).unwrap())),
-            0,
-        ));
-
-        Self {
-            header,
-            config,
-            signature: Signature::new(&bincode::serialize(&header.hash).unwrap(), keypair),
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct Blockchain {
     #[serde(skip)]
@@ -94,7 +66,6 @@ pub struct Blockchain {
     pub trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
     #[serde(skip)]
     pub block_observers: Vec<Box<dyn FnMut(Block)>>,
-    pub genesis_block: GenesisBlock,
     pub blocks: Vec<Block>,
 }
 
@@ -102,13 +73,11 @@ impl Debug for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let Blockchain {
             trans_observers: _,
-            genesis_block,
             blocks,
             block_observers: _,
         } = self;
 
         f.debug_struct("Blockchain")
-            .field("genesis_block", genesis_block)
             .field("blocks", blocks)
             .field("trans_observers", &self.trans_observers.len())
             .field("block_observers", &self.block_observers.len())
@@ -117,6 +86,31 @@ impl Debug for Blockchain {
 }
 
 impl Blockchain {
+    pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
+        let local_id = HashDigest::new(&keypair.public().encode());
+        Self {
+            trans_observers: Default::default(),
+            block_observers: vec![],
+            // this is the "genesis" blocks
+            blocks: Vec::from([Block::new(
+                Header::new(PartialHeader::new(
+                    HashDigest::new(b""),
+                    local_id,
+                    HashDigest::new(b""),
+                    1,
+                )),
+                Vec::from([Transaction::new(
+                    PartialTransaction::new(
+                        TransactionType::AddAuthority,
+                        local_id,
+                        "this needs to be the root authority".as_bytes().to_vec(),
+                    ),
+                    keypair,
+                )]),
+                keypair,
+            )]),
+        }
+    }
     pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction)>(
         &mut self,
         trans: Transaction,
@@ -147,15 +141,6 @@ impl Blockchain {
             .for_each(|notify| notify(block.clone()));
         self
     }
-    #[warn(dead_code)]
-    pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
-        Self {
-            trans_observers: Default::default(),
-            block_observers: vec![],
-            genesis_block: GenesisBlock::new(keypair),
-            blocks: vec![],
-        }
-    }
 
     #[warn(dead_code)]
     pub fn add_block(&mut self, block: Block) {
@@ -165,13 +150,14 @@ impl Blockchain {
 }
 
 // Create a new block
+// why isn't this just Block::new
 pub fn new_block(
     keypair: &identity::ed25519::Keypair,
     transactions: &[Transaction],
     parent_hash: HashDigest,
     previous_number: u128,
 ) -> Block {
-    let local_id = HashDigest::new(&get_publickey_from_keypair(keypair).encode());
+    let local_id = HashDigest::new(&keypair.public().encode());
     let transaction_root = HashDigest::new(&bincode::serialize(transactions).unwrap());
     let block_header = Header::new(PartialHeader::new(
         parent_hash,
@@ -180,12 +166,6 @@ pub fn new_block(
         previous_number + 1,
     ));
     Block::new(block_header, transactions.to_vec(), keypair)
-}
-
-//ToDo
-pub fn generate_ed25519() -> identity::Keypair {
-    //RFC8032
-    identity::Keypair::generate_ed25519()
 }
 
 impl Display for Blockchain {
@@ -204,32 +184,19 @@ mod tests {
 
     #[test]
     fn test_build_blockchain() -> Result<(), String> {
-        let keypair = generate_ed25519();
-        let ed25519_keypair = match keypair {
-            identity::Keypair::Ed25519(v) => v,
-            identity::Keypair::Rsa(_) => todo!(),
-            identity::Keypair::Secp256k1(_) => todo!(),
-        };
-        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
-        let mut chain = Blockchain::new(&ed25519_keypair);
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = HashDigest::new(&keypair.public().encode());
+        let mut chain = Blockchain::new(&keypair);
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
             PartialTransaction::new(TransactionType::Create, local_id, data.as_bytes().to_vec()),
-            &ed25519_keypair,
+            &keypair,
         );
         transactions.push(transaction);
-        let g_block = GenesisBlock::new(&ed25519_keypair);
-        assert_eq!(0, g_block.header.number);
         chain.add_block(new_block(
-            &ed25519_keypair,
-            &transactions,
-            chain.genesis_block.header.hash,
-            chain.genesis_block.header.number,
-        ));
-        chain.add_block(new_block(
-            &ed25519_keypair,
+            &keypair,
             &transactions,
             chain.blocks[0].header.hash,
             chain.blocks[0].header.number,
@@ -241,14 +208,9 @@ mod tests {
 
     #[test]
     fn test_add_trans_listener() -> Result<(), String> {
-        let keypair = generate_ed25519();
-        let ed25519_keypair = match keypair {
-            identity::Keypair::Ed25519(v) => v,
-            identity::Keypair::Rsa(_) => todo!(),
-            identity::Keypair::Secp256k1(_) => todo!(),
-        };
-        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
-        let mut chain = Blockchain::new(&ed25519_keypair);
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = HashDigest::new(&keypair.public().encode());
+        let mut chain = Blockchain::new(&keypair);
 
         let transaction = Transaction::new(
             PartialTransaction::new(
@@ -256,7 +218,7 @@ mod tests {
                 local_id,
                 "some transaction".as_bytes().to_vec(),
             ),
-            &ed25519_keypair,
+            &keypair,
         );
         let called = Rc::new(Cell::new(false));
         chain
@@ -275,13 +237,8 @@ mod tests {
 
     #[test]
     fn test_add_block_listener() -> Result<(), String> {
-        let ed25519_keypair = match generate_ed25519() {
-            identity::Keypair::Ed25519(v) => v,
-            identity::Keypair::Rsa(_) => todo!(),
-            identity::Keypair::Secp256k1(_) => todo!(),
-        };
-        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
-
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = HashDigest::new(&keypair.public().encode());
         let block_header = Header::new(PartialHeader::new(
             HashDigest::new(b""),
             local_id,
@@ -294,7 +251,7 @@ mod tests {
             Vec::new(),
             &identity::ed25519::Keypair::generate(),
         );
-        let mut chain = Blockchain::new(&ed25519_keypair);
+        let mut chain = Blockchain::new(&keypair);
         let called = Rc::new(Cell::new(false));
 
         chain
