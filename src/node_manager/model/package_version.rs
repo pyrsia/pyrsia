@@ -26,33 +26,33 @@ use strum_macros::{Display, EnumIter, EnumString};
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct PackageVersion {
     /// The unique ID of this package version
-    pub id: String,
+    id: String,
     /// The id of the namespace that this PackageVersion's package is part of.
-    pub namespace_id: String,
+    namespace_id: String,
     /// The name of this PackageVersions's package.
-    pub name: String,
+    name: String,
     /// The type of package (Docker, Conan, npm, ...)
-    pub pkg_type: PackageTypeName,
+    pkg_type: PackageTypeName,
     /// The version identifier for this package. It must be unique within the package that it belongs to.
-    pub version: String,
+    version: String,
     /// The text of the license for this package version.
-    pub license_text: Option<String>,
+    license_text: Option<String>,
     /// The type of text in the `license_text` field.
-    pub license_text_mimetype: Option<LicenseTextMimeType>,
+    license_text_mimetype: Option<LicenseTextMimeType>,
     /// The URL for the license for this package version.
-    pub license_url: Option<String>,
+    license_url: Option<String>,
     /// Attributes of a package version that don't fit into one of this struct's fields can go in here as JSON
-    pub metadata: Map<String, Value>,
+    metadata: Map<String, Value>,
     /// ISO-8601 creation time
-    pub creation_time: Option<String>,
+    creation_time: Option<String>,
     /// ISO-8601 modification time
-    pub modified_time: Option<String>,
+    modified_time: Option<String>,
     /// tags associated with this PackageVersion
-    pub tags: Vec<String>,
+    tags: Vec<String>,
     /// A description of this package version.
-    pub description: Option<String>,
+    description: Option<String>,
     /// The artifacts that are used by this package version.
-    pub artifacts: Vec<Artifact>,
+    artifacts: Vec<Artifact>,
 }
 
 impl PackageVersion {
