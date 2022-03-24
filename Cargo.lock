@@ -1915,15 +1915,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a9a9d19fa1e79b6215ff29b9d6880b706147f16e9b1dbb1e4e5947b5b02bc5e3"
@@ -1972,14 +1963,15 @@ dependencies = [
 
 [[package]]
 name = "lava_torrent"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9a0090f4f23722d232254da17b8864551d06fe769c4514a9e45a37d8dd36ee8"
+checksum = "8d90794521a0b9019f950ec70471051aaccf5d4cb5fc907744c65c11422e6060"
 dependencies = [
  "conv",
  "error-chain",
- "itertools 0.9.0",
- "sha-1 0.8.2",
+ "itertools",
+ "percent-encoding",
+ "sha-1 0.10.0",
  "unicode-normalization",
 ]
 
@@ -3434,7 +3426,7 @@ checksum = "62941722fb675d463659e49c4f3fe1fe792ff24fe5bbaa9c08cd3b98a1c354f5"
 dependencies = [
  "bytes",
  "heck 0.3.3",
- "itertools 0.10.3",
+ "itertools",
  "lazy_static",
  "log",
  "multimap",
@@ -3453,7 +3445,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9cc1a3263e07e0bf68e96268f37665207b49560d98739662cdfaae215c720fe"
 dependencies = [
  "anyhow",
- "itertools 0.10.3",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn",
@@ -3494,7 +3486,7 @@ dependencies = [
  "hex",
  "hyper",
  "hyper-tls",
- "itertools 0.10.3",
+ "itertools",
  "lava_torrent",
  "lazy_static",
  "libp2p",
@@ -4069,18 +4061,6 @@ dependencies = [
  "quote",
  "rustversion",
  "syn",
-]
-
-[[package]]
-name = "sha-1"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7d94d0bede923b3cea61f3f1ff57ff8cdfd77b400fb8f9998949e0cf04163df"
-dependencies = [
- "block-buffer 0.7.3",
- "digest 0.8.1",
- "fake-simd",
- "opaque-debug 0.2.3",
 ]
 
 [[package]]
@@ -4870,7 +4850,7 @@ dependencies = [
  "enum-iterator",
  "getset",
  "git2",
- "rustc_version 0.4.0",
+ "rustc_version",
  "rustversion",
  "sysinfo",
  "thiserror",
