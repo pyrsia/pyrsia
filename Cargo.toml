@@ -19,8 +19,6 @@ maintainer-scripts = "installers/debian/"
 systemd-units = { unit-name = "pyrsia", unit-scripts = "installers/debian/" }
 
 [dependencies]
-signed = {path="src/signed"}
-signed_struct = { path = "src/signed_struct" }
 pyrsia_blockchain_network = { path = "src/blockchain" }
 
 

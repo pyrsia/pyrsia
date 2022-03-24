@@ -59,6 +59,10 @@ jobs:
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+    - name: Install openssl on macOS
+      if: runner.os == 'macOS'
+      run: |
+        brew install openssl
     # Install cargo deb and strip
     - name: Install cargo-deb cargo-strip
       if: runner.os == 'Linux'
@@ -71,20 +75,16 @@ jobs:
     - name: Add Build to Version Number
       run: |
         sed -i.bak "/^version = \"0.1.0\"/s/\"\$/+${{ github.run_number }}\"/" Cargo.toml
-
     - name: Build Release Binaries
       run: |
         cargo build --workspace --verbose --all-targets --release
-
     - name: Execute Test Cases
       run: |
         cargo test --workspace --verbose
-
     - name: Strip Binaries
       if: runner.os == 'Linux'
       run: |
         cargo strip
-
     # Create Pyrsia .deb file
     - name: Package Pyrsia as deb file
       if: runner.os == 'Linux'
