@@ -22,13 +22,6 @@
 //! #[signed]
 //! macro. This is documented in `src/signed_struct/tests/lib.rs
 
-extern crate anyhow;
-extern crate base64;
-extern crate log;
-extern crate openssl;
-extern crate serde;
-extern crate serde_json;
-
 use std::char::REPLACEMENT_CHARACTER;
 use std::option::Option;
 

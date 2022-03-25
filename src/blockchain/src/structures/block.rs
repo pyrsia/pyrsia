@@ -18,7 +18,7 @@ use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
-use super::header::Header;
+use super::header::{Header, Address};
 use super::transaction::Transaction;
 use crate::crypto::hash_algorithm::HashDigest;
 use crate::signature::Signature;
@@ -42,7 +42,7 @@ impl Block {
     ) -> Self {
         let header = Header::new(
             parent_hash,
-            HashDigest::new(&signing_key.public().encode()),
+            Address::from(identity::PublicKey::Ed25519(signing_key.public())),
             ordinal,
         );
         Self {
@@ -72,13 +72,15 @@ impl Display for Block {
 
 #[cfg(test)]
 mod tests {
+    use libp2p::PeerId;
+
     use super::super::transaction::TransactionType;
     use super::*;
 
     #[test]
     fn test_build_block() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = HashDigest::new(&keypair.public().encode());
+        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
 
         let transactions = vec![Transaction::new(
             TransactionType::AddAuthority,

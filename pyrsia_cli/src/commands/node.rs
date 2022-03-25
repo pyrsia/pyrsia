@@ -14,9 +14,6 @@
    limitations under the License.
 */
 
-extern crate pyrsia;
-extern crate reqwest;
-
 use super::config::get_config;
 use pyrsia::model::cli::Status;
 

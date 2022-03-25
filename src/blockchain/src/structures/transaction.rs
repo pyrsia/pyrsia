@@ -21,6 +21,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::crypto::hash_algorithm::HashDigest;
 use crate::signature::Signature;
+use super::header::Address;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum TransactionType {
@@ -32,7 +33,7 @@ pub enum TransactionType {
 #[derive(Serialize)]
 struct PartialTransaction {
     type_id: TransactionType,
-    submitter: HashDigest,
+    submitter: Address,
     timestamp: u64,
     payload: Vec<u8>,
     nonce: u128,
@@ -80,7 +81,7 @@ pub type TransactionSignature = Signature;
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Transaction {
     type_id: TransactionType,
-    submitter: HashDigest,
+    submitter: Address,
     timestamp: u64,
     payload: Vec<u8>,
     nonce: u128, // Adds a salt to harden
@@ -90,7 +91,7 @@ pub struct Transaction {
 impl Transaction {
     pub fn new(
         type_id: TransactionType,
-        submitter: HashDigest,
+        submitter: Address,
         payload: Vec<u8>,
         ed25519_keypair: &identity::ed25519::Keypair,
     ) -> Self {

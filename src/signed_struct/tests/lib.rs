@@ -24,11 +24,6 @@
 /// macro
 #[cfg(test)]
 mod tests {
-    extern crate anyhow;
-    extern crate derive_builder;
-    extern crate serde;
-    extern crate signed;
-
     // It is recommended that you defined a signed struct in its own module to prevent direct access
     // to its fields. They will be accessed through generated getters and setters.
     pub mod namespace {

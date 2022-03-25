@@ -14,11 +14,6 @@
    limitations under the License.
 */
 
-extern crate serde;
-extern crate serde_json;
-extern crate signed;
-extern crate signed_struct;
-
 use serde_json::{Map, Value};
 use signed::signed::Signed;
 use signed_struct::signed_struct;

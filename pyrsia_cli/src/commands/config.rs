@@ -14,8 +14,6 @@
    limitations under the License.
 */
 
-extern crate anyhow;
-extern crate confy;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};

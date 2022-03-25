@@ -14,10 +14,6 @@
    limitations under the License.
 */
 
-extern crate pretty_env_logger;
-extern crate pyrsia_blockchain_network;
-extern crate tokio;
-
 use futures::StreamExt;
 use libp2p::{
     core::upgrade,
@@ -33,7 +29,6 @@ use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
 
 use pyrsia_blockchain_network::blockchain::Blockchain;
-use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
 use pyrsia_blockchain_network::network::Behaviour;
 use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::structures::transaction::{Transaction, TransactionType};
@@ -114,7 +109,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Listen on all interfaces and whatever port the OS assigns
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
-    let local_id = HashDigest::new(&id_keys.public().encode());
     // Kick it off
     loop {
         tokio::select! {
@@ -122,7 +116,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let l = line.expect("stdin closed");
                 let transaction = Transaction::new(
                         TransactionType::AddAuthority,
-                        local_id,
+                        peer_id,
                         l.unwrap().as_bytes().to_vec(),
                     &id_keys,
                 );

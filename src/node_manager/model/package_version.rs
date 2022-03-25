@@ -14,10 +14,6 @@
    limitations under the License.
 */
 
-extern crate serde_json;
-extern crate signed;
-extern crate signed_struct;
-
 use super::artifact::Artifact;
 use super::package_type::PackageTypeName;
 use serde::{Deserialize, Serialize};
