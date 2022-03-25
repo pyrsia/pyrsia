@@ -83,7 +83,7 @@ mod tests {
         let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
 
         let transactions = vec![Transaction::new(
-            TransactionType::AddAuthority,
+            TransactionType::Create,
             local_id,
             b"Hello First Transaction".to_vec(),
             &keypair,

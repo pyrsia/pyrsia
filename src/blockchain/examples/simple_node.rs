@@ -30,8 +30,10 @@ use tokio::io::{self, AsyncBufReadExt};
 
 use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::network::Behaviour;
-use pyrsia_blockchain_network::structures::block::Block;
-use pyrsia_blockchain_network::structures::transaction::{Transaction, TransactionType};
+use pyrsia_blockchain_network::structures::{
+    block::Block,
+    transaction::{Transaction, TransactionType},
+};
 
 pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
 
@@ -115,7 +117,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             line = stdin.next_line() => {
                 let l = line.expect("stdin closed");
                 let transaction = Transaction::new(
-                        TransactionType::AddAuthority,
+                        TransactionType::Create,
                         peer_id,
                         l.unwrap().as_bytes().to_vec(),
                     &id_keys,

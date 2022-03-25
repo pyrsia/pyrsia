@@ -25,6 +25,7 @@ use crate::signature::Signature;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum TransactionType {
+    Create,
     AddAuthority,
     RevokeAuthority,
 }
@@ -127,7 +128,7 @@ mod tests {
         let local_id = HashDigest::new(&keypair.public().encode());
 
         let transaction = Transaction::new(
-            TransactionType::AddAuthority,
+            TransactionType::Create,
             local_id,
             b"Hello First Transaction".to_vec(),
             &keypair,
