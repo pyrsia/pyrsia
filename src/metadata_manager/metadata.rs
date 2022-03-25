@@ -13,8 +13,6 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-extern crate anyhow;
-
 use crate::document_store::document_store::{DocumentStore, DocumentStoreError, IndexSpec};
 use std::collections::HashMap;
 use std::fmt::Debug;
