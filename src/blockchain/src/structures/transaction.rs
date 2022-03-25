@@ -121,11 +121,12 @@ impl Transaction {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use libp2p::PeerId;
 
     #[test]
     fn test_transaction_new() {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = HashDigest::new(&keypair.public().encode());
+        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
 
         let transaction = Transaction::new(
             TransactionType::Create,

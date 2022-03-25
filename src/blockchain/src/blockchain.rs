@@ -181,12 +181,11 @@ mod tests {
     #[test]
     fn test_add_block_listener() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
         let block = Block::new(
-            local_id,
+            HashDigest::new(b"Hello World!"),
             1u128,
             Vec::new(),
-            &identity::ed25519::Keypair::generate(),
+            &keypair,
         );
         let mut chain = Blockchain::new(&keypair);
         let called = Rc::new(Cell::new(false));
