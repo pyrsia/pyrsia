@@ -27,6 +27,7 @@ pub type Address = PeerId;
 #[derive(Serialize)]
 struct PartialHeader {
     parent_hash: HashDigest,
+    transactions_hash: HashDigest,
     committer: Address,
     timestamp: u64,
     ordinal: u128,
@@ -37,6 +38,7 @@ impl From<Header> for PartialHeader {
     fn from(header: Header) -> Self {
         PartialHeader {
             parent_hash: header.parent_hash,
+            transactions_hash: header.transactions_hash,
             committer: header.committer,
             timestamp: header.timestamp,
             ordinal: header.ordinal,
@@ -76,9 +78,15 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn new(parent_hash: HashDigest, committer: Address, ordinal: u128) -> Self {
+    pub fn new(
+        parent_hash: HashDigest,
+        transactions_hash: HashDigest,
+        committer: Address,
+        ordinal: u128,
+    ) -> Self {
         let partial = PartialHeader {
             parent_hash,
+            transactions_hash,
             committer,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -89,6 +97,7 @@ impl Header {
         };
         Self {
             parent_hash: partial.parent_hash,
+            transactions_hash: partial.transactions_hash,
             committer: partial.committer,
             timestamp: partial.timestamp,
             ordinal: partial.ordinal,
@@ -110,9 +119,9 @@ mod tests {
     #[test]
     fn test_build_block_header() {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
 
-        let header = Header::new(HashDigest::new(b""), local_id, 5);
+        let header = Header::new(HashDigest::new(b""), HashDigest::new(b""), local_id, 5);
 
         let partial: PartialHeader = header.clone().into();
         let expected_hash = calculate_hash(&partial).unwrap();

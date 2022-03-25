@@ -40,15 +40,16 @@ impl Block {
         transactions: Vec<Transaction>,
         signing_key: &identity::ed25519::Keypair,
     ) -> Self {
+        let transaction_root = HashDigest::new(&bincode::serialize(&transactions).unwrap());
         let header = Header::new(
             parent_hash,
+            transaction_root,
             Address::from(identity::PublicKey::Ed25519(signing_key.public())),
             ordinal,
         );
         Self {
             header,
             transactions,
-            // TODO(prince-chrismc): Why does this not include the transactions?
             signature: Signature::new(&bincode::serialize(&header.hash()).unwrap(), signing_key),
         }
     }
