@@ -19,9 +19,9 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use super::header::Address;
 use crate::crypto::hash_algorithm::HashDigest;
 use crate::signature::Signature;
-use super::header::Address;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum TransactionType {
