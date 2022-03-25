@@ -41,12 +41,13 @@ use std::io;
 use std::iter;
 
 /// Creates the necessary p2p components.
-/// 
+///
 /// The components are:
 ///  * [`Client`]: can be used to interact with the p2p network
 ///  * EventReceiver: a receiver of a Stream of [events][`Event`]
 ///  * [`EventLoop`]: used to process events received from the p2p [`Swarm`] and commands from the p2p [`Client`]
-pub async fn create_components() -> Result<(Client, impl Stream<Item = Event>, EventLoop), Box<dyn Error>> {
+pub async fn create_components(
+) -> Result<(Client, impl Stream<Item = Event>, EventLoop), Box<dyn Error>> {
     let local_keys = identity::Keypair::generate_ed25519();
 
     let identify_config = IdentifyConfig::new(String::from("ipfs/1.0.0"), local_keys.public());

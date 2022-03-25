@@ -76,7 +76,7 @@ fn setup_http(args: &PyrsiaNodeArgs, p2p_client: p2p::Client) {
 
     debug!("Setup HTTP routing");
     let docker_routes = make_docker_routes(p2p_client.clone());
-    let node_api_routes = make_node_routes(p2p_client.clone());
+    let node_api_routes = make_node_routes(p2p_client);
     let all_routes = docker_routes.or(node_api_routes);
 
     debug!("Setup HTTP server");
