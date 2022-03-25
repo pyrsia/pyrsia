@@ -53,17 +53,25 @@ fn calculate_hash(incomplete_header: &PartialHeader) -> Result<HashDigest, binco
 /// struct Header define the header of a block
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub struct Header {
-    /// 256bit Keccak Hash of the Parent Block(previous Block hash)
+    /// 256-bit Keccak Hash of the parent block (previous [`Block`][block]'s [`hash`][hash])
+    ///
+    /// [block]: crate::structures::block::Block
+    /// [hash]: crate::structures::header::Header::hash
     pub parent_hash: HashDigest,
-    /// the committer node's PeerID
+    /// 256-bit Keccak Hash of the [`Block`][block]'s [`transactions`][transactions]
+    ///
+    /// [block]: crate::structures::block::Block
+    /// [transactions]: crate::structures::block::Block::transactions
+    pub transactions_hash: HashDigest,
+    /// the committer node's PeerId
     pub committer: Address,
-    /// Unix timestamp in seconds, see https://en.wikipedia.org/wiki/Unix_time
+    /// Unix timestamp in seconds, see <https://en.wikipedia.org/wiki/Unix_time> for more.
     pub timestamp: u64,
-    /// block sequence number, the current block number should be the parent(previous) block number plus 1
+    /// block sequence number, the current block number should be the parent (previous) block number plus 1
     pub ordinal: u128,
     /// Adds a salt to harden
     nonce: u128,
-    /// block id, 256bit Keccak Hash of the Current Block Header, excluding itself
+    /// The block id, 256-bit Keccak Hash of the Current Block Header, excluding itself
     hash: HashDigest,
 }
 

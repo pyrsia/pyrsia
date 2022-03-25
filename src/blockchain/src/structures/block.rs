@@ -18,7 +18,7 @@ use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
-use super::header::{Header, Address};
+use super::header::{Address, Header};
 use super::transaction::Transaction;
 use crate::crypto::hash_algorithm::HashDigest;
 use crate::signature::Signature;
