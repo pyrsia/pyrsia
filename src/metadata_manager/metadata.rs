@@ -13,14 +13,6 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-<<<<<<< HEAD
-extern crate anyhow;
-
-use super::model::namespace::Namespace;
-use super::model::package_type::{PackageType, PackageTypeName};
-use super::model::package_version::PackageVersion;
-=======
->>>>>>> 158d965198240fe489cb69d35dd42f4f3f8e70d7
 use crate::document_store::document_store::{DocumentStore, DocumentStoreError, IndexSpec};
 use std::collections::HashMap;
 use std::fmt::Debug;
