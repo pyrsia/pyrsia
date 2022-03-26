@@ -14,12 +14,14 @@
    limitations under the License.
 */
 use crate::document_store::document_store::{DocumentStore, DocumentStoreError, IndexSpec};
-use std::collections::HashMap;
-use std::fmt::Debug;
-
+use crate::model::namespace::Namespace;
+use crate::model::package_type::{PackageType, PackageTypeName};
+use crate::model::package_version::PackageVersion;
 use anyhow::{bail, Result};
 use log::{error, info};
 use maplit::hashmap;
+use std::collections::HashMap;
+use std::fmt::Debug;
 use uuid::Uuid;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -15,6 +15,7 @@
 */
 
 use crate::node_manager::model::package_type::PackageTypeName;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 /// Describes a name space.

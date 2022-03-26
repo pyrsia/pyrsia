@@ -15,6 +15,7 @@
 */
 
 use serde_json::{Map, Value};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 /// Describes a package
