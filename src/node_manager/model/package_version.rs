@@ -14,8 +14,6 @@
    limitations under the License.
 */
 
-extern crate serde_json;
-
 use super::artifact::Artifact;
 use super::package_type::PackageTypeName;
 

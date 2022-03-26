@@ -14,11 +14,6 @@
    limitations under the License.
 */
 
-extern crate serde;
-extern crate serde_json;
-
-use serde::{Deserialize, Serialize};
-
 use crate::node_manager::model::package_type::PackageTypeName;
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]

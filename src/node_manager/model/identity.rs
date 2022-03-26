@@ -13,18 +13,16 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+use signed::signed::{JwsSignatureAlgorithms, Signed};
+use signed_struct::signed_struct;
 
-use serde::{Deserialize, Serialize};
-use strum_macros::Display;
-
-#[derive(PartialEq, Debug, Deserialize, Serialize)]
-pub struct PackageType {
-    pub id: String,
-    pub name: PackageTypeName,
-    pub description: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Display, PartialEq, Clone)]
-pub enum PackageTypeName {
-    Docker,
+#[signed_struct]
+struct Identity {
+    public_key: Vec<u8>,
+    identity_algorithm: JwsSignatureAlgorithms,
+    name: String,
+    description: Option<String>,
+    email: Option<String>,
+    web_url: Option<String>,
+    phone_number: Option<String>,
 }

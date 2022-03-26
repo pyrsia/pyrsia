@@ -14,13 +14,14 @@
    limitations under the License.
 */
 
+use libp2p::PeerId;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::crypto::hash_algorithm::HashDigest;
 
-pub type Address = HashDigest;
+pub type Address = PeerId;
 
 /// struct Header define the header of a block
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
@@ -108,7 +109,7 @@ mod tests {
     #[test]
     fn test_build_block_header() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = HashDigest::new(&keypair.public().encode());
+        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
 
         let header = Header::new(PartialHeader::new(
             HashDigest::new(b""),

@@ -134,20 +134,6 @@ pub fn get_arts_count() -> Result<usize, anyhow::Error> {
         .context("Error while getting artifacts count")
 }
 
-pub fn get_space_available() -> Result<u64, anyhow::Error> {
-    let disk_used_bytes = ART_MGR.space_used()?;
-
-    let mut available_space: u64 = 0;
-    let total_allocated_size: u64 = Byte::from_str(ALLOCATED_SPACE_FOR_ARTIFACTS)
-        .unwrap()
-        .get_bytes();
-
-    if total_allocated_size > disk_used_bytes {
-        available_space = total_allocated_size - disk_used_bytes;
-    }
-    Ok(available_space)
-}
-
 pub fn disk_usage() -> Result<f64, anyhow::Error> {
     let disk_used_bytes = ART_MGR.space_used()?;
 
@@ -235,26 +221,6 @@ mod tests {
 
         let usage_pct_after = disk_usage().context("Error from disk_usage")?;
         assert!(usage_pct_before < usage_pct_after);
-    }
-
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
-          ("DEV_MODE", "on")
-        ]  )]
-    fn test_get_space_available() {
-        let space_available_before =
-            get_space_available().context("Error from get_space_available")?;
-
-        create_artifact().context("Error creating artifact")?;
-
-        let space_available_after =
-            get_space_available().context("Error from get_space_available")?;
-        debug!(
-            "Before: {}; After: {}",
-            space_available_before, space_available_after
-        );
-        assert!(space_available_after < space_available_before);
     }
 
     #[assay(
