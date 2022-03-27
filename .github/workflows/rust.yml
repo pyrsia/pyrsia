@@ -181,4 +181,4 @@ jobs:
         context: .
         push: true
         file: installers/docker/CodeCoverage.Dockerfile
-        tags: pyrsiaoss/codecoverage:1.0
+tags: pyrsiaoss/codecoverage:1.0
