@@ -21,11 +21,11 @@ use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::make_docker_routes;
 use pyrsia::logging::*;
 use pyrsia::network::handlers::{dial_other_peer, handle_request_artifact, provide_artifacts};
-use pyrsia::network::p2p::{self, Client, Event};
+use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
 
 use clap::Parser;
-use futures::{Stream, StreamExt};
+use futures::StreamExt;
 use log::{debug, info};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use warp::Filter;
@@ -34,43 +34,22 @@ use warp::Filter;
 async fn main() {
     pretty_env_logger::init();
 
+    debug!("Parse CLI arguments");
     let args = PyrsiaNodeArgs::parse();
 
-    let (p2p_client, mut p2p_events) = setup_p2p(&args).await;
+    debug!("Create p2p components");
+    let (p2p_client, mut p2p_events, event_loop) = p2p::create_components().await.unwrap();
 
-    // Get host and port from the settings. Defaults to DEFAULT_HOST and DEFAULT_PORT
-    let host = args.host;
-    let port = args.port;
-    debug!(
-        "Pyrsia Docker Node will bind to host = {}, port = {}",
-        host, port
-    );
+    debug!("Start p2p event loop");
+    tokio::spawn(event_loop.run());
 
-    let address = SocketAddr::new(
-        IpAddr::V4(host.parse::<Ipv4Addr>().unwrap()),
-        port.parse::<u16>().unwrap(),
-    );
+    debug!("Setup HTTP server");
+    setup_http(&args, p2p_client.clone());
 
-    let docker_routes = make_docker_routes(p2p_client.clone());
-    let node_api_routes = make_node_routes(p2p_client.clone());
-    let all_routes = docker_routes.or(node_api_routes);
+    debug!("Start p2p components");
+    setup_p2p(p2p_client.clone(), args).await;
 
-    let (addr, server) = warp::serve(
-        all_routes
-            .and(http::log_headers())
-            .recover(custom_recover)
-            .with(warp::log("pyrsia_registry")),
-    )
-    .bind_ephemeral(address);
-
-    info!(
-        "Pyrsia Docker Node is now running on port {}:{}!",
-        addr.ip(),
-        addr.port()
-    );
-
-    tokio::spawn(server);
-
+    debug!("Listen for p2p events");
     loop {
         if let Some(event) = p2p_events.next().await {
             match event {
@@ -83,21 +62,51 @@ async fn main() {
     }
 }
 
-async fn setup_p2p(args: &PyrsiaNodeArgs) -> (Client, impl Stream<Item = Event>) {
-    let (mut p2p_client, p2p_events, event_loop) = p2p::new().await.unwrap();
+fn setup_http(args: &PyrsiaNodeArgs, p2p_client: p2p::Client) {
+    // Get host and port from the settings. Defaults to DEFAULT_HOST and DEFAULT_PORT
+    debug!(
+        "Pyrsia Docker Node will bind to host = {}, port = {}",
+        args.host, args.port
+    );
 
-    tokio::spawn(event_loop.run());
+    let address = SocketAddr::new(
+        IpAddr::V4(args.host.parse::<Ipv4Addr>().unwrap()),
+        args.port.parse::<u16>().unwrap(),
+    );
 
+    debug!("Setup HTTP routing");
+    let docker_routes = make_docker_routes(p2p_client.clone());
+    let node_api_routes = make_node_routes(p2p_client);
+    let all_routes = docker_routes.or(node_api_routes);
+
+    debug!("Setup HTTP server");
+    let (addr, server) = warp::serve(
+        all_routes
+            .and(http::log_headers())
+            .recover(custom_recover)
+            .with(warp::log("pyrsia_registry")),
+    )
+    .bind_ephemeral(address);
+
+    info!(
+        "Pyrsia Docker Node will start running on {}:{}",
+        addr.ip(),
+        addr.port()
+    );
+
+    tokio::spawn(server);
+}
+
+async fn setup_p2p(mut p2p_client: p2p::Client, args: PyrsiaNodeArgs) {
     p2p_client
         .listen(&args.listen_address)
         .await
         .expect("Listening should not fail");
 
-    if let Some(to_dial) = &args.peer {
-        dial_other_peer(p2p_client.clone(), to_dial).await;
+    if let Some(to_dial) = args.peer {
+        dial_other_peer(p2p_client.clone(), &to_dial).await;
     }
 
+    debug!("Provide local artifacts");
     provide_artifacts(p2p_client.clone()).await;
-
-    (p2p_client, p2p_events)
 }
