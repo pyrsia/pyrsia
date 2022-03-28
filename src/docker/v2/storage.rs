@@ -14,20 +14,5 @@
    limitations under the License.
 */
 
-use serde::{Deserialize, Serialize};
-use signed::signed::Signed;
-use signed_struct::signed_struct;
-use strum_macros::Display;
-
-#[signed_struct]
-#[derive(PartialEq, Debug)]
-pub struct PackageType {
-    id: String,
-    name: PackageTypeName,
-    description: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Display, PartialEq, Clone)]
-pub enum PackageTypeName {
-    Docker,
-}
+pub mod blobs;
+pub use crate::artifacts_repository::hash_util::HashAlgorithm;

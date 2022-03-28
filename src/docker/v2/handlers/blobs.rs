@@ -18,15 +18,13 @@ use super::handlers::*;
 use super::HashAlgorithm;
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
+use crate::docker::v2::storage::*;
 use crate::network::p2p;
-use bytes::{Buf, Bytes};
+use bytes::Bytes;
 use libp2p::PeerId;
 use log::{debug, info, trace};
 use reqwest::header;
 use std::collections::HashMap;
-use std::fs;
-use std::fs::File;
-use std::io::prelude::*;
 use std::result::Result;
 use std::str;
 use uuid::Uuid;
@@ -88,7 +86,7 @@ pub async fn handle_post_blob(name: String) -> Result<impl Reply, Rejection> {
         id.to_string()
     );
 
-    create_upload_directory(&name, &id.to_string()).map_err(RegistryError::from)?;
+    blobs::create_upload_directory(&name, &id.to_string()).map_err(RegistryError::from)?;
 
     Ok(warp::http::response::Builder::new()
         .header(
@@ -111,7 +109,7 @@ pub async fn handle_patch_blob(
         name, id
     );
 
-    let append = append_to_blob(&blob_upload_dest, bytes).map_err(RegistryError::from)?;
+    let append = blobs::append_to_blob(&blob_upload_dest, bytes).map_err(RegistryError::from)?;
 
     let range = format!("{}-{}", append.0, append.0 + append.1 - 1);
     debug!("Patch blob range: {}", range);
@@ -137,7 +135,7 @@ pub async fn handle_put_blob(
         code: RegistryErrorCode::Unknown(String::from("missing digest")),
     })?;
 
-    store_blob_in_filesystem(&name, &id, digest, bytes).map_err(RegistryError::from)?;
+    blobs::store_blob_in_filesystem(&name, &id, digest, bytes).map_err(RegistryError::from)?;
 
     Ok(warp::http::response::Builder::new()
         .header(
@@ -147,72 +145,6 @@ pub async fn handle_put_blob(
         .status(StatusCode::CREATED)
         .body("")
         .unwrap())
-}
-
-pub fn append_to_blob(blob: &str, mut bytes: Bytes) -> std::io::Result<(u64, u64)> {
-    debug!("Patching blob: {}", blob);
-    let mut file = fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(blob)?;
-    let mut total_bytes_read: u64 = 0;
-    let initial_file_length: u64 = file.metadata()?.len();
-    while bytes.has_remaining() {
-        let bytes_remaining = bytes.remaining();
-        let bytes_to_read = if bytes_remaining <= 4096 {
-            bytes_remaining
-        } else {
-            4096
-        };
-        total_bytes_read += bytes_to_read as u64;
-        let mut b = vec![0; bytes_to_read];
-        bytes.copy_to_slice(&mut b);
-        file.write_all(&b)?;
-    }
-
-    Ok((initial_file_length, total_bytes_read))
-}
-
-fn create_upload_directory(name: &str, id: &str) -> std::io::Result<String> {
-    let upload_directory = format!(
-        "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
-        name, id
-    );
-    fs::create_dir_all(&upload_directory)?;
-    Ok(upload_directory)
-}
-
-fn store_blob_in_filesystem(
-    name: &str,
-    id: &str,
-    digest: &str,
-    bytes: Bytes,
-) -> Result<bool, Box<dyn std::error::Error>> {
-    let blob_upload_dest_dir = create_upload_directory(name, id)?;
-    let mut blob_upload_dest_data = blob_upload_dest_dir.clone();
-    blob_upload_dest_data.push_str("/data");
-    let append = append_to_blob(&blob_upload_dest_data, bytes)?;
-
-    // check if there is enough local allocated disk space
-    let available_space = get_space_available();
-    if available_space.is_err() {
-        return Err(available_space.err().unwrap().to_string().into());
-    }
-    if append.1 > available_space.unwrap() {
-        return Err("Not enough space left to store artifact".into());
-    }
-    //put blob in artifact manager
-    let reader = File::open(blob_upload_dest_data.as_str()).unwrap();
-
-    let push_result = put_artifact(
-        hex::decode(&digest.get(7..).unwrap()).unwrap().as_ref(),
-        Box::new(reader),
-        HashAlgorithm::SHA256,
-    )?;
-
-    fs::remove_dir_all(&blob_upload_dest_dir)?;
-
-    Ok(push_result)
 }
 
 // Request the content of the artifact from the pyrsia network
@@ -265,7 +197,8 @@ async fn get_blob_from_other_peer(
     {
         Ok(artifact) => {
             let id = Uuid::new_v4();
-            match store_blob_in_filesystem(
+            debug!("Step 2: YES, {:?} exists in the Pyrsia network.", hash);
+            match blobs::store_blob_in_filesystem(
                 name,
                 &id.to_string(),
                 hash,
@@ -332,5 +265,10 @@ async fn get_blob_from_docker_hub_with_token(
 
     let id = Uuid::new_v4();
 
-    store_blob_in_filesystem(name, &id.to_string(), hash, bytes).map_err(RegistryError::from)
+    blobs::create_upload_directory(name, &id.to_string()).map_err(RegistryError::from)?;
+
+    let blob_push = blobs::store_blob_in_filesystem(name, &id.to_string(), hash, bytes)
+        .map_err(RegistryError::from)?;
+
+    Ok(blob_push)
 }

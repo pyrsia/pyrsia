@@ -128,11 +128,12 @@ impl Display for Block {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use libp2p::PeerId;
 
     #[test]
     fn test_build_block() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = HashDigest::new(&keypair.public().encode());
+        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
