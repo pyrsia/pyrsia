@@ -51,7 +51,7 @@ A few examples of what this can include are:
 - Does this feature exist in other package managers and what experience have their community had?
 - For community proposals: Is this done by some other community and what were their experiences with it?
 - For other teams: What lessons can we learn from what other communities have done here?
-- Papers: Are there any published papers or great posts that discuss this? If you have some relevant papers to refer to, this can serve as a more detailed theoretical background.
+- References: Are there any published papers or great posts that discuss this? If you have some relevant research to refer to, this can serve as a more detailed theoretical background. Existing implementation references for practical background can also help fill in a proposal.
 
 This is an excellent place to share research notes, articales or proof of concepts that can support or educate the reviewers.
 
