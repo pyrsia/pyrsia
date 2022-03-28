@@ -33,9 +33,6 @@ pub enum SignatureAlgorithm {
 
 #[derive(Deserialize, Serialize)]
 pub struct Blockchain {
-    // TODO(chb0github): Why were you trying to add this?
-    // #[serde(skip)]
-    // keypair: Option<identity::ed25519::Keypair>,
     #[serde(skip)]
     // this should actually be a Map<Transaction,Vec<OnTransactionSettled>> but that's later
     trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
@@ -47,7 +44,6 @@ pub struct Blockchain {
 impl Debug for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Blockchain")
-            // .field("keypair", &"***")
             .field("blocks", &self.blocks)
             .field("trans_observers", &self.trans_observers.len())
             .field("block_observers", &self.block_observers.len())
@@ -64,10 +60,9 @@ impl Blockchain {
             "this needs to be the root authority".as_bytes().to_vec(),
             keypair,
         );
-        // this is the "genesis" blocks
+        // Make the "genesis" blocks
         let block = Block::new(HashDigest::new(b""), 0, Vec::from([transaction]), keypair);
         Self {
-            // keypair: Some(keypair.clone()),
             trans_observers: Default::default(),
             block_observers: vec![],
             blocks: Vec::from([block]),
