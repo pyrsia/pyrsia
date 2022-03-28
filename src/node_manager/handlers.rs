@@ -20,12 +20,10 @@ use super::Hash;
 use super::HashAlgorithm;
 
 use crate::metadata_manager::metadata::Metadata;
-use crate::network::kademlia_thread_safe_proxy::KademliaThreadSafeProxy;
 use crate::util::env_util::*;
 use anyhow::{Context, Result};
 use byte_unit::Byte;
 use lazy_static::lazy_static;
-use libp2p::{identity, kad::record::store::MemoryStore, PeerId};
 use log::{debug, error, info};
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -34,10 +32,6 @@ use std::str;
 use std::{fs, panic};
 
 lazy_static! {
-    pub static ref LOCAL_KEY: identity::Keypair = identity::Keypair::generate_ed25519();
-    pub static ref LOCAL_PEER_ID: PeerId = PeerId::from(LOCAL_KEY.public());
-    pub static ref MEMORY_STORE: MemoryStore = MemoryStore::new(*LOCAL_PEER_ID);
-    pub static ref KADEMLIA_PROXY: KademliaThreadSafeProxy = KademliaThreadSafeProxy::default();
     pub static ref ARTIFACTS_DIR: String = log_static_initialization_failure(
         "Pyrsia Artifact directory",
         Ok(read_var("PYRSIA_ARTIFACT_PATH", "pyrsia"))
@@ -248,26 +242,6 @@ mod tests {
 
         let usage_pct_after = disk_usage().context("Error from disk_usage")?;
         assert!(usage_pct_before < usage_pct_after);
-    }
-
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
-          ("DEV_MODE", "on")
-        ]  )]
-    fn test_get_space_available() {
-        let space_available_before =
-            get_space_available().context("Error from get_space_available")?;
-
-        create_artifact().context("Error creating artifact")?;
-
-        let space_available_after =
-            get_space_available().context("Error from get_space_available")?;
-        debug!(
-            "Before: {}; After: {}",
-            space_available_before, space_available_after
-        );
-        assert!(space_available_after < space_available_before);
     }
 
     #[assay(

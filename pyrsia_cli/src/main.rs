@@ -18,9 +18,6 @@ pub mod cli;
 
 use cli::handlers::*;
 use cli::parser::*;
-extern crate clap;
-
-extern crate pyrsia;
 
 #[tokio::main]
 async fn main() {

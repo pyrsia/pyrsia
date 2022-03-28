@@ -13,21 +13,9 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+use anyhow::Result;
+use vergen::{vergen, Config};
 
-use serde::{Deserialize, Serialize};
-use signed::signed::Signed;
-use signed_struct::signed_struct;
-use strum_macros::Display;
-
-#[signed_struct]
-#[derive(PartialEq, Debug)]
-pub struct PackageType {
-    id: String,
-    name: PackageTypeName,
-    description: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Display, PartialEq, Clone)]
-pub enum PackageTypeName {
-    Docker,
+fn main() -> Result<()> {
+    vergen(Config::default())
 }

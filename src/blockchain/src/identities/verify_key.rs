@@ -14,8 +14,6 @@
    limitations under the License.
 */
 
-extern crate hex;
-
 use codec::{Decode, Encode, Error as CodecError, Input};
 use libp2p::core::identity::ed25519::PublicKey;
 use log::{debug, trace};

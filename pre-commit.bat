@@ -19,4 +19,4 @@ cargo fmt --check
 IF %ERRORLEVEL% NEQ 0 (ECHO Cargo format failed. &Exit /b 1)
 cargo test --workspace
 IF %ERRORLEVEL% NEQ 0 (ECHO Cargo test failed. &Exit /b 1)
-cargo build --workspace
+cargo build --workspace --all-targets

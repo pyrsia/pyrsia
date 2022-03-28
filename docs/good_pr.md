@@ -1,51 +1,60 @@
+# Good Pull Requests
+
+Pull Requests are how changes are shared with the community. When authors add features or fix bug for code contributions it's
+important to have the mind set:
+
+> _I am asking others for a favor to review and give feedback on my work with the goal of delieverying the best quality work_
+
+With that in mind, what should authors do to make this process as smooth as possible for the reviewers?
+
 ## What makes a good Pull Request
 
-* Small focused issues -> small PRs -> easy reviews -> better cycle time
-* Link to an issue with a very clear description so it’s clear what the changed code is supposed to do
-* Create smaller issues that address the PRs specifically
-* PRs should summarize what the changes are and be linked to an issue so that the reviewer knows what to expect.
-* A PR should be linked to an issue and explain why that issue is solved by the PR. The PR should contain a test that fails before and succeeds after, making it clear there was an issue before (matching the linked issue) and solved after.
-* Good PRs are small. Long review times are the enemy of small PRs.
-* PRs that are not small discourage people from reviewing them quickly
-* Ensure that the PR is associated with and issue that addresses the small part of the system
-* Good description
-* Primary problem that was fixed
-* If this fixes other things that were affecting the system during this PR that should be included in the PR
-    - Keywords used/format in the PR description to link and auto close
-    - Try to complete the sentence “This PR ..”
-    - Eg : Closes #10 addresses the issue of conflicting ports when running multiple peers
-    - Adds configuration to provide port number
-    - Adds default port number
-* Should be strongly linked to the issue it addressed without confusion
-* How to verify/test this PR?
-* Add comments
-* Prefer creating/linking to an issue to describe the design choice instead of adding long comments in the code.
+* Link to an issue that has clear description so reviewers know what to expect.
+* Keep the changes small, limit the scope of the PR to make it clear an consise.
+* Fill in the PR template to give the most information as possible.
+    * Clear title
+    * Detailed description
+    * How to test/verify/review the changes locally
+* Screenshot of outcome if possible, visually it is easier to understand what happens.
+* Add logs in to highlight what to expect when running the code locally.
 
+## Signs of a weak Pull Request
 
-## Test cases - that describe the expected and unexpected scenarios
+* Large number of changed files.
+* Lots of inline code documentation.
+* Numerous questions which don't understand "why this was changed".
 
-* Code that is readable by itself along with test cases that supplement the readability
-* Can have screenshot of outcome if possible, visually it’s more easy to understand what the PR is about especially if the reviewer has no context of PR
-* Add log files/screenshots in to the issues to describe the Before state
+### Possible solutions
 
+* Open new issues for the extra work you spot in the code if it takes more then 30 minutes.
+    * Focus on the issue at hand!
+    * Clearly call out changes in the description of code comments to inform the reviewer.
+* Document design decision in the `docs/` folder of write a blog for the website.
+    * Share the link to a Google Docs describing the decision and choices made.
+    * Include any meeting records where the issue was discussed
+
+## Test cases
+
+It's always recommended to write tests for any code changes. Tests should describe both expected and undesirable scenarios.
+
+Make sure the Pull Request has:
+* Code that is readable by itself along with test cases that supplement the narrative of how the code works.
 
 ## Process of how you build PRs
 
-* How do you work on a second PR when the first PR is still being reviewed?
-  - Fork from the same branch the first PR is using
-* Pull Request Automation Process
-* The PR should automatically be annotated with a list of review instructions:
-  - CLA should be ok - enforced by github
-  - Pre-submit checks can be done automatically (syntax, code,...) - enforced by cargo `command`
-  - Not required checks? Ask for feedback during the PR review process
-  - How many reviewers are required - 2 - randomly assigned - enforced by github
-  - The link to how to checkout the PR should be shown (avoiding that people clone others fork etc) - shortcuts are available in github (post links from the archived channel here   Sudhindra)
+It is worth reading our general [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md#dev-flow).
 
-## Good PR Review cycle
+Beyond that, any optional check(s) that fail should be brought up at the next team meeting so we can evaluate the significance.
 
-* Enough time to understand the code and context
-* Ability to demonstrate the function of the new code
-* We should have guidelines about what is expected from reviewers.
-* Assigned reviewers questions to be answered for the PRs to be merge ready
-* Actionable review comments with enough descriptive steps for the PR to be changed
+## Review cycle
 
+Pull Requests take time. It may take several passes for feedback and questions to be completely resolved.
+Make sure to help others learn about the work you've done and appreciate the dedication to improving your work.
+
+* Enough time to understand the code and any context behind it.
+* Ability to demonstrate the function of the new code.
+* We should have guidence about what reviewers should expect.
+* Assigned reviewers questions should to be answered before merging
+
+Follow the 30 minutes when evalutating suggestions and comments!
+↪️ If the changes would take more then 30 minutes, it's probably out of scope so open a new issue to keep track of the improvements.

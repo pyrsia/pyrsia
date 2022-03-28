@@ -48,7 +48,7 @@ jobs:
               team_reviewers: ["pyrsia/collaborators"],
             });
     
-  darfting-pr:
+  drafting-pr:
     runs-on: ubuntu-latest
     if: |
       github.repository_owner == 'pyrsia' &&

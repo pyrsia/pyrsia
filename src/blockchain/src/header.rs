@@ -14,29 +14,31 @@
    limitations under the License.
 */
 
+use libp2p::PeerId;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::crypto::hash_algorithm::HashDigest;
 
-pub type Address = HashDigest;
+pub type Address = PeerId;
 
 /// struct Header define the header of a block
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub struct Header {
-    ///      parent_hash: 256bit Keccak Hash of the Parent Block(previous Block hash)
+    /// 256bit Keccak Hash of the Parent Block(previous Block hash)
     pub parent_hash: HashDigest,
-    ///      committer:  the committer node's PeerID
+    /// the committer node's PeerID
     pub committer: Address,
-    ///      transactions_root: 256bit Keccak Hash of the root node of Transactions Merkle tree
+    /// 256bit Keccak Hash of the root node of Transactions Merkle tree
     pub transactions_root: HashDigest,
-    ///      timestamp: Unix tim, the number of seconds that have elapsed since the Unix epoch, excluding leap seconds
+    /// Unix time, the number of seconds that have elapsed since the Unix epoch, excluding leap seconds
     pub timestamp: u64,
-    ///      number: block sequence number, the current block number should be the parent(previous) block number plus 1
+    /// block sequence number, the current block number should be the parent(previous) block number plus 1
     pub number: u128,
-    nonce: u128, // Adds a salt to harden
-    ///      hash: block id, 256bit Keccak Hash of the Current Block Header, excluding itself
+    /// Adds a salt to harden
+    nonce: u128,
+    /// block id, 256bit Keccak Hash of the Current Block Header, excluding itself
     pub hash: HashDigest,
 }
 
@@ -101,14 +103,13 @@ impl From<Header> for PartialHeader {
 
 #[cfg(test)]
 mod tests {
-    use super::super::block;
     use super::*;
     use libp2p::identity;
 
     #[test]
     fn test_build_block_header() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = HashDigest::new(&block::get_publickey_from_keypair(&keypair).encode());
+        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
 
         let header = Header::new(PartialHeader::new(
             HashDigest::new(b""),

@@ -14,8 +14,6 @@
    limitations under the License.
 */
 
-extern crate reqwest;
-
 use super::config::get_config;
 use crate::model::cli::Status;
 

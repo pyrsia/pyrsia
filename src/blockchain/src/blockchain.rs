@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use libp2p::identity;
+use libp2p::{identity, PeerId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
@@ -87,7 +87,7 @@ impl Debug for Blockchain {
 
 impl Blockchain {
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
-        let local_id = HashDigest::new(&get_publickey_from_keypair(&keypair).encode());
+        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
         Self {
             trans_observers: Default::default(),
             block_observers: vec![],
@@ -105,7 +105,7 @@ impl Blockchain {
                         local_id,
                         "this needs to be the root authority".as_bytes().to_vec(),
                     ),
-                    &keypair,
+                    keypair,
                 )]),
                 keypair,
             )]),
@@ -157,7 +157,7 @@ pub fn new_block(
     parent_hash: HashDigest,
     previous_number: u128,
 ) -> Block {
-    let local_id = HashDigest::new(&get_publickey_from_keypair(keypair).encode());
+    let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
     let transaction_root = HashDigest::new(&bincode::serialize(transactions).unwrap());
     let block_header = Header::new(PartialHeader::new(
         parent_hash,
@@ -166,12 +166,6 @@ pub fn new_block(
         previous_number + 1,
     ));
     Block::new(block_header, transactions.to_vec(), keypair)
-}
-
-//ToDo
-pub fn generate_ed25519() -> identity::Keypair {
-    //RFC8032
-    identity::Keypair::generate_ed25519()
 }
 
 impl Display for Blockchain {
@@ -190,24 +184,19 @@ mod tests {
 
     #[test]
     fn test_build_blockchain() -> Result<(), String> {
-        let keypair = generate_ed25519();
-        let ed25519_keypair = match keypair {
-            identity::Keypair::Ed25519(v) => v,
-            identity::Keypair::Rsa(_) => todo!(),
-            identity::Keypair::Secp256k1(_) => todo!(),
-        };
-        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
-        let mut chain = Blockchain::new(&ed25519_keypair);
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let mut chain = Blockchain::new(&keypair);
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
             PartialTransaction::new(TransactionType::Create, local_id, data.as_bytes().to_vec()),
-            &ed25519_keypair,
+            &keypair,
         );
         transactions.push(transaction);
         chain.add_block(new_block(
-            &ed25519_keypair,
+            &keypair,
             &transactions,
             chain.blocks[0].header.hash,
             chain.blocks[0].header.number,
@@ -219,14 +208,9 @@ mod tests {
 
     #[test]
     fn test_add_trans_listener() -> Result<(), String> {
-        let keypair = generate_ed25519();
-        let ed25519_keypair = match keypair {
-            identity::Keypair::Ed25519(v) => v,
-            identity::Keypair::Rsa(_) => todo!(),
-            identity::Keypair::Secp256k1(_) => todo!(),
-        };
-        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
-        let mut chain = Blockchain::new(&ed25519_keypair);
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let mut chain = Blockchain::new(&keypair);
 
         let transaction = Transaction::new(
             PartialTransaction::new(
@@ -234,7 +218,7 @@ mod tests {
                 local_id,
                 "some transaction".as_bytes().to_vec(),
             ),
-            &ed25519_keypair,
+            &keypair,
         );
         let called = Rc::new(Cell::new(false));
         chain
@@ -253,13 +237,8 @@ mod tests {
 
     #[test]
     fn test_add_block_listener() -> Result<(), String> {
-        let ed25519_keypair = match generate_ed25519() {
-            identity::Keypair::Ed25519(v) => v,
-            identity::Keypair::Rsa(_) => todo!(),
-            identity::Keypair::Secp256k1(_) => todo!(),
-        };
-        let local_id = HashDigest::new(&get_publickey_from_keypair(&ed25519_keypair).encode());
-
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
         let block_header = Header::new(PartialHeader::new(
             HashDigest::new(b""),
             local_id,
@@ -272,7 +251,7 @@ mod tests {
             Vec::new(),
             &identity::ed25519::Keypair::generate(),
         );
-        let mut chain = Blockchain::new(&ed25519_keypair);
+        let mut chain = Blockchain::new(&keypair);
         let called = Rc::new(Cell::new(false));
 
         chain

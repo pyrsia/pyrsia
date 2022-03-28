@@ -14,8 +14,6 @@
    limitations under the License.
 */
 
-extern crate easy_hasher;
-
 use super::handlers::*;
 use super::HashAlgorithm;
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
