@@ -107,7 +107,7 @@ jobs:
         repo_supported_arch: |
           amd64
         page_branch: gh-pages
-        file: /github/workspace/$PWD/target/debian/pyrsia_0.1.0+${{ github.run_number }}_amd64.deb
+        file: /github/workspace/target/debian/pyrsia_0.1.0+${{ github.run_number }}_amd64.deb
         file_target_version: focal
         public_key: ${{ secrets.GPG_PUBLIC }}
         private_key: ${{ secrets.GPG_PRIVATE }}
