@@ -88,6 +88,12 @@ impl Debug for Blockchain {
 impl Blockchain {
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
         let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let genesis_pub_key: [u8; 44] = [
+            0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00, 0xed, 0xbf,
+            0x0f, 0xc3, 0xea, 0x90, 0x29, 0x1e, 0x03, 0x0e, 0xa9, 0x5c, 0x3d, 0x96, 0x17, 0xc3,
+            0x47, 0x05, 0x6f, 0xa3, 0x12, 0x60, 0x89, 0xa3, 0x96, 0x07, 0x91, 0xc6, 0x01, 0xbf,
+            0x9a, 0x72,
+        ];
         Self {
             trans_observers: Default::default(),
             block_observers: vec![],
@@ -103,7 +109,7 @@ impl Blockchain {
                     PartialTransaction::new(
                         TransactionType::AddAuthority,
                         local_id,
-                        "this needs to be the root authority".as_bytes().to_vec(),
+                        genesis_pub_key.to_vec(),
                     ),
                     keypair,
                 )]),
@@ -111,6 +117,7 @@ impl Blockchain {
             )]),
         }
     }
+
     pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction)>(
         &mut self,
         trans: Transaction,
