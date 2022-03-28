@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use codec::{Decode, Encode};
 use libp2p::PeerId;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -21,7 +22,21 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::crypto::hash_algorithm::HashDigest;
 
-pub type Address = PeerId;
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy, Decode)]
+pub struct Address {
+    #[codec(encoded_as = "&multihash::Multihash")]
+    peer_id: PeerId
+}
+
+impl Encode for Address {
+    fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+        self.peer_id.to_bytes().using_encoded(f)
+    }
+
+    fn size_hint(&self) -> usize {
+        ed25519_dalek::Signature::BYTE_SIZE
+    }
+}
 
 // this struct exists only for generating a hash
 #[derive(Serialize)]
@@ -53,7 +68,7 @@ fn calculate_hash(incomplete_header: &PartialHeader) -> Result<HashDigest, binco
 }
 
 /// struct Header define the header of a block
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy, Decode, Encode)]
 pub struct Header {
     /// 256-bit Keccak Hash of the parent block (previous [`Block`][block]'s [`hash`][hash])
     ///

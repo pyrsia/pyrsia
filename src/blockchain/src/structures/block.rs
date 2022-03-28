@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use codec::{Decode, Encode};
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -25,7 +26,7 @@ use crate::signature::Signature;
 
 pub type BlockSignature = Signature;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Decode, Encode)]
 pub struct Block {
     pub header: Header,
     // TODO(fishseabowl): Should be a Merkle Tree to speed up validation with root hash
