@@ -39,7 +39,7 @@ jobs:
       run: |
         sed -i.bak "/^version = \"0.1.0\"/s/\"\$/+${{ github.run_number }}\"/" Cargo.toml
 
-    - name: Build and Test Release Binaries
+    - name: Build Release and Test Binaries
       run: |
         .github/workflows/build.sh 
         sccache --show-stats
@@ -81,7 +81,7 @@ jobs:
         sed -i.bak "/^version = \"0.1.0\"/s/\"\$/+${{ github.run_number }}\"/" Cargo.toml
 
     # Run cargo build in parallel using sscache to avoid OS locking errors
-    - name: Build and Test Release Binaries
+    - name: Build Release and Test Binaries
       run: |
         .github/workflows/build.sh
         sccache --show-stats 
