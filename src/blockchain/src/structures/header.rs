@@ -15,26 +15,35 @@
 */
 
 use codec::{Decode, Encode};
-use libp2p::PeerId;
+use libp2p::{identity, PeerId};
+use multihash::Multihash;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::crypto::hash_algorithm::HashDigest;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy, Decode)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy, Decode, Encode)]
 pub struct Address {
-    #[codec(encoded_as = "&multihash::Multihash")]
-    peer_id: PeerId
+    // This can not be libp2p's PeerId as it is missing the SCALE codec support for Aleph,
+    // internally it's a https://github.com/libp2p/rust-libp2p/blob/6cc3b4ec52c922bfcf562a29b5805c3150e37c75/core/src/peer_id.rs#L40
+    // So we will stick with that.
+    peer_id: Multihash,
 }
 
-impl Encode for Address {
-    fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-        self.peer_id.to_bytes().using_encoded(f)
+impl From<identity::PublicKey> for Address {
+    fn from(key: identity::PublicKey) -> Address {
+        Self {
+            peer_id: PeerId::from_public_key(&key).into(),
+        }
     }
+}
 
-    fn size_hint(&self) -> usize {
-        ed25519_dalek::Signature::BYTE_SIZE
+impl From<PeerId> for Address {
+    fn from(peer_id: PeerId) -> Address {
+        Self {
+            peer_id: peer_id.into(),
+        }
     }
 }
 

@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use libp2p::{identity, PeerId};
+use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
@@ -23,6 +23,7 @@ use super::crypto::hash_algorithm::HashDigest;
 use super::structures::{
     block::Block,
     chain::Chain,
+    header::Address,
     transaction::{Transaction, TransactionType},
 };
 
@@ -51,7 +52,7 @@ impl Debug for Blockchain {
 
 impl Blockchain {
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let transaction = Transaction::new(
             TransactionType::AddAuthority,
             local_id,
