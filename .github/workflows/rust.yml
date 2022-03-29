@@ -44,6 +44,10 @@ jobs:
         .github/workflows/build.sh 
         sccache --show-stats
 
+    - name: Execute Test Cases
+      run: |
+        cargo test --workspace --verbose
+
   build-push-linux:
     runs-on: ubuntu-latest
     env:
@@ -81,6 +85,10 @@ jobs:
       run: |
         .github/workflows/build.sh
         sccache --show-stats 
+
+    - name: Execute Test Cases
+      run: |
+        cargo test --workspace --verbose
 
     # Strip binaries 
     - name: Strip Binaries
