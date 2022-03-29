@@ -15,14 +15,12 @@ assets = [
     ["readme.md", "usr/share/doc/pyrsia/README", "644"]
    ]
 section = "devel"
-depends = "openssl"
 maintainer-scripts = "installers/debian/"
 systemd-units = { unit-name = "pyrsia", unit-scripts = "installers/debian/" }
 
 [dependencies]
-signed = {path="src/signed"}
-signed_struct = { path = "src/signed_struct" }
 pyrsia_blockchain_network = { path = "src/blockchain" }
+
 
 anyhow = "1.0.51"
 async-trait = "0.1.52"
@@ -81,6 +79,7 @@ features = []
 [dev-dependencies]
 assay = "0.1.1"
 string_manipulation = {path="tests/string_manipulation"}
+time = { version = "0.3.6", features = ["formatting", "parsing"] }
 tokio-test = "0.4.2"
 directories = "^2.0"
 
@@ -88,8 +87,6 @@ directories = "^2.0"
 members = [
     "pyrsia_node",
     "pyrsia_cli",
-    "src/signed",
-    "src/signed_struct",
     "src/blockchain"
 ]
 
