@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use super::config::get_config;
 use super::ArtifactManager;
 use super::Hash;
 use super::HashAlgorithm;
@@ -29,9 +30,6 @@ use std::io::{BufReader, Read};
 use std::panic::UnwindSafe;
 use std::str;
 use std::{fs, panic};
-
-//TODO: read from CLI config file
-pub const ALLOCATED_SPACE_FOR_ARTIFACTS: &str = "10.84 GB";
 
 lazy_static! {
     pub static ref ARTIFACTS_DIR: String = log_static_initialization_failure(
@@ -138,7 +136,9 @@ pub fn get_space_available() -> Result<u64, anyhow::Error> {
     let disk_used_bytes = ART_MGR.space_used()?;
 
     let mut available_space: u64 = 0;
-    let total_allocated_size: u64 = Byte::from_str(ALLOCATED_SPACE_FOR_ARTIFACTS)
+    let cli_config = get_config().context("Error getting cli config file")?;
+
+    let total_allocated_size: u64 = Byte::from_str(cli_config.disk_allocated)
         .unwrap()
         .get_bytes();
 
@@ -150,8 +150,8 @@ pub fn get_space_available() -> Result<u64, anyhow::Error> {
 
 pub fn disk_usage() -> Result<f64, anyhow::Error> {
     let disk_used_bytes = ART_MGR.space_used()?;
-
-    let total_allocated_size: u64 = Byte::from_str(ALLOCATED_SPACE_FOR_ARTIFACTS)
+    let cli_config = get_config().context("Error getting cli config file")?;
+    let total_allocated_size: u64 = Byte::from_str(cli_config.disk_allocated)
         .unwrap()
         .get_bytes();
     let mut disk_usage: f64 = 0.0;
@@ -223,13 +223,6 @@ mod tests {
         assert_eq!(s, s1);
     }
 
-    #[test]
-    fn test_that_a_metadata_manager_is_created_and_accessible() {
-        let untrusted_key_pair = METADATA_MGR.untrusted_key_pair();
-        assert!(!untrusted_key_pair.public_key.is_empty());
-        assert!(!untrusted_key_pair.private_key.is_empty());
-    }
-
     #[assay(
         env = [
           ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
@@ -242,26 +235,6 @@ mod tests {
 
         let usage_pct_after = disk_usage().context("Error from disk_usage")?;
         assert!(usage_pct_before < usage_pct_after);
-    }
-
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
-          ("DEV_MODE", "on")
-        ]  )]
-    fn test_get_space_available() {
-        let space_available_before =
-            get_space_available().context("Error from get_space_available")?;
-
-        create_artifact().context("Error creating artifact")?;
-
-        let space_available_after =
-            get_space_available().context("Error from get_space_available")?;
-        debug!(
-            "Before: {}; After: {}",
-            space_available_before, space_available_after
-        );
-        assert!(space_available_after < space_available_before);
     }
 
     #[assay(

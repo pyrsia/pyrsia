@@ -14,11 +14,8 @@
    limitations under the License.
 */
 
-extern crate pyrsia;
-extern crate reqwest;
-
 use super::config::get_config;
-use pyrsia::model::cli::Status;
+use crate::model::cli::Status;
 
 pub async fn ping() -> Result<String, reqwest::Error> {
     //TODO: implement ping api in Node

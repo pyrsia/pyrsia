@@ -13,10 +13,6 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-
-extern crate serde;
-extern crate serde_json;
-
 use super::super::HashAlgorithm;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
@@ -98,7 +94,7 @@ mod tests {
 
     #[test]
     fn builder_test() -> anyhow::Result<()> {
-        let artifact = ArtifactBuilder::default()
+        let artifact: Artifact = ArtifactBuilder::default()
             .hash(vec![0x38u8, 0x4fu8])
             .algorithm(HashAlgorithm::SHA256)
             .name("acme".to_string())
