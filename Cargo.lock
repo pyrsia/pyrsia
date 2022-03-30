@@ -3430,6 +3430,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bincode",
+ "dirs",
  "ed25519-dalek",
  "futures",
  "hex",
