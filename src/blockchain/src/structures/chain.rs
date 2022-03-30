@@ -14,7 +14,12 @@
    limitations under the License.
 */
 
-pub mod block;
-pub mod chain;
-pub mod header;
-pub mod transaction;
+use serde::{Deserialize, Serialize};
+
+use super::block::Block;
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct Chain {
+    // TODO(prince-chrismc): This eventually needs to be an ordered set so block sequence is always sorted by ordinal
+    pub blocks: Vec<Block>,
+}
