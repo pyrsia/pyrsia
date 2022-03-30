@@ -40,8 +40,8 @@ docker pull ubuntu
 
 There are two components of this project
 
-- **[CLI](pyrsia_cli/)**: A basic interface which communicates with a node.
-- **[Node](pyrsia_node/)**: An instance of the Pyrsia daemon which can participate in the network with other nodes.
+-   **[CLI](pyrsia_cli/)**: A basic interface which communicates with a node.
+-   **[Node](pyrsia_node/)**: An instance of the Pyrsia daemon which can participate in the network with other nodes.
 
 ### Connecting with other Nodes
 

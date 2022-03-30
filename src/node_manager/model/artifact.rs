@@ -94,7 +94,7 @@ mod tests {
 
     #[test]
     fn builder_test() -> anyhow::Result<()> {
-        let artifact = ArtifactBuilder::default()
+        let artifact: Artifact = ArtifactBuilder::default()
             .hash(vec![0x38u8, 0x4fu8])
             .algorithm(HashAlgorithm::SHA256)
             .name("acme".to_string())

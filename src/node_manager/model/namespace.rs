@@ -15,24 +15,21 @@
 */
 
 use crate::node_manager::model::package_type::PackageTypeName;
-use signed::signed::Signed;
-use signed_struct::signed_struct;
+use serde::{Deserialize, Serialize};
 
-#[signed_struct]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
 /// Describes a name space.
 pub struct Namespace {
     /// A uuid that uniquely identifies the name space
-    id: String,
+    pub id: String,
     /// The type of package the name space is for (Docker, Conan, ...)
-    package_type: PackageTypeName,
+    pub package_type: PackageTypeName,
     /// Many name spaces are hierarchical. Different package types punctuate the path of a name space. Instead of using punctuation, we put the elements of the path in a Vec.
-    namespace_path: String,
+    pub namespace_path: String,
     /// Updates to a name space should be signed by an identity associated with one of the public keys in the administrators field.
-    #[builder(default = "Vec::new()")]
-    administrators: Vec<Vec<u8>>,
+    pub administrators: Vec<Vec<u8>>,
     /// ISO-8601 creation time
-    creation_time: Option<String>,
+    pub creation_time: Option<String>,
     /// ISO-8601 modification time
-    modified_time: Option<String>,
+    pub modified_time: Option<String>,
 }
