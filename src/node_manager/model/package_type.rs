@@ -15,16 +15,13 @@
 */
 
 use serde::{Deserialize, Serialize};
-use signed::signed::Signed;
-use signed_struct::signed_struct;
 use strum_macros::Display;
 
-#[signed_struct]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Deserialize, Serialize)]
 pub struct PackageType {
-    id: String,
-    name: PackageTypeName,
-    description: String,
+    pub id: String,
+    pub name: PackageTypeName,
+    pub description: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Display, PartialEq, Clone)]

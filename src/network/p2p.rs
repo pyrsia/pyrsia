@@ -40,7 +40,14 @@ use std::fmt::{Display, Formatter};
 use std::io;
 use std::iter;
 
-pub async fn new() -> Result<(Client, impl Stream<Item = Event>, EventLoop), Box<dyn Error>> {
+/// Creates the necessary p2p components.
+///
+/// The components are:
+///  * [`Client`]: can be used to interact with the p2p network
+///  * EventReceiver: a receiver of a Stream of [events][`Event`]
+///  * [`EventLoop`]: used to process events received from the p2p [`Swarm`] and commands from the p2p [`Client`]
+pub async fn create_components(
+) -> Result<(Client, impl Stream<Item = Event>, EventLoop), Box<dyn Error>> {
     let local_keys = identity::Keypair::generate_ed25519();
 
     let identify_config = IdentifyConfig::new(String::from("ipfs/1.0.0"), local_keys.public());
@@ -81,6 +88,7 @@ pub struct Client {
 }
 
 impl Client {
+    /// Instruct the p2p swarm to start listening on the specified address.
     pub async fn listen(&mut self, addr: &Multiaddr) -> Result<(), Box<dyn Error + Send>> {
         debug!("p2p::Client::listen {:?}", addr);
 
@@ -95,6 +103,7 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
+    /// Dial a peer with the specified address.
     pub async fn dial(&mut self, peer_addr: &Multiaddr) -> Result<(), Box<dyn Error + Send>> {
         debug!("p2p::Client::dial {:?}", peer_addr);
 
@@ -109,6 +118,7 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
+    /// List the peers that this node is connected to.
     pub async fn list_peers(&mut self) -> HashSet<PeerId> {
         let (sender, receiver) = oneshot::channel();
         self.sender
@@ -121,6 +131,8 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
+    /// Inform the p2p network that this node is currently a
+    /// provider of the artifact with the specified `hash`.
     pub async fn provide(&mut self, hash: &str) {
         debug!("p2p::Client::provide {:?}", hash);
 
@@ -135,6 +147,8 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
+    /// List all peers in the p2p network that are providing
+    /// the artifact with the specified `hash`.
     pub async fn list_providers(&mut self, hash: String) -> HashSet<PeerId> {
         let (sender, receiver) = oneshot::channel();
         self.sender
@@ -144,6 +158,8 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
+    /// Request an artifact with the specified `hash` from the
+    /// p2p network.
     pub async fn request_artifact(
         &mut self,
         peer: &PeerId,
@@ -163,6 +179,7 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
+    /// Put the artifact as a response to an incoming request.
     pub async fn respond_artifact(
         &mut self,
         artifact: Vec<u8>,

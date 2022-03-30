@@ -22,8 +22,7 @@ use crate::metadata_manager::metadata::MetadataCreationStatus;
 use crate::node_manager::handlers::METADATA_MGR;
 use crate::node_manager::model::artifact::{Artifact, ArtifactBuilder};
 use crate::node_manager::model::package_type::PackageTypeName;
-use crate::node_manager::model::package_version::{PackageVersion, PackageVersionBuilder};
-use crate::signed::signed::Signed;
+use crate::node_manager::model::package_version::PackageVersion;
 use anyhow::{anyhow, bail, Context};
 use bytes::Buf;
 use bytes::Bytes;
@@ -44,7 +43,7 @@ pub async fn fetch_manifest(name: String, tag: String) -> Result<impl Reply, Rej
     //get package_version from metadata
     match METADATA_MGR.get_package_version(DOCKER_NAMESPACE_ID, &name, &tag) {
         Ok(Some(package_version)) => {
-            match get_artifact_manifest(package_version.artifacts()) {
+            match get_artifact_manifest(&package_version.artifacts) {
                 Some(artifact) => {
                     debug!("Getting manifest from artifact manager.");
                     manifest_content = get_artifact(artifact.hash(), HashAlgorithm::SHA512)
@@ -148,7 +147,7 @@ pub async fn put_manifest(
                 "Created PackageVersion from manifest: {:?}",
                 package_version
             );
-            if let Err(err) = sign_and_save_package_version(&mut package_version) {
+            if let Err(err) = save_package_version(&mut package_version) {
                 return Ok(internal_error_response(
                     "Failed to sign and save package version from docker manifest",
                     &err,
@@ -192,21 +191,13 @@ fn internal_error_response(
     warp::http::response::Builder::new()
         .status(StatusCode::INTERNAL_SERVER_ERROR)
         .body("Internal server error")
-        .unwrap() // I couldn't find a way to return an internal server error that does not use unwrap or somethign else that can panic
+        .unwrap()
+    // I couldn't find a way to return an internal server error that does not use unwrap or somethign else that can panic
 }
 
-fn sign_and_save_package_version(
-    package_version: &mut PackageVersion,
-) -> Result<(), anyhow::Error> {
-    let key_pair = METADATA_MGR.untrusted_key_pair();
-    package_version.sign_json(
-        key_pair.signature_algorithm,
-        &key_pair.private_key,
-        &key_pair.public_key,
-    )?;
-    let pv_json = package_version
-        .json()
-        .unwrap_or_else(|| "*** missing JSON ***".to_string());
+fn save_package_version(package_version: &mut PackageVersion) -> Result<(), anyhow::Error> {
+    let pv_json = serde_json::to_string(package_version)
+        .unwrap_or_else(|_| "*** missing JSON ***".to_string());
     match METADATA_MGR.create_package_version(package_version)? {
         MetadataCreationStatus::Created => {
             info!("Saved package version from docker manifest: {}", pv_json)
@@ -283,7 +274,7 @@ async fn get_manifest_from_docker_hub_with_token(
                 "Created PackageVersion from manifest: {:?}",
                 package_version
             );
-            if let Err(err) = sign_and_save_package_version(&mut package_version) {
+            if let Err(err) = save_package_version(&mut package_version) {
                 return Err(warp::reject::custom(RegistryError {
                     code: RegistryErrorCode::Unknown(err.to_string()),
                 }));
@@ -431,16 +422,15 @@ fn build_package_version(
     metadata: Map<String, Value>,
     artifacts: Vec<Artifact>,
 ) -> anyhow::Result<PackageVersion> {
-    PackageVersionBuilder::default()
-        .id(new_uuid_string())
-        .namespace_id(DOCKER_NAMESPACE_ID.to_string())
-        .name(String::from(manifest_name))
-        .pkg_type(PackageTypeName::Docker)
-        .version(String::from(manifest_tag))
-        .metadata(metadata)
-        .artifacts(artifacts)
-        .build()
-        .context("Error building PackageVersion")
+    Ok(PackageVersion::new(
+        new_uuid_string(),
+        DOCKER_NAMESPACE_ID.to_string(),
+        String::from(manifest_name),
+        PackageTypeName::Docker,
+        metadata,
+        String::from(manifest_tag),
+        artifacts,
+    ))
 }
 
 fn add_fslayers(artifacts: &mut Vec<Artifact>, fslayer: &Value) -> Result<(), anyhow::Error> {
@@ -840,7 +830,7 @@ mod tests {
         let some_package_version =
             METADATA_MGR.get_package_version(DOCKER_NAMESPACE_ID, "hello-world", "v3.1")?;
         assert!(some_package_version.is_some());
-        assert_eq!("v3.1", some_package_version.unwrap().version());
+        assert_eq!("v3.1", some_package_version.unwrap().version);
         Ok(())
     }
 
@@ -938,52 +928,52 @@ mod tests {
             HashAlgorithm::SHA512,
             hash.clone(),
         )?;
-        assert_eq!(32, package_version.id().len());
-        assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
-        assert_eq!("hello-world", package_version.name());
-        assert_eq!(PackageTypeName::Docker, *package_version.pkg_type());
-        assert_eq!("v3.1", package_version.version());
-        assert!(package_version.license_text().is_none());
-        assert!(package_version.license_text_mimetype().is_none());
-        assert!(package_version.license_url().is_none());
-        assert!(package_version.creation_time().is_none());
-        assert!(package_version.modified_time().is_none());
-        assert!(package_version.tags().is_empty());
-        assert!(package_version.metadata().contains_key(MEDIA_TYPE));
+        assert_eq!(32, package_version.id.len());
+        assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id);
+        assert_eq!("hello-world", package_version.name);
+        assert_eq!(PackageTypeName::Docker, package_version.pkg_type);
+        assert_eq!("v3.1", package_version.version);
+        assert!(package_version.license_text.is_none());
+        assert!(package_version.license_text_mimetype.is_none());
+        assert!(package_version.license_url.is_none());
+        assert!(package_version.creation_time.is_none());
+        assert!(package_version.modified_time.is_none());
+        assert!(package_version.tags.is_empty());
+        assert!(package_version.metadata.contains_key(MEDIA_TYPE));
         assert_eq!(
             MEDIA_TYPE_SCHEMA_1,
-            package_version.metadata()[MEDIA_TYPE].as_str().unwrap()
+            package_version.metadata[MEDIA_TYPE].as_str().unwrap()
         );
-        assert!(package_version.description().is_none());
-        assert_eq!(5, package_version.artifacts().len());
+        assert!(package_version.description.is_none());
+        assert_eq!(5, package_version.artifacts.len());
 
-        assert_eq!(64, package_version.artifacts()[0].hash().len());
-        assert_eq!(&hash, package_version.artifacts()[0].hash());
+        assert_eq!(64, package_version.artifacts[0].hash().len());
+        assert_eq!(&hash, package_version.artifacts[0].hash());
         assert_eq!(
             HashAlgorithm::SHA512,
-            *package_version.artifacts()[0].algorithm()
+            *package_version.artifacts[0].algorithm()
         );
-        assert!(package_version.artifacts()[0].name().is_none());
-        assert!(package_version.artifacts()[0].creation_time().is_none());
-        assert!(package_version.artifacts()[0].url().is_none());
+        assert!(package_version.artifacts[0].name().is_none());
+        assert!(package_version.artifacts[0].creation_time().is_none());
+        assert!(package_version.artifacts[0].url().is_none());
         assert_eq!(
             u64::try_from(MANIFEST_V1_JSON.len())?,
-            package_version.artifacts()[0].size().unwrap()
+            package_version.artifacts[0].size().unwrap()
         );
-        match package_version.artifacts()[0].mime_type() {
+        match package_version.artifacts[0].mime_type() {
             Some(mime_type) => assert_eq!(MEDIA_TYPE_SCHEMA_1, mime_type),
             None => assert!(false),
         }
-        assert!(package_version.artifacts()[0].metadata().is_empty());
-        assert!(package_version.artifacts()[0].source_url().is_none());
+        assert!(package_version.artifacts[0].metadata().is_empty());
+        assert!(package_version.artifacts[0].source_url().is_none());
 
-        assert!(package_version.artifacts()[1].name().is_none());
-        assert!(package_version.artifacts()[1].creation_time().is_none());
-        assert!(package_version.artifacts()[1].url().is_none());
-        assert!(package_version.artifacts()[1].size().is_none());
+        assert!(package_version.artifacts[1].name().is_none());
+        assert!(package_version.artifacts[1].creation_time().is_none());
+        assert!(package_version.artifacts[1].url().is_none());
+        assert!(package_version.artifacts[1].size().is_none());
         assert_eq!(
             HashAlgorithm::SHA256,
-            *package_version.artifacts()[1].algorithm()
+            *package_version.artifacts[1].algorithm()
         );
         assert_eq!(
             &vec![
@@ -992,16 +982,16 @@ mod tests {
                 0xa4u8, 0x17u8, 0x55u8, 0xb6u8, 0xcdu8, 0xdfu8, 0xafu8, 0x10u8, 0xacu8, 0xe3u8,
                 0xc6u8, 0xefu8
             ],
-            package_version.artifacts()[1].hash()
+            package_version.artifacts[1].hash()
         );
 
         //
-        match package_version.artifacts()[1].mime_type() {
+        match package_version.artifacts[1].mime_type() {
             Some(mime_type) => assert_eq!(MEDIA_TYPE_BLOB_GZIPPED, mime_type),
             None => assert!(false),
         }
-        assert!(package_version.artifacts()[1].metadata().is_empty());
-        assert!(package_version.artifacts()[1].source_url().is_none());
+        assert!(package_version.artifacts[1].metadata().is_empty());
+        assert!(package_version.artifacts[1].source_url().is_none());
         Ok(())
     }
 
@@ -1016,57 +1006,57 @@ mod tests {
             HashAlgorithm::SHA512,
             hash.clone(),
         )?;
-        assert_eq!(32, package_version.id().len());
-        assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
-        assert_eq!("test_pkg", package_version.name());
-        assert_eq!(PackageTypeName::Docker, *package_version.pkg_type());
-        assert_eq!("v1.4", package_version.version());
-        assert!(package_version.license_text().is_none());
-        assert!(package_version.license_text_mimetype().is_none());
-        assert!(package_version.license_url().is_none());
-        assert!(package_version.creation_time().is_none());
-        assert!(package_version.modified_time().is_none());
-        assert!(package_version.tags().is_empty());
-        assert!(package_version.metadata().contains_key(MEDIA_TYPE));
+        assert_eq!(32, package_version.id.len());
+        assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id);
+        assert_eq!("test_pkg", package_version.name);
+        assert_eq!(PackageTypeName::Docker, package_version.pkg_type);
+        assert_eq!("v1.4", package_version.version);
+        assert!(package_version.license_text.is_none());
+        assert!(package_version.license_text_mimetype.is_none());
+        assert!(package_version.license_url.is_none());
+        assert!(package_version.creation_time.is_none());
+        assert!(package_version.modified_time.is_none());
+        assert!(package_version.tags.is_empty());
+        assert!(package_version.metadata.contains_key(MEDIA_TYPE));
         assert_eq!(
             MEDIA_TYPE_IMAGE_MANIFEST,
-            package_version.metadata()[MEDIA_TYPE].as_str().unwrap()
+            package_version.metadata[MEDIA_TYPE].as_str().unwrap()
         );
-        assert!(package_version.description().is_none());
-        assert_eq!(5, package_version.artifacts().len());
+        assert!(package_version.description.is_none());
+        assert_eq!(5, package_version.artifacts.len());
 
-        assert_eq!(&hash, package_version.artifacts()[0].hash());
+        assert_eq!(&hash, package_version.artifacts[0].hash());
         assert_eq!(
             HashAlgorithm::SHA512,
-            *package_version.artifacts()[0].algorithm()
+            *package_version.artifacts[0].algorithm()
         );
-        assert!(package_version.artifacts()[0].name().is_none());
-        assert!(package_version.artifacts()[0].creation_time().is_none());
-        assert!(package_version.artifacts()[0].url().is_none());
+        assert!(package_version.artifacts[0].name().is_none());
+        assert!(package_version.artifacts[0].creation_time().is_none());
+        assert!(package_version.artifacts[0].url().is_none());
         assert_eq!(
             u64::try_from(MANIFEST_V2_IMAGE.len())?,
-            package_version.artifacts()[0].size().unwrap()
+            package_version.artifacts[0].size().unwrap()
         );
-        match package_version.artifacts()[0].mime_type() {
+        match package_version.artifacts[0].mime_type() {
             Some(mime_type) => assert_eq!(MEDIA_TYPE_IMAGE_MANIFEST, mime_type),
             None => assert!(false),
         }
-        assert!(package_version.artifacts()[0].metadata().is_empty());
-        assert!(package_version.artifacts()[0].source_url().is_none());
+        assert!(package_version.artifacts[0].metadata().is_empty());
+        assert!(package_version.artifacts[0].source_url().is_none());
 
-        assert!(package_version.artifacts()[1].name().is_none());
-        assert!(package_version.artifacts()[1].creation_time().is_none());
-        assert!(package_version.artifacts()[1].url().is_none());
-        assert_eq!(7023u64, package_version.artifacts()[1].size().unwrap());
-        match package_version.artifacts()[1].mime_type() {
+        assert!(package_version.artifacts[1].name().is_none());
+        assert!(package_version.artifacts[1].creation_time().is_none());
+        assert!(package_version.artifacts[1].url().is_none());
+        assert_eq!(7023u64, package_version.artifacts[1].size().unwrap());
+        match package_version.artifacts[1].mime_type() {
             Some(mime_type) => assert_eq!(MEDIA_TYPE_CONFIG_JSON, mime_type),
             None => assert!(false),
         }
-        assert!(package_version.artifacts()[1].metadata().is_empty());
-        assert!(package_version.artifacts()[1].source_url().is_none());
+        assert!(package_version.artifacts[1].metadata().is_empty());
+        assert!(package_version.artifacts[1].source_url().is_none());
         assert_eq!(
             HashAlgorithm::SHA256,
-            *package_version.artifacts()[1].algorithm()
+            *package_version.artifacts[1].algorithm()
         );
         assert_eq!(
             &vec![
@@ -1075,22 +1065,22 @@ mod tests {
                 0x2bu8, 0x86u8, 0x45u8, 0x1du8, 0x9bu8, 0xceu8, 0x1fu8, 0x43u8, 0x2au8, 0x53u8,
                 0x7bu8, 0xc7u8
             ],
-            package_version.artifacts()[1].hash()
+            package_version.artifacts[1].hash()
         );
 
-        assert!(package_version.artifacts()[2].name().is_none());
-        assert!(package_version.artifacts()[2].creation_time().is_none());
-        assert!(package_version.artifacts()[2].url().is_none());
-        assert_eq!(32654u64, package_version.artifacts()[2].size().unwrap());
-        match package_version.artifacts()[2].mime_type() {
+        assert!(package_version.artifacts[2].name().is_none());
+        assert!(package_version.artifacts[2].creation_time().is_none());
+        assert!(package_version.artifacts[2].url().is_none());
+        assert_eq!(32654u64, package_version.artifacts[2].size().unwrap());
+        match package_version.artifacts[2].mime_type() {
             Some(mime_type) => assert_eq!(MEDIA_TYPE_BLOB_GZIPPED, mime_type),
             None => assert!(false),
         }
-        assert!(package_version.artifacts()[2].metadata().is_empty());
-        assert!(package_version.artifacts()[2].source_url().is_none());
+        assert!(package_version.artifacts[2].metadata().is_empty());
+        assert!(package_version.artifacts[2].source_url().is_none());
         assert_eq!(
             HashAlgorithm::SHA256,
-            *package_version.artifacts()[2].algorithm()
+            *package_version.artifacts[2].algorithm()
         );
         assert_eq!(
             &vec![
@@ -1099,7 +1089,7 @@ mod tests {
                 0x80u8, 0x66u8, 0x50u8, 0xb5u8, 0x1fu8, 0xabu8, 0x81u8, 0x5au8, 0xd7u8, 0xfcu8,
                 0x33u8, 0x1fu8
             ],
-            package_version.artifacts()[2].hash()
+            package_version.artifacts[2].hash()
         );
 
         Ok(())
@@ -1116,57 +1106,57 @@ mod tests {
             HashAlgorithm::SHA512,
             hash.clone(),
         )?;
-        assert_eq!(32, package_version.id().len());
-        assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id());
-        assert_eq!("test_impls", package_version.name());
-        assert_eq!(PackageTypeName::Docker, *package_version.pkg_type());
-        assert_eq!("v1.5.2", package_version.version());
-        assert!(package_version.license_text().is_none());
-        assert!(package_version.license_text_mimetype().is_none());
-        assert!(package_version.license_url().is_none());
-        assert!(package_version.creation_time().is_none());
-        assert!(package_version.modified_time().is_none());
-        assert!(package_version.tags().is_empty());
-        assert!(package_version.metadata().contains_key(MEDIA_TYPE));
+        assert_eq!(32, package_version.id.len());
+        assert_eq!(DOCKER_NAMESPACE_ID, package_version.namespace_id);
+        assert_eq!("test_impls", package_version.name);
+        assert_eq!(PackageTypeName::Docker, package_version.pkg_type);
+        assert_eq!("v1.5.2", package_version.version);
+        assert!(package_version.license_text.is_none());
+        assert!(package_version.license_text_mimetype.is_none());
+        assert!(package_version.license_url.is_none());
+        assert!(package_version.creation_time.is_none());
+        assert!(package_version.modified_time.is_none());
+        assert!(package_version.tags.is_empty());
+        assert!(package_version.metadata.contains_key(MEDIA_TYPE));
         assert_eq!(
             MEDIA_TYPE_MANIFEST_LIST,
-            package_version.metadata()[MEDIA_TYPE].as_str().unwrap()
+            package_version.metadata[MEDIA_TYPE].as_str().unwrap()
         );
-        assert!(package_version.description().is_none());
-        assert_eq!(3, package_version.artifacts().len());
+        assert!(package_version.description.is_none());
+        assert_eq!(3, package_version.artifacts.len());
 
-        assert_eq!(&hash, package_version.artifacts()[0].hash());
+        assert_eq!(&hash, package_version.artifacts[0].hash());
         assert_eq!(
             HashAlgorithm::SHA512,
-            *package_version.artifacts()[0].algorithm()
+            *package_version.artifacts[0].algorithm()
         );
-        assert!(package_version.artifacts()[0].name().is_none());
-        assert!(package_version.artifacts()[0].creation_time().is_none());
-        assert!(package_version.artifacts()[0].url().is_none());
+        assert!(package_version.artifacts[0].name().is_none());
+        assert!(package_version.artifacts[0].creation_time().is_none());
+        assert!(package_version.artifacts[0].url().is_none());
         assert_eq!(
             u64::try_from(MANIFEST_V2_LIST.len())?,
-            package_version.artifacts()[0].size().unwrap()
+            package_version.artifacts[0].size().unwrap()
         );
-        match package_version.artifacts()[0].mime_type() {
+        match package_version.artifacts[0].mime_type() {
             Some(mime_type) => assert_eq!(MEDIA_TYPE_MANIFEST_LIST, mime_type),
             None => assert!(false),
         }
-        assert!(package_version.artifacts()[0].metadata().is_empty());
-        assert!(package_version.artifacts()[0].source_url().is_none());
+        assert!(package_version.artifacts[0].metadata().is_empty());
+        assert!(package_version.artifacts[0].source_url().is_none());
 
-        assert!(package_version.artifacts()[1].name().is_none());
-        assert!(package_version.artifacts()[1].creation_time().is_none());
-        assert!(package_version.artifacts()[1].url().is_none());
-        assert_eq!(7143u64, package_version.artifacts()[1].size().unwrap());
-        match package_version.artifacts()[1].mime_type() {
+        assert!(package_version.artifacts[1].name().is_none());
+        assert!(package_version.artifacts[1].creation_time().is_none());
+        assert!(package_version.artifacts[1].url().is_none());
+        assert_eq!(7143u64, package_version.artifacts[1].size().unwrap());
+        match package_version.artifacts[1].mime_type() {
             Some(mime_type) => assert_eq!(MEDIA_TYPE_IMAGE_MANIFEST, mime_type),
             None => assert!(false),
         }
-        assert!(package_version.artifacts()[1].metadata().is_empty());
-        assert!(package_version.artifacts()[1].source_url().is_none());
+        assert!(package_version.artifacts[1].metadata().is_empty());
+        assert!(package_version.artifacts[1].source_url().is_none());
         assert_eq!(
             HashAlgorithm::SHA256,
-            *package_version.artifacts()[1].algorithm()
+            *package_version.artifacts[1].algorithm()
         );
         assert_eq!(
             &vec![
@@ -1175,7 +1165,7 @@ mod tests {
                 0x80u8, 0x66u8, 0x50u8, 0xb5u8, 0x1fu8, 0xabu8, 0x81u8, 0x5au8, 0xd7u8, 0xfcu8,
                 0x33u8, 0x1fu8
             ],
-            package_version.artifacts()[1].hash()
+            package_version.artifacts[1].hash()
         );
 
         Ok(())

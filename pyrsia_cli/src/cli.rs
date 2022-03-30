@@ -17,4 +17,4 @@
 pub mod handlers;
 pub mod parser;
 
-use crate::commands::*;
+use pyrsia::cli_commands::*;

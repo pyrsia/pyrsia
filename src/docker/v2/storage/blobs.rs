@@ -16,7 +16,6 @@
 
 use crate::artifacts_repository::hash_util::HashAlgorithm;
 use crate::node_manager::handlers::*;
-use byte_unit::Byte;
 use bytes::{Buf, Bytes};
 use log::debug;
 use std::fs;
@@ -88,19 +87,6 @@ pub fn store_blob_in_filesystem(
     fs::remove_dir_all(&blob_upload_dest_dir)?;
 
     Ok(push_result)
-}
-pub fn get_space_available() -> Result<u64, anyhow::Error> {
-    let disk_used_bytes = ART_MGR.space_used()?;
-
-    let mut available_space: u64 = 0;
-    let total_allocated_size: u64 = Byte::from_str(ALLOCATED_SPACE_FOR_ARTIFACTS)
-        .unwrap()
-        .get_bytes();
-
-    if total_allocated_size > disk_used_bytes {
-        available_space = total_allocated_size - disk_used_bytes;
-    }
-    Ok(available_space)
 }
 
 #[cfg(test)]
