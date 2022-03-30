@@ -16,7 +16,6 @@
 
 pub mod artifact;
 pub mod cli;
-pub mod identity;
 pub mod namespace;
 pub mod package;
 pub mod package_type;
