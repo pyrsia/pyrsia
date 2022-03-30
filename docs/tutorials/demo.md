@@ -17,14 +17,20 @@
 
 ## Demo steps
 
-- Pyrsia is installed on both instances
-- Node2 is configured to connect to Node1
-- A docker image is pulled on Node1
-- Node1 will fallback to Docker Hub and store the image on the Pyrsia network
-- The same docker image is pulled on Node2
-- Node2 will download the image from the Pyrsia network
-- The same docker image is pulled again on Node2
-- Node2 doesn't have to download the image again
+- Installation and configuration
+  - Install Pyrsia on instance 1
+  - Install and configure Pyrsia on instance 2, make it connect to node 1
+- Docker pull on node 1
+  - image is not available in the Pyrsia network
+  - image is requested from Docker Hub and stored in the Pyrsia network
+- Use the Pyrsia CLI to check node 1 status
+- Docker pull on node 2
+  - The same docker image is pulled on node 2
+  - Node 2 will download the image from the Pyrsia network
+- Use the Pyrsia CLI to check node 2 status  
+- Docker pull on node 2
+  - The same docker image is pulled again on Node2
+  - Node 2 doesn't have to download the image again
 
 ```mermaid
 sequenceDiagram
@@ -63,6 +69,9 @@ Docker1 ->> User:
 deactivate User
 
 User ->> Node1: pyrsia node --status the user uses the CLI to ask the<br>status the CLI connects to the Pyrsia node on port 7888
+activate User
+deactivate User
+note left of User: Check Pyrsia<br>node status
 
 User2 ->> Docker2: docker pull image
 activate User2
@@ -78,6 +87,9 @@ Docker2 ->> User2:
 deactivate User2
 
 User2 ->> Node2: pyrsia node --status the user uses the CLI to ask the status<br>the CLI connects to the Pyrsia node on port 7888
+activate User2
+deactivate User2
+note left of User2: Check Pyrsia<br>node status
 
 
 User2 ->> Docker2: docker pull image
@@ -100,17 +112,33 @@ deactivate User2
 
 ### Install Pyrsia
 
+
+```
+# apt-get update
+# apt-get install -y wget gnupg
+# wget -qO - https://pyrsia.io/public.key | apt-key add -
+# echo "deb https://pyrsia.io/repo focal main" >> /etc/apt/sources.list
+# apt-get update
+# apt-get install -y pyrsia
+```
+
+or simply use this script that bundles the above:
+
 ```
 # curl -sS https://pyrsia.io/install.sh | sh
 ```
+
 
 ### Edit configuration:
 
 **On node1:**
 
-vi /etc/systemd/system/multi-user.target.wants/pyrsia.service
+Edit
+```
+/etc/systemd/system/multi-user.target.wants/pyrsia.service
+```
 
-add:
+and add:
 ```
 -L /ip4/0.0.0.0/tcp/44000 
 ```
@@ -120,8 +148,9 @@ This will make sure node1 will start listening on port 44000 when it start.
 
 **On node2:**
 
+Edit
 ```
-vi /etc/systemd/system/multi-user.target.wants/pyrsia.service
+/etc/systemd/system/multi-user.target.wants/pyrsia.service
 ```
 and add:
 ```
