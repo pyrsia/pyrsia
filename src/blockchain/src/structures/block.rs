@@ -74,7 +74,6 @@ impl Display for Block {
 
 #[cfg(test)]
 mod tests {
-    use libp2p::PeerId;
 
     use super::super::transaction::TransactionType;
     use super::*;
@@ -82,7 +81,7 @@ mod tests {
     #[test]
     fn test_build_block() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
 
         let transactions = vec![Transaction::new(
             TransactionType::Create,

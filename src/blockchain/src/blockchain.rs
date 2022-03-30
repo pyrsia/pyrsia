@@ -122,7 +122,7 @@ mod tests {
     #[test]
     fn test_build_blockchain() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let mut chain = Blockchain::new(&keypair);
 
         let mut transactions = vec![];
@@ -148,7 +148,7 @@ mod tests {
     #[test]
     fn test_add_trans_listener() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let mut chain = Blockchain::new(&keypair);
 
         let transaction = Transaction::new(
