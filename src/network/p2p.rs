@@ -14,13 +14,14 @@
    limitations under the License.
 */
 
+use crate::util::keypair_util;
+
 use async_trait::async_trait;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
 use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::identify::{Identify, IdentifyConfig, IdentifyEvent};
-use libp2p::identity;
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::kad::{
     GetClosestPeersOk, GetProvidersOk, Kademlia, KademliaEvent, QueryId, QueryResult,
@@ -48,13 +49,13 @@ use std::iter;
 ///  * [`EventLoop`]: used to process events received from the p2p [`Swarm`] and commands from the p2p [`Client`]
 pub async fn create_components(
 ) -> Result<(Client, impl Stream<Item = Event>, EventLoop), Box<dyn Error>> {
-    let local_keys = identity::Keypair::generate_ed25519();
+    let local_keypair = keypair_util::create_ed25519();
 
-    let identify_config = IdentifyConfig::new(String::from("ipfs/1.0.0"), local_keys.public());
-    let local_peer_id = local_keys.public().to_peer_id();
+    let identify_config = IdentifyConfig::new(String::from("ipfs/1.0.0"), local_keypair.public());
+    let local_peer_id = local_keypair.public().to_peer_id();
 
     let swarm = SwarmBuilder::new(
-        libp2p::development_transport(local_keys).await?,
+        libp2p::development_transport(local_keypair).await?,
         ComposedBehaviour {
             identify: Identify::new(identify_config),
             kademlia: Kademlia::new(local_peer_id, MemoryStore::new(local_peer_id)),
