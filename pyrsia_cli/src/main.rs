@@ -15,7 +15,6 @@
 */
 
 pub mod cli;
-pub mod commands;
 
 use cli::handlers::*;
 use cli::parser::*;

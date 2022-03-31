@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use super::config::get_config;
 use super::ArtifactManager;
 use super::Hash;
 use super::HashAlgorithm;
@@ -29,9 +30,6 @@ use std::io::{BufReader, Read};
 use std::panic::UnwindSafe;
 use std::str;
 use std::{fs, panic};
-
-//TODO: read from CLI config file
-pub const ALLOCATED_SPACE_FOR_ARTIFACTS: &str = "10.84 GB";
 
 lazy_static! {
     pub static ref ARTIFACTS_DIR: String = log_static_initialization_failure(
@@ -134,10 +132,26 @@ pub fn get_arts_count() -> Result<usize, anyhow::Error> {
         .context("Error while getting artifacts count")
 }
 
-pub fn disk_usage() -> Result<f64, anyhow::Error> {
+pub fn get_space_available() -> Result<u64, anyhow::Error> {
     let disk_used_bytes = ART_MGR.space_used()?;
 
-    let total_allocated_size: u64 = Byte::from_str(ALLOCATED_SPACE_FOR_ARTIFACTS)
+    let mut available_space: u64 = 0;
+    let cli_config = get_config().context("Error getting cli config file")?;
+
+    let total_allocated_size: u64 = Byte::from_str(cli_config.disk_allocated)
+        .unwrap()
+        .get_bytes();
+
+    if total_allocated_size > disk_used_bytes {
+        available_space = total_allocated_size - disk_used_bytes;
+    }
+    Ok(available_space)
+}
+
+pub fn disk_usage() -> Result<f64, anyhow::Error> {
+    let disk_used_bytes = ART_MGR.space_used()?;
+    let cli_config = get_config().context("Error getting cli config file")?;
+    let total_allocated_size: u64 = Byte::from_str(cli_config.disk_allocated)
         .unwrap()
         .get_bytes();
     let mut disk_usage: f64 = 0.0;
@@ -207,13 +221,6 @@ mod tests {
             Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
         };
         assert_eq!(s, s1);
-    }
-
-    #[test]
-    fn test_that_a_metadata_manager_is_created_and_accessible() {
-        let untrusted_key_pair = METADATA_MGR.untrusted_key_pair();
-        assert!(!untrusted_key_pair.public_key.is_empty());
-        assert!(!untrusted_key_pair.private_key.is_empty());
     }
 
     #[assay(

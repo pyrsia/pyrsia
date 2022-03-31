@@ -14,9 +14,10 @@
    limitations under the License.
 */
 
-use super::{RegistryError, RegistryErrorCode};
+use super::{get_config, RegistryError, RegistryErrorCode};
 use crate::network::p2p;
 use crate::node_manager::{handlers::*, model::cli::Status};
+
 use log::debug;
 use warp::{http::StatusCode, Rejection, Reply};
 
@@ -51,11 +52,18 @@ pub async fn handle_get_status(mut p2p_client: p2p::Client) -> Result<impl Reply
         }));
     }
 
+    let cli_config = get_config();
+    if cli_config.is_err() {
+        return Err(warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown(cli_config.err().unwrap().to_string()),
+        }));
+    }
+
     let status = Status {
         artifact_count: art_count_result.unwrap(),
         peers_count: peers.len(),
         peer_id: p2p_client.local_peer_id.to_string(),
-        disk_allocated: String::from(ALLOCATED_SPACE_FOR_ARTIFACTS),
+        disk_allocated: cli_config.unwrap().disk_allocated,
         disk_usage: format!("{:.4}", disk_space_result.unwrap()),
     };
 
