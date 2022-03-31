@@ -95,8 +95,8 @@ following steps:
 
 9. Ping the Pyrsia node and list the status
 
-    ```
-    ./pyrsia node -p
+    ```sh
+    $ ./pyrsia node -p
     Connection Successfull !! {}
     ```
 

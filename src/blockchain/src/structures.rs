@@ -14,9 +14,6 @@
    limitations under the License.
 */
 
-pub mod blockchain;
-pub mod crypto;
-pub mod identities;
-pub mod network;
-pub mod signature;
-pub mod structures;
+pub mod block;
+pub mod header;
+pub mod transaction;

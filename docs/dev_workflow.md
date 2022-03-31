@@ -12,7 +12,7 @@ The base line is making sure all the code compiles and every test passes.
 ❗ This is enforced by our Action jobs.
 
 ```sh
-cargo build --worksapce
+cargo build --all-targets
 cargo test --workspace
 ```
 
@@ -23,7 +23,7 @@ Pyrsia provides a release build that is installed through system package manager
 ℹ️ For major changes, this is recommended.
 
 ```sh
-cargo build --workspace --release
+cargo build --all-targets --release
 ```
 
 ## Format and Linting
