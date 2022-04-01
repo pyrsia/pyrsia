@@ -49,7 +49,7 @@ use std::iter;
 ///  * [`EventLoop`]: used to process events received from the p2p [`Swarm`] and commands from the p2p [`Client`]
 pub async fn create_components(
 ) -> Result<(Client, impl Stream<Item = Event>, EventLoop), Box<dyn Error>> {
-    let local_keypair = keypair_util::create_ed25519();
+    let local_keypair = keypair_util::load_or_generate_ed25519();
 
     let identify_config = IdentifyConfig::new(String::from("ipfs/1.0.0"), local_keypair.public());
     let local_peer_id = local_keypair.public().to_peer_id();

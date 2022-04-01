@@ -24,9 +24,9 @@ use std::io::{self, Read, Write};
 
 const KEYPAIR_FILENAME: &str = "p2p_keypair.ser";
 
-/// Create a ed25519 keypair from disk. If a keypair file does not yet exist,
-/// a new keypair is generated and saved to disk.
-pub fn create_ed25519() -> identity::Keypair {
+/// Load a ed25519 keypair from disk. If a keypair file does not yet exist,
+/// a new keypair is generated and then saved to disk.
+pub fn load_or_generate_ed25519() -> identity::Keypair {
     let keypair_path = get_keypair_path();
     match load_ed25519(&keypair_path) {
         Ok(keypair) => identity::Keypair::Ed25519(keypair),
@@ -40,7 +40,12 @@ pub fn create_ed25519() -> identity::Keypair {
     }
 }
 
-// Loads a keypair from the specified location.
+// Load a keypair from the specified path. It only returns a Keypair if all
+// the following conditions are met:
+//
+//  * the file at the specified path exists
+//  * the size of the file is exactly 64 bytes
+//  * no io errors occured while reading from the file
 fn load_ed25519(keypair_path: &str) -> Result<identity::ed25519::Keypair, Box<dyn error::Error>> {
     let mut keypair_file = fs::File::open(keypair_path)?;
     let keypair_metadata = fs::metadata(keypair_path)?;
@@ -53,7 +58,7 @@ fn load_ed25519(keypair_path: &str) -> Result<identity::ed25519::Keypair, Box<dy
     Err(Box::new(io::Error::from(io::ErrorKind::InvalidData)))
 }
 
-// Saves the provided keypair to the specified location.
+// Save the provided keypair to the specified path.
 fn save_ed25519(
     keypair: &identity::ed25519::Keypair,
     keypair_path: &str,
@@ -63,7 +68,7 @@ fn save_ed25519(
     Ok(())
 }
 
-// Get the location on disk where the keypair should be stored.
+// Get the path on disk where the keypair is stored.
 fn get_keypair_path() -> String {
     format!(
         "{}/{}",
