@@ -15,7 +15,7 @@
 */
 
 use crate::network::artifact_protocol::{FileExchangeCodec, FileExchangeProtocol};
-use crate::network::behaviour::PyrsiaBehaviour;
+use crate::network::behaviour::PyrsiaNetworkBehaviour;
 use crate::network::client::Client;
 use crate::network::event_loop::{PyrsiaEvent, PyrsiaEventLoop};
 use crate::util::keypair_util;
@@ -48,7 +48,8 @@ use std::iter;
 /// * create an [`PyrsiaEventLoop`] to process swarm events and client commands
 ///
 /// The Swarm is created with a [`NetworkBehaviour`] that is implemented by the
-/// [`PyrsiaBehaviour`]. The PyrsiaBehaviour contains the following components:
+/// [`PyrsiaNetworkBehaviour`]. The PyrsiaNetworkBehaviour contains the following
+/// components:
 ///
 /// * Identify: a protocol for exchanging identity information between peers
 /// * Kademlia: a DHT to share information over the libp2p network
@@ -138,7 +139,7 @@ fn create_transport(
 
 fn create_swarm(
     keypair: identity::Keypair,
-) -> Result<(Swarm<PyrsiaBehaviour>, core::PeerId), Box<dyn Error>> {
+) -> Result<(Swarm<PyrsiaNetworkBehaviour>, core::PeerId), Box<dyn Error>> {
     let peer_id = keypair.public().to_peer_id();
 
     let identify_config =
@@ -147,7 +148,7 @@ fn create_swarm(
     Ok((
         SwarmBuilder::new(
             create_transport(keypair)?,
-            PyrsiaBehaviour {
+            PyrsiaNetworkBehaviour {
                 identify: identify::Identify::new(identify_config),
                 kademlia: kad::Kademlia::new(peer_id, MemoryStore::new(peer_id)),
                 request_response: RequestResponse::new(
@@ -158,6 +159,9 @@ fn create_swarm(
             },
             peer_id,
         )
+        .executor(Box::new(|fut| {
+            tokio::spawn(fut);
+        }))
         .build(),
         peer_id,
     ))

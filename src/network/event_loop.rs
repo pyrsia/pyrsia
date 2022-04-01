@@ -15,7 +15,7 @@
 */
 
 use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse};
-use crate::network::behaviour::{PyrsiaBehaviour, PyrsiaNetworkEvent};
+use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::client::command::Command;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
@@ -40,7 +40,7 @@ type PendingRequestArtifactMap =
     HashMap<RequestId, oneshot::Sender<Result<Vec<u8>, Box<dyn Error + Send>>>>;
 
 pub struct PyrsiaEventLoop {
-    swarm: Swarm<PyrsiaBehaviour>,
+    swarm: Swarm<PyrsiaNetworkBehaviour>,
     command_receiver: mpsc::Receiver<Command>,
     event_sender: mpsc::Sender<PyrsiaEvent>,
     pending_dial: PendingDialMap,
@@ -52,7 +52,7 @@ pub struct PyrsiaEventLoop {
 
 impl PyrsiaEventLoop {
     pub fn new(
-        swarm: Swarm<PyrsiaBehaviour>,
+        swarm: Swarm<PyrsiaNetworkBehaviour>,
         command_receiver: mpsc::Receiver<Command>,
         event_sender: mpsc::Sender<PyrsiaEvent>,
     ) -> Self {

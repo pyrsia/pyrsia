@@ -24,7 +24,7 @@ use libp2p::NetworkBehaviour;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "PyrsiaNetworkEvent")]
-pub struct PyrsiaBehaviour {
+pub struct PyrsiaNetworkBehaviour {
     pub identify: Identify,
     pub kademlia: Kademlia<MemoryStore>,
     pub request_response: RequestResponse<FileExchangeCodec>,
