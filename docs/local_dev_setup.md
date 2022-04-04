@@ -96,12 +96,12 @@ following steps:
 9. Ping the Pyrsia node and list the status
 
     ```sh
-    $ ./pyrsia node -p
+    $ ./pyrsia --ping
     Connection Successfull !! {}
     ```
 
     ```sh
-    $ ./pyrsia node -s
+    $ ./pyrsia -s
     Connected Peers Count:   0
     Artifacts Count:         12 # reflects the number of artifacts that the pyrsia_node has stored on the network
     Total Disk Available:    983112
@@ -139,7 +139,7 @@ Multiple Pyrsia Nodes can be started on the same computer by changing the ports 
 Re-running the status command, there should be an connect peer.
 
 ```sh 
-$ ./pyrsia node -s
+$ ./pyrsia -s
 Connected Peers Count:   1 # Shows the additional node that joined the list of peers
 Artifacts Count:         12
 Total Disk Available:    983112
