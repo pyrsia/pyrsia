@@ -153,7 +153,7 @@ async fn get_blob_from_network(
     name: &str,
     hash: &str,
 ) -> Result<bool, Rejection> {
-    let providers = p2p_client.list_providers(String::from(hash)).await;
+    let providers = p2p_client.list_providers(hash).await;
     debug!(
         "Step 2: Does {:?} exist in the Pyrsia network? Providers: {:?}",
         hash, providers
@@ -191,10 +191,7 @@ async fn get_blob_from_other_peer(
         peer_id,
         hash.get(7..).unwrap()
     );
-    match p2p_client
-        .request_artifact(peer_id, String::from(hash))
-        .await
-    {
+    match p2p_client.request_artifact(peer_id, hash).await {
         Ok(artifact) => {
             let id = Uuid::new_v4();
             debug!("Step 2: YES, {:?} exists in the Pyrsia network.", hash);

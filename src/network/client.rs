@@ -98,10 +98,13 @@ impl Client {
 
     /// List all peers in the swarm that are providing
     /// the artifact with the specified `hash`.
-    pub async fn list_providers(&mut self, hash: String) -> HashSet<PeerId> {
+    pub async fn list_providers(&mut self, hash: &str) -> HashSet<PeerId> {
         let (sender, receiver) = oneshot::channel();
         self.sender
-            .send(Command::ListProviders { hash, sender })
+            .send(Command::ListProviders {
+                hash: String::from(hash),
+                sender,
+            })
             .await
             .expect("Command receiver not to be dropped.");
         receiver.await.expect("Sender not to be dropped.")
@@ -112,14 +115,14 @@ impl Client {
     pub async fn request_artifact(
         &mut self,
         peer: &PeerId,
-        hash: String,
+        hash: &str,
     ) -> Result<Vec<u8>, Box<dyn error::Error + Send>> {
         debug!("p2p::Client::request_artifact {:?}: {:?}", peer, hash);
 
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::RequestArtifact {
-                hash,
+                hash: String::from(hash),
                 peer: *peer,
                 sender,
             })
@@ -141,5 +144,170 @@ impl Client {
             .send(Command::RespondArtifact { artifact, channel })
             .await
             .expect("Command receiver not to be dropped.");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use libp2p::identity::Keypair;
+    use rand::distributions::Alphanumeric;
+    use rand::{thread_rng, Rng};
+
+    #[tokio::test]
+    async fn test_listen() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let mut client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let address: Multiaddr = "/ip4/127.0.0.1".parse().unwrap();
+        let cloned_address = address.clone();
+        tokio::spawn(async move { client.listen(&address).await });
+
+        futures::select! {
+            command = receiver.next() => match command {
+                Some(Command::Listen { addr, sender }) => {
+                    assert_eq!(addr, cloned_address);
+                    let _ = sender.send(Ok(()));
+                },
+                _ => panic!("Command must match Command::Listen")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_dial() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let mut client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let address: Multiaddr = "/ip4/127.0.0.1".parse().unwrap();
+        let cloned_address = address.clone();
+        tokio::spawn(async move { client.dial(&address).await });
+
+        futures::select! {
+            command = receiver.next() => match command {
+                Some(Command::Dial { peer_addr, sender }) => {
+                    assert_eq!(peer_addr, cloned_address);
+                    let _ = sender.send(Ok(()));
+                },
+                _ => panic!("Command must match Command::Dial")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_list_peers() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+        let mut client = Client {
+            sender,
+            local_peer_id,
+        };
+
+        tokio::spawn(async move { client.list_peers().await });
+
+        futures::select! {
+            command = receiver.next() => match command {
+                Some(Command::ListPeers { peer_id, sender }) => {
+                    assert_eq!(peer_id, local_peer_id);
+                    let _ = sender.send(Default::default());
+                },
+                _ => panic!("Command must match Command::ListPeers")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_provide() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let mut client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let random_hash: String = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect();
+        let cloned_random_hash = random_hash.clone();
+        tokio::spawn(async move { client.provide(&random_hash).await });
+
+        futures::select! {
+            command = receiver.next() => match command {
+                Some(Command::Provide { hash, sender }) => {
+                    assert_eq!(hash, cloned_random_hash);
+                    let _ = sender.send(());
+                },
+                _ => panic!("Command must match Command::Provide")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_list_providers() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let mut client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let random_hash: String = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect();
+        let cloned_random_hash = random_hash.clone();
+        tokio::spawn(async move { client.list_providers(&random_hash).await });
+
+        futures::select! {
+            command = receiver.next() => match command {
+                Some(Command::ListProviders { hash, sender }) => {
+                    assert_eq!(hash, cloned_random_hash);
+                    let _ = sender.send(Default::default());
+                },
+                _ => panic!("Command must match Command::ListProviders")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_request_artifact() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let mut client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+        let random_hash: String = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect();
+        let cloned_random_hash = random_hash.clone();
+        tokio::spawn(async move { client.request_artifact(&other_peer_id, &random_hash).await });
+
+        futures::select! {
+            command = receiver.next() => match command {
+                Some(Command::RequestArtifact { peer, hash, sender }) => {
+                    assert_eq!(peer, other_peer_id);
+                    assert_eq!(hash, cloned_random_hash);
+                    let _ = sender.send(Ok(vec![]));
+                },
+                _ => panic!("Command must match Command::RequestArtifact")
+            }
+        }
     }
 }
