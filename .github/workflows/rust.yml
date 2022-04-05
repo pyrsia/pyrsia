@@ -30,10 +30,6 @@ jobs:
         sccache --start-server
         sccache --show-stats
 
-    - name: Install openssl on macOS
-      run: |
-        brew install openssl
-
     # Need to add build number to version number
     - name: Add Build to Version Number
       run: |
@@ -46,7 +42,7 @@ jobs:
 
     - name: Execute Test Cases
       run: |
-        cargo test --workspace --verbose
+        cargo test --workspace --verbose --release
 
   build-push-linux:
     runs-on: ubuntu-latest
@@ -88,7 +84,7 @@ jobs:
 
     - name: Execute Test Cases
       run: |
-        cargo test --workspace --verbose
+        cargo test --workspace --verbose --release
 
     # Strip binaries 
     - name: Strip Binaries

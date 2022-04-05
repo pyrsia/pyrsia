@@ -16,10 +16,14 @@ set -e
 
 # We need to split out build commands into separate calls in order to run them in parallel
 # therefore we cannot use --all-targets since that is equivalent to --lib --bins --tests --benches --examples
-# which disables the parallelizm we are trying achive for speed.
+# which disables the parallelizm we are trying achive for speed. 
+#
+# "cargo build --workspace"  is equivalent to cargo build --workspace --lib --bins
+# adding --lib --bins for clarity
+#
 
-$( cargo build --workspace --verbose --release; echo $? > /tmp/ws.rc ) &
-$( cargo build --tests --verbose --release 1>/tmp/tests.log 2>&1; echo $? > /tmp/tests.rc ) &
+$( cargo build --workspace --lib --bins --verbose --release; echo $? > /tmp/ws.rc ) &
+$( cargo build --workspace --tests --verbose --release 1>/tmp/tests.log 2>&1; echo $? > /tmp/tests.rc ) &
 jobs
 wait
 

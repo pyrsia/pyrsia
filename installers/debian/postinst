@@ -6,7 +6,7 @@ set -e
 
 # Check if Docker service exists.    
 
-if systemctl --all --type service | grep -q "docker";then
+if type -P "systemctl" 2>&1 1>/dev/null && systemctl --all --type service | grep -q "docker";then
 
     echo "***"
     echo "*** Adding \"registry-mirrors\": [\"http://localhost:7888\"] to /etc/docker/daemon.json"
@@ -37,4 +37,8 @@ else
 fi
 
 # Start Pyrsia Running
-systemctl start pyrsia
+if type -P "systemctl" 2>&1 1>/dev/null; then
+
+  systemctl start pyrsia
+  
+fi
