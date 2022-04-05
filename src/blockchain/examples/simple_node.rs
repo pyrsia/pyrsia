@@ -210,18 +210,21 @@ pub fn create_ed25519_keypair() -> libp2p::identity::ed25519::Keypair {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    const TEST_KEYPAIR_FILENAME: &str = "./test_keypair";
     #[test]
     fn test_get_keyfile_name_succeeded() {
-        let mut path = dirs::home_dir()?;
+        let mut path = dirs::home_dir().unwrap();
 
         path.push(BLOCK_KEYPAIR_FILENAME);
-        assert_eq!(path.into_os_string().into_string()?, get_keyfile_name());
+        assert_eq!(
+            path.into_os_string().into_string().unwrap(),
+            get_keyfile_name()
+        );
     }
 
     #[test]
     fn test_write_keypair_succeeded() {
-        let file = String::from("./test_keypair");
+        let file = String::from(TEST_KEYPAIR_FILENAME);
         let data = [0u8; 64];
         let result = std::panic::catch_unwind(|| write_keypair(&file, &data));
         assert!(result.is_ok());
@@ -229,7 +232,7 @@ mod tests {
 
     #[test]
     fn test_read_keypair_succeeded() {
-        let file = String::from("./test_keypair");
+        let file = String::from(TEST_KEYPAIR_FILENAME);
         let data = [0u8; 64];
         write_keypair(&file, &data);
         assert!(read_keypair(&file).is_ok());
