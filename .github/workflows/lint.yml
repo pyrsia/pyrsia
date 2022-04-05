@@ -1,13 +1,40 @@
 name: Linting
 on:
-  pull_request:
+# TODO: return after review
+  push:
 
 permissions:
   checks: write
   pull-requests: write
 
 jobs:
+  check:
+    name: Check rust files were changed
+    outputs:
+      run_job: ${{ steps.check_files.outputs.run_job }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: check modified files
+        id: check_files
+        run: |
+            echo "Next files were changed"
+            git diff --name-only origin/main
+            RUST_FILES="$(git diff --name-only origin/main | grep ".rs$")" || true
+            if [[ -z "$RUST_FILES" ]]; then
+              echo "::set-output name=run_job::false"
+              break
+            else
+              echo "::set-output name=run_job::true"
+            fi
+
   security-audit:
+    needs: check
+    if: needs.check.outputs.run_job == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -18,6 +45,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   rustfmt:
+    needs: check
+    if: needs.check.outputs.run_job == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -27,6 +56,8 @@ jobs:
         run: echo "::error ::You need to run `rustfmt` loaclly, commit the changes, and push"
 
   clippy:
+    needs: check
+    if: needs.check.outputs.run_job == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -37,6 +68,8 @@ jobs:
           args: --all-features -- --deny warnings
 
   license-header:
+    needs: check
+    if: needs.check.outputs.run_job == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -46,11 +79,13 @@ jobs:
           config: .github/license-check/config.json
 
   inclusive-lint:
+    needs: check
+    if: needs.check.outputs.run_job == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Run Woke for Inclusive Linting
         run: |
             curl -sSfL https://git.io/getwoke | bash -s --
-            bin/woke --exit-1-on-failure 
+            bin/woke --exit-1-on-failure
         shell: bash
