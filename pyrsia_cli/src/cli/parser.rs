@@ -29,20 +29,17 @@ pub fn cli_parser() -> ArgMatches {
             arg!(-s --status     "Shows node information"),
         ])
         // Config subcommand
-        .subcommands(vec![
-            Command::new("config")
-                .short_flag('c')
-                .about("Pyrsia config commands")
-                .arg_required_else_help(true)
-                .disable_version_flag(true)
-                .args(&[
-                    arg!(-a --add      "Adds a node configuration"),
-                    arg!(-e --edit     "Edits a node configuration"),
-                    arg!(-r --remove   "Removes the stored node configuration").visible_alias("rm"),
-                    arg!(-s --show     "Shows the stored node configuration"),
-                ]),
-                
-        ])
+        .subcommands(vec![Command::new("config")
+            .short_flag('c')
+            .about("Pyrsia config commands")
+            .arg_required_else_help(true)
+            .disable_version_flag(true)
+            .args(&[
+                arg!(-a --add      "Adds a node configuration"),
+                arg!(-e --edit     "Edits a node configuration"),
+                arg!(-r --remove   "Removes the stored node configuration").visible_alias("rm"),
+                arg!(-s --show     "Shows the stored node configuration"),
+            ])])
         .version(version_string)
         .get_matches()
 }

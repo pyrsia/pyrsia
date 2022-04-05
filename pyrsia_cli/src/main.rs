@@ -16,9 +16,9 @@
 
 pub mod cli;
 
+use clap::{command, ErrorKind};
 use cli::handlers::*;
 use cli::parser::*;
-use clap::{command,ErrorKind};
 
 #[tokio::main]
 async fn main() {
@@ -37,11 +37,12 @@ async fn main() {
         (false, true, false) => node_ping().await,
         (false, false, true) => node_status().await,
         _ => {
-            command!().error(
-                ErrorKind::UnknownArgument,
-                "Can only modify one version field",
-            )
-            .exit();
+            command!()
+                .error(
+                    ErrorKind::UnknownArgument,
+                    "Please specify correct argument",
+                )
+                .exit();
         }
     };
     match matches.subcommand() {
@@ -67,12 +68,13 @@ async fn main() {
             }
         }
         None => {
-            command!().error(
-                ErrorKind::UnrecognizedSubcommand,
-                "Can only modify one version field",
-            )
-            .exit();
-        },
+            command!()
+                .error(
+                    ErrorKind::UnrecognizedSubcommand,
+                    "Please specify correct subcommand",
+                )
+                .exit();
+        }
 
         _ => unreachable!(),
     }
