@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse, ArtifactExchangeCodec};
+use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactRequest, ArtifactResponse};
 
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::kad::record::store::MemoryStore;
@@ -25,7 +25,7 @@ use libp2p::NetworkBehaviour;
 /// Defines the [`NetworkBehaviour`] to be used in the libp2p
 /// Swarm. The PyrsiaNetworkBehaviour consists of the following
 /// behaviours:
-/// 
+///
 /// * [`Identify`]
 /// * [`Kademlia`]
 /// * [`RequestResponse`] for exchanging artifacts
