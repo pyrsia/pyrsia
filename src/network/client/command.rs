@@ -22,6 +22,9 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
+/// Commands are sent by the [`Client`] to the [`PyrsiaEventLoop`].
+/// Each command matches exactly with one if the functions that are
+/// defined in `Client`.
 #[derive(Debug)]
 pub enum Command {
     Listen {

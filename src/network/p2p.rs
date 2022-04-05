@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use crate::network::artifact_protocol::{FileExchangeCodec, FileExchangeProtocol};
+use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactExchangeProtocol};
 use crate::network::behaviour::PyrsiaNetworkBehaviour;
 use crate::network::client::Client;
 use crate::network::event_loop::{PyrsiaEvent, PyrsiaEventLoop};
@@ -116,6 +116,7 @@ pub fn setup_libp2p_swarm(
     ))
 }
 
+// create the libp2p transport for the swarm
 fn create_transport(
     keypair: identity::Keypair,
 ) -> std::io::Result<core::transport::Boxed<(core::PeerId, core::muxing::StreamMuxerBox)>> {
@@ -137,6 +138,7 @@ fn create_transport(
         .boxed())
 }
 
+// create the libp2p swarm
 fn create_swarm(
     keypair: identity::Keypair,
 ) -> Result<(Swarm<PyrsiaNetworkBehaviour>, core::PeerId), Box<dyn Error>> {
@@ -152,8 +154,8 @@ fn create_swarm(
                 identify: identify::Identify::new(identify_config),
                 kademlia: kad::Kademlia::new(peer_id, MemoryStore::new(peer_id)),
                 request_response: RequestResponse::new(
-                    FileExchangeCodec(),
-                    iter::once((FileExchangeProtocol(), ProtocolSupport::Full)),
+                    ArtifactExchangeCodec(),
+                    iter::once((ArtifactExchangeProtocol(), ProtocolSupport::Full)),
                     Default::default(),
                 ),
             },

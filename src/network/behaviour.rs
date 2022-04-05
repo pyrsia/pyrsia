@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse, FileExchangeCodec};
+use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse, ArtifactExchangeCodec};
 
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::kad::record::store::MemoryStore;
@@ -22,14 +22,23 @@ use libp2p::kad::{Kademlia, KademliaEvent};
 use libp2p::request_response::{RequestResponse, RequestResponseEvent};
 use libp2p::NetworkBehaviour;
 
+/// Defines the [`NetworkBehaviour`] to be used in the libp2p
+/// Swarm. The PyrsiaNetworkBehaviour consists of the following
+/// behaviours:
+/// 
+/// * [`Identify`]
+/// * [`Kademlia`]
+/// * [`RequestResponse`] for exchanging artifacts
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "PyrsiaNetworkEvent")]
 pub struct PyrsiaNetworkBehaviour {
     pub identify: Identify,
     pub kademlia: Kademlia<MemoryStore>,
-    pub request_response: RequestResponse<FileExchangeCodec>,
+    pub request_response: RequestResponse<ArtifactExchangeCodec>,
 }
 
+/// Each event in the `PyrsiaNetworkBehaviour` is wrapped in a
+/// `PyrsiaNetworkEvent`.
 #[derive(Debug)]
 pub enum PyrsiaNetworkEvent {
     Identify(IdentifyEvent),

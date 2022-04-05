@@ -39,6 +39,10 @@ type PendingStartProvidingMap = HashMap<QueryId, oneshot::Sender<()>>;
 type PendingRequestArtifactMap =
     HashMap<RequestId, oneshot::Sender<Result<Vec<u8>, Box<dyn Error + Send>>>>;
 
+/// The `PyrsiaEventLoop` is responsible for taking care of incoming
+/// events from the libp2p [`Swarm`] itself, the different network
+/// behaviours that exist inside the `Swarm` and incoming commands
+/// from the [`Client`].
 pub struct PyrsiaEventLoop {
     swarm: Swarm<PyrsiaNetworkBehaviour>,
     command_receiver: mpsc::Receiver<Command>,
@@ -68,6 +72,8 @@ impl PyrsiaEventLoop {
         }
     }
 
+    /// Creates the actual event loop to begin listening for
+    /// incoming events on the swarm and command channels.
     pub async fn run(mut self) {
         loop {
             futures::select! {
@@ -88,6 +94,7 @@ impl PyrsiaEventLoop {
         }
     }
 
+    // Handles events from the `Identify` network behaviour.
     async fn handle_identify_event(&mut self, event: IdentifyEvent) {
         trace!("Handle IdentifyEvent: {:?}", event);
         match event {
@@ -115,6 +122,7 @@ impl PyrsiaEventLoop {
         }
     }
 
+    // Handles events from the `Kademlia` network behaviour.
     async fn handle_kademlia_event(&mut self, event: KademliaEvent) {
         trace!("Handle KademliaEvent: {:?}", event);
         match event {
@@ -160,6 +168,8 @@ impl PyrsiaEventLoop {
         }
     }
 
+    // Handles events from the `RequestResponse` for artifact exchange
+    // network behaviour.
     async fn handle_request_response_event(
         &mut self,
         event: RequestResponseEvent<ArtifactRequest, ArtifactResponse>,
@@ -203,6 +213,7 @@ impl PyrsiaEventLoop {
         }
     }
 
+    // Handles all other events from the libp2p `Swarm`.
     async fn handle_swarm_event(&mut self, event: SwarmEvent<PyrsiaNetworkEvent, impl Error>) {
         trace!("Handle SwarmEvent: {:?}", event);
         match event {
@@ -235,6 +246,7 @@ impl PyrsiaEventLoop {
         }
     }
 
+    // Handle incoming commands that are sent by the [`Client`].
     async fn handle_command(&mut self, command: Command) {
         trace!("Handle Command: {}", command);
         match command {

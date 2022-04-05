@@ -21,29 +21,33 @@ use libp2p::request_response::RequestResponseCodec;
 use std::io;
 
 #[derive(Debug, Clone)]
-pub struct FileExchangeProtocol();
+pub struct ArtifactExchangeProtocol();
+/// The `ArtifactExchangeCodec` defines the request and response types
+/// for the [`RequestResponse`](crate::RequestResponse) protocol for
+/// exchanging artifacts. At the moment, the implementation for
+/// encoding/decoding writes all bytes of a single artifact at once.
 #[derive(Clone)]
-pub struct FileExchangeCodec();
+pub struct ArtifactExchangeCodec();
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArtifactRequest(pub String);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArtifactResponse(pub Vec<u8>);
 
-impl ProtocolName for FileExchangeProtocol {
+impl ProtocolName for ArtifactExchangeProtocol {
     fn protocol_name(&self) -> &[u8] {
-        "/file-exchange/1".as_bytes()
+        "/artifact-exchange/1".as_bytes()
     }
 }
 
 #[async_trait]
-impl RequestResponseCodec for FileExchangeCodec {
-    type Protocol = FileExchangeProtocol;
+impl RequestResponseCodec for ArtifactExchangeCodec {
+    type Protocol = ArtifactExchangeProtocol;
     type Request = ArtifactRequest;
     type Response = ArtifactResponse;
 
     async fn read_request<T>(
         &mut self,
-        _: &FileExchangeProtocol,
+        _: &ArtifactExchangeProtocol,
         io: &mut T,
     ) -> io::Result<Self::Request>
     where
@@ -60,7 +64,7 @@ impl RequestResponseCodec for FileExchangeCodec {
 
     async fn read_response<T>(
         &mut self,
-        _: &FileExchangeProtocol,
+        _: &ArtifactExchangeProtocol,
         io: &mut T,
     ) -> io::Result<Self::Response>
     where
@@ -77,7 +81,7 @@ impl RequestResponseCodec for FileExchangeCodec {
 
     async fn write_request<T>(
         &mut self,
-        _: &FileExchangeProtocol,
+        _: &ArtifactExchangeProtocol,
         io: &mut T,
         ArtifactRequest(data): ArtifactRequest,
     ) -> io::Result<()>
@@ -92,7 +96,7 @@ impl RequestResponseCodec for FileExchangeCodec {
 
     async fn write_response<T>(
         &mut self,
-        _: &FileExchangeProtocol,
+        _: &ArtifactExchangeProtocol,
         io: &mut T,
         ArtifactResponse(data): ArtifactResponse,
     ) -> io::Result<()>

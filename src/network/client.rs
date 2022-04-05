@@ -26,6 +26,7 @@ use log::debug;
 use std::collections::HashSet;
 use std::error;
 
+/// The `Client` provides entry points to interact with the libp2p swarm.
 #[derive(Clone)]
 pub struct Client {
     pub sender: mpsc::Sender<Command>,
@@ -33,7 +34,7 @@ pub struct Client {
 }
 
 impl Client {
-    /// Instruct the p2p swarm to start listening on the specified address.
+    /// Instruct the swarm to start listening on the specified address.
     pub async fn listen(&mut self, addr: &Multiaddr) -> Result<(), Box<dyn error::Error + Send>> {
         debug!("p2p::Client::listen {:?}", addr);
 
@@ -79,7 +80,7 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
-    /// Inform the p2p network that this node is currently a
+    /// Inform the swarm that this node is currently a
     /// provider of the artifact with the specified `hash`.
     pub async fn provide(&mut self, hash: &str) {
         debug!("p2p::Client::provide {:?}", hash);
@@ -95,7 +96,7 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
-    /// List all peers in the p2p network that are providing
+    /// List all peers in the swarm that are providing
     /// the artifact with the specified `hash`.
     pub async fn list_providers(&mut self, hash: String) -> HashSet<PeerId> {
         let (sender, receiver) = oneshot::channel();
@@ -106,8 +107,8 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
-    /// Request an artifact with the specified `hash` from the
-    /// p2p network.
+    /// Request an artifact with the specified `hash` from
+    /// the swarm.
     pub async fn request_artifact(
         &mut self,
         peer: &PeerId,
@@ -127,7 +128,8 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
-    /// Put the artifact as a response to an incoming request.
+    /// Put the artifact as a response to an incoming artifact
+    /// request.
     pub async fn respond_artifact(
         &mut self,
         artifact: Vec<u8>,
