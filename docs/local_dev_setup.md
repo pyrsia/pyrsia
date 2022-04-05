@@ -87,11 +87,19 @@ following steps:
    cd ../target/debug
    ```
 
-8. Configure the CLI tool
+8. Configure the CLI tool for your node using subcommand "config" 
 
-    ```
+   ```
     ./pyrsia config --add localhost:7888
     ```
+
+   OR place the config file in these OS specific locations:
+
+   Mac:  $HOME/Library/Preferences/rs.pyrsia-cli/pyrsia-cli.toml
+   Linux: $HOME/.config/rs.pyrsia-cli/pyrsia-cli.toml or $XDG_CONFIG_HOME/rs.pyrsia-cli/pyrsia-cli.toml
+   Windows: `{FOLDERID_RoamingAppData}`\\`pyrsia-cli`\\config Ex: C:\Users\<UserName>\AppData\Roaming\pyrsia-cli\config\pyrsia-cli.toml
+
+    
 
 9. Ping the Pyrsia node and list the status
 
@@ -104,7 +112,7 @@ following steps:
     $ ./pyrsia -s
     Connected Peers Count:   0
     Artifacts Count:         12 # reflects the number of artifacts that the pyrsia_node has stored on the network
-    Total Disk Available:    983112
+    Total Disk Available:    10.5 GB
     ```
 
 If you see a status message similar to:
