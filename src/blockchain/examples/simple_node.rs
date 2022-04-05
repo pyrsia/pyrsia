@@ -26,7 +26,13 @@ use libp2p::{
     tcp::TokioTcpConfig,
     Multiaddr, PeerId, Transport,
 };
-use std::{error::Error, io::Read};
+use std::{
+    error::Error,
+    fs,
+    io::{Read, Write},
+    os::unix::fs::OpenOptionsExt,
+};
+
 use tokio::io::{self, AsyncBufReadExt};
 
 use pyrsia_blockchain_network::blockchain::Blockchain;
@@ -140,10 +146,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 pub fn write_block(path: &str, block: Block) {
-    use std::fs::OpenOptions;
-    use std::io::Write;
-
-    let mut file = OpenOptions::new()
+    let mut file = fs::OpenOptions::new()
         .write(true)
         .append(true)
         .create(true)
@@ -156,10 +159,6 @@ pub fn write_block(path: &str, block: Block) {
 }
 
 pub fn write_keypair(path: &String, data: &[u8; 64]) {
-    use std::fs;
-    use std::io::Write;
-    use std::os::unix::fs::OpenOptionsExt;
-
     let mut file = fs::OpenOptions::new()
         .write(true)
         .create(true)
@@ -171,26 +170,13 @@ pub fn write_keypair(path: &String, data: &[u8; 64]) {
 }
 
 pub fn read_keypair(path: &String) -> Result<[u8; 64], Box<dyn Error>> {
-    match std::fs::File::open(path) {
-        Ok(mut file) => {
-            let mut buf = [0u8; 64];
-            match file.read(&mut buf) {
-                Ok(n) => {
-                    if n == 64 {
-                        return Ok(buf);
-                    } else {
-                        return Err(Box::new(io::Error::from(io::ErrorKind::InvalidData)));
-                    }
-                }
-                Err(e) => {
-                    return Err(Box::new(e));
-                }
-            }
-        }
-
-        Err(e) => {
-            return Err(Box::new(e));
-        }
+    let mut file = std::fs::File::open(path)?;
+    let mut buf = [0u8; 64];
+    let n = file.read(&mut buf)?;
+    if n == 64 {
+        Ok(buf)
+    } else {
+        Err(Box::new(io::Error::from(io::ErrorKind::InvalidData)))
     }
 }
 
@@ -227,12 +213,10 @@ mod tests {
 
     #[test]
     fn test_get_keyfile_name_succeeded() {
-        let mut path = dirs::home_dir().unwrap();
-        path.push(".block_keypair");
-        assert_eq!(
-            path.into_os_string().into_string().unwrap(),
-            get_keyfile_name()
-        );
+        let mut path = dirs::home_dir()?;
+
+        path.push(BLOCK_KEYPAIR_FILENAME);
+        assert_eq!(path.into_os_string().into_string()?, get_keyfile_name());
     }
 
     #[test]
