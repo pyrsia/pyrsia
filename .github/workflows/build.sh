@@ -23,7 +23,7 @@ set -e
 #
 
 $( cargo build --workspace --lib --bins --verbose --release; echo $? > /tmp/ws.rc ) &
-$( cargo build --workspace --tests --verbose --release 1>/tmp/tests.log 2>&1; echo $? > /tmp/tests.rc ) &
+$( cargo build --workspace --tests --benches --examples --verbose --release 1>/tmp/tests.log 2>&1; echo $? > /tmp/tests.rc ) &
 jobs
 wait
 
