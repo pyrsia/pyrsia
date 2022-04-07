@@ -23,6 +23,8 @@ jobs:
         with:
           files: |
             **/*.rs
+            Cargo.toml
+            Cargo.lock
 
   security-audit:
     needs: rust-files
