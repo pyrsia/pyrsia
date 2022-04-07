@@ -14,8 +14,4 @@
    limitations under the License.
 */
 
-pub mod artifact_protocol;
-pub mod behaviour;
-pub mod client;
-pub mod event_loop;
-pub mod p2p;
+pub mod handlers;
