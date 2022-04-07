@@ -3,7 +3,7 @@ Ed25519 is a public-key signature scheme built out of edwards25519 curve, using 
 
 
 ### What is X25519
-X25519 is an elliptic curve Diffie-Hellman key exchange using Curve25519. It allows two parties to jointly agree on a shared secret using an insecure channel.
+X25519 is an elliptic curve Diffie-Hellman key exchange using Curve25519. It allows two parties to jointly agree on a shared secret using an insecure channel. An X25519 public key is the encoding of the 𝑥 coordinate of a point on Curve25519, hence the name X25519.
 
 
 ### What is Curve25519
