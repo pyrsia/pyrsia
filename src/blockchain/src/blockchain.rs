@@ -14,16 +14,23 @@
    limitations under the License.
 */
 
+use identity::ed25519::Keypair;
+use identity::PublicKey::Ed25519;
 use libp2p::{identity, PeerId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 
 use super::crypto::hash_algorithm::HashDigest;
-use super::structures::{
-    block::Block,
-    transaction::{Transaction, TransactionType},
-};
+use crate::structures::block::*;
+use crate::structures::chain::*;
+use crate::structures::transaction::*;
+
+/// BlockchainId identifies the current chain
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum BlockchainId {
+    Pyrsia,
+}
 
 /// Define Supported Signature Algorithm
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -31,20 +38,19 @@ pub enum SignatureAlgorithm {
     Ed25519,
 }
 
-#[derive(Deserialize, Serialize)]
 pub struct Blockchain {
-    #[serde(skip)]
     // this should actually be a Map<Transaction,Vec<OnTransactionSettled>> but that's later
     trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
-    #[serde(skip)]
+    key_pair: Keypair,
+    local_id: PeerId,
     block_observers: Vec<Box<dyn FnMut(Block)>>,
-    blocks: Vec<Block>,
+    chain: Chain,
 }
 
 impl Debug for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Blockchain")
-            .field("blocks", &self.blocks)
+            .field("chain", &self.chain)
             .field("trans_observers", &self.trans_observers.len())
             .field("block_observers", &self.block_observers.len())
             .finish()
@@ -52,29 +58,57 @@ impl Debug for Blockchain {
 }
 
 impl Blockchain {
-    pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+    pub fn new(keypair: &Keypair) -> Self {
+        let local_id = PeerId::from(Ed25519(keypair.public()));
+        let genesis_pub_key: [u8; 44] = [
+            0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00, 0xed, 0xbf,
+            0x0f, 0xc3, 0xea, 0x90, 0x29, 0x1e, 0x03, 0x0e, 0xa9, 0x5c, 0x3d, 0x96, 0x17, 0xc3,
+            0x47, 0x05, 0x6f, 0xa3, 0x12, 0x60, 0x89, 0xa3, 0x96, 0x07, 0x91, 0xc6, 0x01, 0xbf,
+            0x9a, 0x72,
+        ];
         let transaction = Transaction::new(
-            TransactionType::AddAuthority,
+            TransactionType::GrantAuthority,
             local_id,
-            "this needs to be the root authority".as_bytes().to_vec(),
+            genesis_pub_key.to_vec(),
             keypair,
         );
         // Make the "genesis" blocks
         let block = Block::new(HashDigest::new(b""), 0, Vec::from([transaction]), keypair);
+        let mut chain: Chain = Default::default();
+        chain.blocks.push(block);
         Self {
             trans_observers: Default::default(),
+            key_pair: keypair.clone(),
+            local_id: local_id.clone(),
             block_observers: vec![],
-            blocks: Vec::from([block]),
+            chain,
         }
     }
+
+    pub fn blocks(&self) -> Vec<Block> {
+        self.chain.blocks.clone()
+    }
+
     pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction)>(
         &mut self,
-        trans: Transaction,
+        trans_type: TransactionType,
+        data: Vec<u8>,
         on_done: CallBack,
-    ) -> &mut Self {
-        self.trans_observers.insert(trans, Box::new(on_done));
-        self
+    ) -> Result<(), String> {
+        let trans = Transaction::new(trans_type, self.local_id.clone(), data, &self.key_pair);
+        match trans.is_valid() {
+            Ok(()) => {
+                let t = trans.clone();
+                self.trans_observers.insert(trans, Box::new(on_done));
+                // it doesn't actually settle at this point. Aleph will do that
+                self.notify_transaction_settled(t);
+                Ok(())
+            }
+            Err(e) => {
+                println!("{}", e);
+                Err(e)
+            }
+        }
     }
 
     pub fn notify_transaction_settled(&mut self, trans: Transaction) {
@@ -101,15 +135,8 @@ impl Blockchain {
 
     #[warn(dead_code)]
     pub fn add_block(&mut self, block: Block) {
-        self.blocks.push(block);
-        self.notify_block_event(self.blocks.last().expect("block must exist").clone());
-    }
-}
-
-impl Display for Blockchain {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let json = serde_json::to_string_pretty(&self).expect("json format error");
-        write!(f, "{}", json)
+        self.chain.blocks.push(block);
+        self.notify_block_event(self.chain.blocks.last().expect("block must exist").clone());
     }
 }
 
@@ -117,65 +144,59 @@ impl Display for Blockchain {
 mod tests {
     use std::cell::Cell;
     use std::rc::Rc;
+    use TransactionType::RevokeAuthority;
+    use crate::structures::transaction::TransactionType::GrantAuthority;
 
     use super::*;
 
     #[test]
     fn test_build_blockchain() -> Result<(), String> {
-        let keypair = identity::ed25519::Keypair::generate();
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let keypair = Keypair::generate();
+        let local_id = PeerId::from(Ed25519(keypair.public()));
         let mut chain = Blockchain::new(&keypair);
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
-            TransactionType::Create,
+            TransactionType::AddArtifact,
             local_id,
             data.as_bytes().to_vec(),
             &keypair,
         );
         transactions.push(transaction);
         chain.add_block(Block::new(
-            chain.blocks[0].header.hash(),
-            chain.blocks[0].header.ordinal,
+            chain.blocks()[0].header.hash(),
+            chain.blocks()[0].header.ordinal,
             transactions,
             &keypair,
         ));
-        assert_eq!(true, chain.blocks.last().unwrap().verify());
-        assert_eq!(2, chain.blocks.len());
+        assert_eq!(true, chain.blocks().last().unwrap().verify());
+        assert_eq!(2, chain.blocks().len());
         Ok(())
     }
 
     #[test]
     fn test_add_trans_listener() -> Result<(), String> {
-        let keypair = identity::ed25519::Keypair::generate();
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let keypair = Keypair::generate();
         let mut chain = Blockchain::new(&keypair);
 
-        let transaction = Transaction::new(
-            TransactionType::Create,
-            local_id,
-            "some transaction".as_bytes().to_vec(),
-            &keypair,
-        );
+        let data = "some transaction";
         let called = Rc::new(Cell::new(false));
         chain
-            .submit_transaction(transaction.clone(), {
+            .submit_transaction(TransactionType::AddArtifact, data.as_bytes().to_vec(), {
                 let called = called.clone();
-                let transaction = transaction.clone();
                 move |t: Transaction| {
-                    assert_eq!(transaction, t);
+                    assert_eq!(data.as_bytes().to_vec(), t.payload());
                     called.set(true)
                 }
-            })
-            .notify_transaction_settled(transaction);
+            })?;
         assert!(called.get());
         Ok(())
     }
 
     #[test]
     fn test_add_block_listener() -> Result<(), String> {
-        let keypair = identity::ed25519::Keypair::generate();
+        let keypair = Keypair::generate();
         let block = Block::new(
             HashDigest::new(b"Hello World!"),
             1u128,
@@ -198,5 +219,49 @@ mod tests {
 
         assert!(called.get()); // called is still false
         Ok(())
+    }
+
+    #[test]
+    fn test_revoke_authority() -> Result<(), String> {
+        let keypair = Keypair::generate();
+        let mut chain = Blockchain::new(&keypair);
+        let raw_pub_key: [u8;32] = [
+            0x0F,0x30,0x2A,0xAC,0x9E,0x34,0xC8,0xF0,0x90,0x75,0x08,0xB1,0x15,0x2E,0xEA,0xFC,
+            0x69,0x67,0x90,0x22,0x27,0x84,0x0D,0x4C,0x32,0xB6,0xED,0xF5,0xF0,0x7A,0xFC,0x87
+        ];
+        chain.submit_transaction(RevokeAuthority, raw_pub_key.to_vec(), |_|{})
+    }
+    #[test]
+    fn test_revoke_authority_bad_key(){
+        let keypair = Keypair::generate();
+        let mut chain = Blockchain::new(&keypair);
+        let raw_pub_key: [u8;1] = [0x00];
+        let ok = match chain.submit_transaction(RevokeAuthority, raw_pub_key.to_vec(), |_|{}){
+            Ok(_) => false,
+            Err(_) => true
+        };
+        assert!(ok)
+    }
+
+    #[test]
+    fn test_add_authority() -> Result<(), String> {
+        let keypair = Keypair::generate();
+        let mut chain = Blockchain::new(&keypair);
+        let raw_pub_key: [u8;32] = [
+            0x0F,0x30,0x2A,0xAC,0x9E,0x34,0xC8,0xF0,0x90,0x75,0x08,0xB1,0x15,0x2E,0xEA,0xFC,
+            0x69,0x67,0x90,0x22,0x27,0x84,0x0D,0x4C,0x32,0xB6,0xED,0xF5,0xF0,0x7A,0xFC,0x87
+        ];
+        chain.submit_transaction(GrantAuthority, raw_pub_key.to_vec(), |_|{})
+    }
+    #[test]
+    fn test_add_authority_bad_key() {
+        let keypair = Keypair::generate();
+        let mut chain = Blockchain::new(&keypair);
+        let raw_pub_key: [u8;1] = [0x00];
+        let ok = match chain.submit_transaction(RevokeAuthority, raw_pub_key.to_vec(), |_|{}){
+            Ok(_) => false,
+            Err(_) => true
+        };
+        assert!(ok)
     }
 }

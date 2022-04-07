@@ -52,6 +52,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let peer_id = PeerId::from(identity::PublicKey::Ed25519(id_keys.public()));
 
     println!("Local peer id: {:?}", peer_id);
+    println!("public key {:02X?}", id_keys.public().encode());
     let _filepath = match std::env::args().nth(1) {
         Some(v) => v,
         None => String::from(BLOCK_FILE_PATH),
@@ -123,18 +124,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
     loop {
         tokio::select! {
             line = stdin.next_line() => {
-                let l = line.expect("stdin closed");
-                let transaction = Transaction::new(
-                        TransactionType::Create,
-                        peer_id,
-                        l.unwrap().as_bytes().to_vec(),
-                    &id_keys,
-                );
+                let foo = line.expect("stdin closed").unwrap();
+                let cli = foo.as_str().split(" ").collect::<Vec<&str>>();
+                match cli[0] {
+                    "dump" => println!("dump not implemented"),
+                    "artifact" => {
+                        chain.submit_transaction(TransactionType::AddArtifact, cli[1].as_bytes().to_vec(),move |_t: Transaction| {
+                            println!("artifact added");
+                        })?;
+                    },
+                    "grant" => {
+                       hex::decode(cli[1]).map(|decoded| {
+                            chain.submit_transaction(TransactionType::GrantAuthority, decoded, move |t: Transaction| {
+                                println!("Authority granted to {}",hex::encode(t.payload()));
+                            }).ok();
+                        })?;
 
+                    }
+                    "revoke" => {
+                       hex::decode(cli[1]).map(|decoded| {
+                            chain.submit_transaction(TransactionType::RevokeAuthority, decoded, move |t: Transaction| {
+                                println!("Authority revoked for {}",hex::encode(t.payload()));
+                            }).ok();
+                        })?;
+                    }
+                    _ => println!("unknown command")
+                }
                 // eventually this will trigger a block action
-                chain.submit_transaction(transaction.clone(),move |t: Transaction| {
-                    println!("transaction {:?} submitted",t);
-                });
+
             }
             event = swarm.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {

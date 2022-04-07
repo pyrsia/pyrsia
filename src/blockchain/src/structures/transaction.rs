@@ -18,17 +18,24 @@ use libp2p::identity;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
+use identity::ed25519::Keypair;
 
 use super::header::Address;
 use crate::crypto::hash_algorithm::HashDigest;
 use crate::signature::Signature;
 
+use libp2p::identity::ed25519::PublicKey;
+
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum TransactionType {
-    Create,
-    AddAuthority,
+    AddArtifact,
+    GrantAuthority,
     RevokeAuthority,
 }
+pub trait Validator {
+    fn is_valid(&self) -> std::result::Result<(), String>;
+}
+
 
 // Temporary structure to be able to calculate the hash of a transaction
 #[derive(Serialize)]
@@ -41,10 +48,7 @@ struct PartialTransaction {
 }
 
 impl PartialTransaction {
-    fn convert_to_transaction(
-        self,
-        ed25519_keypair: &identity::ed25519::Keypair,
-    ) -> Result<Transaction, bincode::Error> {
+    fn convert_to_transaction(self, ed25519_keypair: &Keypair) -> Result<Transaction, bincode::Error> {
         let hash = calculate_hash(&self)?;
         Ok(Transaction {
             type_id: self.type_id,
@@ -89,12 +93,13 @@ pub struct Transaction {
     hash: HashDigest,
     signature: TransactionSignature,
 }
+
 impl Transaction {
     pub fn new(
         type_id: TransactionType,
         submitter: Address,
         payload: Vec<u8>,
-        ed25519_keypair: &identity::ed25519::Keypair,
+        ed25519_keypair: &Keypair,
     ) -> Self {
         let partial_transaction = PartialTransaction {
             type_id,
@@ -116,8 +121,32 @@ impl Transaction {
     pub fn signature(&self) -> TransactionSignature {
         self.signature.clone()
     }
+    pub fn payload(&self) -> Vec<u8> {
+        self.payload.clone()
+    }
 }
 
+impl Validator for Transaction {
+    fn is_valid(&self) -> std::result::Result<(), String> {
+        match self.type_id {
+            TransactionType::AddArtifact => {
+                Ok(())
+            }
+            // when granting or revoking an authority should we check the rest of
+            // the chain for the chains existence?
+            TransactionType::GrantAuthority => {
+                PublicKey::decode(&self.payload.as_slice())
+                    .map(|_pk| Ok(())).map_err(|e| e.to_string())?
+            }
+            // I guess adding/revoking the same authority repeatedly doesn't matter. It's a union
+            // of activity
+            TransactionType::RevokeAuthority => {
+                PublicKey::decode(&self.payload.as_slice())
+                    .map(|_pk| Ok(())).map_err(|e| e.to_string())?
+            }
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,11 +154,11 @@ mod tests {
 
     #[test]
     fn test_transaction_new() {
-        let keypair = identity::ed25519::Keypair::generate();
+        let keypair = Keypair::generate();
         let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
 
         let transaction = Transaction::new(
-            TransactionType::Create,
+            TransactionType::AddArtifact,
             local_id,
             b"Hello First Transaction".to_vec(),
             &keypair,
