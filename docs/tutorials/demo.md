@@ -28,7 +28,7 @@ flowchart TB
 > If you ran these steps before and if you want to start from a clean sheet, do this:
 > ```
 > # apt-get remove pyrsia
-> # rf -rf /usr/local/var/pyrsia
+> # rm -rf /usr/local/var/pyrsia
 > ```
 
 ## Demo steps
