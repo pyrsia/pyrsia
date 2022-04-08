@@ -14,11 +14,11 @@
    limitations under the License.
 */
 
+use identity::ed25519::Keypair;
 use libp2p::identity;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
-use identity::ed25519::Keypair;
 
 use super::header::Address;
 use crate::crypto::hash_algorithm::HashDigest;
@@ -36,7 +36,6 @@ pub trait Validator {
     fn is_valid(&self) -> std::result::Result<(), String>;
 }
 
-
 // Temporary structure to be able to calculate the hash of a transaction
 #[derive(Serialize)]
 struct PartialTransaction {
@@ -48,7 +47,10 @@ struct PartialTransaction {
 }
 
 impl PartialTransaction {
-    fn convert_to_transaction(self, ed25519_keypair: &Keypair) -> Result<Transaction, bincode::Error> {
+    fn convert_to_transaction(
+        self,
+        ed25519_keypair: &Keypair,
+    ) -> Result<Transaction, bincode::Error> {
         let hash = calculate_hash(&self)?;
         Ok(Transaction {
             type_id: self.type_id,
@@ -129,21 +131,17 @@ impl Transaction {
 impl Validator for Transaction {
     fn is_valid(&self) -> std::result::Result<(), String> {
         match self.type_id {
-            TransactionType::AddArtifact => {
-                Ok(())
-            }
+            TransactionType::AddArtifact => Ok(()),
             // when granting or revoking an authority should we check the rest of
             // the chain for the chains existence?
-            TransactionType::GrantAuthority => {
-                PublicKey::decode(&self.payload.as_slice())
-                    .map(|_pk| Ok(())).map_err(|e| e.to_string())?
-            }
+            TransactionType::GrantAuthority => PublicKey::decode(&self.payload.as_slice())
+                .map(|_pk| Ok(()))
+                .map_err(|e| e.to_string())?,
             // I guess adding/revoking the same authority repeatedly doesn't matter. It's a union
             // of activity
-            TransactionType::RevokeAuthority => {
-                PublicKey::decode(&self.payload.as_slice())
-                    .map(|_pk| Ok(())).map_err(|e| e.to_string())?
-            }
+            TransactionType::RevokeAuthority => PublicKey::decode(&self.payload.as_slice())
+                .map(|_pk| Ok(()))
+                .map_err(|e| e.to_string())?,
         }
     }
 }

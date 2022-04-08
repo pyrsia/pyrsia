@@ -136,10 +136,10 @@ impl Blockchain {
 
 #[cfg(test)]
 mod tests {
+    use crate::structures::transaction::TransactionType::GrantAuthority;
     use std::cell::Cell;
     use std::rc::Rc;
     use TransactionType::RevokeAuthority;
-    use crate::structures::transaction::TransactionType::GrantAuthority;
 
     use super::*;
 
@@ -176,14 +176,13 @@ mod tests {
 
         let data = "some transaction";
         let called = Rc::new(Cell::new(false));
-        chain
-            .submit_transaction(TransactionType::AddArtifact, data.as_bytes().to_vec(), {
-                let called = called.clone();
-                move |t: Transaction| {
-                    assert_eq!(data.as_bytes().to_vec(), t.payload());
-                    called.set(true)
-                }
-            })?;
+        chain.submit_transaction(TransactionType::AddArtifact, data.as_bytes().to_vec(), {
+            let called = called.clone();
+            move |t: Transaction| {
+                assert_eq!(data.as_bytes().to_vec(), t.payload());
+                called.set(true)
+            }
+        })?;
         assert!(called.get());
         Ok(())
     }
@@ -219,20 +218,21 @@ mod tests {
     fn test_revoke_authority() -> Result<(), String> {
         let keypair = Keypair::generate();
         let mut chain = Blockchain::new(&keypair);
-        let raw_pub_key: [u8;32] = [
-            0x0F,0x30,0x2A,0xAC,0x9E,0x34,0xC8,0xF0,0x90,0x75,0x08,0xB1,0x15,0x2E,0xEA,0xFC,
-            0x69,0x67,0x90,0x22,0x27,0x84,0x0D,0x4C,0x32,0xB6,0xED,0xF5,0xF0,0x7A,0xFC,0x87
+        let raw_pub_key: [u8; 32] = [
+            0x0F, 0x30, 0x2A, 0xAC, 0x9E, 0x34, 0xC8, 0xF0, 0x90, 0x75, 0x08, 0xB1, 0x15, 0x2E,
+            0xEA, 0xFC, 0x69, 0x67, 0x90, 0x22, 0x27, 0x84, 0x0D, 0x4C, 0x32, 0xB6, 0xED, 0xF5,
+            0xF0, 0x7A, 0xFC, 0x87,
         ];
-        chain.submit_transaction(RevokeAuthority, raw_pub_key.to_vec(), |_|{})
+        chain.submit_transaction(RevokeAuthority, raw_pub_key.to_vec(), |_| {})
     }
     #[test]
-    fn test_revoke_authority_bad_key(){
+    fn test_revoke_authority_bad_key() {
         let keypair = Keypair::generate();
         let mut chain = Blockchain::new(&keypair);
-        let raw_pub_key: [u8;1] = [0x00];
-        let ok = match chain.submit_transaction(RevokeAuthority, raw_pub_key.to_vec(), |_|{}){
+        let raw_pub_key: [u8; 1] = [0x00];
+        let ok = match chain.submit_transaction(RevokeAuthority, raw_pub_key.to_vec(), |_| {}) {
             Ok(_) => false,
-            Err(_) => true
+            Err(_) => true,
         };
         assert!(ok)
     }
@@ -241,20 +241,21 @@ mod tests {
     fn test_add_authority() -> Result<(), String> {
         let keypair = Keypair::generate();
         let mut chain = Blockchain::new(&keypair);
-        let raw_pub_key: [u8;32] = [
-            0x0F,0x30,0x2A,0xAC,0x9E,0x34,0xC8,0xF0,0x90,0x75,0x08,0xB1,0x15,0x2E,0xEA,0xFC,
-            0x69,0x67,0x90,0x22,0x27,0x84,0x0D,0x4C,0x32,0xB6,0xED,0xF5,0xF0,0x7A,0xFC,0x87
+        let raw_pub_key: [u8; 32] = [
+            0x0F, 0x30, 0x2A, 0xAC, 0x9E, 0x34, 0xC8, 0xF0, 0x90, 0x75, 0x08, 0xB1, 0x15, 0x2E,
+            0xEA, 0xFC, 0x69, 0x67, 0x90, 0x22, 0x27, 0x84, 0x0D, 0x4C, 0x32, 0xB6, 0xED, 0xF5,
+            0xF0, 0x7A, 0xFC, 0x87,
         ];
-        chain.submit_transaction(GrantAuthority, raw_pub_key.to_vec(), |_|{})
+        chain.submit_transaction(GrantAuthority, raw_pub_key.to_vec(), |_| {})
     }
     #[test]
     fn test_add_authority_bad_key() {
         let keypair = Keypair::generate();
         let mut chain = Blockchain::new(&keypair);
-        let raw_pub_key: [u8;1] = [0x00];
-        let ok = match chain.submit_transaction(RevokeAuthority, raw_pub_key.to_vec(), |_|{}){
+        let raw_pub_key: [u8; 1] = [0x00];
+        let ok = match chain.submit_transaction(RevokeAuthority, raw_pub_key.to_vec(), |_| {}) {
             Ok(_) => false,
-            Err(_) => true
+            Err(_) => true,
         };
         assert!(ok)
     }
