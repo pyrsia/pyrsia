@@ -40,7 +40,6 @@ pub fn make_docker_routes(
         ));
 
     let p2p_client_manifests = p2p_client.clone();
-    let p2p_client_blobs = p2p_client.clone();
     let v2_manifests = warp::path!("v2" / "library" / String / "manifests" / String)
         .and(warp::get().or(warp::head()).unify())
         .and_then(move |hash, tag| fetch_manifest(p2p_client_manifests.clone(), hash, tag));
@@ -56,7 +55,7 @@ pub fn make_docker_routes(
     let v2_blobs = warp::path!("v2" / "library" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(move |name, hash| handle_get_blobs(p2p_client_blobs.clone(), name, hash));
+        .and_then(move |name, hash| handle_get_blobs(p2p_client.clone(), name, hash));
     let v2_blobs_post = warp::path!("v2" / "library" / String / "blobs" / "uploads")
         .and(warp::post())
         .and_then(handle_post_blob);
