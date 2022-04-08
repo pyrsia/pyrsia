@@ -151,20 +151,7 @@ or simply use this script that bundles the above:
 
 ### Edit configuration:
 
-**On node1:**
-
-Edit
-```
-/etc/systemd/system/multi-user.target.wants/pyrsia.service
-```
-
-and add:
-```
--L /ip4/0.0.0.0/tcp/44000
-```
-behind the ExecStart command
-
-This will make sure node1 will start listening on port 44000 when it start.
+Both nodes will already be listening on port 44000 when it starts. Let's now edit the configuration on node2 to connect to node1 at startup.
 
 **On node2:**
 
@@ -177,13 +164,7 @@ and add:
 --peer /ip4/public_ip_of_node1/tcp/44000 -L /ip4/0.0.0.0/tcp/44000
 ```
 
-behind the ExecStart command
-
-This will make sure node2 connects to peer node1 when it starts.
-
-**Next, again on both nodes:**
-
-Make sure to first restart node1 (since node2 will be connecting to it)
+behind the ExecStart command. This will make sure node2 connects to peer node1 when it starts.
 
 Reload the daemon configuration:
 
