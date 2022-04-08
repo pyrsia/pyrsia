@@ -3430,6 +3430,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bincode",
+ "dirs",
  "ed25519-dalek",
  "futures",
  "hex",
@@ -4495,6 +4496,7 @@ dependencies = [
  "smallvec",
  "thiserror",
  "tinyvec",
+ "tokio",
  "url",
 ]
 
@@ -4514,6 +4516,7 @@ dependencies = [
  "resolv-conf",
  "smallvec",
  "thiserror",
+ "tokio",
  "trust-dns-proto",
 ]
 
