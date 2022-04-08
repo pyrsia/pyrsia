@@ -16,8 +16,9 @@
 
 use libp2p::request_response::ResponseChannel;
 use libp2p::Multiaddr;
-use log::{debug, info};
+use log::{debug, error, info};
 use pyrsia::artifacts_repository::hash_util::HashAlgorithm;
+use pyrsia::docker::v2::storage::manifests;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
 use pyrsia::network::client::Client;
 use pyrsia::node_manager;
@@ -45,12 +46,62 @@ pub async fn handle_request_artifact(
     hash: &str,
     channel: ResponseChannel<ArtifactResponse>,
 ) {
-    let decoded_hash = hex::decode(&hash.get(7..).unwrap()).unwrap();
-    match node_manager::handlers::get_artifact(&decoded_hash, HashAlgorithm::SHA256) {
-        Ok(content) => p2p_client.respond_artifact(content, channel).await,
+    if hash.contains("/") {
+        if let Some(content) = handle_request_manifest(hash) {
+            p2p_client.respond_artifact(content, channel).await;
+        }
+    } else {
+        if let Some(content) = handle_request_blob(hash) {
+            p2p_client.respond_artifact(content, channel).await;
+        }
+    }
+}
+
+fn handle_request_manifest(hash: &str) -> Option<Vec<u8>> {
+    let name = hash.get(..hash.find("/").unwrap()).unwrap();
+    let tag = hash.get(hash.find("/").unwrap() + 1..).unwrap();
+    match node_manager::handlers::METADATA_MGR.get_package_version(
+        pyrsia::node_manager::model::DOCKER_NAMESPACE_ID,
+        &name,
+        &tag,
+    ) {
+        Ok(Some(package_version)) => {
+            match manifests::get_artifact_manifest(&package_version.artifacts) {
+                Some(artifact) => {
+                    match node_manager::handlers::get_artifact(
+                        artifact.hash(),
+                        HashAlgorithm::SHA512,
+                    ) {
+                        Ok(content) => return Some(content),
+                        Err(e) => info!(
+                            "This node does not provide artifact {}. Error: {:?}",
+                            hash, e
+                        ),
+                    }
+                }
+                None => error!("Bad metadata in pyrsia. Not providing artifact {}.", hash),
+            }
+        }
+        Ok(None) => info!("This node does not provide artifact {}.", hash),
         Err(e) => info!(
             "This node does not provide artifact {}. Error: {:?}",
             hash, e
         ),
+    };
+
+    None
+}
+
+fn handle_request_blob(hash: &str) -> Option<Vec<u8>> {
+    let decoded_hash = hex::decode(&hash.get(7..).unwrap()).unwrap();
+    match node_manager::handlers::get_artifact(&decoded_hash, HashAlgorithm::SHA256) {
+        Ok(content) => Some(content),
+        Err(e) => {
+            info!(
+                "This node does not provide artifact {}. Error: {:?}",
+                hash, e
+            );
+            None
+        }
     }
 }

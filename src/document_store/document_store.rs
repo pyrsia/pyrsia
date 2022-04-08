@@ -149,7 +149,7 @@ fn get_catalog_record(
         .map_err(DocumentStoreError::UnQLite)?;
     let catalog: Catalog = bincode::deserialize(&raw_doc_store)?;
     if catalog != document_store.catalog {
-        warn!("Stored catalog fof document store collection {} is different than expected. This may cause future errors.", catalog.name)
+        warn!("Stored catalog of document store collection {} is different than expected. This may cause future errors.", catalog.name)
     }
     Ok(catalog)
 }

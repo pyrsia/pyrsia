@@ -20,3 +20,6 @@ pub mod namespace;
 pub mod package;
 pub mod package_type;
 pub mod package_version;
+
+// TODO This will eventually be defined in namespace metadata, after namespace metadata is implemented
+pub const DOCKER_NAMESPACE_ID: &str = "4658011310974e1bb5c46fd4df7e78b9";

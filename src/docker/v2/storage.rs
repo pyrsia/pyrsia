@@ -15,4 +15,5 @@
 */
 
 pub mod blobs;
+pub mod manifests;
 pub use crate::artifacts_repository::hash_util::HashAlgorithm;
