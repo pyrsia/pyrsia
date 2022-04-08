@@ -22,7 +22,7 @@ flowchart TB
   - node1
   - node2
 
-- We assume you have docker installed. Follow these instructions https://docs.docker.com/engine/install/ubuntu/ if you do not.
+- We assume you have docker installed. Follow these [instructions](https://docs.docker.com/engine/install/ubuntu/) if you do not.
 
 
 > If you ran these steps before and if you want to start from a clean sheet, do this:
