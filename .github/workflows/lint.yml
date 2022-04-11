@@ -14,12 +14,12 @@ jobs:
         any_changed: ${{ steps.changed-rust-files.outputs.any_changed }}
       steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Get changed rust files
         id: changed-rust-files
-        uses: tj-actions/changed-files@v18.6
+        uses: tj-actions/changed-files@v18.7
         with:
           files: |
             **/*.rs
