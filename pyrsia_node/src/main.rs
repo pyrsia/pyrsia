@@ -15,30 +15,33 @@
 */
 
 pub mod args;
+pub mod network;
 
 use args::parser::PyrsiaNodeArgs;
+use network::handlers;
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::make_docker_routes;
 use pyrsia::logging::*;
-use pyrsia::network::handlers::{dial_other_peer, handle_request_artifact, provide_artifacts};
+use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
 
 use clap::Parser;
 use futures::StreamExt;
 use log::{debug, info};
+use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use warp::Filter;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>> {
     pretty_env_logger::init();
 
     debug!("Parse CLI arguments");
     let args = PyrsiaNodeArgs::parse();
 
     debug!("Create p2p components");
-    let (p2p_client, mut p2p_events, event_loop) = p2p::create_components().await.unwrap();
+    let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm()?;
 
     debug!("Start p2p event loop");
     tokio::spawn(event_loop.run());
@@ -54,15 +57,15 @@ async fn main() {
         if let Some(event) = p2p_events.next().await {
             match event {
                 // Reply with the content of the artifact on incoming requests.
-                pyrsia::network::p2p::Event::InboundRequest { hash, channel } => {
-                    handle_request_artifact(p2p_client.clone(), &hash, channel).await
+                pyrsia::network::event_loop::PyrsiaEvent::RequestArtifact { hash, channel } => {
+                    handlers::handle_request_artifact(p2p_client.clone(), &hash, channel).await
                 }
             }
         }
     }
 }
 
-fn setup_http(args: &PyrsiaNodeArgs, p2p_client: p2p::Client) {
+fn setup_http(args: &PyrsiaNodeArgs, p2p_client: Client) {
     // Get host and port from the settings. Defaults to DEFAULT_HOST and DEFAULT_PORT
     debug!(
         "Pyrsia Docker Node will bind to host = {}, port = {}",
@@ -97,16 +100,16 @@ fn setup_http(args: &PyrsiaNodeArgs, p2p_client: p2p::Client) {
     tokio::spawn(server);
 }
 
-async fn setup_p2p(mut p2p_client: p2p::Client, args: PyrsiaNodeArgs) {
+async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
     p2p_client
         .listen(&args.listen_address)
         .await
         .expect("Listening should not fail");
 
     if let Some(to_dial) = args.peer {
-        dial_other_peer(p2p_client.clone(), &to_dial).await;
+        handlers::dial_other_peer(p2p_client.clone(), &to_dial).await;
     }
 
     debug!("Provide local artifacts");
-    provide_artifacts(p2p_client.clone()).await;
+    handlers::provide_artifacts(p2p_client.clone()).await;
 }

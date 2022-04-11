@@ -21,6 +21,7 @@ aleph-bft = "0.8.4"
 codec = {package = "parity-scale-codec", version = "2.3.1", default-features = false, features = ["derive"]}
 hex = "0.4.3"
 async-trait = "0.1.52"
+dirs = "4.0.0"
 
 [[example]]
 name = "simple_node"
