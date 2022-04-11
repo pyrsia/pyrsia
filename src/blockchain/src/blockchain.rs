@@ -17,11 +17,12 @@
 use libp2p::{identity, PeerId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 
 use super::crypto::hash_algorithm::HashDigest;
 use super::structures::{
     block::Block,
+    chain::Chain,
     transaction::{Transaction, TransactionType},
 };
 
@@ -31,20 +32,17 @@ pub enum SignatureAlgorithm {
     Ed25519,
 }
 
-#[derive(Deserialize, Serialize)]
 pub struct Blockchain {
-    #[serde(skip)]
     // this should actually be a Map<Transaction,Vec<OnTransactionSettled>> but that's later
     trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
-    #[serde(skip)]
     block_observers: Vec<Box<dyn FnMut(Block)>>,
-    blocks: Vec<Block>,
+    chain: Chain,
 }
 
 impl Debug for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Blockchain")
-            .field("blocks", &self.blocks)
+            .field("chain", &self.chain)
             .field("trans_observers", &self.trans_observers.len())
             .field("block_observers", &self.block_observers.len())
             .finish()
@@ -62,12 +60,19 @@ impl Blockchain {
         );
         // Make the "genesis" blocks
         let block = Block::new(HashDigest::new(b""), 0, Vec::from([transaction]), keypair);
+        let mut chain: Chain = Default::default();
+        chain.blocks.push(block);
         Self {
             trans_observers: Default::default(),
             block_observers: vec![],
-            blocks: Vec::from([block]),
+            chain,
         }
     }
+
+    pub fn blocks(&self) -> Vec<Block> {
+        self.chain.blocks.clone()
+    }
+
     pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction)>(
         &mut self,
         trans: Transaction,
@@ -101,15 +106,8 @@ impl Blockchain {
 
     #[warn(dead_code)]
     pub fn add_block(&mut self, block: Block) {
-        self.blocks.push(block);
-        self.notify_block_event(self.blocks.last().expect("block must exist").clone());
-    }
-}
-
-impl Display for Blockchain {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let json = serde_json::to_string_pretty(&self).expect("json format error");
-        write!(f, "{}", json)
+        self.chain.blocks.push(block);
+        self.notify_block_event(self.chain.blocks.last().expect("block must exist").clone());
     }
 }
 
@@ -136,13 +134,13 @@ mod tests {
         );
         transactions.push(transaction);
         chain.add_block(Block::new(
-            chain.blocks[0].header.hash(),
-            chain.blocks[0].header.ordinal,
+            chain.blocks()[0].header.hash(),
+            chain.blocks()[0].header.ordinal + 1,
             transactions,
             &keypair,
         ));
-        assert_eq!(true, chain.blocks.last().unwrap().verify());
-        assert_eq!(2, chain.blocks.len());
+        assert_eq!(true, chain.blocks().last().unwrap().verify());
+        assert_eq!(2, chain.blocks().len());
         Ok(())
     }
 
