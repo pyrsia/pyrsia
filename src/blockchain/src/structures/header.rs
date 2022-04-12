@@ -47,6 +47,8 @@ impl From<PeerId> for Address {
     }
 }
 
+pub type Ordinal = u128;
+
 // this struct exists only for generating a hash
 #[derive(Serialize)]
 struct PartialHeader {
@@ -54,7 +56,7 @@ struct PartialHeader {
     transactions_hash: HashDigest,
     committer: Address,
     timestamp: u64,
-    ordinal: u128,
+    ordinal: Ordinal,
     nonce: u128,
 }
 
@@ -94,7 +96,7 @@ pub struct Header {
     /// Unix timestamp in seconds, see <https://en.wikipedia.org/wiki/Unix_time> for more.
     pub timestamp: u64,
     /// block sequence number, the current block number should be the parent (previous) block number plus 1
-    pub ordinal: u128,
+    pub ordinal: Ordinal,
     /// Adds a salt to harden
     nonce: u128,
     /// The block id, 256-bit Keccak Hash of the Current Block Header, excluding itself

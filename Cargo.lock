@@ -3433,6 +3433,7 @@ dependencies = [
  "dirs",
  "ed25519-dalek",
  "futures",
+ "futures-timer",
  "hex",
  "libp2p",
  "log",
@@ -3445,6 +3446,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "unsigned-varint",
 ]
 
 [[package]]
