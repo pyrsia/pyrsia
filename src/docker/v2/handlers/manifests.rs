@@ -220,8 +220,21 @@ async fn get_manifest_from_other_peer(
         .request_artifact(peer_id, &format!("{}/{}", name, tag))
         .await
     {
-        Ok(artifact) => {
-            manifests::store_manifest_in_artifact_manager(name, tag, &bytes::Bytes::from(artifact))
+        Ok(manifest) => {
+            debug!("Step 2: YES, {}/{} exists in the Pyrsia network.", name, tag);
+            match manifests::store_manifest_in_artifact_manager(name, tag, &bytes::Bytes::from(manifest)) {
+                Ok(hash) => {
+                    debug!(
+                        "Step 2: {}/{} successfully stored locally from Pyrsia network.",
+                        name, tag
+                    );
+                    Ok(hash)
+                }
+                Err(error) => {
+                    debug!("Error while storing manifest in artifact manager: {:?}", error);
+                    Err(error)
+                }
+            }
         }
         Err(err) => {
             debug!(
@@ -234,9 +247,19 @@ async fn get_manifest_from_other_peer(
 }
 
 async fn get_manifest_from_docker_hub(name: &str, tag: &str) -> Result<String, Rejection> {
+    debug!("Step 3: Retrieving {}/{} from docker.io", name, tag);
     let token = get_docker_hub_auth_token(name).await?;
 
-    get_manifest_from_docker_hub_with_token(name, tag, token).await
+    match get_manifest_from_docker_hub_with_token(name, tag, token).await {
+        Ok(hash) => {
+            debug!(
+                "Step 3: {}/{} successfully stored locally from docker.io",
+                name, tag
+            );
+            Ok(hash)
+        }
+        Err(error) => Err(error),
+    }
 }
 
 async fn get_manifest_from_docker_hub_with_token(
