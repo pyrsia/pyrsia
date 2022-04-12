@@ -35,7 +35,7 @@ The section should return to the examples given in the previous section, and exp
 
 # Drawbacks
 
-Why should we *not* do this?
+Why should we *not* do this? What are the trade-offs? What negative side effects or limitation could be a consequence?
 
 # Rationale and alternatives
 
