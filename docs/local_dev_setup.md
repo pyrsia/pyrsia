@@ -150,7 +150,7 @@ Re-running the status command, there should be an connect peer.
 $ ./pyrsia -s
 Connected Peers Count:   1 # Shows the additional node that joined the list of peers
 Artifacts Count:         12
-Total Disk Available:    983112
+Total Disk Available:    10.5 GB
 ```
 
 In a real life deployment these nodes will be spread over the network and will all run on their own 7888 port.
