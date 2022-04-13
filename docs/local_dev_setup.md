@@ -97,7 +97,7 @@ following steps:
 
    Mac:  $HOME/Library/Preferences/rs.pyrsia-cli/pyrsia-cli.toml
    Linux: $HOME/.config/rs.pyrsia-cli/pyrsia-cli.toml or $XDG_CONFIG_HOME/rs.pyrsia-cli/pyrsia-cli.toml
-   Windows: `{FOLDERID_RoamingAppData}`\\`pyrsia-cli`\\config Ex: C:\Users\<UserName>\AppData\Roaming\pyrsia-cli\config\pyrsia-cli.toml
+   Windows: %APPDATA%\\Roaming\\pyrsia-cli\\config\\pyrsia-cli.toml
 
     
 
