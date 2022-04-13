@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await
     .expect("Libp2p network set-up should succeed.");
-    let (data_provider, current_block) = DataProvider::new();
+    let (data_provider, current_block) = DataProvider::new(); // TODO(prince-chrismc): Blend this into blockchain API???
     let (finalization_provider, mut finalized_rx) = FinalizationProvider::new();
     let data_store = DataStore::new(current_block.clone(), message_for_network);
 

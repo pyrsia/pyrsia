@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use super::{network::NetworkData, structures::header::Ordinal};
+use super::{network::NetworkData, structures::block::Block};
 use async_trait::async_trait;
 use futures::channel::{
     mpsc,
@@ -27,24 +27,22 @@ use std::{
     sync::Arc,
 };
 
-pub type Data = Ordinal;
-
 pub struct DataStore {
     next_message_id: u32,
-    current_block: Arc<Mutex<Ordinal>>,
-    available_blocks: HashSet<Ordinal>,
+    current_block: Arc<Mutex<Block>>,
+    available_blocks: HashSet<Block>,
     message_requirements: HashMap<u32, usize>,
-    dependent_messages: HashMap<Ordinal, Vec<u32>>,
+    dependent_messages: HashMap<Block, Vec<u32>>,
     pending_messages: HashMap<u32, NetworkData>,
     messages_for_member: UnboundedSender<NetworkData>,
 }
 
 impl DataStore {
     pub fn new(
-        current_block: Arc<Mutex<Ordinal>>,
+        current_block: Arc<Mutex<Block>>,
         messages_for_member: UnboundedSender<NetworkData>,
     ) -> Self {
-        let available_blocks = (0..=*current_block.lock().unwrap()).collect();
+        let available_blocks = (0..=current_block.lock().unwrap().header.ordinal).collect();
         DataStore {
             next_message_id: 0,
             current_block,
@@ -56,7 +54,7 @@ impl DataStore {
         }
     }
 
-    fn add_pending_message(&mut self, message: NetworkData, requirements: Vec<Ordinal>) {
+    fn add_pending_message(&mut self, message: NetworkData, requirements: Vec<Block>) {
         let message_id = self.next_message_id;
         // Whatever test you are running should end before this becomes a problem.
         self.next_message_id += 1;
@@ -75,18 +73,18 @@ impl DataStore {
         let requirements: Vec<_> = message
             .included_data()
             .into_iter()
-            .filter(|b| !self.available_blocks.contains(&b.header.ordinal))
+            .filter(|b| !self.available_blocks.contains(&b))
             .collect();
         if requirements.is_empty() {
             self.messages_for_member
                 .unbounded_send(message)
                 .expect("member accept messages");
         } else {
-            self.add_pending_message(message, requirements.into_iter().map(|b| b.header.ordinal).collect());
+            self.add_pending_message(message, requirements.into_iter().collect());
         }
     }
 
-    fn push_messages(&mut self, num: Ordinal) {
+    fn push_messages(&mut self, num: Block) {
         for message_id in self
             .dependent_messages
             .entry(num)
@@ -111,7 +109,7 @@ impl DataStore {
         self.dependent_messages.remove(&num);
     }
 
-    pub fn add_block(&mut self, num: Ordinal) {
+    pub fn add_block(&mut self, num: Block) {
         debug!("Added block {:?}.", num);
         self.available_blocks.insert(num);
         self.push_messages(num);
@@ -127,19 +125,19 @@ impl DataStore {
 
 #[derive(Clone)]
 pub struct DataProvider {
-    current_block: Arc<Mutex<Ordinal>>,
+    current_block: Arc<Mutex<Block>>,
 }
 
 #[async_trait]
-impl aleph_bft::DataProvider<Data> for DataProvider {
-    async fn get_data(&mut self) -> Data {
+impl aleph_bft::DataProvider<Block> for DataProvider {
+    async fn get_data(&mut self) -> Block {
         *self.current_block.lock().unwrap()
     }
 }
 
 impl DataProvider {
-    pub fn new() -> (Self, Arc<Mutex<Ordinal>>) {
-        let current_block = Arc::new(Mutex::new(0));
+    pub fn new() -> (Self, Arc<Mutex<Block>>) {
+        let current_block = Arc::new(Mutex::new(Block::new()));
         (
             DataProvider {
                 current_block: current_block.clone(),
@@ -150,12 +148,12 @@ impl DataProvider {
 }
 
 pub struct FinalizationProvider {
-    tx: UnboundedSender<Data>,
+    tx: UnboundedSender<Block>,
 }
 
 #[async_trait]
-impl aleph_bft::FinalizationHandler<Data> for FinalizationProvider {
-    async fn data_finalized(&mut self, d: Data) {
+impl aleph_bft::FinalizationHandler<Block> for FinalizationProvider {
+    async fn data_finalized(&mut self, d: Block) {
         if let Err(e) = self.tx.unbounded_send(d) {
             error!("Error when sending data from FinalizationProvider {:?}.", e);
         }
@@ -163,7 +161,7 @@ impl aleph_bft::FinalizationHandler<Data> for FinalizationProvider {
 }
 
 impl FinalizationProvider {
-    pub fn new() -> (Self, UnboundedReceiver<Data>) {
+    pub fn new() -> (Self, UnboundedReceiver<Block>) {
         let (tx, rx) = mpsc::unbounded();
 
         (Self { tx }, rx)
