@@ -16,6 +16,7 @@
 
 pub mod cli;
 
+use clap::{command, ErrorKind};
 use cli::handlers::*;
 use cli::parser::*;
 
@@ -26,6 +27,24 @@ async fn main() {
 
     // checking and preparing responses for each command and arguments
 
+    let (ls, pg, st) = (
+        matches.is_present("list"),
+        matches.is_present("ping"),
+        matches.is_present("status"),
+    );
+    match (ls, pg, st) {
+        (true, false, false) => node_list().await,
+        (false, true, false) => node_ping().await,
+        (false, false, true) => node_status().await,
+        _ => {
+            command!()
+                .error(
+                    ErrorKind::UnknownArgument,
+                    "Please specify correct argument",
+                )
+                .exit();
+        }
+    };
     match matches.subcommand() {
         // config subcommand
         Some(("config", config_matches)) => {
@@ -48,7 +67,14 @@ async fn main() {
                 println!("No help topic for '{:?}'", node_matches)
             }
         }
-        None => println!("No subcommand was used"),
+        None => {
+            command!()
+                .error(
+                    ErrorKind::UnrecognizedSubcommand,
+                    "Please specify correct subcommand",
+                )
+                .exit();
+        }
 
         _ => unreachable!(),
     }
