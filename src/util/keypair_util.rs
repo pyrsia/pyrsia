@@ -28,16 +28,17 @@ const KEYPAIR_FILENAME: &str = "p2p_keypair.ser";
 /// a new keypair is generated and then saved to disk.
 pub fn load_or_generate_ed25519() -> identity::Keypair {
     match get_keypair_path() {
-        Ok(keypair_path) => {
-            match load_ed25519(&keypair_path) {
-                Ok(keypair) => identity::Keypair::Ed25519(keypair),
-                Err(_) => {
-                    let keypair = identity::ed25519::Keypair::generate();
-                    if let Err(e) = save_ed25519(&keypair, &keypair_path) {
-                        warn!("Failed to persist newly generated keypair: {}", e.to_string());
-                    }
-                    identity::Keypair::Ed25519(keypair)
+        Ok(keypair_path) => match load_ed25519(&keypair_path) {
+            Ok(keypair) => identity::Keypair::Ed25519(keypair),
+            Err(_) => {
+                let keypair = identity::ed25519::Keypair::generate();
+                if let Err(e) = save_ed25519(&keypair, &keypair_path) {
+                    warn!(
+                        "Failed to persist newly generated keypair: {}",
+                        e.to_string()
+                    );
                 }
+                identity::Keypair::Ed25519(keypair)
             }
         },
         Err(e) => {
@@ -79,11 +80,7 @@ fn save_ed25519(
 fn get_keypair_path() -> Result<String, Box<dyn error::Error>> {
     let pyrsia_path: &str = &ARTIFACTS_DIR;
     fs::create_dir_all(pyrsia_path)?;
-    Ok(format!(
-        "{}/{}",
-        pyrsia_path,
-        KEYPAIR_FILENAME
-    ))
+    Ok(format!("{}/{}", pyrsia_path, KEYPAIR_FILENAME))
 }
 
 #[cfg(test)]

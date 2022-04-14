@@ -221,8 +221,15 @@ async fn get_manifest_from_other_peer(
         .await
     {
         Ok(manifest) => {
-            debug!("Step 2: YES, {}/{} exists in the Pyrsia network.", name, tag);
-            match manifests::store_manifest_in_artifact_manager(name, tag, &bytes::Bytes::from(manifest)) {
+            debug!(
+                "Step 2: YES, {}/{} exists in the Pyrsia network.",
+                name, tag
+            );
+            match manifests::store_manifest_in_artifact_manager(
+                name,
+                tag,
+                &bytes::Bytes::from(manifest),
+            ) {
                 Ok(hash) => {
                     debug!(
                         "Step 2: {}/{} successfully stored locally from Pyrsia network.",
@@ -231,7 +238,10 @@ async fn get_manifest_from_other_peer(
                     Ok(hash)
                 }
                 Err(error) => {
-                    debug!("Error while storing manifest in artifact manager: {:?}", error);
+                    debug!(
+                        "Error while storing manifest in artifact manager: {:?}",
+                        error
+                    );
                     Err(error)
                 }
             }

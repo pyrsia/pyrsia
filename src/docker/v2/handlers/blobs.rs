@@ -52,12 +52,11 @@ pub async fn handle_get_blobs(
             );
 
             get_blob_from_network(p2p_client.clone(), &name, &hash).await?;
-            blob_content =
-                get_artifact(&decoded_hash, HashAlgorithm::SHA256).map_err(|_| {
-                    warp::reject::custom(RegistryError {
-                        code: RegistryErrorCode::BlobUnknown,
-                    })
-                })?;
+            blob_content = get_artifact(&decoded_hash, HashAlgorithm::SHA256).map_err(|_| {
+                warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::BlobUnknown,
+                })
+            })?;
         }
     }
 
@@ -195,7 +194,8 @@ async fn get_blob_from_other_peer(
                 &id.to_string(),
                 hash,
                 bytes::Bytes::from(artifact),
-            ).map_err(RegistryError::from)?;
+            )
+            .map_err(RegistryError::from)?;
             debug!(
                 "Step 2: {:?} successfully stored locally from Pyrsia network.",
                 hash
@@ -247,6 +247,5 @@ async fn get_blob_from_docker_hub_with_token(
     let id = Uuid::new_v4();
 
     blobs::create_upload_directory(name, &id.to_string()).map_err(RegistryError::from)?;
-    blobs::store_blob_in_filesystem(name, &id.to_string(), hash, bytes)
-        .map_err(RegistryError::from)
+    blobs::store_blob_in_filesystem(name, &id.to_string(), hash, bytes).map_err(RegistryError::from)
 }
