@@ -145,19 +145,23 @@ async fn get_blob_from_network(
     mut p2p_client: Client,
     name: &str,
     hash: &str,
-) -> Result<(), Rejection> {
+) -> Result<(), RegistryError> {
     let providers = p2p_client.list_providers(hash).await;
     debug!(
         "Step 2: Does {:?} exist in the Pyrsia network? Providers: {:?}",
         hash, providers
     );
-    Ok(match providers.iter().next() {
+
+    match providers.iter().next() {
         Some(peer) => {
             debug!(
                 "Step 2: YES, {:?} exists in the Pyrsia network, fetching from peer {}.",
                 hash, peer
             );
-            if let Err(_) = get_blob_from_other_peer(p2p_client.clone(), peer, name, hash).await {
+            if get_blob_from_other_peer(p2p_client.clone(), peer, name, hash)
+                .await
+                .is_err()
+            {
                 get_blob_from_docker_hub(name, hash).await?
             }
         }
@@ -168,7 +172,9 @@ async fn get_blob_from_network(
             );
             get_blob_from_docker_hub(name, hash).await?
         }
-    })
+    }
+
+    Ok(())
 }
 
 // Request the content of the artifact from other peer
