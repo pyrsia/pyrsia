@@ -238,8 +238,7 @@ impl ArtifactManager {
                 let actual_hash =
                     &*do_push(reader, expected_hash, &tmp_path, out, &mut hash_buffer)?;
                 if actual_hash == expected_hash.bytes {
-                    rename_to_permanent(expected_hash, &base_path, &tmp_path)?;
-                    Ok(true)
+                    rename_to_permanent(expected_hash, &base_path, &tmp_path)
                 } else {
                     handle_wrong_hash(expected_hash, tmp_path, actual_hash)
                 }
