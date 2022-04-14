@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use crate::util::env_util::read_var;
+use crate::node_manager::handlers::ARTIFACTS_DIR;
 
 use libp2p::identity;
 use log::warn;
@@ -27,15 +27,22 @@ const KEYPAIR_FILENAME: &str = "p2p_keypair.ser";
 /// Load a ed25519 keypair from disk. If a keypair file does not yet exist,
 /// a new keypair is generated and then saved to disk.
 pub fn load_or_generate_ed25519() -> identity::Keypair {
-    let keypair_path = get_keypair_path();
-    match load_ed25519(&keypair_path) {
-        Ok(keypair) => identity::Keypair::Ed25519(keypair),
-        Err(_) => {
-            let keypair = identity::ed25519::Keypair::generate();
-            if let Err(e) = save_ed25519(&keypair, &keypair_path) {
-                warn!("Failed to persist newly generated keypair: {:?}", e);
+    match get_keypair_path() {
+        Ok(keypair_path) => {
+            match load_ed25519(&keypair_path) {
+                Ok(keypair) => identity::Keypair::Ed25519(keypair),
+                Err(_) => {
+                    let keypair = identity::ed25519::Keypair::generate();
+                    if let Err(e) = save_ed25519(&keypair, &keypair_path) {
+                        warn!("Failed to persist newly generated keypair: {}", e.to_string());
+                    }
+                    identity::Keypair::Ed25519(keypair)
+                }
             }
-            identity::Keypair::Ed25519(keypair)
+        },
+        Err(e) => {
+            warn!("Failed to get keypair path: {}", e.to_string());
+            identity::Keypair::generate_ed25519()
         }
     }
 }
@@ -52,10 +59,10 @@ fn load_ed25519(keypair_path: &str) -> Result<identity::ed25519::Keypair, Box<dy
     if keypair_metadata.len() == 64 {
         let mut buffer = vec![0; 64];
         keypair_file.read_exact(&mut buffer)?;
-        return Ok(identity::ed25519::Keypair::decode(&mut buffer)?);
+        Ok(identity::ed25519::Keypair::decode(&mut buffer)?)
+    } else {
+        Err(Box::new(io::Error::from(io::ErrorKind::InvalidData)))
     }
-
-    Err(Box::new(io::Error::from(io::ErrorKind::InvalidData)))
 }
 
 // Save the provided keypair to the specified path.
@@ -69,12 +76,14 @@ fn save_ed25519(
 }
 
 // Get the path on disk where the keypair is stored.
-fn get_keypair_path() -> String {
-    format!(
+fn get_keypair_path() -> Result<String, Box<dyn error::Error>> {
+    let pyrsia_path: &str = &ARTIFACTS_DIR;
+    fs::create_dir_all(pyrsia_path)?;
+    Ok(format!(
         "{}/{}",
-        read_var("PYRSIA_ARTIFACT_PATH", "pyrsia"),
+        pyrsia_path,
         KEYPAIR_FILENAME
-    )
+    ))
 }
 
 #[cfg(test)]
