@@ -67,14 +67,8 @@ async fn main() {
                 println!("No help topic for '{:?}'", node_matches)
             }
         }
-        None => {
-            command!()
-                .error(
-                    ErrorKind::UnrecognizedSubcommand,
-                    "Please specify correct subcommand",
-                )
-                .exit();
-        }
+        
+        None => {}
 
         _ => unreachable!(),
     }
