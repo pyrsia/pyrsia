@@ -64,10 +64,10 @@ async fn main() {
             } else if node_matches.is_present("status") {
                 node_status().await;
             } else {
-                println!("No help topic for '{:?}'", node_matches)
+                println!("No help topic for '{:?}'", node_matches);
             }
         }
-        
+
         None => {}
 
         _ => unreachable!(),
