@@ -117,9 +117,14 @@ jobs:
         private_key: ${{ secrets.GPG_PRIVATE }}
         key_passphrase: ${{ secrets.GPG_SECRET }}
         github_repository: pyrsia/pyrsia.github.io
-  
+
+  rust-files:
+    uses: ./.github/workflows/any_changed_rust_files.yml
+
   # Coverage wipes the cache in order to instrument the code.  No need to wait for other jobs to run it.
   coverage:
+    needs: rust-files
+    if: needs.rust-files.outputs.any_changed == 'true'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
