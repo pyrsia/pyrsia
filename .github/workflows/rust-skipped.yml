@@ -1,0 +1,51 @@
+name: Rust
+
+on:
+  push:
+    branches: [ main ]
+    path-ignored: # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint-skipped.yml#L8
+      - .github/workflows/rust.yml
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - Cargo.lock
+  pull_request:
+    path-ignored: # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint-skipped.yml#L8
+      - .github/workflows/rust.yml
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - Cargo.lock
+  release: 
+    path-ignored: # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint-skipped.yml#L8
+      - .github/workflows/rust.yml
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - Cargo.lock
+    types: [published]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # OS/X  Build Job 
+  build-osx:
+    runs-on: macos-latest
+    steps:
+      - run: echo "No build required"
+
+  build-push-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No build required"
+
+  # Coverage wipes the cache in order to instrument the code.  No need to wait for other jobs to run it.
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No build required"
+  
+  # Docker build that uses the published .deb file from the Linux build
+  docker:
+    runs-on: ubuntu-latest
+    needs: [build-push-linux]
+    steps:
+      - run: echo "No build required"
