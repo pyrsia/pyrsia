@@ -64,17 +64,11 @@ async fn main() {
             } else if node_matches.is_present("status") {
                 node_status().await;
             } else {
-                println!("No help topic for '{:?}'", node_matches)
+                println!("No help topic for '{:?}'", node_matches);
             }
         }
-        None => {
-            command!()
-                .error(
-                    ErrorKind::UnrecognizedSubcommand,
-                    "Please specify correct subcommand",
-                )
-                .exit();
-        }
+
+        None => {}
 
         _ => unreachable!(),
     }
