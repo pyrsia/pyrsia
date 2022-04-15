@@ -66,7 +66,7 @@ You can follow the [Local Development Setup](local_dev_setup.md) guide to perfor
 
 ## How-to Update
 
-We currently target the most current stable version of the rust toolchain. Perioudically execute
+We currently target the most current stable version of the rust toolchain. Periodically execute
 
 ```sh
 rustup update
