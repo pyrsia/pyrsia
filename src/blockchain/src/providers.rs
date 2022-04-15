@@ -58,9 +58,9 @@ impl DataStore {
         let message_id = self.next_message_id;
         // Whatever test you are running should end before this becomes a problem.
         self.next_message_id += 1;
-        for block_num in requirements.iter() {
+        for block in requirements.iter() {
             self.dependent_messages
-                .entry(*block_num)
+                .entry(block.clone())
                 .or_insert_with(Vec::new)
                 .push(message_id);
         }
@@ -84,10 +84,10 @@ impl DataStore {
         }
     }
 
-    fn push_messages(&mut self, num: Block) {
+    fn push_messages(&mut self, block: Block) {
         for message_id in self
             .dependent_messages
-            .entry(num)
+            .entry(block.clone())
             .or_insert_with(Vec::new)
             .iter()
         {
@@ -106,7 +106,7 @@ impl DataStore {
                 self.message_requirements.remove(message_id);
             }
         }
-        self.dependent_messages.remove(&num);
+        self.dependent_messages.remove(&block);
     }
 
     pub fn add_block(&mut self, block: Block) {
@@ -131,20 +131,16 @@ pub struct DataProvider {
 #[async_trait]
 impl aleph_bft::DataProvider<Block> for DataProvider {
     async fn get_data(&mut self) -> Block {
-        *self.current_block.lock().unwrap()
+        self.current_block.lock().unwrap().clone()
     }
 }
 
 impl DataProvider {
     // TODO(prince-chrismc): Initial Block?
-    pub fn new() -> (Self, Arc<Mutex<Block>>) {
-        let current_block = Arc::new(Mutex::new(Block::new()));
-        (
-            DataProvider {
-                current_block: current_block.clone(),
-            },
-            current_block,
-        )
+    pub fn new(initial_block: Arc<Mutex<Block>>) -> Self {
+        DataProvider {
+            current_block: initial_block.clone(),
+        }
     }
 }
 

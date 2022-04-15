@@ -14,12 +14,12 @@
    limitations under the License.
 */
 
-use pyrsia_blockchain_network::{run_session, NodeIndex, default_config};
 use dirs;
 use futures::channel::{mpsc as futures_mpsc, oneshot};
 use futures::StreamExt;
 use libp2p::{identity, PeerId};
 use log::{debug, error, info};
+use pyrsia_blockchain_network::{default_config, run_session, NodeIndex};
 use std::{
     error::Error,
     fs,
@@ -29,14 +29,16 @@ use std::{
 use tokio::io::{self, AsyncBufReadExt};
 
 use pyrsia_blockchain_network::blockchain::Blockchain;
+use pyrsia_blockchain_network::identities::{
+    authority_pen::AuthorityPen, authority_verifier::AuthorityVerifier, key_box::KeyBox,
+};
 use pyrsia_blockchain_network::network::Behaviour;
+use pyrsia_blockchain_network::network::{Network, Spawner};
+use pyrsia_blockchain_network::providers::{DataProvider, DataStore, FinalizationProvider};
 use pyrsia_blockchain_network::structures::{
     block::Block,
     transaction::{Transaction, TransactionType},
 };
-use pyrsia_blockchain_network::identities::{authority_pen::AuthorityPen, key_box::KeyBox, authority_verifier::AuthorityVerifier};
-use pyrsia_blockchain_network::network::{Network, Spawner};
-use pyrsia_blockchain_network::providers::{DataProvider, FinalizationProvider, DataStore};
 use pyrsia_blockchain_network::{gen_chain_config, run_blockchain};
 
 pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
@@ -51,13 +53,14 @@ const INITIAL_DELAY_MS: u128 = 5000;
 async fn main() -> Result<(), Box<dyn Error>> {
     // If the key file exists, load the key pair. Otherwise, create a random keypair and save to the key file
     let id_keys = create_ed25519_keypair();
-    let peer_id = PeerId::from(identity::PublicKey::Ed25519(id_keys.public()));
+    let edwards_pair = identity::Keypair::Ed25519(id_keys.clone());
+    let peer_id = PeerId::from(edwards_pair.public());
 
     info!("Getting network up.");
     let n_members = 3;
     let my_node_ix = NodeIndex(my_id);
 
-    let pen = AuthorityPen::new(my_node_ix, edwards_pair.clone());
+    let pen = AuthorityPen::new(my_node_ix, id_keys.clone());
     let verifier = AuthorityVerifier::new();
 
     let keybox = KeyBox::new(pen, verifier);
@@ -86,7 +89,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         message_from_network,
     ) = Network::new(
         my_node_ix,
-        edwards_pair.clone(),
+        id_keys.clone(),
         peers_by_index,
         authority_to_verifier,
     )
@@ -123,7 +126,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let (close_member, exit) = oneshot::channel();
     tokio::spawn(async move {
-        let config = aleph_bft::default_config(n_members.into(), my_node_ix, 0);
+        let config = default_config(n_members.into(), my_node_ix, 0);
         run_session(
             config,
             network,

@@ -23,11 +23,11 @@ pub mod signature;
 pub mod structures;
 
 use crate::network::NetworkData;
-use crate::providers::{DataProvider, DataStore, FinalizationProvider};
+use crate::providers::DataStore;
 use crate::structures::block::Block;
 use crate::structures::header::Ordinal;
 
-pub use aleph_bft::{run_session, NodeIndex, default_config};
+pub use aleph_bft::{default_config, run_session, NodeIndex};
 use futures::{
     channel::{
         mpsc::{UnboundedReceiver, UnboundedSender},
@@ -109,7 +109,8 @@ pub async fn run_blockchain(
                 let curr_time = time::Instant::now();
                 //TODO(prince-chrismc): This wants to be u64 so we need to do some magic here
                 let block_delay_ms = (block_num - 1) * config.blocktime_ms + config.init_delay_ms;
-                let block_creation_time = start_time + Duration::from_millis(block_delay_ms.try_into().unwrap());
+                let block_creation_time =
+                    start_time + Duration::from_millis(block_delay_ms.try_into().unwrap());
                 if curr_time >= block_creation_time {
                     // let block = Block::new(block_num, config.data_size);
                     // blocks_for_network
