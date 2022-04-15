@@ -16,13 +16,8 @@
 
 use pyrsia_blockchain_network::{run_session, NodeIndex, default_config};
 use dirs;
-use futures::channel::mpsc as futures_mpsc;
+use futures::channel::{mpsc as futures_mpsc, oneshot};
 use futures::StreamExt;
-use futures::{
-    channel::{
-        oneshot,
-    },
-};
 use libp2p::{identity, PeerId};
 use log::{debug, error, info};
 use std::{
@@ -39,15 +34,10 @@ use pyrsia_blockchain_network::structures::{
     block::Block,
     transaction::{Transaction, TransactionType},
 };
-use pyrsia_blockchain_network::identities::authority_pen::AuthorityPen;
-use pyrsia_blockchain_network::identities::key_box::KeyBox;
-use pyrsia_blockchain_network::network::Network;
-use pyrsia_blockchain_network::providers::DataProvider;
-use pyrsia_blockchain_network::providers::FinalizationProvider;
-use pyrsia_blockchain_network::providers::DataStore;
+use pyrsia_blockchain_network::identities::{authority_pen::AuthorityPen, key_box::KeyBox, authority_verifier::AuthorityVerifier};
+use pyrsia_blockchain_network::network::{Network, Spawner};
+use pyrsia_blockchain_network::providers::{DataProvider, FinalizationProvider, DataStore};
 use pyrsia_blockchain_network::{gen_chain_config, run_blockchain};
-use pyrsia_blockchain_network::network::Spawner;
-use pyrsia_blockchain_network::identities::authority_verifier::AuthorityVerifier;
 
 pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
 pub const BLOCK_KEYPAIR_FILENAME: &str = ".block_keypair";
