@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use super::{network::NetworkData, structures::block::Block};
+use super::{network::NetworkData, structures::block::Block, structures::header::Ordinal};
 use async_trait::async_trait;
 use futures::channel::{
     mpsc,
@@ -30,7 +30,7 @@ use std::{
 pub struct DataStore {
     next_message_id: u32,
     current_block: Arc<Mutex<Block>>,
-    available_blocks: HashSet<Block>,
+    available_blocks: HashSet<Ordinal>,
     message_requirements: HashMap<u32, usize>,
     dependent_messages: HashMap<Block, Vec<u32>>,
     pending_messages: HashMap<u32, NetworkData>,
@@ -73,7 +73,7 @@ impl DataStore {
         let requirements: Vec<_> = message
             .included_data()
             .into_iter()
-            .filter(|b| !self.available_blocks.contains(&b))
+            .filter(|b| !self.available_blocks.contains(&b.header.ordinal))
             .collect();
         if requirements.is_empty() {
             self.messages_for_member
@@ -109,15 +109,15 @@ impl DataStore {
         self.dependent_messages.remove(&num);
     }
 
-    pub fn add_block(&mut self, num: Block) {
-        debug!("Added block {:?}.", num);
-        self.available_blocks.insert(num);
-        self.push_messages(num);
+    pub fn add_block(&mut self, block: Block) {
+        debug!("Added block {:?}.", block);
+        self.available_blocks.insert(block.header.ordinal);
+        self.push_messages(block);
         while self
             .available_blocks
-            .contains(&(*self.current_block.lock().unwrap() + 1))
+            .contains(&(self.current_block.lock().unwrap().header.ordinal + 1))
         {
-            *self.current_block.lock().unwrap() += 1;
+            self.current_block.lock().unwrap().header.ordinal += 1;
         }
         debug!("Updated chain {:?}", self.available_blocks);
     }
@@ -136,6 +136,7 @@ impl aleph_bft::DataProvider<Block> for DataProvider {
 }
 
 impl DataProvider {
+    // TODO(prince-chrismc): Initial Block?
     pub fn new() -> (Self, Arc<Mutex<Block>>) {
         let current_block = Arc::new(Mutex::new(Block::new()));
         (

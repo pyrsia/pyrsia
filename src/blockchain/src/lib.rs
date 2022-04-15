@@ -23,7 +23,7 @@ pub mod signature;
 pub mod structures;
 
 use crate::network::NetworkData;
-use crate::providers::{Data, DataProvider, DataStore, FinalizationProvider};
+use crate::providers::{DataProvider, DataStore, FinalizationProvider};
 use crate::structures::block::Block;
 use crate::structures::header::Ordinal;
 
@@ -116,7 +116,8 @@ pub async fn run_blockchain(
                     //     .unbounded_send(block)
                     //     .expect("network should accept blocks");
                     info!("📝 Saving locally generated block");
-                    data_store.add_block(block_num);
+                    // TODO(prince-chrismc): Generate blocks from "known transactions"
+                    // data_store.add_block(block_num);
                 }
             }
             // We tick every 125ms.
@@ -126,7 +127,7 @@ pub async fn run_blockchain(
                 maybe_block = blocks_from_network.next() => {
                     if let Some(block) = maybe_block {
                         info!("🧾 Adding new block {} from the network", block.header.ordinal);
-                        data_store.add_block(block.header.ordinal);
+                        data_store.add_block(block);
                         //We drop the block at this point, only keep track of the fact that we received it.
                     }
                 }

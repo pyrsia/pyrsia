@@ -18,7 +18,6 @@ use super::crypto::hash_algorithm::HashDigest;
 use super::identities::verify_key::VerifyKey;
 use super::signature::{MultiSignature, Signature};
 use super::structures::block::Block;
-use super::structures::chain::Chain;
 
 use aleph_bft::{NodeIndex, Recipient, TaskHandle};
 use codec::{Decode, Encode};
