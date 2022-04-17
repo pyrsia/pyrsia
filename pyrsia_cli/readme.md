@@ -28,8 +28,8 @@ cargo install --path .
 ```console
 pyrsia -h
 pyrsia -V
-pyrsia --ping
-pyrsia -s
+pyrsia ping
+pyrsia status or pyrsia -s
 pyrsia config --add
 pyrsia config -s
 ```

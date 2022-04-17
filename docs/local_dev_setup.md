@@ -87,10 +87,10 @@ following steps:
    cd ../target/debug
    ```
 
-8. Configure the CLI tool for your node using subcommand "config" 
+8. Configure the CLI tool for your node using interactive subcommand "config" 
 
    ```
-    ./pyrsia config --add localhost:7888
+    ./pyrsia config --add
     ```
 
    OR place the config file in these OS specific locations:
@@ -104,7 +104,7 @@ following steps:
 9. Ping the Pyrsia node and list the status
 
     ```sh
-    $ ./pyrsia --ping
+    $ ./pyrsia ping
     Connection Successfull !! {}
     ```
 
