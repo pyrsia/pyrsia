@@ -18,6 +18,7 @@ use codec::{Decode, Encode};
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
+use std::cmp::Ordering;
 
 use super::header::{Address, Header};
 use super::transaction::Transaction;
@@ -62,6 +63,13 @@ impl Block {
     // After merging Aleph consensus algorithm, it would be implemented
     pub fn verify(&self) -> bool {
         true
+    }
+}
+
+
+impl PartialOrd for Block {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.header.ordinal.partial_cmp(&other.header.ordinal)
     }
 }
 

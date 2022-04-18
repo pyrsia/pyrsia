@@ -19,27 +19,29 @@ use futures::channel::{mpsc as futures_mpsc, oneshot};
 use futures::StreamExt;
 use libp2p::{identity, PeerId};
 use log::{debug, error, info};
-use pyrsia_blockchain_network::{default_config, run_session, NodeIndex};
 use std::{
     error::Error,
     fs,
     io::{Read, Write},
     os::unix::fs::OpenOptionsExt,
+    sync::{Arc, Mutex},
 };
 use tokio::io::{self, AsyncBufReadExt};
 
 use pyrsia_blockchain_network::blockchain::Blockchain;
+use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
 use pyrsia_blockchain_network::identities::{
     authority_pen::AuthorityPen, authority_verifier::AuthorityVerifier, key_box::KeyBox,
 };
-use pyrsia_blockchain_network::network::Behaviour;
-use pyrsia_blockchain_network::network::{Network, Spawner};
+use pyrsia_blockchain_network::network::{Behaviour, Network, Spawner};
 use pyrsia_blockchain_network::providers::{DataProvider, DataStore, FinalizationProvider};
 use pyrsia_blockchain_network::structures::{
     block::Block,
     transaction::{Transaction, TransactionType},
 };
-use pyrsia_blockchain_network::{gen_chain_config, run_blockchain};
+use pyrsia_blockchain_network::{
+    default_config, gen_chain_config, run_blockchain, run_session, NodeIndex,
+};
 
 pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
 pub const BLOCK_KEYPAIR_FILENAME: &str = ".block_keypair";
@@ -58,7 +60,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     info!("Getting network up.");
     let n_members = 3;
-    let my_node_ix = NodeIndex(my_id);
+    let my_node_ix = NodeIndex(0); // TODO(prince-chrismc): Should be a CLI arg?
 
     let pen = AuthorityPen::new(my_node_ix, id_keys.clone());
     let verifier = AuthorityVerifier::new();
@@ -90,12 +92,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ) = Network::new(
         my_node_ix,
         id_keys.clone(),
-        peers_by_index,
+        Default::default(), // peers_by_index,
         authority_to_verifier,
     )
     .await
     .expect("Libp2p network set-up should succeed.");
-    let (data_provider, current_block) = DataProvider::new(); // TODO(prince-chrismc): Blend this into blockchain API???
+    // Make the "genesis" blocks
+    let current_block: Arc<Mutex<Block>> = Arc::new(Mutex::new(Block::new(
+        HashDigest::new(b""),
+        0,
+        vec![],
+        &id_keys,
+    )));
+
+    let data_provider = DataProvider::new(current_block.clone()); // TODO(prince-chrismc): Blend this into blockchain API???
     let (finalization_provider, mut finalized_rx) = FinalizationProvider::new();
     let data_store = DataStore::new(current_block.clone(), message_for_network);
 
@@ -141,8 +151,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut max_block_finalized = 0;
     while let Some(block_num) = finalized_rx.next().await {
-        if max_block_finalized < block_num {
-            max_block_finalized = block_num;
+        if max_block_finalized < block_num.header.ordinal {
+            max_block_finalized = block_num.header.ordinal;
         }
         debug!(
             "🌟 Got new batch. Highest finalized = {:?}",

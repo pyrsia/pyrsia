@@ -21,10 +21,9 @@ use futures::channel::{
     mpsc::{UnboundedReceiver, UnboundedSender},
 };
 use log::{debug, error};
-use std::sync::Mutex;
 use std::{
     collections::{HashMap, HashSet},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 pub struct DataStore {

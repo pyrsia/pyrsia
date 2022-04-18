@@ -89,7 +89,7 @@ pub fn gen_chain_config(
 pub async fn run_blockchain(
     config: ChainConfig,
     mut data_store: DataStore,
-    current_block: Arc<Mutex<Ordinal>>,
+    current_block: Arc<Mutex<Block>>,
     mut blocks_from_network: UnboundedReceiver<Block>,
     blocks_for_network: UnboundedSender<Block>,
     mut messages_from_network: UnboundedReceiver<NetworkData>,
@@ -97,7 +97,7 @@ pub async fn run_blockchain(
 ) {
     let start_time = time::Instant::now();
     for block_num in 1u128.. {
-        while *current_block.lock().unwrap() < block_num {
+        while current_block.lock().unwrap().header.ordinal < block_num {
             let curr_author = (config.authorship_plan)(block_num);
             trace!("The current block author is {:?}", curr_author);
             if curr_author == config.node_ix {
