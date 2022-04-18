@@ -15,11 +15,11 @@
 */
 
 use super::handlers::swarm::*;
-use crate::network::p2p;
+use crate::network::client::Client;
 use warp::Filter;
 
 pub fn make_node_routes(
-    p2p_client: p2p::Client,
+    p2p_client: Client,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let p2p_client_peers = p2p_client.clone();
 

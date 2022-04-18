@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use dirs;
 use futures::StreamExt;
 use libp2p::{
     core::upgrade,
@@ -25,19 +26,29 @@ use libp2p::{
     tcp::TokioTcpConfig,
     Multiaddr, PeerId, Transport,
 };
-use std::error::Error;
+use std::{
+    error::Error,
+    fs,
+    io::{Read, Write},
+    os::unix::fs::OpenOptionsExt,
+};
+
 use tokio::io::{self, AsyncBufReadExt};
 
-use pyrsia_blockchain_network::block::{Block, PartialTransaction, Transaction, TransactionType};
 use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::network::Behaviour;
+use pyrsia_blockchain_network::structures::{
+    block::Block,
+    transaction::{Transaction, TransactionType},
+};
 
 pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
+pub const BLOCK_KEYPAIR_FILENAME: &str = ".block_keypair";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // Create a random PeerId
-    let id_keys = identity::ed25519::Keypair::generate();
+    // If the key file exists, load the key pair. Otherwise, create a random keypair and save to the key file
+    let id_keys = create_ed25519_keypair();
     let peer_id = PeerId::from(identity::PublicKey::Ed25519(id_keys.public()));
 
     println!("Local peer id: {:?}", peer_id);
@@ -114,11 +125,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             line = stdin.next_line() => {
                 let l = line.expect("stdin closed");
                 let transaction = Transaction::new(
-                    PartialTransaction::new(
                         TransactionType::Create,
-                        peer_id,
+                        peer_id.into(),
                         l.unwrap().as_bytes().to_vec(),
-                    ),
                     &id_keys,
                 );
 
@@ -137,10 +146,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 pub fn write_block(path: &str, block: Block) {
-    use std::fs::OpenOptions;
-    use std::io::Write;
-
-    let mut file = OpenOptions::new()
+    let mut file = fs::OpenOptions::new()
         .write(true)
         .append(true)
         .create(true)
@@ -150,4 +156,91 @@ pub fn write_block(path: &str, block: Block) {
     file.write_all(serde_json::to_string(&block).unwrap().as_bytes())
         .expect("write failed");
     file.write_all(b"\n").expect("write failed");
+}
+
+pub fn write_keypair(path: &String, data: &[u8; 64]) {
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .mode(0o600)
+        .open(path)
+        .expect("cannot open file");
+
+    file.write_all(data).expect("write failed");
+}
+
+pub fn read_keypair(path: &String) -> Result<[u8; 64], Box<dyn Error>> {
+    let mut file = std::fs::File::open(path)?;
+    let mut buf = [0u8; 64];
+    let n = file.read(&mut buf)?;
+    if n == 64 {
+        Ok(buf)
+    } else {
+        Err(Box::new(io::Error::from(io::ErrorKind::InvalidData)))
+    }
+}
+
+pub fn get_keyfile_name() -> String {
+    let mut path = dirs::home_dir().unwrap();
+    path.push(BLOCK_KEYPAIR_FILENAME);
+
+    let filepath = path.into_os_string().into_string().unwrap();
+    println!("filename : {:?}", filepath);
+    filepath
+}
+
+pub fn create_ed25519_keypair() -> libp2p::identity::ed25519::Keypair {
+    let filename = get_keyfile_name();
+    match read_keypair(&filename) {
+        Ok(v) => {
+            let data: &mut [u8] = &mut v.clone();
+            libp2p::identity::ed25519::Keypair::decode(data).unwrap()
+        }
+        Err(_) => {
+            let id_keys = identity::ed25519::Keypair::generate();
+
+            let data = id_keys.encode();
+
+            write_keypair(&filename, &data);
+            id_keys
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const TEST_KEYPAIR_FILENAME: &str = "./test_keypair";
+    #[test]
+    fn test_get_keyfile_name_succeeded() {
+        let mut path = dirs::home_dir().unwrap();
+
+        path.push(BLOCK_KEYPAIR_FILENAME);
+        assert_eq!(
+            path.into_os_string().into_string().unwrap(),
+            get_keyfile_name()
+        );
+    }
+
+    #[test]
+    fn test_write_keypair_succeeded() {
+        let file = String::from(TEST_KEYPAIR_FILENAME);
+        let data = [0u8; 64];
+        let result = std::panic::catch_unwind(|| write_keypair(&file, &data));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_read_keypair_succeeded() {
+        let file = String::from(TEST_KEYPAIR_FILENAME);
+        let data = [0u8; 64];
+        write_keypair(&file, &data);
+        assert!(read_keypair(&file).is_ok());
+    }
+
+    #[test]
+    fn test_create_keypair_succeeded() {
+        let result = std::panic::catch_unwind(|| create_ed25519_keypair());
+        assert!(result.is_ok());
+    }
 }

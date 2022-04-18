@@ -19,7 +19,7 @@ use super::HashAlgorithm;
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::docker::v2::storage::*;
-use crate::network::p2p;
+use crate::network::client::Client;
 use bytes::Bytes;
 use libp2p::PeerId;
 use log::{debug, info, trace};
@@ -31,7 +31,7 @@ use uuid::Uuid;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_blobs(
-    mut p2p_client: p2p::Client,
+    mut p2p_client: Client,
     name: String,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
@@ -149,11 +149,11 @@ pub async fn handle_put_blob(
 
 // Request the content of the artifact from the pyrsia network
 async fn get_blob_from_network(
-    mut p2p_client: p2p::Client,
+    mut p2p_client: Client,
     name: &str,
     hash: &str,
 ) -> Result<bool, Rejection> {
-    let providers = p2p_client.list_providers(String::from(hash)).await;
+    let providers = p2p_client.list_providers(hash).await;
     debug!(
         "Step 2: Does {:?} exist in the Pyrsia network? Providers: {:?}",
         hash, providers
@@ -181,7 +181,7 @@ async fn get_blob_from_network(
 
 // Request the content of the artifact from other peer
 async fn get_blob_from_other_peer(
-    mut p2p_client: p2p::Client,
+    mut p2p_client: Client,
     peer_id: &PeerId,
     name: &str,
     hash: &str,
@@ -191,10 +191,7 @@ async fn get_blob_from_other_peer(
         peer_id,
         hash.get(7..).unwrap()
     );
-    match p2p_client
-        .request_artifact(peer_id, String::from(hash))
-        .await
-    {
+    match p2p_client.request_artifact(peer_id, hash).await {
         Ok(artifact) => {
             let id = Uuid::new_v4();
             debug!("Step 2: YES, {:?} exists in the Pyrsia network.", hash);
