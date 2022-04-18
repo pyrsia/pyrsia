@@ -17,8 +17,8 @@
 use codec::{Decode, Encode};
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
 use std::cmp::Ordering;
+use std::fmt::{Display, Formatter};
 
 use super::header::{Address, Header};
 use super::transaction::Transaction;
@@ -65,7 +65,6 @@ impl Block {
         true
     }
 }
-
 
 impl PartialOrd for Block {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
