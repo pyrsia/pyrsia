@@ -51,5 +51,5 @@ The Pyrsia node will always join the "main net" and connect with other peers. Yo
 $ ./pyrsia node -s
 Connected Peers Count:   17 # Shows the number of visible peers
 Artifacts Count:         12 # Total number of artifacts cached locally
-Total Disk Available:    983112
+Total Disk Available:    10.5 GB
 ```

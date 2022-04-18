@@ -16,21 +16,19 @@
 
 use identity::ed25519::Keypair;
 use identity::PublicKey::Ed25519;
-use libp2p::{identity, PeerId};
+use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
 use super::crypto::hash_algorithm::HashDigest;
-use crate::structures::block::*;
-use crate::structures::chain::*;
-use crate::structures::transaction::*;
+use super::structures::{
+    block::Block,
+    chain::Chain,
+    header::Address,
+    transaction::{Transaction, TransactionType, Validator},
+};
 
-/// BlockchainId identifies the current chain
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum BlockchainId {
-    Pyrsia,
-}
 
 /// Define Supported Signature Algorithm
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -42,7 +40,7 @@ pub struct Blockchain {
     // this should actually be a Map<Transaction,Vec<OnTransactionSettled>> but that's later
     trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
     key_pair: Keypair,
-    local_id: PeerId,
+    local_id: Address,
     block_observers: Vec<Box<dyn FnMut(Block)>>,
     chain: Chain,
 }
@@ -59,7 +57,7 @@ impl Debug for Blockchain {
 
 impl Blockchain {
     pub fn new(keypair: &Keypair) -> Self {
-        let local_id = PeerId::from(Ed25519(keypair.public()));
+        let local_id = Address::from(Ed25519(keypair.public()));
         let transaction = Transaction::new(
             TransactionType::GrantAuthority,
             local_id,
@@ -146,7 +144,7 @@ mod tests {
     #[test]
     fn test_build_blockchain() -> Result<(), String> {
         let keypair = Keypair::generate();
-        let local_id = PeerId::from(Ed25519(keypair.public()));
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let mut chain = Blockchain::new(&keypair);
 
         let mut transactions = vec![];
@@ -160,7 +158,7 @@ mod tests {
         transactions.push(transaction);
         chain.add_block(Block::new(
             chain.blocks()[0].header.hash(),
-            chain.blocks()[0].header.ordinal,
+            chain.blocks()[0].header.ordinal + 1,
             transactions,
             &keypair,
         ));
@@ -172,6 +170,7 @@ mod tests {
     #[test]
     fn test_add_trans_listener() -> Result<(), String> {
         let keypair = Keypair::generate();
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let mut chain = Blockchain::new(&keypair);
 
         let data = "some transaction";

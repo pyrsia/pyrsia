@@ -15,7 +15,7 @@
    limitations under the License.
 */
 
-use crate::network::p2p;
+use crate::network::client::Client;
 
 use super::handlers::blobs::*;
 use super::handlers::manifests::*;
@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use warp::Filter;
 
 pub fn make_docker_routes(
-    p2p_client: p2p::Client,
+    p2p_client: Client,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let empty_json = "{}";
     let v2_base = warp::path("v2")

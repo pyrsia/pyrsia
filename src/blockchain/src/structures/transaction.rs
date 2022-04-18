@@ -15,6 +15,7 @@
 */
 
 use identity::ed25519::Keypair;
+use codec::{Decode, Encode};
 use libp2p::identity;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -26,7 +27,7 @@ use crate::signature::Signature;
 
 use libp2p::identity::ed25519::PublicKey;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy, Decode, Encode)]
 pub enum TransactionType {
     AddArtifact,
     GrantAuthority,
@@ -85,7 +86,7 @@ fn calculate_hash(
 
 pub type TransactionSignature = Signature;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Decode, Encode)]
 pub struct Transaction {
     type_id: TransactionType,
     submitter: Address,
@@ -148,12 +149,11 @@ impl Validator for Transaction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libp2p::PeerId;
 
     #[test]
     fn test_transaction_new() {
-        let keypair = Keypair::generate();
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
 
         let transaction = Transaction::new(
             TransactionType::AddArtifact,
