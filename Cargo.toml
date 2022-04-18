@@ -82,7 +82,7 @@ assay = "0.1.1"
 string_manipulation = {path="tests/string_manipulation"}
 time = { version = "0.3.6", features = ["formatting", "parsing"] }
 tokio-test = "0.4.2"
-directories = "^2.0"
+directories = "^4.0"
 
 [workspace]
 members = [
