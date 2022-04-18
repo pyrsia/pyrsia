@@ -14,14 +14,38 @@
    limitations under the License.
 */
 
-use libp2p::PeerId;
+use codec::{Decode, Encode};
+use libp2p::{identity, PeerId};
+use multihash::Multihash;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::crypto::hash_algorithm::HashDigest;
 
-pub type Address = PeerId;
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy, Decode, Encode)]
+pub struct Address {
+    // This can not be libp2p's PeerId as it is missing the SCALE codec support for Aleph,
+    // internally it's a https://github.com/libp2p/rust-libp2p/blob/6cc3b4ec52c922bfcf562a29b5805c3150e37c75/core/src/peer_id.rs#L40
+    // So we will stick with that.
+    peer_id: Multihash,
+}
+
+impl From<identity::PublicKey> for Address {
+    fn from(key: identity::PublicKey) -> Address {
+        Self {
+            peer_id: PeerId::from_public_key(&key).into(),
+        }
+    }
+}
+
+impl From<PeerId> for Address {
+    fn from(peer_id: PeerId) -> Address {
+        Self {
+            peer_id: peer_id.into(),
+        }
+    }
+}
 
 // this struct exists only for generating a hash
 #[derive(Serialize)]
@@ -53,7 +77,7 @@ fn calculate_hash(incomplete_header: &PartialHeader) -> Result<HashDigest, binco
 }
 
 /// struct Header define the header of a block
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy, Decode, Encode)]
 pub struct Header {
     /// 256-bit Keccak Hash of the parent block (previous [`Block`][block]'s [`hash`][hash])
     ///
