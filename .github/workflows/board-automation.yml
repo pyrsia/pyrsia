@@ -21,7 +21,7 @@ jobs:
         with:
           project: Pyrsia Development
           action: add
-          column: Next Up
+          column: MVP
           repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
 
   in-progress-new-prs:
@@ -105,5 +105,5 @@ jobs:
         with:
           project: Pyrsia Development
           action: delete
-          column: Next Up
+          column: To do
           repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
