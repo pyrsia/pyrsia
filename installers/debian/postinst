@@ -2,3 +2,43 @@
 
 #DEBHELPER#
 
+set -e
+
+# Check if Docker service exists.    
+
+if type -P "systemctl" 2>&1 1>/dev/null && systemctl --all --type service | grep -q "docker";then
+
+    echo "***"
+    echo "*** Adding \"registry-mirrors\": [\"http://localhost:7888\"] to /etc/docker/daemon.json"
+    echo "***"
+
+    # Stop the service before we do our update
+    systemctl stop docker.service docker.socket
+
+    if [ -f /etc/docker/daemon.json ]; then
+
+      # Need to create a backup and work from there since jq does not do in place updates
+      cp /etc/docker/daemon.json /etc/docker/daemon.json.bak
+      cat /etc/docker/daemon.json.bak | jq '. +  { "registry-mirrors": ["http://localhost:7888"] }' > /etc/docker/daemon.json
+
+    else
+
+      echo '{ "registry-mirrors": ["http://localhost:7888"] }' > /etc/docker/daemon.json
+
+    fi
+
+    # Start the service after our update.  docker.socket will be started by docker.service
+    systemctl start docker
+
+else
+    echo "***"
+    echo "*** docker does NOT exist."
+    echo "***"
+fi
+
+# Start Pyrsia Running
+if type -P "systemctl" 2>&1 1>/dev/null; then
+
+  systemctl start pyrsia
+  
+fi

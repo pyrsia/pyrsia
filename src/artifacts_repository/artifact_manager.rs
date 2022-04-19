@@ -65,16 +65,16 @@ fn ensure_directories_for_hash_algorithms_exist(
     let mut path_buf = PathBuf::new();
     path_buf.push(repository_path);
     for algorithm in HashAlgorithm::iter() {
-        ensure_subdirectory_exists(&mut path_buf, algorithm)?;
+        ensure_subdirectory_exists(&path_buf, algorithm)?;
     }
     Ok(())
 }
 
 fn ensure_subdirectory_exists(
-    path_buf: &mut PathBuf,
+    path_buf: &Path,
     algorithm: HashAlgorithm,
 ) -> Result<(), anyhow::Error> {
-    let mut this_buf = path_buf.clone();
+    let mut this_buf = path_buf.to_path_buf();
     this_buf.push(algorithm.hash_algorithm_to_str());
     info!(
         "Creating directory {}",

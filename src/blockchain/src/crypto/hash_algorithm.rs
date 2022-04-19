@@ -14,10 +14,11 @@
    limitations under the License.
 */
 
+use codec::{Decode, Encode};
 use multihash::{Code, Multihash, MultihashDigest};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, Decode, Encode)]
 pub struct HashDigest {
     multihash: Multihash,
 }
