@@ -14,9 +14,7 @@
    limitations under the License.
 */
 
-use identity::ed25519::Keypair;
-use identity::PublicKey::Ed25519;
-use libp2p::identity;
+use libp2p::identity{self, ed25519::Keypair, PublicKey::Ed25519};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
