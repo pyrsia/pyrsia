@@ -31,7 +31,7 @@ flowchart TB
 > rm -rf /usr/local/var/pyrsia
 > ```
 
-## Demo steps
+## Demo Steps
 
 This demo consists of several steps: (scroll down for instructions)
 
