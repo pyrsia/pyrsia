@@ -55,22 +55,22 @@ impl Debug for Blockchain {
 }
 
 impl Blockchain {
-    pub fn new(keypair: &Keypair) -> Self {
-        let local_id = Address::from(Ed25519(keypair.public()));
+    pub fn new(key_pair: &Keypair) -> Self {
+        let local_id = Address::from(Ed25519(key_pair.public()));
         let transaction = Transaction::new(
             TransactionType::GrantAuthority,
             local_id,
             "this needs to be the root authority".as_bytes().to_vec(),
-            keypair,
+            key_pair,
         );
         // Make the "genesis" blocks
-        let block = Block::new(HashDigest::new(b""), 0, Vec::from([transaction]), keypair);
+        let block = Block::new(HashDigest::new(b""), 0, Vec::from([transaction]), key_pair);
         let mut chain: Chain = Default::default();
         chain.blocks.push(block);
         Self {
             trans_observers: Default::default(),
-            key_pair: keypair.clone(),
-            local_id: local_id.clone(),
+            key_pair: key_pair.clone(),
+            local_id,
             block_observers: vec![],
             chain,
         }
@@ -86,7 +86,7 @@ impl Blockchain {
         data: Vec<u8>,
         on_done: CallBack,
     ) -> Result<(), String> {
-        let trans = Transaction::new(trans_type, self.local_id.clone(), data, &self.key_pair);
+        let trans = Transaction::new(trans_type, self.local_id, data, &self.key_pair);
         match trans.is_valid() {
             Ok(()) => {
                 let t = trans.clone();
@@ -169,7 +169,6 @@ mod tests {
     #[test]
     fn test_add_trans_listener() -> Result<(), String> {
         let keypair = Keypair::generate();
-        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let mut chain = Blockchain::new(&keypair);
 
         let data = "some transaction";

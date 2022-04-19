@@ -135,12 +135,12 @@ impl Validator for Transaction {
             TransactionType::AddArtifact => Ok(()),
             // when granting or revoking an authority should we check the rest of
             // the chain for the chains existence?
-            TransactionType::GrantAuthority => PublicKey::decode(&self.payload.as_slice())
+            TransactionType::GrantAuthority => PublicKey::decode(self.payload.as_slice())
                 .map(|_pk| Ok(()))
                 .map_err(|e| e.to_string())?,
             // I guess adding/revoking the same authority repeatedly doesn't matter. It's a union
             // of activity
-            TransactionType::RevokeAuthority => PublicKey::decode(&self.payload.as_slice())
+            TransactionType::RevokeAuthority => PublicKey::decode(self.payload.as_slice())
                 .map(|_pk| Ok(()))
                 .map_err(|e| e.to_string())?,
         }
