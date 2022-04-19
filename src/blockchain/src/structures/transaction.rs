@@ -14,8 +14,8 @@
    limitations under the License.
 */
 
-use identity::ed25519::Keypair;
 use codec::{Decode, Encode};
+use identity::ed25519::Keypair;
 use libp2p::identity;
 use rand::Rng;
 use serde::{Deserialize, Serialize};

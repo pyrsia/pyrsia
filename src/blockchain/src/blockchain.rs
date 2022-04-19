@@ -29,7 +29,6 @@ use super::structures::{
     transaction::{Transaction, TransactionType, Validator},
 };
 
-
 /// Define Supported Signature Algorithm
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SignatureAlgorithm {
