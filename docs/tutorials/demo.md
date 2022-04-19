@@ -31,7 +31,7 @@ flowchart TB
 > rm -rf /usr/local/var/pyrsia
 > ```
 
-## Demo Steps
+## Demo Scenario
 
 This demo consists of several steps: (scroll down for instructions)
 
@@ -124,7 +124,7 @@ deactivate User2
 
 
 
-## Installation phase
+## Install and configure Pyrsia
 
 > IMPORTANT: run the installation phase as root
 
@@ -132,21 +132,21 @@ deactivate User2
 
 ### Install Pyrsia
 
-
 ```
-# apt-get update
-# apt-get install -y wget gnupg
-# wget -qO - https://pyrsia.io/public.key | apt-key add -
-# echo "deb https://pyrsia.io/repo focal main" >> /etc/apt/sources.list
-# apt-get update
-# apt-get install -y pyrsia
+curl -sS https://pyrsia.io/install.sh | sh
 ```
 
-or simply use this script that bundles the above:
+or run the commands listed below:
 
 ```
-# curl -sS https://pyrsia.io/install.sh | sh
+apt-get update
+apt-get install -y wget gnupg
+wget -qO - https://pyrsia.io/public.key | apt-key add -
+echo "deb https://pyrsia.io/repo focal main" >> /etc/apt/sources.list
+apt-get update
+apt-get install -y pyrsia
 ```
+
 
 
 ### Edit configuration:
@@ -159,27 +159,30 @@ Edit
 ```
 /etc/systemd/system/multi-user.target.wants/pyrsia.service
 ```
-and add:
+and add `--peer /ip4/public_ip_of_node1/tcp/44000` to the ExecStart line so it looks like this:
 ```
---peer /ip4/public_ip_of_node1/tcp/44000 -L /ip4/0.0.0.0/tcp/44000
+ExecStart=/usr/bin/pyrsia_node --host 0.0.0.0 -L /ip4/0.0.0.0/tcp/44000 --peer /ip4/public_ip_of_node1/tcp/44000
 ```
 
-behind the ExecStart command. This will make sure node2 connects to peer node1 when it starts.
+This will make sure node2 connects to peer node1 when it starts.
 
 Reload the daemon configuration:
 
 ```
-# systemctl daemon-reload
+systemctl daemon-reload
 ```
 
 Restart the pyrsia node:
 ```
-# service pyrsia restart
+service pyrsia restart
 ```
 
 Check the daemon status:
 ```
-# service pyrsia status
+service pyrsia status
+```
+
+```
 ● pyrsia.service - Pyrsia Node
      Loaded: loaded (/lib/systemd/system/pyrsia.service; enabled; vendor preset: enabled)
      Active: active (running) since Wed 2022-03-23 14:29:55 UTC; 5min ago
@@ -193,7 +196,11 @@ Check the daemon status:
 
 ### Use the CLI to check the node status:
 ```
-# pyrsia node -s
+pyrsia node -s
+```
+
+
+```
 Connected Peers Count:       1
 Artifacts Count:             0
 Total Disk Space Allocated:  10.84 GB
@@ -202,14 +209,11 @@ Disk Space Used:             0.0000%
 
 ```
 # pyrsia node -l
-Connected Peers:
-["12D3KooWMD9ynPTdvhWMcdX7mh23Au1QpVS3ekTCQzpRTtd1g6h3"]
 ```
 
-### Configure Docker to use Pyrsia
 ```
-# echo '{"registry-mirrors": ["http://localhost:7888"]}' > /etc/docker/daemon.json
-# service docker restart
+Connected Peers:
+["12D3KooWMD9ynPTdvhWMcdX7mh23Au1QpVS3ekTCQzpRTtd1g6h3"]
 ```
 
 ### Tail the log
@@ -224,13 +228,13 @@ Mar 23 14:37:08 demo-pyrsia-node-2 pyrsia_node[42678]:  INFO  pyrsia::network::h
 ```
 
 
-## Usage phase
+## Use Pyrsia
 
 Keep the log tail from the installation phase running and open a new terminal on both instances. (doesn’t have to be root)
 
 First, on node 1, pull any docker image:
 ```
-$ docker pull alpine
+docker pull alpine
 ```
 (make sure to remove it from the local docker cache if you already pulled it before: `docker rmi alpine`)
 
@@ -252,7 +256,7 @@ It shows that Pyrsia didn’t have the image yet, but it fetched it from Docker 
 
 Next on node2, pull the same docker image
 ```
-$ docker pull alpine
+docker pull alpine
 ```
 Inspect the syslog on node2, or grep for ‘Steps’:
 ```
@@ -275,8 +279,8 @@ This shows the image wasn't available locally, but it was available in the Pyrsi
 Next, remove the image from the local docker cache, and retrieve it again:
 
 ```
-$ docker rmi alpine
-$ docker pull alpine
+docker rmi alpine
+docker pull alpine
 ```
 
 Inspect the syslog on node2 again:
@@ -290,14 +294,21 @@ It will show the local Pyrsia node already had this docker image and didn’t ha
 Inspect the Pyrsia node status again on both nodes:
 
 ```
-$ pyrsia node -s
+pyrsia node -s
+```
+
+```
 Connected Peers Count:       1
 Artifacts Count:             3
 Total Disk Space Allocated:  10.84 GB
 Disk Space Used:             0.0260%
 ```
+
 ```
-$ pyrsia node -s
+pyrsia node -s
+```
+
+```
 Connected Peers Count:       1
 Artifacts Count:             3
 Total Disk Space Allocated:  10.84 GB
