@@ -34,28 +34,26 @@ flowchart TB
 ## Demo Scenario
 
 This demo consists of several steps: (scroll down for instructions)
-
-- Installation and configuration
-  - Install Pyrsia on instance 1
-  - Install and configure Pyrsia on instance 2, make it connect to node 1
-- Docker pull on node 1
-  - image is not available in the Pyrsia network
-  - image is requested from Docker Hub and stored locally, so it becomes available in the Pyrsia network
-- Use the Pyrsia CLI to check node 1 status
-- Docker pull on node 2
-  - The same docker image is pulled on node 2
-  - Node 2 requests the image from the Pyrsia network, in this specific case: node 1.
-- Use the Pyrsia CLI to check node 2 status
-- Docker pull on node 2
-  - The same docker image is pulled again on Node2
-  - Node 2 doesn't have to download the image again
+1. [Installation and configuration](#install-and-configure-pyrsia)
+   * Install Pyrsia on instance 1
+   * Install and configure Pyrsia on instance 2, make it connect to node 1
+2. [Docker pull on node 1](#use-pyrsia)
+   * image is not available in the Pyrsia network
+   * image is requested from Docker Hub and stored locally, so it becomes available in the Pyrsia network
+3. [Use the Pyrsia CLI to check node 1 status](#use-the-cli-to-check-the-node-status)
+4. [Docker pull on node 2](#use-pyrsia)
+   * The same docker image is pulled on node 2
+   * Node 2 requests the image from the Pyrsia network, in this specific case: node 1.
+5. [Use the Pyrsia CLI to check node 2 status](#use-the-cli-to-check-the-node-status)
+6. [Docker pull on node 2](#use-pyrsia)
+   * The same docker image is pulled again on Node2
+   * Node 2 doesn't have to download the image again
 
 These are the steps in more detail:
 
 ```mermaid
 sequenceDiagram
-participant User as User on instance1
-participant User2 as User on instance2
+participant User as User
 participant Docker1 as Docker Daemon on instance 1
 participant Node1 as Pyrsia Node on instance 1
 participant DHT as Distributed Hashtable
@@ -93,9 +91,9 @@ activate User
 deactivate User
 note left of User: Check Pyrsia<br>node status
 
-User2 ->> Docker2: docker pull image
-activate User2
-note left of User2: Pull on node2
+User ->> Docker2: docker pull image
+activate User
+note left of User: Pull on node2
 Docker2 ->> Node2: request image through the Docker Registry API<br>running inside the Pyrsia node on port 7888
 
 Node2 ->> DHT: Node2 checks if the image is available locally<br>or on the Pyrsia network<br>In this case, it is available on Node1
@@ -103,22 +101,22 @@ Node2 ->> DHT: Node2 checks if the image is available locally<br>or on the Pyrsi
 Node2 ->> Node1: Node2 connects to port 44000 on Node1<br>to request and download the artifact
 Node2 ->> DHT: Node2 stores the artifact locally and announces itself<br>as a provider for this artifact as well.
 Node2 ->> Docker2: The Pyrsia node responds with the requested image
-Docker2 ->> User2: docker pull is completed successfully
-deactivate User2
+Docker2 ->> User: docker pull is completed successfully
+deactivate User
 
-User2 ->> Node2: pyrsia node --status the user uses the CLI to ask the status<br>the CLI connects to the Pyrsia node on port 7888
-activate User2
-deactivate User2
-note left of User2: Check Pyrsia<br>node status
+User ->> Node2: pyrsia node --status the user uses the CLI to ask the status<br>the CLI connects to the Pyrsia node on port 7888
+activate User
+deactivate User
+note left of User: Check Pyrsia<br>node status
 
 
-User2 ->> Docker2: docker pull image
-activate User2
-note left of User2: Pull again on node2
+User ->> Docker2: docker pull image
+activate User
+note left of User: Pull again on node2
 Docker2 ->> Node2: request image through the Docker Registry API<br>running inside the Pyrsia node on port 7888
 Node2 ->> Docker2: The Pyrsia node responds with the requested image<br>because it was already available locally
-Docker2 ->> User2: docker pull is completed successfully
-deactivate User2
+Docker2 ->> User: docker pull is completed successfully
+deactivate User
 ```
 
 
@@ -132,13 +130,13 @@ deactivate User2
 
 ### Install Pyrsia
 
-```
+```sh
 curl -sS https://pyrsia.io/install.sh | sh
 ```
 
 or run the commands listed below:
 
-```
+```sh
 apt-get update
 apt-get install -y wget gnupg
 wget -qO - https://pyrsia.io/public.key | apt-key add -
@@ -155,11 +153,8 @@ Both nodes will already be listening on port 44000 when it starts. Let's now edi
 
 **On node2:**
 
-Edit
-```
-/etc/systemd/system/multi-user.target.wants/pyrsia.service
-```
-and add `--peer /ip4/public_ip_of_node1/tcp/44000` to the ExecStart line so it looks like this:
+Edit `/etc/systemd/system/multi-user.target.wants/pyrsia.service` and add `--peer /ip4/public_ip_of_node1/tcp/44000` to the `ExecStart` line so it looks like this:
+
 ```
 ExecStart=/usr/bin/pyrsia_node --host 0.0.0.0 -L /ip4/0.0.0.0/tcp/44000 --peer /ip4/public_ip_of_node1/tcp/44000
 ```
@@ -168,20 +163,21 @@ This will make sure node2 connects to peer node1 when it starts.
 
 Reload the daemon configuration:
 
-```
+```sh
 systemctl daemon-reload
 ```
 
 Restart the pyrsia node:
-```
+```sh
 service pyrsia restart
 ```
 
 Check the daemon status:
-```
+```sh
 service pyrsia status
 ```
 
+You should see something very similar to:
 ```
 ● pyrsia.service - Pyrsia Node
      Loaded: loaded (/lib/systemd/system/pyrsia.service; enabled; vendor preset: enabled)
@@ -195,11 +191,14 @@ service pyrsia status
 
 
 ### Use the CLI to check the node status:
-```
+
+Check the node status:
+
+```sh
 pyrsia node -s
 ```
 
-
+You should see something very similar to:
 ```
 Connected Peers Count:       1
 Artifacts Count:             0
@@ -207,18 +206,24 @@ Total Disk Space Allocated:  10.84 GB
 Disk Space Used:             0.0000%
 ```
 
-```
-# pyrsia node -l
+List the node's peers:
+```sh
+pyrsia node -l
 ```
 
+You should see something very similar to:
 ```
 Connected Peers:
 ["12D3KooWMD9ynPTdvhWMcdX7mh23Au1QpVS3ekTCQzpRTtd1g6h3"]
 ```
 
 ### Tail the log
+```sh
+tail -f /var/log/syslog
 ```
-# tail -f /var/log/syslog
+
+You should see something very similar to:
+```
 Mar 23 14:37:08 demo-pyrsia-node-2 pyrsia_node[42678]:  DEBUG multistream_select::dialer_select > Dialer: Proposed protocol: /ipfs/id/1.0.0
 Mar 23 14:37:08 demo-pyrsia-node-2 pyrsia_node[42678]:  DEBUG multistream_select::dialer_select > Dialer: Received confirmation for protocol: /ipfs/id/1.0.0
 Mar 23 14:37:08 demo-pyrsia-node-2 pyrsia_node[42678]:  DEBUG libp2p_core::upgrade::apply       > Successfully applied negotiated protocol
@@ -233,15 +238,15 @@ Mar 23 14:37:08 demo-pyrsia-node-2 pyrsia_node[42678]:  INFO  pyrsia::network::h
 Keep the log tail from the installation phase running and open a new terminal on both instances. (doesn’t have to be root)
 
 First, on node 1, pull any docker image:
-```
+```sh
 docker pull alpine
 ```
 (make sure to remove it from the local docker cache if you already pulled it before: `docker rmi alpine`)
 
 Look at the syslog to show what happened. Alternatively grep the syslog for ‘Step’
 
-```
-# cat /var/log/syslog | grep Step
+```sh
+cat /var/log/syslog | grep Step
 > Step 1: Does "sha256:e9adb5357e84d853cc3eb08cd4d3f9bd6cebdb8a67f0415cc884be7b0202416d" exist in the artifact manager?
 > Step 1: NO, "sha256:e9adb5357e84d853cc3eb08cd4d3f9bd6cebdb8a67f0415cc884be7b0202416d" does not exist in the artifact manager.
 > Step 3: Retrieving "sha256:e9adb5357e84d853cc3eb08cd4d3f9bd6cebdb8a67f0415cc884be7b0202416d" from docker.io
@@ -253,9 +258,8 @@ Look at the syslog to show what happened. Alternatively grep the syslog for ‘S
 
 It shows that Pyrsia didn’t have the image yet, but it fetched it from Docker Hub instead.
 
-
 Next on node2, pull the same docker image
-```
+```sh
 docker pull alpine
 ```
 Inspect the syslog on node2, or grep for ‘Steps’:
@@ -278,7 +282,7 @@ This shows the image wasn't available locally, but it was available in the Pyrsi
 
 Next, remove the image from the local docker cache, and retrieve it again:
 
-```
+```sh
 docker rmi alpine
 docker pull alpine
 ```
@@ -297,16 +301,7 @@ Inspect the Pyrsia node status again on both nodes:
 pyrsia node -s
 ```
 
-```
-Connected Peers Count:       1
-Artifacts Count:             3
-Total Disk Space Allocated:  10.84 GB
-Disk Space Used:             0.0260%
-```
-
-```
-pyrsia node -s
-```
+You should see something very similar to:
 
 ```
 Connected Peers Count:       1
@@ -314,3 +309,4 @@ Artifacts Count:             3
 Total Disk Space Allocated:  10.84 GB
 Disk Space Used:             0.0260%
 ```
+
