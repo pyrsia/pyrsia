@@ -82,7 +82,7 @@ enum Message {
 pub struct GenericCodec {}
 
 type Request = Vec<u8>;
-// The Response type is dummy -- we use RequestResponse just to send regular messages (requests).
+// The Response type is empty -- we use RequestResponse just to send regular messages (requests).
 type Response = ();
 
 #[async_trait::async_trait]
@@ -301,7 +301,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<Request, Response>> for B
                     }
                 }
                 RequestResponseMessage::Response { .. } => {
-                    //We ignore the response, as it is dummy anyway.
+                    //We ignore the response, as it is empty anyway.
                 }
             }
         }
