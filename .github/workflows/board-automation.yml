@@ -67,11 +67,6 @@ jobs:
       github.event_name == 'pull_request_target' &&
       (github.event.action == 'ready_for_review' || github.event.action == 'review_requested')
     steps:
-      - uses: alex-page/github-project-automation-plus@v0.8.1
-        with:
-          project: Pyrsia Development
-          column: Review
-          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
       - uses: actions-ecosystem/action-add-labels@v1
         with:
           labels: in-review
