@@ -13,6 +13,8 @@ cargo audit
 IF %ERRORLEVEL% NEQ 0 (ECHO Cargo audit failed. &Exit /b 1)
 cargo clippy
 IF %ERRORLEVEL% NEQ 0 (ECHO Cargo clippy failed. &Exit /b 1)
+rustup update
+IF %ERRORLEVEL% NEQ 0 (ECHO Could not update rust toolchain. &Exit /b 1)
 rustup component add rustfmt
 IF %ERRORLEVEL% NEQ 0 (ECHO Could not install rustfmt. &Exit /b 1)
 cargo fmt --check
