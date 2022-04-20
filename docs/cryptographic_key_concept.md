@@ -9,15 +9,12 @@ X25519 is an elliptic curve Diffie-Hellman key exchange using Curve25519. It all
 
 Reference: https://cryptography.io/en/3.4.3/hazmat/primitives/asymmetric/x25519.html  
 
-
 ## What is Curve25519
 Curve25519 is an elliptic curve over the finite field 𝔽~𝑝~, where 𝑝=2<sup>255</sup>−19, whence came the 25519 part of the name. Specifically, it is the Montgomery curve 𝑦<sup>2</sup>=𝑥<sup>3</sup>+486662𝑥<sup>2</sup>+𝑥
 
 Reference: https://en.wikipedia.org/wiki/Curve25519 
 
-
 ## What is Edwards25519
 Edwards25519 is an elliptic curve over the finite field 𝔽~𝑝~, where 𝑝=2<sup>255</sup>−19, with a different shape, the twisted Edwards shape −𝑥<sup>2</sup>+𝑦<sup>2</sup>=1−(121665/121666)𝑥<sup>2</sup>𝑦<sup>2</sup>, which admits fast computation of 𝑃+𝑄 given the 𝑥 and 𝑦 coordinates of 𝑃 and 𝑄. It is related to Curve25519 by a birational map, so most points on Curve25519 can be mapped to edwards25519 and vice versa
 
 Reference: https://math.stackexchange.com/questions/1392277/point-conversion-between-twisted-edwards-and-montgomery-curves
-
