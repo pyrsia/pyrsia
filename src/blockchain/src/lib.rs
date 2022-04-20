@@ -112,6 +112,7 @@ pub async fn run_blockchain(
                 let block_creation_time =
                     start_time + Duration::from_millis(block_delay_ms.try_into().unwrap());
                 if curr_time >= block_creation_time {
+                    // TODO(prince-chrismc): Figure out how to generate new blocks and push them on the network
                     // let block = Block::new(block_num, config.data_size);
                     // blocks_for_network
                     //     .unbounded_send(block)
