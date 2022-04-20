@@ -72,6 +72,9 @@ jobs:
           project: Pyrsia Development
           column: Review
           repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
+      - uses: actions-ecosystem/action-add-labels@v1
+        with:
+          labels: in-review
 
   label-blocked:
     runs-on: ubuntu-latest
