@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use codec::{Decode, Encode};
 use libp2p::identity;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -23,7 +24,7 @@ use super::header::Address;
 use crate::crypto::hash_algorithm::HashDigest;
 use crate::signature::Signature;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy, Decode, Encode)]
 pub enum TransactionType {
     Create,
     AddAuthority,
@@ -79,7 +80,7 @@ fn calculate_hash(
 
 pub type TransactionSignature = Signature;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Decode, Encode)]
 pub struct Transaction {
     type_id: TransactionType,
     submitter: Address,
@@ -121,12 +122,11 @@ impl Transaction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libp2p::PeerId;
 
     #[test]
     fn test_transaction_new() {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
 
         let transaction = Transaction::new(
             TransactionType::Create,

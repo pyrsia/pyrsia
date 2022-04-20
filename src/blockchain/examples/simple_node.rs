@@ -126,7 +126,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let l = line.expect("stdin closed");
                 let transaction = Transaction::new(
                         TransactionType::Create,
-                        peer_id,
+                        peer_id.into(),
                         l.unwrap().as_bytes().to_vec(),
                     &id_keys,
                 );

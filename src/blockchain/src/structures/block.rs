@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use codec::{Decode, Encode};
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -25,7 +26,7 @@ use crate::signature::Signature;
 
 pub type BlockSignature = Signature;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Decode, Encode)]
 pub struct Block {
     pub header: Header,
     // TODO(fishseabowl): Should be a Merkle Tree to speed up validation with root hash
@@ -73,7 +74,6 @@ impl Display for Block {
 
 #[cfg(test)]
 mod tests {
-    use libp2p::PeerId;
 
     use super::super::transaction::TransactionType;
     use super::*;
@@ -81,7 +81,7 @@ mod tests {
     #[test]
     fn test_build_block() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
 
         let transactions = vec![Transaction::new(
             TransactionType::Create,
