@@ -56,7 +56,7 @@ sequenceDiagram
 participant User as User
 participant Docker1 as Docker Daemon on instance 1
 participant Node1 as Pyrsia Node on instance 1
-participant DHT as Distributed Hashtable
+participant PNW as Pyrsia Network
 participant Docker2 as Docker Daemon on instance 2
 participant Node2 as Pyrsia Node on instance 2
 participant DockerHub as Docker Hub
@@ -66,12 +66,8 @@ activate User
 note left of User: Installation
 User ->> Node2: Installs Pyrsia and configures it to connect to Node1
 
-Node2 ->> Node1: Connects to peer Node1 on port 44000
+Node2 ->> Node1: Connects to peer Node1 on port 44000<br>Node1 and Node2 now form the 'Pyrsia Network'
 
-Node1 -->> DHT: Node1 and Node2
-DHT -->> Node1: start sharing a DHT
-Node2 -->> DHT: Node1 and Node2
-DHT -->> Node2: start sharing a DHT
 deactivate User
 
 
@@ -79,9 +75,9 @@ User ->> Docker1: docker pull image
 activate User
 note left of User: Pull on node1
 Docker1 ->> Node1: request image through the Docker<br>Registry API running inside the Pyrsia node on port 7888
-Node1 ->> DHT: Node1 checks if the image is available<br>locally or on the Pyrsia network
+Node1 ->> PNW: Node1 checks if the image is available<br>locally or on the Pyrsia network
 Node1 ->> DockerHub: The image is not available and Node1<br>requests the image from DockerHub
-Node1 ->> DHT: Node1 stores the image locally<br>and announces it availability on the DHT
+Node1 ->> PNW: Node1 stores the image locally<br>and announces it availability on the Pyrsia Network
 Node1 ->> Docker1: The Pyrsia node responds with the requested image
 Docker1 ->> User: docker pull is completed successfully
 deactivate User
@@ -96,10 +92,10 @@ activate User
 note left of User: Pull on node2
 Docker2 ->> Node2: request image through the Docker Registry API<br>running inside the Pyrsia node on port 7888
 
-Node2 ->> DHT: Node2 checks if the image is available locally<br>or on the Pyrsia network<br>In this case, it is available on Node1
+Node2 ->> PNW: Node2 checks if the image is available locally<br>or on the Pyrsia network<br>In this case, it is available on Node1
 
 Node2 ->> Node1: Node2 connects to port 44000 on Node1<br>to request and download the artifact
-Node2 ->> DHT: Node2 stores the artifact locally and announces itself<br>as a provider for this artifact as well.
+Node2 ->> PNW: Node2 stores the artifact locally and announces itself<br>as a provider for this artifact as well.
 Node2 ->> Docker2: The Pyrsia node responds with the requested image
 Docker2 ->> User: docker pull is completed successfully
 deactivate User
@@ -129,6 +125,8 @@ deactivate User
 **On both instances:**
 
 ### Install Pyrsia
+
+Follow the instructions below or have a look at the latest [Pyrsia documentation](https://pyrsia.io/guides/userguide/installation-and-support/ubuntu-installation/).
 
 ```sh
 curl -sS https://pyrsia.io/install.sh | sh
