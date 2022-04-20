@@ -242,12 +242,12 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<Request, Response>> for B
 
                         trace!("Sending authentication message to {:?}", peer_id);
                         let auth_message = Message::Auth(self.node_ix).encode();
-                        self.rq_rp.send_request(&peer_id, auth_message.clone());
+                        self.rq_rp.send_request(&peer_id, auth_message);
 
                         trace!("Sending public key message to {:?}", peer_id);
                         let key_message =
                             Message::PublicKey(self.node_ix, self.public_key.clone()).encode();
-                        self.rq_rp.send_request(&peer_id, key_message.clone());
+                        self.rq_rp.send_request(&peer_id, key_message);
                     }
 
                     let result = Message::decode(&mut &request[..]);
@@ -268,16 +268,16 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<Request, Response>> for B
                             Message::Auth(node_ix) => {
                                 debug!("🖇️ Authenticated peer: {:?} {:?}", node_ix, peer_id);
 
-                                if let None = self.peer_by_index.get(&node_ix) {
+                                if self.peer_by_index.get(&node_ix).is_none() {
                                     trace!("Sending authentication message to {:?}", peer_id);
                                     let auth_message = Message::Auth(self.node_ix).encode();
-                                    self.rq_rp.send_request(&peer_id, auth_message.clone());
+                                    self.rq_rp.send_request(&peer_id, auth_message);
 
                                     trace!("Sending public key message to {:?}", peer_id);
                                     let key_message =
                                         Message::PublicKey(self.node_ix, self.public_key.clone())
                                             .encode();
-                                    self.rq_rp.send_request(&peer_id, key_message.clone());
+                                    self.rq_rp.send_request(&peer_id, key_message);
                                 }
 
                                 self.peer_by_index.insert(node_ix, peer_id);
@@ -323,12 +323,12 @@ impl aleph_bft::Network<HashDigest, Block, Signature, MultiSignature> for Networ
     }
     async fn next_event(&mut self) -> Option<NetworkData> {
         let msg = self.msg_from_manager_rx.next().await;
-        msg.and_then(|m| {
+        msg.map(|m| {
             trace!(
                 "New event recieved of network data {}",
                 hex::encode(m.encode())
             );
-            Some(m)
+            m
         })
     }
 }

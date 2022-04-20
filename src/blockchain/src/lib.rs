@@ -91,7 +91,7 @@ pub async fn run_blockchain(
     mut data_store: DataStore,
     current_block: Arc<Mutex<Block>>,
     mut blocks_from_network: UnboundedReceiver<Block>,
-    blocks_for_network: UnboundedSender<Block>,
+    _blocks_for_network: UnboundedSender<Block>,
     mut messages_from_network: UnboundedReceiver<NetworkData>,
     mut exit: oneshot::Receiver<()>,
 ) {

@@ -138,7 +138,7 @@ impl DataProvider {
     // TODO(prince-chrismc): Initial Block?
     pub fn new(initial_block: Arc<Mutex<Block>>) -> Self {
         DataProvider {
-            current_block: initial_block.clone(),
+            current_block: initial_block,
         }
     }
 }
