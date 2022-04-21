@@ -55,7 +55,7 @@ const INITIAL_DELAY_MS: u128 = 5000;
 async fn main() -> Result<(), Box<dyn Error>> {
     // If the key file exists, load the key pair. Otherwise, create a random keypair and save to the key file
     let id_keys = create_ed25519_keypair();
-    let edwards_pair = identity::Keypair::Ed25519(id_keys.clone());
+    let ed25519_pair = identity::Keypair::Ed25519(id_keys.clone());
     let peer_id = PeerId::from(edwards_pair.public());
 
     info!("Getting network up.");
