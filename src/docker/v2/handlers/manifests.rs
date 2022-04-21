@@ -600,7 +600,7 @@ fn add_artifact(
 fn new_uuid_string() -> String {
     String::from(
         Uuid::new_v4()
-            .to_simple()
+            .as_simple()
             .encode_lower(&mut Uuid::encode_buffer()),
     )
 }
