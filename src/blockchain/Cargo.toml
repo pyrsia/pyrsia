@@ -22,6 +22,8 @@ codec = {package = "parity-scale-codec", version = "2.3.1", default-features = f
 hex = "0.4.3"
 async-trait = "0.1.53"
 dirs = "4.0.0"
+unsigned-varint = "0.7.1"
+futures-timer = "3.0.2"
 
 [[example]]
 name = "simple_node"

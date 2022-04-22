@@ -15,134 +15,155 @@
 */
 
 use dirs;
+use futures::channel::{mpsc as futures_mpsc, oneshot};
 use futures::StreamExt;
-use libp2p::{
-    core::upgrade,
-    floodsub::{self, Floodsub},
-    identity,
-    mdns::Mdns,
-    mplex, noise,
-    swarm::{SwarmBuilder, SwarmEvent},
-    tcp::TokioTcpConfig,
-    Multiaddr, PeerId, Transport,
-};
+use libp2p::{identity, PeerId};
+use log::{debug, info};
 use std::{
     error::Error,
     fs,
     io::{Read, Write},
     os::unix::fs::OpenOptionsExt,
+    sync::{Arc, Mutex},
 };
+use tokio::io;
 
-use tokio::io::{self, AsyncBufReadExt};
-
-use pyrsia_blockchain_network::blockchain::Blockchain;
-use pyrsia_blockchain_network::network::Behaviour;
-use pyrsia_blockchain_network::structures::{
-    block::Block,
-    transaction::{Transaction, TransactionType},
+// use pyrsia_blockchain_network::blockchain::Blockchain;
+use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
+use pyrsia_blockchain_network::identities::{
+    authority_pen::AuthorityPen, authority_verifier::AuthorityVerifier, key_box::KeyBox,
+};
+use pyrsia_blockchain_network::network::{Network, Spawner};
+use pyrsia_blockchain_network::providers::{DataProvider, DataStore, FinalizationProvider};
+use pyrsia_blockchain_network::structures::block::Block;
+use pyrsia_blockchain_network::{
+    default_config, gen_chain_config, run_blockchain, run_session, NodeIndex,
 };
 
 pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
 pub const BLOCK_KEYPAIR_FILENAME: &str = ".block_keypair";
 
+const TXS_PER_BLOCK: usize = 50000;
+const TX_SIZE: usize = 300;
+const BLOCK_TIME_MS: u128 = 500;
+const INITIAL_DELAY_MS: u128 = 5000;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     // If the key file exists, load the key pair. Otherwise, create a random keypair and save to the key file
     let id_keys = create_ed25519_keypair();
-    let peer_id = PeerId::from(identity::PublicKey::Ed25519(id_keys.public()));
+    let ed25519_pair = identity::Keypair::Ed25519(id_keys.clone());
+    let _peer_id = PeerId::from(ed25519_pair.public());
 
-    println!("Local peer id: {:?}", peer_id);
-    let _filepath = match std::env::args().nth(1) {
-        Some(v) => v,
-        None => String::from(BLOCK_FILE_PATH),
-    };
+    info!("Getting network up.");
+    let n_members = 3;
+    let my_node_ix = NodeIndex(0); // TODO(prince-chrismc): Should be a CLI arg?
 
-    // Create a keypair for authenticated encryption of the transport.
-    let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
-        .into_authentic(&libp2p::identity::Keypair::Ed25519(id_keys.clone()))
-        .expect("Signing libp2p-noise static DH keypair failed.");
+    let pen = AuthorityPen::new(my_node_ix, id_keys.clone());
+    let verifier = AuthorityVerifier::new();
 
-    let mut chain = Blockchain::new(&id_keys);
-    chain.add_block_listener(move |b: Block| {
-        println!("---------");
-        println!("---------");
-        println!("Add a New Block : {:?}", b);
-        // TODO(chb0github): Should be wrapped in mutex
-        // write_block(&filepath.clone(), b);
-    });
+    let keybox = KeyBox::new(pen, verifier);
 
-    // Create a tokio-based TCP transport use noise for authenticated
-    // encryption and Mplex for multiplexing of substreams on a TCP stream.
-    let transport = TokioTcpConfig::new()
-        .nodelay(true)
-        .upgrade(upgrade::Version::V1)
-        .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
-        .multiplex(mplex::MplexConfig::new())
-        .boxed();
-
-    // Create a Floodsub topic
-    let floodsub_topic = floodsub::Topic::new("block");
-
-    // We create a custom network behaviour that combines floodsub and mDNS.
-    // The derive generates a delegating `NetworkBehaviour` impl which in turn
-    // requires the implementations of `NetworkBehaviourEventProcess` for
-    // the events of each behaviour.
-
-    // Create a Swarm to manage peers and events.
-    let mut swarm = {
-        let mdns = Mdns::new(Default::default()).await?;
-        let mut behaviour = Behaviour {
-            floodsub: Floodsub::new(peer_id),
-            mdns,
-        };
-
-        behaviour.floodsub.subscribe(floodsub_topic.clone());
-
-        SwarmBuilder::new(transport, behaviour, peer_id)
-            // We want the connection background tasks to be spawned
-            // onto the tokio runtime.
-            .executor(Box::new(|fut| {
-                tokio::spawn(fut);
-            }))
-            .build()
-    };
-
-    if let Some(to_dial) = std::env::args().nth(3) {
-        let addr: Multiaddr = to_dial.parse()?;
-        swarm.dial(addr)?;
-        println!("Dialed {:?}", to_dial);
-    }
-
-    // Read full lines from stdin
-    let mut stdin = io::BufReader::new(io::stdin()).lines();
-
-    // Listen on all interfaces and whatever port the OS assigns
-    swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
-
-    // Kick it off
-    loop {
-        tokio::select! {
-            line = stdin.next_line() => {
-                let l = line.expect("stdin closed");
-                let transaction = Transaction::new(
-                        TransactionType::Create,
-                        peer_id.into(),
-                        l.unwrap().as_bytes().to_vec(),
-                    &id_keys,
-                );
-
-                // eventually this will trigger a block action
-                chain.submit_transaction(transaction.clone(),move |t: Transaction| {
-                    println!("transaction {:?} submitted",t);
-                });
-            }
-            event = swarm.select_next_some() => {
-                if let SwarmEvent::NewListenAddr { address, .. } = event {
-                    println!("Listening on {:?}", address);
+    let (authority_to_verifier, mut authority_from_network) = futures_mpsc::unbounded();
+    let (close_verifier, mut exit) = oneshot::channel();
+    tokio::spawn(async move {
+        loop {
+            futures::select! {
+                maybe_auth = authority_from_network.next() => {
+                    if let Some((_node_ix, _public_key)) = maybe_auth {
+                        // record_authority(node_ix, public_key);
+                    }
                 }
+               _ = &mut exit  => break,
             }
         }
+    });
+
+    let (
+        network,
+        mut manager,
+        block_from_data_io_tx,
+        block_from_network_rx,
+        message_for_network,
+        message_from_network,
+    ) = Network::new(
+        my_node_ix,
+        id_keys.clone(),
+        Default::default(), // peers_by_index,
+        authority_to_verifier,
+    )
+    .await
+    .expect("Libp2p network set-up should succeed.");
+    // Make the "genesis" blocks
+    let current_block: Arc<Mutex<Block>> = Arc::new(Mutex::new(Block::new(
+        HashDigest::new(b""),
+        0,
+        vec![],
+        &id_keys,
+    )));
+
+    let data_provider = DataProvider::new(current_block.clone()); // TODO(prince-chrismc): Blend this into blockchain API???
+    let (finalization_provider, mut finalized_rx) = FinalizationProvider::new();
+    let data_store = DataStore::new(current_block.clone(), message_for_network);
+
+    let (close_network, exit) = oneshot::channel();
+    tokio::spawn(async move { manager.run(exit).await });
+
+    let data_size: usize = TXS_PER_BLOCK * TX_SIZE;
+    let chain_config = gen_chain_config(
+        my_node_ix,
+        n_members,
+        data_size,
+        BLOCK_TIME_MS,
+        INITIAL_DELAY_MS,
+    );
+    let (close_chain, exit) = oneshot::channel();
+    tokio::spawn(async move {
+        run_blockchain(
+            chain_config,
+            data_store,
+            current_block,
+            block_from_network_rx,
+            block_from_data_io_tx,
+            message_from_network,
+            exit,
+        )
+        .await
+    });
+
+    let (close_member, exit) = oneshot::channel();
+    tokio::spawn(async move {
+        let config = default_config(n_members.into(), my_node_ix, 0);
+        run_session(
+            config,
+            network,
+            data_provider,
+            finalization_provider,
+            keybox,
+            Spawner {},
+            exit,
+        )
+        .await
+    });
+
+    let mut max_block_finalized = 0;
+    while let Some(block_num) = finalized_rx.next().await {
+        if max_block_finalized < block_num.header.ordinal {
+            max_block_finalized = block_num.header.ordinal;
+        }
+        debug!(
+            "🌟 Got new batch. Highest finalized = {:?}",
+            max_block_finalized
+        );
+        if max_block_finalized >= 100 as u128 {
+            break;
+        }
     }
+    close_member.send(()).expect("should send");
+    close_chain.send(()).expect("should send");
+    close_network.send(()).expect("should send");
+    close_verifier.send(()).expect("should send");
+    Ok(())
 }
 
 pub fn write_block(path: &str, block: Block) {

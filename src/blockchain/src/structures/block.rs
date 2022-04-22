@@ -17,6 +17,7 @@
 use codec::{Decode, Encode};
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 
 use super::header::{Address, Header};
@@ -26,7 +27,7 @@ use crate::signature::Signature;
 
 pub type BlockSignature = Signature;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Decode, Encode)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Decode, Encode, Hash)]
 pub struct Block {
     pub header: Header,
     // TODO(fishseabowl): Should be a Merkle Tree to speed up validation with root hash
@@ -62,6 +63,12 @@ impl Block {
     // After merging Aleph consensus algorithm, it would be implemented
     pub fn verify(&self) -> bool {
         true
+    }
+}
+
+impl PartialOrd for Block {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.header.ordinal.partial_cmp(&other.header.ordinal)
     }
 }
 
