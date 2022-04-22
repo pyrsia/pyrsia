@@ -18,7 +18,7 @@ use dirs;
 use futures::channel::{mpsc as futures_mpsc, oneshot};
 use futures::StreamExt;
 use libp2p::{identity, PeerId};
-use log::{debug, error, info};
+use log::{debug, info};
 use std::{
     error::Error,
     fs,
@@ -26,18 +26,18 @@ use std::{
     os::unix::fs::OpenOptionsExt,
     sync::{Arc, Mutex},
 };
-use tokio::io::{self, AsyncBufReadExt};
+use tokio::io;
 
-use pyrsia_blockchain_network::blockchain::Blockchain;
+// use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
 use pyrsia_blockchain_network::identities::{
     authority_pen::AuthorityPen, authority_verifier::AuthorityVerifier, key_box::KeyBox,
 };
-use pyrsia_blockchain_network::network::{Behaviour, Network, Spawner};
+use pyrsia_blockchain_network::network::{Network, Spawner};
 use pyrsia_blockchain_network::providers::{DataProvider, DataStore, FinalizationProvider};
 use pyrsia_blockchain_network::structures::{
     block::Block,
-    transaction::{Transaction, TransactionType},
+    // transaction::{Transaction, TransactionType},
 };
 use pyrsia_blockchain_network::{
     default_config, gen_chain_config, run_blockchain, run_session, NodeIndex,
@@ -56,7 +56,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // If the key file exists, load the key pair. Otherwise, create a random keypair and save to the key file
     let id_keys = create_ed25519_keypair();
     let ed25519_pair = identity::Keypair::Ed25519(id_keys.clone());
-    let peer_id = PeerId::from(edwards_pair.public());
+    let _peer_id = PeerId::from(ed25519_pair.public());
 
     info!("Getting network up.");
     let n_members = 3;
@@ -73,7 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         loop {
             futures::select! {
                 maybe_auth = authority_from_network.next() => {
-                    if let Some((node_ix, public_key)) = maybe_auth {
+                    if let Some((_node_ix, _public_key)) = maybe_auth {
                         // record_authority(node_ix, public_key);
                     }
                 }
