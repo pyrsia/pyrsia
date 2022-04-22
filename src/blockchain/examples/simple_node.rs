@@ -35,10 +35,7 @@ use pyrsia_blockchain_network::identities::{
 };
 use pyrsia_blockchain_network::network::{Network, Spawner};
 use pyrsia_blockchain_network::providers::{DataProvider, DataStore, FinalizationProvider};
-use pyrsia_blockchain_network::structures::{
-    block::Block,
-    // transaction::{Transaction, TransactionType},
-};
+use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::{
     default_config, gen_chain_config, run_blockchain, run_session, NodeIndex,
 };
