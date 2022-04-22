@@ -39,7 +39,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::str;
 use thiserror::Error;
-use unqlite::{Transaction, UnQLite, KV};
+use unqlite::{Cursor, Transaction, UnQLite, KV};
 
 /// Defines the sorting order when storing the values associated
 /// with an index.
@@ -136,9 +136,7 @@ fn check_index_specs_valid(indexes: &[IndexSpec]) -> anyhow::Result<(), Document
 }
 
 fn collection_name_to_file_name(name: &str) -> String {
-    let mut s = name.to_string();
-    s.push_str(".db");
-    s
+    format!("{}.db", name)
 }
 
 fn get_catalog_record(
@@ -388,6 +386,22 @@ impl DocumentStore {
 
         let index_key = IndexKey::new(index_to_use.0, compound_key);
         fetch_indexed_record(index_name, &self.unqlite, &index_key)
+    }
+
+    /// Fetches all documents from the database.
+    pub fn fetch_all(&self) -> anyhow::Result<Vec<String>, DocumentStoreError> {
+        let mut documents = Vec::new();
+        let mut entry = self.unqlite.first();
+        while let Some(record) = entry {
+            let (raw_data_key, raw_document) = record.key_value();
+            if raw_data_key[0] == KEYTYPE_DATA {
+                let document = bytes_to_utf8(raw_data_key, raw_document)?;
+                documents.push(document);
+            }
+            entry = record.next();
+        }
+
+        Ok(documents)
     }
 }
 
@@ -784,6 +798,42 @@ mod tests {
             .expect("Should have fetched without error.") // expect Ok
             .expect("Should have found a document."); // expect Some
         assert_eq!(doc.to_string(), res);
+    }
+
+    #[test]
+    fn test_fetch_all() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().join("test_fetch_all");
+        let name = path.to_str().unwrap();
+        let index = "index";
+        let field = "mostSignificantField";
+        let i = IndexSpec::new(index, vec![field]);
+        let indexes = vec![i];
+
+        let doc_store = DocumentStore::open(name, indexes).expect("should not result in error");
+
+        let res: Vec<String> = doc_store
+            .fetch_all()
+            .expect("Should have fetched without error."); // expect Ok
+        assert_eq!(0, res.len());
+
+        let doc1 = json!({
+            "foo": "bar",
+            "mostSignificantField": "msf1"
+        });
+        let doc2 = json!({
+            "foo": "baz",
+            "mostSignificantField": "msf2"
+        });
+        doc_store.insert(&doc1.to_string()).expect("empty value");
+        doc_store.insert(&doc2.to_string()).expect("empty value");
+
+        let res: Vec<String> = doc_store
+            .fetch_all()
+            .expect("Should have fetched without error."); // expect Ok
+        assert_eq!(2, res.len());
+        assert_eq!(doc1.to_string(), res[0]);
+        assert_eq!(doc2.to_string(), res[1]);
     }
 
     fn append_random(name: &str) -> String {
