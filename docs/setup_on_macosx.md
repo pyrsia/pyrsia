@@ -8,7 +8,8 @@ Build binaries for pyrsia_node
 
 
 ## Create 2 separate nodes 'installations'
-This will create two copies of the same binary so that you can configure them as independent nodes
+This will create two copies of the same binary so that you can configure them as independent nodes.
+
 Create Node A
 ```
 mkdir nodeA
@@ -22,7 +23,7 @@ mkdir nodeB
 cp target/debug/pyrsia_node nodeB
 ```
 ### Start Node A
-In a new terminal start node A, http listen on 7788 p2p listen on 44001
+In a new terminal start node A, http listen on 7888 and p2p listen on 44001
 ```
 cd nodeA
 DEV_MODE=on RUST_LOG="pyrsia=debug,info"  ./pyrsia_node -H 0.0.0.0 -p 7888 -L /ip4/0.0.0.0/tcp/44001
@@ -35,13 +36,13 @@ If everything goes well, you will see a line similar to the following in the log
 If you do not find this line right away try running `grep 44001`
 
 ### Start Node B
-In a new terminal start node B, http listen on 7788 p2p listen on 44002 and connect to peer nodeA
+In a new terminal start node B, http listen on 7889, p2p listen on 44002 and connect to peer node A on port 44001
 ```
 cd nodeB
 DEV_MODE=on RUST_LOG="pyrsia=debug,info"  ./pyrsia_node -H 0.0.0.0 -p 7889 -L /ip4/0.0.0.0/tcp/44002 --peer /ip4/127.0.0.1/tcp/44001
 ```
 
-If everything goes well, you will see a line similar to the following in the logs on the terminal(The IP address could be different than in the sample below)
+If everything goes well, you will see a line similar to the following in the logs on the terminal. (The IP address could be different than in the sample below)
 ```
 # DEBUG libp2p_swarm          > Connection established: PeerId("12D3KooWKzta9MMwnhA87ZKRy9PhN44X8N7twmgRhsgx1c1ZG3ex") Dialer { address: "/ip4/127.0.0.1/tcp/44001", role_override: Dialer }; Total (peer): 1. Total non-banned (peer): 1
 # and in nodeA output something like:
@@ -95,11 +96,11 @@ Now that you have setup both the Pyrsia Node and Pyrsia CLI you are ready to sta
 
 # Using Pyrsia with Docker
 
-Once you have setup the pyrsia nodes and the cli you are ready to start using Pyrsia with docker.
+Once you have setup the pyrsia nodes and the CLI you are ready to start using Pyrsia with docker.
 
-## Configure docker desktop to use nodeA as registry mirror
+## Configure docker desktop to use node A as registry mirror
 In your Docker desktop installation -> Settings -> Docker Engine where docker allows you to set registry-mirrors.
-Setup nodeA as a registry mirror by adding/editing the following in the configuration
+Setup node A as a registry mirror by adding/editing the following in the configuration.
 ```
  "registry-mirrors": [
    "http://192.168.0.110:7888" (IP address of host machine: port number for node A)
@@ -109,7 +110,9 @@ On MacOSX using localhost does not work(because the request is made from the Doc
 
 You will need to restart Docker Desktop.
 Once restarted you should be able to pull docker images through Pyrsia
-# pull alpine and make sure it's not in local docker cache:
+## pull alpine
+
+first make sure alpine is not in local docker cache, then pull alpine:
 ```
 docker rmi alpine # remove alpine from local docker cache
 docker pull alpine
@@ -118,7 +121,8 @@ When you pull an image of alpine from dockerhub Pyrsia node A should act as a pu
 ```
 # DEBUG pyrsia::docker::v2::handlers::blobs> Step 3: "sha256:3d243047344378e9b7136d552d48feb7ea8b6fe14ce0990e0cc011d5e369626a" successfully stored locally from docker.io
 ```
-You can try the same with node B acting as the registry mirros
+You can try the same with node B acting as the registry mirror.
+
 Change the docker registry mirror to node B
 ```
  "registry-mirrors": [
@@ -131,7 +135,7 @@ docker rmi alpine # remove alpine from local docker cache
 docker pull alpine
 ```
 
-Now node B is acting as the pull-through cache and should show a line similar to the following,  in its log
+Now node B is acting as the pull-through cache and should show a line similar to the following in its log, indicating `alpine` was retrieved from the Pyrsia network (in this case node A).
 ```
 # DEBUG pyrsia::docker::v2::handlers::blobs> Step 2: "sha256:3d243047344378e9b7136d552d48feb7ea8b6fe14ce0990e0cc011d5e369626a" successfully stored locally from Pyrsia network.
 ```
