@@ -14,14 +14,40 @@
    limitations under the License.
 */
 
-use libp2p::PeerId;
+use codec::{Decode, Encode};
+use libp2p::{identity, PeerId};
+use multihash::Multihash;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::crypto::hash_algorithm::HashDigest;
 
-pub type Address = PeerId;
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy, Decode, Encode)]
+pub struct Address {
+    // This can not be libp2p's PeerId as it is missing the SCALE codec support for Aleph,
+    // internally it's a https://github.com/libp2p/rust-libp2p/blob/6cc3b4ec52c922bfcf562a29b5805c3150e37c75/core/src/peer_id.rs#L40
+    // So we will stick with that.
+    peer_id: Multihash,
+}
+
+impl From<identity::PublicKey> for Address {
+    fn from(key: identity::PublicKey) -> Address {
+        Self {
+            peer_id: PeerId::from_public_key(&key).into(),
+        }
+    }
+}
+
+impl From<PeerId> for Address {
+    fn from(peer_id: PeerId) -> Address {
+        Self {
+            peer_id: peer_id.into(),
+        }
+    }
+}
+
+pub type Ordinal = u128;
 
 // this struct exists only for generating a hash
 #[derive(Serialize)]
@@ -30,7 +56,7 @@ struct PartialHeader {
     transactions_hash: HashDigest,
     committer: Address,
     timestamp: u64,
-    ordinal: u128,
+    ordinal: Ordinal,
     nonce: u128,
 }
 
@@ -53,7 +79,7 @@ fn calculate_hash(incomplete_header: &PartialHeader) -> Result<HashDigest, binco
 }
 
 /// struct Header define the header of a block
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy, Decode, Encode)]
 pub struct Header {
     /// 256-bit Keccak Hash of the parent block (previous [`Block`][block]'s [`hash`][hash])
     ///
@@ -70,7 +96,7 @@ pub struct Header {
     /// Unix timestamp in seconds, see <https://en.wikipedia.org/wiki/Unix_time> for more.
     pub timestamp: u64,
     /// block sequence number, the current block number should be the parent (previous) block number plus 1
-    pub ordinal: u128,
+    pub ordinal: Ordinal,
     /// Adds a salt to harden
     nonce: u128,
     /// The block id, 256-bit Keccak Hash of the Current Block Header, excluding itself
