@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use crate::network::artifact::{ArtifactExchangeCodec, ArtifactExchangeProtocol};
+use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactExchangeProtocol};
 use crate::network_central::behaviour::PyrsiaNetworkBehaviour;
 use crate::network::client::Client;
 use crate::network_central::event_loop::{PyrsiaEvent, PyrsiaEventLoop};

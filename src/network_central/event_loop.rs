@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use crate::network::artifact::{ArtifactRequest, ArtifactResponse};
+use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse};
 use crate::network_central::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::client::command::Command;
 use futures::channel::{mpsc, oneshot};

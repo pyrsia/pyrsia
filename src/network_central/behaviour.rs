@@ -14,12 +14,12 @@
    limitations under the License.
 */
 
-use crate::network::artifact::{ArtifactExchangeCodec, ArtifactRequest, ArtifactResponse};
+use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactRequest, ArtifactResponse};
 
 use libp2p::identify::{Identify, IdentifyEvent};
-use libp2p::relay::v2::relay::{self, Relay};
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::kad::{Kademlia, KademliaEvent};
+use libp2p::relay::v2::relay::{self, Relay};
 use libp2p::request_response::{RequestResponse, RequestResponseEvent};
 use libp2p::NetworkBehaviour;
 
@@ -28,9 +28,9 @@ use libp2p::NetworkBehaviour;
 /// behaviours:
 ///
 /// * [`Identify`]
-/// * [`Relay`] for relay server
 /// * [`Kademlia`]
 /// * [`RequestResponse`] for exchanging artifacts
+/// * [`Autonat`] for NAT discovery
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "PyrsiaNetworkEvent")]
 pub struct PyrsiaNetworkBehaviour {
@@ -45,8 +45,8 @@ pub struct PyrsiaNetworkBehaviour {
 #[derive(Debug)]
 pub enum PyrsiaNetworkEvent {
     Identify(IdentifyEvent),
-    Relay(relay::Event),
     Kademlia(KademliaEvent),
+    Relay(relay::Event),
     RequestResponse(RequestResponseEvent<ArtifactRequest, ArtifactResponse>),
 }
 

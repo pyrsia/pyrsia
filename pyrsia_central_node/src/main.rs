@@ -18,7 +18,7 @@ pub mod args;
 pub mod network;
 
 use args::parser::PyrsiaNodeArgs;
-use network_central::handlers;
+use network::handlers;
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::make_docker_routes;
 use pyrsia::logging::*;
