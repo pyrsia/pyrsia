@@ -37,7 +37,7 @@ pub async fn provide_artifacts(mut p2p_client: Client) {
             p2p_client
                 .provide(&format!(
                     "{}/{}/{}",
-                    package_version.pkg_type, package_version.name, package_version.version
+                    package_version.namespace_id, package_version.name, package_version.version
                 ))
                 .await;
         }
@@ -70,36 +70,37 @@ pub async fn handle_request_artifact(
 }
 
 fn handle_request_manifest(hash: &str) -> Option<Vec<u8>> {
-    let name = hash.get(..hash.find("/").unwrap()).unwrap();
-    let tag = hash.get(hash.find("/").unwrap() + 1..).unwrap();
-    match node_manager::handlers::METADATA_MGR.get_package_version(
-        pyrsia::node_manager::model::DOCKER_NAMESPACE_ID,
-        &name,
-        &tag,
-    ) {
-        Ok(Some(package_version)) => {
-            match manifests::get_artifact_manifest(&package_version.artifacts) {
-                Some(artifact) => {
-                    match node_manager::handlers::get_artifact(
-                        artifact.hash(),
-                        HashAlgorithm::SHA512,
-                    ) {
-                        Ok(content) => return Some(content),
-                        Err(e) => info!(
-                            "This node does not provide artifact {}. Error: {:?}",
-                            hash, e
-                        ),
+    let hash_parts: Vec<&str> = hash.split("/").collect();
+    if hash_parts.len() == 3 {
+        match node_manager::handlers::METADATA_MGR.get_package_version(
+            hash_parts[0],
+            hash_parts[1],
+            hash_parts[2],
+        ) {
+            Ok(Some(package_version)) => {
+                match manifests::get_artifact_manifest(&package_version.artifacts) {
+                    Some(artifact) => {
+                        match node_manager::handlers::get_artifact(
+                            artifact.hash(),
+                            HashAlgorithm::SHA512,
+                        ) {
+                            Ok(content) => return Some(content),
+                            Err(e) => info!(
+                                "This node does not provide artifact {}. Error: {:?}",
+                                hash, e
+                            ),
+                        }
                     }
+                    None => error!("Bad metadata in pyrsia. Not providing artifact {}.", hash),
                 }
-                None => error!("Bad metadata in pyrsia. Not providing artifact {}.", hash),
             }
-        }
-        Ok(None) => info!("This node does not provide artifact {}.", hash),
-        Err(e) => info!(
-            "This node does not provide artifact {}. Error: {:?}",
-            hash, e
-        ),
-    };
+            Ok(None) => info!("This node does not provide artifact {}.", hash),
+            Err(e) => info!(
+                "This node does not provide artifact {}. Error: {:?}",
+                hash, e
+            ),
+        };
+    }
 
     None
 }

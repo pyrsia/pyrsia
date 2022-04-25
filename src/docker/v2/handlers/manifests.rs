@@ -21,7 +21,7 @@ use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::docker::v2::storage::manifests;
 use crate::network;
 use crate::node_manager::handlers::METADATA_MGR;
-use crate::node_manager::model::package_type::PackageTypeName;
+use crate::node_manager::model::DOCKER_NAMESPACE_ID;
 use bytes::Bytes;
 use libp2p::PeerId;
 use log::{debug, error, info};
@@ -115,7 +115,7 @@ pub async fn fetch_manifest(
     };
 
     p2p_client
-        .provide(&format!("{}/{}/{}", PackageTypeName::Docker, name, tag))
+        .provide(&format!("{}/{}/{}", DOCKER_NAMESPACE_ID, name, tag))
         .await;
 
     Ok(warp::http::response::Builder::new()
@@ -183,7 +183,7 @@ async fn get_manifest_from_network(
     tag: &str,
 ) -> Result<String, Rejection> {
     let providers = p2p_client
-        .list_providers(&format!("{}/{}", name, tag))
+        .list_providers(&format!("{}/{}/{}", DOCKER_NAMESPACE_ID, name, tag))
         .await;
     debug!(
         "Step 2: Does {}/{} exist in the Pyrsia network? Providers: {:?}",
@@ -222,7 +222,7 @@ async fn get_manifest_from_other_peer(
     match p2p_client
         .request_artifact(
             peer_id,
-            &format!("{}/{}/{}", PackageTypeName::Docker, name, tag),
+            &format!("{}/{}/{}", DOCKER_NAMESPACE_ID, name, tag),
         )
         .await
     {
