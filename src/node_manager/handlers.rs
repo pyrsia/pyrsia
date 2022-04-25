@@ -37,21 +37,27 @@ lazy_static! {
         Ok(read_var("PYRSIA_ARTIFACT_PATH", "pyrsia"))
     );
     pub static ref ART_MGR: ArtifactManager = {
-        let dev_mode = read_var("DEV_MODE", "off");
-        if dev_mode.to_lowercase() == "on" {
-            log_static_initialization_failure(
-                "Artifact Manager Directory",
-                fs::create_dir_all(ARTIFACTS_DIR.as_str())
-                    .with_context(|| "Failed to create artifact manager directory in dev mode"),
-            );
-        }
+        evaluate_dev_mode();
         log_static_initialization_failure(
             "Artifact Manager",
             ArtifactManager::new(ARTIFACTS_DIR.as_str()),
         )
     };
-    pub static ref METADATA_MGR: Metadata =
-        log_static_initialization_failure("Metadata Manager", Metadata::new());
+    pub static ref METADATA_MGR: Metadata = {
+        evaluate_dev_mode();
+        log_static_initialization_failure("Metadata Manager", Metadata::new(ARTIFACTS_DIR.as_str()))
+    };
+}
+
+fn evaluate_dev_mode() {
+    let dev_mode = read_var("DEV_MODE", "off");
+    if dev_mode.to_lowercase() == "on" {
+        log_static_initialization_failure(
+            "Artifact Manager Directory",
+            fs::create_dir_all(ARTIFACTS_DIR.as_str())
+                .with_context(|| "Failed to create artifact manager directory in dev mode"),
+        );
+    }
 }
 
 fn log_static_initialization_failure<T: UnwindSafe>(

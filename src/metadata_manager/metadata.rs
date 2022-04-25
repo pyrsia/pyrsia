@@ -144,11 +144,20 @@ pub enum MetadataCreationStatus {
 }
 
 impl Metadata {
-    pub fn new() -> Result<Metadata, anyhow::Error> {
+    pub fn new(metadata_path: &str) -> Result<Metadata, anyhow::Error> {
         info!("Creating new instance of metadata manager");
-        let package_type_docs = DocumentStore::open(DS_PACKAGE_TYPES, ix_package_types())?;
-        let namespace_docs = DocumentStore::open(DS_NAMESPACES, ix_namespaces())?;
-        let package_version_docs = DocumentStore::open(DS_PACKAGE_VERSIONS, ix_package_versions())?;
+        let package_type_docs = DocumentStore::open(
+            &format!("{}/{}", metadata_path, DS_PACKAGE_TYPES),
+            ix_package_types(),
+        )?;
+        let namespace_docs = DocumentStore::open(
+            &format!("{}/{}", metadata_path, DS_NAMESPACES),
+            ix_namespaces(),
+        )?;
+        let package_version_docs = DocumentStore::open(
+            &format!("{}/{}", metadata_path, DS_PACKAGE_VERSIONS),
+            ix_package_versions(),
+        )?;
         let metadata = Metadata {
             package_type_docs,
             namespace_docs,
@@ -219,6 +228,16 @@ impl Metadata {
             FLD_PACKAGE_VERSIONS_VERSION => version,
         };
         fetch_package_version(self, IX_PACKAGE_VERSIONS_VERSION, filter)
+    }
+
+    pub fn list_package_versions(&self) -> anyhow::Result<Vec<PackageVersion>> {
+        match self.package_version_docs.fetch_all() {
+            Err(error) => bail!("Error fetching package versions: {}", error.to_string()),
+            Ok(package_versions) => package_versions
+                .iter()
+                .map(|json| serde_json::from_str(json).map_err(From::from))
+                .collect(),
+        }
     }
 }
 
@@ -295,11 +314,30 @@ mod tests {
     use crate::node_manager::handlers::METADATA_MGR;
     use crate::node_manager::model::artifact::ArtifactBuilder;
     use crate::node_manager::model::package_version::LicenseTextMimeType;
+    use assay::assay;
     use rand::RngCore;
     use serde_json::{Map, Value};
+    use std::env;
+    use std::fs;
+    use std::path::Path;
 
-    #[test]
-    fn package_type_test() -> Result<()> {
+    fn tear_down() {
+        if Path::new(&env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
+            fs::remove_dir_all(env::var("PYRSIA_ARTIFACT_PATH").unwrap()).expect(&format!(
+                "unable to remove test directory {}",
+                env::var("PYRSIA_ARTIFACT_PATH").unwrap()
+            ));
+        }
+    }
+
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+          ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+    )]
+    fn package_type_test() {
         let metadata = &METADATA_MGR;
         let package_type = PackageType {
             id: Uuid::new_v4().to_string(),
@@ -309,13 +347,19 @@ mod tests {
         // Because the Docker package type is pre-installed, we expect an attempt to add one to
         // produce a duplicate result.
         match metadata.create_package_type(&package_type)? {
-            MetadataCreationStatus::Created => bail!("Docker package type is supposed to be pre-installed, but we were just able to create it!"),
-            MetadataCreationStatus::Duplicate{ json: _} => Ok(())
+            MetadataCreationStatus::Created => panic!("Docker package type is supposed to be pre-installed, but we were just able to create it!"),
+            MetadataCreationStatus::Duplicate{ json: _} => {}
         }
     }
 
-    #[test]
-    fn namespace_test() -> Result<()> {
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+          ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+    )]
+    fn namespace_test() {
         let metadata = &METADATA_MGR;
 
         let id = Uuid::new_v4().to_string();
@@ -338,15 +382,22 @@ mod tests {
             }
             MetadataCreationStatus::Duplicate { json: _ } => (),
         }
-        Ok(())
     }
+
     fn now_as_iso8601_string() -> String {
         time::OffsetDateTime::now_utc()
             .format(&time::format_description::well_known::Rfc3339)
             .unwrap()
     }
-    #[test]
-    fn package_version_test() -> Result<()> {
+
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+          ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+    )]
+    fn package_version_test() {
         let metadata = &METADATA_MGR;
         info!("Got metadata instance");
 
@@ -415,7 +466,9 @@ mod tests {
         assert!(fetched_package_version2.is_some());
         assert_eq!(package_version, fetched_package_version2.unwrap());
 
-        Ok(())
+        let fetched_package_versions = metadata.list_package_versions()?;
+        assert_eq!(1, fetched_package_versions.len());
+        assert_eq!(package_version, fetched_package_versions[0]);
     }
 
     fn append_random(name: &str) -> String {

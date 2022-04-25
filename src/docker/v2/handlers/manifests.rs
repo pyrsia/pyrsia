@@ -21,6 +21,7 @@ use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::docker::v2::storage::manifests;
 use crate::network;
 use crate::node_manager::handlers::METADATA_MGR;
+use crate::node_manager::model::package_type::PackageTypeName;
 use bytes::Bytes;
 use libp2p::PeerId;
 use log::{debug, error, info};
@@ -113,7 +114,9 @@ pub async fn fetch_manifest(
         }
     };
 
-    p2p_client.provide(&format!("{}/{}", name, tag)).await;
+    p2p_client
+        .provide(&format!("{}/{}/{}", PackageTypeName::Docker, name, tag))
+        .await;
 
     Ok(warp::http::response::Builder::new()
         .header(
@@ -217,7 +220,10 @@ async fn get_manifest_from_other_peer(
         peer_id, name, tag
     );
     match p2p_client
-        .request_artifact(peer_id, &format!("{}/{}", name, tag))
+        .request_artifact(
+            peer_id,
+            &format!("{}/{}/{}", PackageTypeName::Docker, name, tag),
+        )
         .await
     {
         Ok(manifest) => {
