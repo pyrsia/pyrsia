@@ -15,8 +15,18 @@ if you are loking to make code changes.
 - Install [Docker](https://www.docker.com/get-started)
     * macOS and Windows: Compose is included in Docker Desktop
     * Linux: [Downloaded Compose](https://github.com/docker/compose#linux)
+    
+### Installing System Dependencies
 
-The Pyrsia Node will then be running on `http://localhost:7888`.
+- Install Clang and OpenSSL
+  * macOS: use [homebrew](https://brew.sh/) to install OpenSSL
+    ```sh
+    brew install openssl@1.1
+    ```
+  * Linux (ubuntu): use `apt` to install Clang and OpenSSL
+    ```sh
+    apt install clang libssl-dev
+    ```
 
 ## Obtain the Source Code
 
@@ -161,6 +171,6 @@ In a real life deployment these nodes will be spread over the network and will a
 
 To test the pyrsia_node status you can use `curl`  and
 
-```
+```sh
 curl --location --request GET 'http://localhost:7888/status'
 ```
