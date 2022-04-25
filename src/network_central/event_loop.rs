@@ -15,20 +15,20 @@
 */
 
 use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse};
-use crate::network_central::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::client::command::Command;
+use crate::network_central::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::identify::IdentifyEvent;
 use libp2p::kad::{GetClosestPeersOk, GetProvidersOk, KademliaEvent, QueryId, QueryResult};
 use libp2p::multiaddr::Protocol;
+use libp2p::relay::v2::relay;
 use libp2p::request_response::{
     RequestId, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
 };
 use libp2p::swarm::SwarmEvent;
 use libp2p::Swarm;
-use libp2p::relay::v2::relay;
 
 use log::{debug, info, trace, warn};
 use std::collections::hash_map::Entry::Vacant;
@@ -220,41 +220,41 @@ impl PyrsiaEventLoop {
     async fn handle_relay_event(&mut self, event: relay::Event) {
         trace!("Handle Relay Event: {:?}", event);
         match event {
-            relay::Event::ReservationReqAccepted {         
-                src_peer_id, ..
-            } => {
+            relay::Event::ReservationReqAccepted { src_peer_id, .. } => {
                 debug!(
                     "relay::Event::ReservationReqAccepted for peer {:?}",
                     src_peer_id
                 );
-            } 
-            relay::Event::ReservationReqAcceptFailed {src_peer_id, ..
-            } => { debug!(
-                "relay::Event::ReservationReqAcceptFailed for peer {:?}",
-                src_peer_id
-            );}            
-            relay::Event::ReservationReqDenied {src_peer_id, ..
-            } => { debug!(
-                "relay::Event::ReservationReqDenied for peer {:?}",
-                src_peer_id
-            );}            
-            relay::Event::ReservationTimedOut {src_peer_id
-            } => { debug!(
-                "relay::Event::ReservationTimedOut for peer {:?}",
-                src_peer_id
-            );}            
-            relay::Event::CircuitReqReceiveFailed { .. } => {}            
-            relay::Event::CircuitReqDenied { .. } => {}            
-            relay::Event::CircuitReqDenyFailed { .. } => {} 
-            relay::Event::CircuitReqAccepted { .. } => {} 
-            relay::Event::CircuitReqOutboundConnectFailed { .. } => {} 
-            relay::Event::CircuitReqAcceptFailed { .. } => {} 
-            relay::Event::CircuitClosed { .. } => {} 
-        
-            other => debug!("Unexpected relay behaviour event: {:?}.", other),
-
             }
+            relay::Event::ReservationReqAcceptFailed { src_peer_id, .. } => {
+                debug!(
+                    "relay::Event::ReservationReqAcceptFailed for peer {:?}",
+                    src_peer_id
+                );
+            }
+            relay::Event::ReservationReqDenied { src_peer_id, .. } => {
+                debug!(
+                    "relay::Event::ReservationReqDenied for peer {:?}",
+                    src_peer_id
+                );
+            }
+            relay::Event::ReservationTimedOut { src_peer_id } => {
+                debug!(
+                    "relay::Event::ReservationTimedOut for peer {:?}",
+                    src_peer_id
+                );
+            }
+            relay::Event::CircuitReqReceiveFailed { .. } => {}
+            relay::Event::CircuitReqDenied { .. } => {}
+            relay::Event::CircuitReqDenyFailed { .. } => {}
+            relay::Event::CircuitReqAccepted { .. } => {}
+            relay::Event::CircuitReqOutboundConnectFailed { .. } => {}
+            relay::Event::CircuitReqAcceptFailed { .. } => {}
+            relay::Event::CircuitClosed { .. } => {}
+
+            other => debug!("Unexpected relay behaviour event: {:?}.", other),
         }
+    }
     // Handles all other events from the libp2p `Swarm`.
     async fn handle_swarm_event(&mut self, event: SwarmEvent<PyrsiaNetworkEvent, impl Error>) {
         trace!("Handle SwarmEvent: {:?}", event);

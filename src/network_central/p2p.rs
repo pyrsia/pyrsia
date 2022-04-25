@@ -15,8 +15,8 @@
 */
 
 use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactExchangeProtocol};
-use crate::network_central::behaviour::PyrsiaNetworkBehaviour;
 use crate::network::client::Client;
+use crate::network_central::behaviour::PyrsiaNetworkBehaviour;
 use crate::network_central::event_loop::{PyrsiaEvent, PyrsiaEventLoop};
 use crate::util::keypair_util;
 
@@ -28,13 +28,13 @@ use libp2p::kad;
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::mplex;
 use libp2p::noise;
+use libp2p::relay::v2::relay::{self, Relay};
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
 use libp2p::swarm::{Swarm, SwarmBuilder};
 use libp2p::tcp;
 use libp2p::yamux;
 use libp2p::Transport;
 use libp2p::{identify, identity};
-use libp2p::relay::v2::relay::{self, Relay};
 use std::error::Error;
 use std::iter;
 use std::time::Duration;
@@ -103,7 +103,7 @@ pub fn setup_libp2p_swarm(
 ) -> Result<(Client, impl Stream<Item = PyrsiaEvent>, PyrsiaEventLoop), Box<dyn Error>> {
     let local_keypair = keypair_util::load_or_generate_ed25519();
 
-    let ( swarm, local_peer_id) = create_swarm(local_keypair)?;
+    let (swarm, local_peer_id) = create_swarm(local_keypair)?;
 
     let (command_sender, command_receiver) = mpsc::channel(32);
     let (event_sender, event_receiver) = mpsc::channel(32);
@@ -156,10 +156,11 @@ fn create_swarm(
                 identify: identify::Identify::new(identify_config),
                 relay: Relay::new(
                     peer_id,
-                        relay::Config {
-                            reservation_duration: Duration::from_secs(86400), // 1 hour
-                            ..Default::default()
-                        }),
+                    relay::Config {
+                        reservation_duration: Duration::from_secs(86400), // 1 hour
+                        ..Default::default()
+                    },
+                ),
                 kademlia: kad::Kademlia::new(peer_id, MemoryStore::new(peer_id)),
                 request_response: RequestResponse::new(
                     ArtifactExchangeCodec(),
