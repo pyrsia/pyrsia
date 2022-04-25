@@ -157,7 +157,7 @@ fn create_swarm(
                 relay: Relay::new(
                     peer_id,
                         relay::Config {
-                            reservation_duration: Duration::from_secs(2),
+                            reservation_duration: Duration::from_secs(86400), // 1 hour
                             ..Default::default()
                         }),
                 kademlia: kad::Kademlia::new(peer_id, MemoryStore::new(peer_id)),

@@ -29,8 +29,8 @@ use libp2p::NetworkBehaviour;
 ///
 /// * [`Identify`]
 /// * [`Kademlia`]
+/// * [`Relay`]
 /// * [`RequestResponse`] for exchanging artifacts
-/// * [`Autonat`] for NAT discovery
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "PyrsiaNetworkEvent")]
 pub struct PyrsiaNetworkBehaviour {
