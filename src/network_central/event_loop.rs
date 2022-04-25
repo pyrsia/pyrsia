@@ -28,7 +28,7 @@ use libp2p::request_response::{
 };
 use libp2p::swarm::SwarmEvent;
 use libp2p::Swarm;
-use libp2p::relay::v2::relay::{self, Relay};
+use libp2p::relay::v2::relay;
 
 use log::{debug, info, trace, warn};
 use std::collections::hash_map::Entry::Vacant;

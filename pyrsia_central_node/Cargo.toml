@@ -1,7 +1,7 @@
 [package]
 name = "pyrsia_central_node"
 version = "0.1.0"
-description = "Pyrsia Central Node instance which is being used as relay server"
+description = "Pyrsia Central Node instance with relay behaviour"
 authors = ["pyrsiaoss <pyrsiaopensource@gmail.com>"]
 edition = "2021"
 
