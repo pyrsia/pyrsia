@@ -82,7 +82,7 @@ Node1 ->> Docker1: The Pyrsia node responds with the requested image
 Docker1 ->> User: docker pull is completed successfully
 deactivate User
 
-User ->> Node1: pyrsia node --status the user uses the CLI to ask the<br>status the CLI connects to the Pyrsia node on port 7888
+User ->> Node1: pyrsia status the user uses the CLI to ask the<br>status the CLI connects to the Pyrsia node on port 7888
 activate User
 deactivate User
 note left of User: Check Pyrsia<br>node status
@@ -193,7 +193,7 @@ You should see something very similar to:
 Check the node status:
 
 ```sh
-pyrsia node -s
+pyrsia -s
 ```
 
 You should see something very similar to:
@@ -206,7 +206,7 @@ Disk Space Used:             0.0000%
 
 List the node's peers:
 ```sh
-pyrsia node -l
+pyrsia -l
 ```
 
 You should see something very similar to:
@@ -296,7 +296,7 @@ It will show the local Pyrsia node already had this docker image and didn’t ha
 Inspect the Pyrsia node status again on both nodes:
 
 ```
-pyrsia node -s
+pyrsia -s
 ```
 
 You should see something very similar to:
