@@ -17,7 +17,7 @@ log = "0.4"
 futures = "0.3.19"
 ed25519-dalek = { version = "1.0.1", features=["serde"]}
 anyhow = "1.0.57"
-aleph-bft = "0.8.4"
+aleph-bft = "0.13.0"
 codec = {package = "parity-scale-codec", version = "2.3.1", default-features = false, features = ["derive"]}
 hex = "0.4.3"
 async-trait = "0.1.53"
