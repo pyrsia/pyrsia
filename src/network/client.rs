@@ -18,6 +18,7 @@ pub mod command;
 
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::client::command::Command;
+use crate::node_manager::model::package_version::PackageVersion;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
@@ -31,6 +32,7 @@ use strum_macros::Display;
 /// within the libp2p swarm.
 #[derive(Debug, Display, PartialEq)]
 pub enum ArtifactType {
+    PackageVersion,
     Artifact,
 }
 
@@ -61,6 +63,18 @@ impl From<&str> for ArtifactHash {
     fn from(hash: &str) -> Self {
         ArtifactHash {
             hash: String::from(hash),
+        }
+    }
+}
+
+/// Construct an ArtifactHash from `PackageVersion`
+impl From<PackageVersion> for ArtifactHash {
+    fn from(package_version: PackageVersion) -> Self {
+        ArtifactHash {
+            hash: format!(
+                "{}/{}/{}",
+                package_version.namespace_id, package_version.name, package_version.version
+            ),
         }
     }
 }
