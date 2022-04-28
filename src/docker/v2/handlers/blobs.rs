@@ -195,6 +195,9 @@ async fn get_blob_from_other_peer(
         Ok(artifact) => {
             let id = Uuid::new_v4();
             debug!("Step 2: YES, {:?} exists in the Pyrsia network.", hash);
+
+            blobs::create_upload_directory(name, &id.to_string()).map_err(RegistryError::from)?;
+
             match blobs::store_blob_in_filesystem(
                 name,
                 &id.to_string(),
