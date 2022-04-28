@@ -39,9 +39,12 @@ pub fn make_docker_routes(
             "application/json",
         ));
 
+    let p2p_client_get_manifests = p2p_client.clone();
+    let p2p_client_put_manifests = p2p_client.clone();
+
     let v2_manifests = warp::path!("v2" / "library" / String / "manifests" / String)
         .and(warp::get().or(warp::head()).unify())
-        .and_then(fetch_manifest);
+        .and_then(move |name, tag| fetch_manifest(p2p_client_get_manifests.clone(), name, tag));
     let v2_manifests_put_docker = warp::path!("v2" / "library" / String / "manifests" / String)
         .and(warp::put())
         .and(warp::header::exact(
@@ -49,7 +52,9 @@ pub fn make_docker_routes(
             "application/vnd.docker.distribution.manifest.v2+json",
         ))
         .and(warp::body::bytes())
-        .and_then(put_manifest);
+        .and_then(move |name, reference, bytes| {
+            put_manifest(p2p_client_put_manifests.clone(), name, reference, bytes)
+        });
 
     let v2_blobs = warp::path!("v2" / "library" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
