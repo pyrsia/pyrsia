@@ -25,6 +25,45 @@ use libp2p::request_response::ResponseChannel;
 use log::debug;
 use std::collections::HashSet;
 use std::error;
+use strum_macros::Display;
+
+/// Defines the different types of artifacts that can be transferred
+/// within the libp2p swarm.
+#[derive(Debug, Display, PartialEq)]
+pub enum ArtifactType {
+    Artifact,
+}
+
+/// A utility struct for easily defining a hash from different
+/// types that can be used as a provisioning key within the
+/// libp2p swarm.
+#[derive(Debug, PartialEq)]
+pub struct ArtifactHash {
+    pub hash: String,
+}
+
+/// Construct an ArtifactHash from `String`
+impl From<String> for ArtifactHash {
+    fn from(hash: String) -> Self {
+        ArtifactHash { hash }
+    }
+}
+
+/// Construct an ArtifactHash from `&String`
+impl From<&String> for ArtifactHash {
+    fn from(hash: &String) -> Self {
+        ArtifactHash { hash: hash.clone() }
+    }
+}
+
+/// Construct an ArtifactHash from `&str`
+impl From<&str> for ArtifactHash {
+    fn from(hash: &str) -> Self {
+        ArtifactHash {
+            hash: String::from(hash),
+        }
+    }
+}
 
 /// The `Client` provides entry points to interact with the libp2p swarm.
 #[derive(Clone)]
@@ -81,14 +120,19 @@ impl Client {
     }
 
     /// Inform the swarm that this node is currently a
-    /// provider of the artifact with the specified `hash`.
-    pub async fn provide(&mut self, hash: &str) {
-        debug!("p2p::Client::provide {:?}", hash);
+    /// provider of the artifact with the specified `type`
+    /// and `hash`.
+    pub async fn provide(&mut self, artifact_type: ArtifactType, artifact_hash: ArtifactHash) {
+        debug!(
+            "p2p::Client::provide {:?}={:?}",
+            artifact_type, artifact_hash
+        );
 
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::Provide {
-                hash: String::from(hash),
+                artifact_type,
+                artifact_hash,
                 sender,
             })
             .await
@@ -97,12 +141,17 @@ impl Client {
     }
 
     /// List all peers in the swarm that are providing
-    /// the artifact with the specified `hash`.
-    pub async fn list_providers(&mut self, hash: &str) -> HashSet<PeerId> {
+    /// the artifact with the specified `type` and `hash`.
+    pub async fn list_providers(
+        &mut self,
+        artifact_type: ArtifactType,
+        artifact_hash: ArtifactHash,
+    ) -> HashSet<PeerId> {
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::ListProviders {
-                hash: String::from(hash),
+                artifact_type,
+                artifact_hash,
                 sender,
             })
             .await
@@ -240,12 +289,17 @@ mod tests {
             .map(char::from)
             .collect();
         let cloned_random_hash = random_hash.clone();
-        tokio::spawn(async move { client.provide(&random_hash).await });
+        tokio::spawn(async move {
+            client
+                .provide(ArtifactType::Artifact, random_hash.into())
+                .await
+        });
 
         futures::select! {
             command = receiver.next() => match command {
-                Some(Command::Provide { hash, sender }) => {
-                    assert_eq!(hash, cloned_random_hash);
+                Some(Command::Provide { artifact_type, artifact_hash, sender }) => {
+                    assert_eq!(artifact_type, ArtifactType::Artifact);
+                    assert_eq!(artifact_hash.hash, cloned_random_hash);
                     let _ = sender.send(());
                 },
                 _ => panic!("Command must match Command::Provide")
@@ -268,12 +322,17 @@ mod tests {
             .map(char::from)
             .collect();
         let cloned_random_hash = random_hash.clone();
-        tokio::spawn(async move { client.list_providers(&random_hash).await });
+        tokio::spawn(async move {
+            client
+                .list_providers(ArtifactType::Artifact, random_hash.into())
+                .await
+        });
 
         futures::select! {
             command = receiver.next() => match command {
-                Some(Command::ListProviders { hash, sender }) => {
-                    assert_eq!(hash, cloned_random_hash);
+                Some(Command::ListProviders { artifact_type, artifact_hash, sender }) => {
+                    assert_eq!(artifact_type, ArtifactType::Artifact);
+                    assert_eq!(artifact_hash.hash, cloned_random_hash);
                     let _ = sender.send(Default::default());
                 },
                 _ => panic!("Command must match Command::ListProviders")

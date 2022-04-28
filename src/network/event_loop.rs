@@ -276,21 +276,31 @@ impl PyrsiaEventLoop {
                     .get_closest_peers(peer_id);
                 self.pending_list_peers.insert(query_id, sender);
             }
-            Command::Provide { hash, sender } => {
+            Command::Provide {
+                artifact_type,
+                artifact_hash,
+                sender,
+            } => {
+                let kademlia_key = format!("{}|{}", artifact_type, artifact_hash.hash);
                 let query_id = self
                     .swarm
                     .behaviour_mut()
                     .kademlia
-                    .start_providing(hash.into_bytes().into())
+                    .start_providing(kademlia_key.into_bytes().into())
                     .expect("No store error.");
                 self.pending_start_providing.insert(query_id, sender);
             }
-            Command::ListProviders { hash, sender } => {
+            Command::ListProviders {
+                artifact_type,
+                artifact_hash,
+                sender,
+            } => {
+                let kademlia_key = format!("{}|{}", artifact_type, artifact_hash.hash);
                 let query_id = self
                     .swarm
                     .behaviour_mut()
                     .kademlia
-                    .get_providers(hash.into_bytes().into());
+                    .get_providers(kademlia_key.into_bytes().into());
                 self.pending_list_providers.insert(query_id, sender);
             }
             Command::RequestArtifact { hash, peer, sender } => {
