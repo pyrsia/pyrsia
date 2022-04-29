@@ -81,6 +81,17 @@ impl PackageVersion {
             tags: Default::default(),
         }
     }
+
+    pub fn get_artifact_by_mime_type(&self, mime_types: Vec<&str>) -> Option<&Artifact> {
+        for artifact in &self.artifacts {
+            if let Some(mime_type) = artifact.mime_type() {
+                if mime_types.contains(&mime_type.as_str()) {
+                    return Some(artifact);
+                }
+            }
+        }
+        None
+    }
 }
 
 #[derive(EnumIter, Debug, Display, PartialEq, EnumString, Serialize, Deserialize, Clone)]

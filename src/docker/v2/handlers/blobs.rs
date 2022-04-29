@@ -195,7 +195,10 @@ async fn get_blob_from_other_peer(
         peer_id,
         hash.get(7..).unwrap()
     );
-    match p2p_client.request_artifact(peer_id, hash).await {
+    match p2p_client
+        .request_artifact(peer_id, ArtifactType::Artifact, hash.into())
+        .await
+    {
         Ok(artifact) => {
             let id = Uuid::new_v4();
             debug!("Step 2: YES, {:?} exists in the Pyrsia network.", hash);

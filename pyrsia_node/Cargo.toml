@@ -10,6 +10,7 @@ edition = "2021"
 [dependencies]
 pyrsia = { path = ".." }
 
+anyhow = "1.0.57"
 clap = { version = "3.1.8", features= [ "cargo", "derive" ] }
 futures = "0.3.19"
 hex = "0.4.3"
