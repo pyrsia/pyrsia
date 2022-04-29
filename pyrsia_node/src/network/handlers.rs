@@ -42,8 +42,8 @@ pub async fn provide_artifacts(mut p2p_client: Client) {
     }
 }
 
-/// Respond to a RequestArtifact event by getting the artifact from
-/// the ArtifactManager.
+/// Respond to a RequestArtifact event by getting the artifact
+/// based on the provided artifact type and hash.
 pub async fn handle_request_artifact(
     mut p2p_client: Client,
     artifact_type: ArtifactType,
@@ -68,13 +68,24 @@ pub async fn handle_request_artifact(
     }
 }
 
+/// Get the artifact with the provided hash from the artifact manager.
 fn get_artifact(artifact_hash: &str) -> anyhow::Result<Vec<u8>> {
     let decoded_hash = hex::decode(&artifact_hash.get(7..).unwrap()).unwrap();
     node_manager::handlers::get_artifact(&decoded_hash, HashAlgorithm::SHA256)
 }
 
-fn get_package_version(artifact_hash: &str) -> Result<Vec<u8>, anyhow::Error> {
-    let decoded_hash: Vec<&str> = artifact_hash.split('/').collect();
+/// Get the artifact from the package version for the provided package
+/// version identifier. The identifier is a string that contains the following
+/// three components that uniquely identify a package version. Each part is
+/// separated by a forward slash (`/`):
+///
+///  * namespace id
+///  * name
+///  * version
+/// 
+/// This is an example of an identifier: `4658011310974e1bb5c46fd4df7e78b9/alpine/3.15.4`
+fn get_package_version(package_version_identifier: &str) -> Result<Vec<u8>, anyhow::Error> {
+    let decoded_hash: Vec<&str> = package_version_identifier.split('/').collect();
     if let Some(package_version) = node_manager::handlers::METADATA_MGR.get_package_version(
         decoded_hash[0],
         decoded_hash[1],
