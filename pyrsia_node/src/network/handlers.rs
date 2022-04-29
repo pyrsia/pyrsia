@@ -19,7 +19,7 @@ use libp2p::Multiaddr;
 use log::{debug, info};
 use pyrsia::artifacts_repository::hash_util::HashAlgorithm;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
-use pyrsia::network::client::Client;
+use pyrsia::network::client::{ArtifactType, Client};
 use pyrsia::node_manager;
 
 /// Reach out to another node with the specified address
@@ -33,7 +33,9 @@ pub async fn provide_artifacts(mut p2p_client: Client) {
     if let Ok(artifact_hashes) = node_manager::handlers::get_artifact_hashes() {
         debug!("Start providing {} artifacts", artifact_hashes.len());
         for artifact_hash in artifact_hashes.iter() {
-            p2p_client.provide(artifact_hash).await;
+            p2p_client
+                .provide(ArtifactType::Artifact, artifact_hash.into())
+                .await;
         }
     }
 }

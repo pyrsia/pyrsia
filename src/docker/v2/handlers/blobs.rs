@@ -19,7 +19,7 @@ use super::HashAlgorithm;
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::docker::v2::storage::*;
-use crate::network::client::Client;
+use crate::network::client::{ArtifactType, Client};
 use bytes::Bytes;
 use libp2p::PeerId;
 use log::{debug, info, trace};
@@ -60,7 +60,9 @@ pub async fn handle_get_blobs(
         }
     }
 
-    p2p_client.provide(&hash).await;
+    p2p_client
+        .provide(ArtifactType::Artifact, hash.clone().into())
+        .await;
 
     debug!("Final Step: {:?} successfully retrieved!", hash);
     Ok(warp::http::response::Builder::new()
@@ -146,7 +148,9 @@ async fn get_blob_from_network(
     name: &str,
     hash: &str,
 ) -> Result<(), RegistryError> {
-    let providers = p2p_client.list_providers(hash).await;
+    let providers = p2p_client
+        .list_providers(ArtifactType::Artifact, hash.into())
+        .await;
     debug!(
         "Step 2: Does {:?} exist in the Pyrsia network? Providers: {:?}",
         hash, providers
