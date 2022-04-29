@@ -133,7 +133,8 @@ mod tests {
         assert!(artifacts.is_some());
         assert_eq!(artifacts.unwrap().hash(), artifact.hash());
 
-        let artifacts = package_version.get_artifact_by_mime_type(vec!["application/json", "text/xml"]);
+        let artifacts =
+            package_version.get_artifact_by_mime_type(vec!["application/json", "text/xml"]);
         assert!(artifacts.is_some());
         assert_eq!(artifacts.unwrap().hash(), artifact.hash());
 
