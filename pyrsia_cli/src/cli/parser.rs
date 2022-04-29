@@ -22,24 +22,27 @@ pub fn cli_parser() -> ArgMatches {
     command!()
         .arg_required_else_help(true)
         .global_setting(AppSettings::DeriveDisplayOrder)
-        .arg_required_else_help(true)
-        .args(&[
-            arg!(-l --list       "Shows list of connected Peers").visible_alias("ls"),
-            arg!(--ping          "Pings configured pyrsia node"),
-            arg!(-s --status     "Shows node information"),
-        ])
+        .propagate_version(false)
         // Config subcommand
-        .subcommands(vec![Command::new("config")
-            .short_flag('c')
-            .about("Pyrsia config commands")
-            .arg_required_else_help(true)
-            .disable_version_flag(true)
-            .args(&[
-                arg!(-a --add      "Adds a node configuration"),
-                arg!(-e --edit     "Edits a node configuration"),
-                arg!(-r --remove   "Removes the stored node configuration").visible_alias("rm"),
-                arg!(-s --show     "Shows the stored node configuration"),
-            ])])
+        .subcommands(vec![
+            Command::new("config")
+                .short_flag('c')
+                .about("Pyrsia config commands")
+                .arg_required_else_help(true)
+                .args(&[
+                    arg!(-a --add      "Adds a node configuration"),
+                    arg!(-e --edit     "Edits a node configuration"),
+                    arg!(-r --remove   "Removes the stored node configuration").visible_alias("rm"),
+                    arg!(-s --show     "Shows the stored node configuration"),
+                ]),
+            Command::new("list")
+                .short_flag('l')
+                .about("Shows list of connected Peers"),
+            Command::new("ping").about("Pings configured pyrsia node"),
+            Command::new("status")
+                .short_flag('s')
+                .about("Shows node informationn"),
+        ])
         .version(version_string)
         .get_matches()
 }

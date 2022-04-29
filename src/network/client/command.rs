@@ -15,6 +15,7 @@
 */
 
 use crate::network::artifact_protocol::ArtifactResponse;
+use crate::network::client::{ArtifactHash, ArtifactType};
 use futures::channel::oneshot;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
@@ -40,11 +41,13 @@ pub enum Command {
         sender: oneshot::Sender<HashSet<PeerId>>,
     },
     Provide {
-        hash: String,
+        artifact_type: ArtifactType,
+        artifact_hash: ArtifactHash,
         sender: oneshot::Sender<()>,
     },
     ListProviders {
-        hash: String,
+        artifact_type: ArtifactType,
+        artifact_hash: ArtifactHash,
         sender: oneshot::Sender<HashSet<PeerId>>,
     },
     RequestArtifact {

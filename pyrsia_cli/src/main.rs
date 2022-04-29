@@ -16,7 +16,6 @@
 
 pub mod cli;
 
-use clap::{command, ErrorKind};
 use cli::handlers::*;
 use cli::parser::*;
 
@@ -25,28 +24,9 @@ async fn main() {
     // parsing command line arguments
     let matches = cli_parser();
 
-    // checking and preparing responses for each command and arguments
+    // checking and preparing responses for each command and its arguments if applicable
 
-    let (ls, pg, st) = (
-        matches.is_present("list"),
-        matches.is_present("ping"),
-        matches.is_present("status"),
-    );
-    match (ls, pg, st) {
-        (true, false, false) => node_list().await,
-        (false, true, false) => node_ping().await,
-        (false, false, true) => node_status().await,
-        _ => {
-            command!()
-                .error(
-                    ErrorKind::UnknownArgument,
-                    "Please specify correct argument",
-                )
-                .exit();
-        }
-    };
     match matches.subcommand() {
-        // config subcommand
         Some(("config", config_matches)) => {
             if config_matches.is_present("add") || config_matches.is_present("edit") {
                 config_add();
@@ -55,21 +35,15 @@ async fn main() {
                 config_show();
             }
         }
-
-        Some(("node", node_matches)) => {
-            if node_matches.is_present("ping") {
-                node_ping().await;
-            } else if node_matches.is_present("list") {
-                node_list().await;
-            } else if node_matches.is_present("status") {
-                node_status().await;
-            } else {
-                println!("No help topic for '{:?}'", node_matches);
-            }
+        Some(("list", _config_matches)) => {
+            node_list().await;
         }
-
-        None => {}
-
-        _ => unreachable!(),
+        Some(("ping", _config_matches)) => {
+            node_ping().await;
+        }
+        Some(("status", _config_matches)) => {
+            node_status().await;
+        }
+        _ => {} //this should be handled by clap arg_required_else_help
     }
 }
