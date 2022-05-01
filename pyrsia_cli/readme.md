@@ -17,7 +17,7 @@ Copy-paste the above generated executable in some folder and add to folder to yo
 
 OR
 
-Run the install command which installs the CLI in `~/.cargo/bin`. Make sure `~/.cargo/bin` is included in your `PATH`
+Run the install command below from the current `pyrsia_cli/` folder which installs the CLI in `~/.cargo/bin`. Make sure `~/.cargo/bin` is included in your `PATH`.
 
 ```sh
 cargo install --path .
@@ -28,6 +28,8 @@ cargo install --path .
 ```console
 pyrsia -h
 pyrsia -V
+pyrsia ping
+pyrsia status or pyrsia -s
 pyrsia config --add
 pyrsia config -s
 ```

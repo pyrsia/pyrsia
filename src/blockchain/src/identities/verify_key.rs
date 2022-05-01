@@ -20,8 +20,8 @@ use log::{debug, trace};
 
 // Convenience wrapper around a ed25519::PublicKey to support the parity scale coded required by aleph_bft
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct VerifyKey {
-    public: PublicKey,
+pub struct VerifyKey {
+    pub public: PublicKey,
 }
 
 impl VerifyKey {

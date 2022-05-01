@@ -48,8 +48,8 @@ There are two components of this project
 The Pyrsia node will always join the "main net" and connect with other peers. You can see this using the CLI's "status" command:
 
 ```sh
-$ ./pyrsia node -s
+$ ./pyrsia status
 Connected Peers Count:   17 # Shows the number of visible peers
 Artifacts Count:         12 # Total number of artifacts cached locally
-Total Disk Available:    983112
+Total Disk Available:    10.5 GB
 ```

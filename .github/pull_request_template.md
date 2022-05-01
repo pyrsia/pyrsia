@@ -9,7 +9,14 @@ Before submitting your Pull Request, please go over our check list.
 
 Fixes pyrsia/pyrsia#
 
-This PR does... by accomplishing ... and it can be reviewed by ...
+<!--
+
+Try to fill in the following to help the reviewers dive into the pull request.
+Explain the context and what changed.
+
+-->
+
+This PR does... by accomplishing... and it can be reviewed by... you can also test the changes by running...
 
 ## Screenshots (optional)
 
@@ -18,22 +25,27 @@ This PR does... by accomplishing ... and it can be reviewed by ...
 
 <!--
 
-Make certain your Pull Request has the following.
+Make certain you've done the following.
 
 -->
+
 - [ ] I've read the [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md).
 - [ ] I've read ["What is a Good PR?"](https://github.com/pyrsia/pyrsia/blob/main/docs/good_pr.md)
 - [ ] I've included a good title and brief description along with how to review them.
 - [ ] I've linked any associated an [issue](https://github.com/pyrsia/pyrsia/issues).
-- [ ] I've requested a review  from "pyrsia/collaborators"
+- [ ] I've requested a review  from `pyrsia/collaborators`.
+
+### Code Contributions
 
 <!--
 
-Locally run the build process (required for code changes, or you can remove this section).
+This section applies to code modifications, you may remove it otherwise.
+
+Make sure your Pull Request will pass the CI/CD pipeline.
 For a complete list of steps, check out the [developer workflow](https://github.com/pyrsia/pyrsia/blob/main/docs/dev_workflow.md)!
 
 -->
-### Code Contributions
 
-- [ ] I've built the code `cargo build --workspace`.
-- [ ] I've run the unit tests `cargo test --workspace`.
+- [ ] I've built the code `cargo build --all-targets` successfully.
+- [ ] I've run the unit tests `cargo test --workspace` and everything passes.
+- [ ] I've made sure my rust toolchain is current `rustup update`.
