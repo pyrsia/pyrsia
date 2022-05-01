@@ -13,7 +13,6 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-
 use libp2p::core::identity::ed25519::{Keypair, PublicKey};
 
 pub fn sign(key: &Keypair, payload: &[u8]) -> Vec<u8> {
