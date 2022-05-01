@@ -15,8 +15,18 @@ if you are loking to make code changes.
 - Install [Docker](https://www.docker.com/get-started)
     * macOS and Windows: Compose is included in Docker Desktop
     * Linux: [Downloaded Compose](https://github.com/docker/compose#linux)
+    
+### Installing System Dependencies
 
-The Pyrsia Node will then be running on `http://localhost:7888`.
+- Install Clang and OpenSSL
+  * macOS: use [homebrew](https://brew.sh/) to install OpenSSL
+    ```sh
+    brew install openssl@1.1
+    ```
+  * Linux (ubuntu): use `apt` to install Clang and OpenSSL
+    ```sh
+    apt install clang libssl-dev
+    ```
 
 ## Obtain the Source Code
 
@@ -87,24 +97,32 @@ following steps:
    cd ../target/debug
    ```
 
-8. Configure the CLI tool
+8. Configure the CLI tool for your node using interactive subcommand "config" 
 
+   ```
+    ./pyrsia config --add
     ```
-    ./pyrsia config --add localhost:7888
-    ```
+
+   OR place the config file in these OS specific locations:
+
+   Mac:  $HOME/Library/Preferences/rs.pyrsia-cli/pyrsia-cli.toml
+   Linux: $HOME/.config/rs.pyrsia-cli/pyrsia-cli.toml or $XDG_CONFIG_HOME/rs.pyrsia-cli/pyrsia-cli.toml
+   Windows: %APPDATA%\\Roaming\\pyrsia-cli\\config\\pyrsia-cli.toml
+
+    
 
 9. Ping the Pyrsia node and list the status
 
-    ```
-    ./pyrsia node -p
+    ```sh
+    $ ./pyrsia ping
     Connection Successfull !! {}
     ```
 
     ```sh
-    $ ./pyrsia node -s
+    $ ./pyrsia -s
     Connected Peers Count:   0
     Artifacts Count:         12 # reflects the number of artifacts that the pyrsia_node has stored on the network
-    Total Disk Available:    983112
+    Total Disk Available:    10.5 GB
     ```
 
 If you see a status message similar to:
@@ -139,10 +157,10 @@ Multiple Pyrsia Nodes can be started on the same computer by changing the ports 
 Re-running the status command, there should be an connect peer.
 
 ```sh 
-$ ./pyrsia node -s
+$ ./pyrsia -s
 Connected Peers Count:   1 # Shows the additional node that joined the list of peers
 Artifacts Count:         12
-Total Disk Available:    983112
+Total Disk Available:    10.5 GB
 ```
 
 In a real life deployment these nodes will be spread over the network and will all run on their own 7888 port.
@@ -153,6 +171,6 @@ In a real life deployment these nodes will be spread over the network and will a
 
 To test the pyrsia_node status you can use `curl`  and
 
-```
+```sh
 curl --location --request GET 'http://localhost:7888/status'
 ```

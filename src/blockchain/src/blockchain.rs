@@ -14,20 +14,18 @@
    limitations under the License.
 */
 
-use libp2p::{identity, PeerId};
+use libp2p::identity;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 
-use super::block::*;
 use super::crypto::hash_algorithm::HashDigest;
-use super::header::*;
-
-/// BlockchainId identifies the current chain
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum BlockchainId {
-    Pyrsia,
-}
+use super::structures::{
+    block::Block,
+    chain::Chain,
+    header::Address,
+    transaction::{Transaction, TransactionType},
+};
 
 /// Define Supported Signature Algorithm
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -35,50 +33,17 @@ pub enum SignatureAlgorithm {
     Ed25519,
 }
 
-/// Define Configuration Information
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Config {
-    pub blockchain_id: BlockchainId,
-    pub signature_algorithm: SignatureAlgorithm,
-    pub key_size: u32,
-}
-
-impl Config {
-    pub fn new() -> Self {
-        Self {
-            blockchain_id: BlockchainId::Pyrsia,
-            signature_algorithm: SignatureAlgorithm::Ed25519,
-            key_size: 32, //256bits
-        }
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct Blockchain {
-    #[serde(skip)]
     // this should actually be a Map<Transaction,Vec<OnTransactionSettled>> but that's later
-    pub trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
-    #[serde(skip)]
-    pub block_observers: Vec<Box<dyn FnMut(Block)>>,
-    pub blocks: Vec<Block>,
+    trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
+    block_observers: Vec<Box<dyn FnMut(Block)>>,
+    chain: Chain,
 }
 
 impl Debug for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Blockchain {
-            trans_observers: _,
-            blocks,
-            block_observers: _,
-        } = self;
-
         f.debug_struct("Blockchain")
-            .field("blocks", blocks)
+            .field("chain", &self.chain)
             .field("trans_observers", &self.trans_observers.len())
             .field("block_observers", &self.block_observers.len())
             .finish()
@@ -87,30 +52,28 @@ impl Debug for Blockchain {
 
 impl Blockchain {
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
+        let transaction = Transaction::new(
+            TransactionType::AddAuthority,
+            local_id,
+            "this needs to be the root authority".as_bytes().to_vec(),
+            keypair,
+        );
+        // Make the "genesis" blocks
+        let block = Block::new(HashDigest::new(b""), 0, Vec::from([transaction]), keypair);
+        let mut chain: Chain = Default::default();
+        chain.blocks.push(block);
         Self {
             trans_observers: Default::default(),
             block_observers: vec![],
-            // this is the "genesis" blocks
-            blocks: Vec::from([Block::new(
-                Header::new(PartialHeader::new(
-                    HashDigest::new(b""),
-                    local_id,
-                    HashDigest::new(b""),
-                    1,
-                )),
-                Vec::from([Transaction::new(
-                    PartialTransaction::new(
-                        TransactionType::AddAuthority,
-                        local_id,
-                        "this needs to be the root authority".as_bytes().to_vec(),
-                    ),
-                    keypair,
-                )]),
-                keypair,
-            )]),
+            chain,
         }
     }
+
+    pub fn blocks(&self) -> Vec<Block> {
+        self.chain.blocks.clone()
+    }
+
     pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction)>(
         &mut self,
         trans: Transaction,
@@ -144,34 +107,8 @@ impl Blockchain {
 
     #[warn(dead_code)]
     pub fn add_block(&mut self, block: Block) {
-        self.blocks.push(block);
-        self.notify_block_event(self.blocks.last().expect("block must exist").clone());
-    }
-}
-
-// Create a new block
-// why isn't this just Block::new
-pub fn new_block(
-    keypair: &identity::ed25519::Keypair,
-    transactions: &[Transaction],
-    parent_hash: HashDigest,
-    previous_number: u128,
-) -> Block {
-    let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
-    let transaction_root = HashDigest::new(&bincode::serialize(transactions).unwrap());
-    let block_header = Header::new(PartialHeader::new(
-        parent_hash,
-        local_id,
-        transaction_root,
-        previous_number + 1,
-    ));
-    Block::new(block_header, transactions.to_vec(), keypair)
-}
-
-impl Display for Blockchain {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let json = serde_json::to_string_pretty(&self).expect("json format error");
-        write!(f, "{}", json)
+        self.chain.blocks.push(block);
+        self.notify_block_event(self.chain.blocks.last().expect("block must exist").clone());
     }
 }
 
@@ -185,39 +122,39 @@ mod tests {
     #[test]
     fn test_build_blockchain() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let mut chain = Blockchain::new(&keypair);
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
-            PartialTransaction::new(TransactionType::Create, local_id, data.as_bytes().to_vec()),
+            TransactionType::Create,
+            local_id,
+            data.as_bytes().to_vec(),
             &keypair,
         );
         transactions.push(transaction);
-        chain.add_block(new_block(
+        chain.add_block(Block::new(
+            chain.blocks()[0].header.hash(),
+            chain.blocks()[0].header.ordinal + 1,
+            transactions,
             &keypair,
-            &transactions,
-            chain.blocks[0].header.hash,
-            chain.blocks[0].header.number,
         ));
-        assert_eq!(true, chain.blocks.last().unwrap().verify());
-        assert_eq!(2, chain.blocks.len());
+        assert_eq!(true, chain.blocks().last().unwrap().verify());
+        assert_eq!(2, chain.blocks().len());
         Ok(())
     }
 
     #[test]
     fn test_add_trans_listener() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let mut chain = Blockchain::new(&keypair);
 
         let transaction = Transaction::new(
-            PartialTransaction::new(
-                TransactionType::Create,
-                local_id,
-                "some transaction".as_bytes().to_vec(),
-            ),
+            TransactionType::Create,
+            local_id,
+            "some transaction".as_bytes().to_vec(),
             &keypair,
         );
         let called = Rc::new(Cell::new(false));
@@ -238,18 +175,11 @@ mod tests {
     #[test]
     fn test_add_block_listener() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
-        let local_id = PeerId::from(identity::PublicKey::Ed25519(keypair.public()));
-        let block_header = Header::new(PartialHeader::new(
-            HashDigest::new(b""),
-            local_id,
-            HashDigest::new(b""),
-            1,
-        ));
-
         let block = Block::new(
-            block_header,
+            HashDigest::new(b"Hello World!"),
+            1u128,
             Vec::new(),
-            &identity::ed25519::Keypair::generate(),
+            &keypair,
         );
         let mut chain = Blockchain::new(&keypair);
         let called = Rc::new(Cell::new(false));

@@ -19,6 +19,7 @@ use super::HashAlgorithm;
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::metadata_manager::metadata::MetadataCreationStatus;
+use crate::network::client::{ArtifactType, Client};
 use crate::node_manager::handlers::METADATA_MGR;
 use crate::node_manager::model::artifact::{Artifact, ArtifactBuilder};
 use crate::node_manager::model::package_type::PackageTypeName;
@@ -28,7 +29,8 @@ use bytes::Buf;
 use bytes::Bytes;
 use easy_hasher::easy_hasher::raw_sha512;
 use log::{debug, error, info, warn};
-use reqwest::{header, Client};
+use reqwest;
+use reqwest::header;
 use serde_json::{json, Map, Value};
 use std::fmt::Display;
 use uuid::Uuid;
@@ -36,7 +38,11 @@ use warp::http::StatusCode;
 use warp::{Rejection, Reply};
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
-pub async fn fetch_manifest(name: String, tag: String) -> Result<impl Reply, Rejection> {
+pub async fn fetch_manifest(
+    p2p_client: Client,
+    name: String,
+    tag: String,
+) -> Result<impl Reply, Rejection> {
     let manifest_content;
     debug!("Fetching manifest for {} with tag: {}", name, tag);
 
@@ -57,7 +63,7 @@ pub async fn fetch_manifest(name: String, tag: String) -> Result<impl Reply, Rej
                     //TODO: neeed mechanism in metadata to delete the invalid metadata
                     error!("Bad metadata in pyrsia , getting manifest from dockerhub");
 
-                    let hash = get_manifest_from_docker_hub(&name, &tag).await?;
+                    let hash = get_manifest_from_docker_hub(p2p_client, &name, &tag).await?;
                     manifest_content =
                         get_artifact(hex::decode(hash).unwrap().as_ref(), HashAlgorithm::SHA512)
                             .map_err(|_| {
@@ -71,7 +77,7 @@ pub async fn fetch_manifest(name: String, tag: String) -> Result<impl Reply, Rej
         Ok(None) => {
             debug!("No package found in pyrsia , getting manifest from dockerhub and storing in pyrsia.");
 
-            let hash = get_manifest_from_docker_hub(&name, &tag).await?;
+            let hash = get_manifest_from_docker_hub(p2p_client, &name, &tag).await?;
             manifest_content =
                 get_artifact(hex::decode(hash).unwrap().as_ref(), HashAlgorithm::SHA512).map_err(
                     |_| {
@@ -86,7 +92,7 @@ pub async fn fetch_manifest(name: String, tag: String) -> Result<impl Reply, Rej
             error!("Error getting manifest from pyrsia");
             debug!("Getting manifest from dockerhub and storing in pyrsia storage.");
 
-            let hash = get_manifest_from_docker_hub(&name, &tag).await?;
+            let hash = get_manifest_from_docker_hub(p2p_client, &name, &tag).await?;
             manifest_content =
                 get_artifact(hex::decode(hash).unwrap().as_ref(), HashAlgorithm::SHA512).map_err(
                     |_| {
@@ -113,6 +119,7 @@ const LOCATION: &str = "Location";
 
 // Handles PUT endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn put_manifest(
+    p2p_client: Client,
     name: String,
     reference: String,
     bytes: Bytes,
@@ -127,7 +134,7 @@ pub async fn put_manifest(
                 hex::encode(artifact_hash.1.clone())
             );
             hash = hex::encode(artifact_hash.1.clone());
-            let mut package_version = match package_version_from_manifest_bytes(
+            let package_version = match package_version_from_manifest_bytes(
                 &bytes,
                 &name,
                 &reference,
@@ -147,7 +154,7 @@ pub async fn put_manifest(
                 "Created PackageVersion from manifest: {:?}",
                 package_version
             );
-            if let Err(err) = save_package_version(&mut package_version) {
+            if let Err(err) = save_package_version(p2p_client, package_version).await {
                 return Ok(internal_error_response(
                     "Failed to sign and save package version from docker manifest",
                     &err,
@@ -195,11 +202,17 @@ fn internal_error_response(
     // I couldn't find a way to return an internal server error that does not use unwrap or somethign else that can panic
 }
 
-fn save_package_version(package_version: &mut PackageVersion) -> Result<(), anyhow::Error> {
-    let pv_json = serde_json::to_string(package_version)
+async fn save_package_version(
+    mut p2p_client: Client,
+    package_version: PackageVersion,
+) -> Result<(), anyhow::Error> {
+    let pv_json = serde_json::to_string(&package_version)
         .unwrap_or_else(|_| "*** missing JSON ***".to_string());
-    match METADATA_MGR.create_package_version(package_version)? {
+    match METADATA_MGR.create_package_version(&package_version)? {
         MetadataCreationStatus::Created => {
+            p2p_client
+                .provide(ArtifactType::PackageVersion, package_version.into())
+                .await;
             info!("Saved package version from docker manifest: {}", pv_json)
         }
         MetadataCreationStatus::Duplicate { json } => info!(
@@ -210,13 +223,18 @@ fn save_package_version(package_version: &mut PackageVersion) -> Result<(), anyh
     Ok(())
 }
 
-async fn get_manifest_from_docker_hub(name: &str, tag: &str) -> Result<String, Rejection> {
+async fn get_manifest_from_docker_hub(
+    p2p_client: Client,
+    name: &str,
+    tag: &str,
+) -> Result<String, Rejection> {
     let token = get_docker_hub_auth_token(name).await?;
 
-    get_manifest_from_docker_hub_with_token(name, tag, token).await
+    get_manifest_from_docker_hub_with_token(p2p_client, name, tag, token).await
 }
 
 async fn get_manifest_from_docker_hub_with_token(
+    p2p_client: Client,
     name: &str,
     tag: &str,
     token: String,
@@ -227,7 +245,7 @@ async fn get_manifest_from_docker_hub_with_token(
     );
 
     debug!("Reading manifest from docker.io with url: {}", url);
-    let response = Client::new()
+    let response = reqwest::Client::new()
         .get(url)
         .header(header::AUTHORIZATION, format!("Bearer {}", token))
         .header(
@@ -254,7 +272,7 @@ async fn get_manifest_from_docker_hub_with_token(
                 hex::encode(artifact_hash.1.clone())
             );
             hash = hex::encode(artifact_hash.1.clone());
-            let mut package_version = match package_version_from_manifest_bytes(
+            let package_version = match package_version_from_manifest_bytes(
                 &bytes,
                 name,
                 tag,
@@ -274,7 +292,7 @@ async fn get_manifest_from_docker_hub_with_token(
                 "Created PackageVersion from manifest: {:?}",
                 package_version
             );
-            if let Err(err) = save_package_version(&mut package_version) {
+            if let Err(err) = save_package_version(p2p_client, package_version).await {
                 return Err(warp::reject::custom(RegistryError {
                     code: RegistryErrorCode::Unknown(err.to_string()),
                 }));
@@ -600,7 +618,7 @@ fn add_artifact(
 fn new_uuid_string() -> String {
     String::from(
         Uuid::new_v4()
-            .to_simple()
+            .as_simple()
             .encode_lower(&mut Uuid::encode_buffer()),
     )
 }
@@ -629,17 +647,19 @@ fn invalid_manifest<T>(_json_string: &str) -> Result<T, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::network::client::command::Command;
     use assay::assay;
     use bytes::Bytes;
+    use futures::channel::mpsc;
     use futures::executor;
+    use futures::prelude::*;
+    use libp2p::identity::Keypair;
     use serde::de::StdError;
     use std::env;
-    use std::fs;
-    use std::fs::File;
+    use std::fs::{self, File};
     use std::io::Read;
     use std::panic;
-    use std::path::Path;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::str;
     use warp::http::header::HeaderMap;
 
@@ -759,19 +779,41 @@ mod tests {
     }
 
     #[assay(
-    env = [
-      ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-      ("DEV_MODE", "on")
-    ],
-    teardown = tear_down()
+        env = [
+            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+            ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
     )]
-    fn test_put_manifest_expecting_success_response_with_manifest_stored_in_artifact_manager_and_package_version_in_metadata_manager(
+    #[tokio::test]
+    async fn test_put_manifest_expecting_success_response_with_manifest_stored_in_artifact_manager_and_package_version_in_metadata_manager(
     ) {
-        let name = "httpbin";
-        let reference = "v2.4";
+        let name = "hello-world";
+        let reference = "v3.1";
+
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        tokio::spawn(async move {
+            futures::select! {
+                command = receiver.next() => match command {
+                    Some(Command::Provide { artifact_type, artifact_hash, sender }) => {
+                        assert_eq!(ArtifactType::PackageVersion, artifact_type);
+                        assert_eq!(artifact_hash.hash, format!("{}/{}/{}", DOCKER_NAMESPACE_ID, name, reference));
+                        let _ = sender.send(());
+                    },
+                    _ => panic!("Command must match Command::Provide"),
+                }
+            }
+        });
+
+        let p2p_client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
 
         let future = async {
             put_manifest(
+                p2p_client,
                 name.to_string(),
                 reference.to_string(),
                 Bytes::from(MANIFEST_V1_JSON.as_bytes()),
@@ -786,17 +828,36 @@ mod tests {
 
     #[assay(
         env = [
-          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-          ("DEV_MODE", "on")
+            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+            ("DEV_MODE", "on")
         ],
         teardown = tear_down()
-        )]
-    fn test_fetch_manifest() {
-        let name = "httpbin";
-        let reference = "v2.4";
+    )]
+    #[tokio::test]
+    async fn test_fetch_manifest() {
+        let name = "hello-world";
+        let reference = "v3.1";
+
+        let (sender, mut receiver) = mpsc::channel(1);
+        let p2p_client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        tokio::spawn(async move {
+            futures::select! {
+                command = receiver.next() => match command {
+                    Some(Command::Provide { sender, .. }) => {
+                        let _ = sender.send(());
+                    },
+                    _ => panic!("Command must match Command::Provide"),
+                }
+            }
+        });
 
         let future = async {
             put_manifest(
+                p2p_client.clone(),
                 name.to_string(),
                 reference.to_string(),
                 Bytes::from(MANIFEST_V1_JSON.as_bytes()),
@@ -807,21 +868,46 @@ mod tests {
         verify_put_manifest_result(result);
         check_package_version_metadata()?;
 
-        let future = async { fetch_manifest("hello-world".to_string(), "v3.1".to_string()).await };
+        let future = async {
+            fetch_manifest(p2p_client, "hello-world".to_string(), "v3.1".to_string()).await
+        };
+
         let result = executor::block_on(future);
         verify_fetch_manifest_result(result);
     }
 
-    #[test]
+    #[tokio::test]
     #[ignore]
-    fn test_fetch_manifest_if_not_in_pyrsia_expecting_fetch_from_dockerhub_success_and_store_in_pyrsia(
+    async fn test_fetch_manifest_if_not_in_pyrsia_expecting_fetch_from_dockerhub_success_and_store_in_pyrsia(
     ) {
         let name = "alpine";
         let reference = "sha256:e7d88de73db3d3fd9b2d63aa7f447a10fd0220b7cbf39803c803f2af9ba256b3";
 
         assert!(check_manifest_is_stored_in_pyrsia("alpine_manifest.json").is_err());
 
-        let result = test_async!(fetch_manifest(name.to_string(), reference.to_string()));
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        tokio::spawn(async move {
+            futures::select! {
+                command = receiver.next() => match command {
+                    Some(Command::Provide { sender, .. }) => {
+                        let _ = sender.send(());
+                    },
+                    _ => panic!("Command must match Command::Provide"),
+                }
+            }
+        });
+
+        let p2p_client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let result = test_async!(fetch_manifest(
+            p2p_client,
+            name.to_string(),
+            reference.to_string()
+        ));
         verify_fetch_manifest_result_if_not_in_pyrsia(result);
         assert!(!(check_manifest_is_stored_in_pyrsia("alpine_manifest.json").is_err()));
     }
@@ -878,7 +964,7 @@ mod tests {
                 let response = reply.into_response();
                 assert_eq!(response.status(), 201);
                 assert!(response.headers().contains_key(LOCATION));
-                assert_eq!("http://localhost:7878/v2/httpbin/manifests/sha256:e914f081939bddb7ea8ab2065df24b6f495d3eaa22c75e94ff7ab504ccf9f23f6728f42d135d48204d05e974e6e797cb48fa0612223887338de7b66a0144c48e",
+                assert_eq!("http://localhost:7878/v2/hello-world/manifests/sha256:e914f081939bddb7ea8ab2065df24b6f495d3eaa22c75e94ff7ab504ccf9f23f6728f42d135d48204d05e974e6e797cb48fa0612223887338de7b66a0144c48e",
                 response.headers().get(LOCATION).unwrap());
             }
             Err(_) => {

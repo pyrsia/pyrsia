@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
 
-mkdir -p /usr/local/var/pyrsia 2>/dev/null
-chmod -R 644 /usr/local/var/pyrsia
-
 #DEBHELPER#
 
+set -e
+
+mkdir -p /usr/local/var/pyrsia 
+chmod -R 644 /usr/local/var/pyrsia
+
+# Check if Pyrsia service exists and stop it so we can upgrade existing executables    
+
+if type -P "systemctl" 2>&1 1>/dev/null && systemctl --all --type service | grep -q "pyrsia";then
+
+   systemctl stop "pyrsia"
+
+fi
