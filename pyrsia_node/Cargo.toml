@@ -10,7 +10,7 @@ edition = "2021"
 [dependencies]
 pyrsia = { path = ".." }
 
-clap = { version = "3.1.8", features= [ "cargo", "derive" ] }
+clap = { version = "3.1.12", features= [ "cargo", "derive" ] }
 futures = "0.3.19"
 hex = "0.4.3"
 libp2p = { version = "0.44.0", features=["dns-tokio", "tcp-tokio"]}
