@@ -21,12 +21,12 @@ use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
 use std::collections::HashSet;
 use std::error::Error;
-use std::fmt::{Display, Formatter};
+use strum_macros::Display;
 
 /// Commands are sent by the [`Client`] to the [`PyrsiaEventLoop`].
 /// Each command matches exactly with one if the functions that are
 /// defined in `Client`.
-#[derive(Debug)]
+#[derive(Debug, Display)]
 pub enum Command {
     Listen {
         addr: Multiaddr,
@@ -62,17 +62,19 @@ pub enum Command {
     },
 }
 
-impl Display for Command {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        let name = match self {
-            Command::Listen { .. } => "Listen",
-            Command::Dial { .. } => "Dial",
-            Command::ListPeers { .. } => "ListPeers",
-            Command::Provide { .. } => "Provide",
-            Command::ListProviders { .. } => "ListProviders",
-            Command::RequestArtifact { .. } => "RequestArtifact",
-            Command::RespondArtifact { .. } => "RespondArtifact",
-        };
-        write!(f, "{}", name)
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::channel::oneshot;
+
+    #[test]
+    fn command_correctly_implements_display() {
+        let (sender, _) = oneshot::channel();
+        let addr: Multiaddr = "/ip4/127.0.0.1".parse().unwrap();
+
+        assert_eq!(
+            String::from("Listen"),
+            Command::Listen { addr, sender }.to_string()
+        );
     }
 }

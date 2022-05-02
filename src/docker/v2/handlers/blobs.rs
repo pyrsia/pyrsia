@@ -51,19 +51,12 @@ pub async fn handle_get_blobs(
                 hash
             );
 
-            let blob_stored = get_blob_from_network(p2p_client.clone(), &name, &hash).await?;
-            if blob_stored {
-                blob_content =
-                    get_artifact(&decoded_hash, HashAlgorithm::SHA256).map_err(|_| {
-                        warp::reject::custom(RegistryError {
-                            code: RegistryErrorCode::BlobUnknown,
-                        })
-                    })?;
-            } else {
-                return Err(warp::reject::custom(RegistryError {
-                    code: RegistryErrorCode::Unknown("PYRSIA_ARTIFACT_STORAGE_ERROR".to_string()),
-                }));
-            }
+            get_blob_from_network(p2p_client.clone(), &name, &hash).await?;
+            blob_content = get_artifact(&decoded_hash, HashAlgorithm::SHA256).map_err(|_| {
+                warp::reject::custom(RegistryError {
+                    code: RegistryErrorCode::BlobUnknown,
+                })
+            })?;
         }
     }
 
@@ -154,7 +147,7 @@ async fn get_blob_from_network(
     mut p2p_client: Client,
     name: &str,
     hash: &str,
-) -> Result<bool, Rejection> {
+) -> Result<(), RegistryError> {
     let providers = p2p_client
         .list_providers(ArtifactType::Artifact, hash.into())
         .await;
@@ -162,15 +155,18 @@ async fn get_blob_from_network(
         "Step 2: Does {:?} exist in the Pyrsia network? Providers: {:?}",
         hash, providers
     );
-    Ok(match providers.iter().next() {
+
+    match providers.iter().next() {
         Some(peer) => {
             debug!(
                 "Step 2: YES, {:?} exists in the Pyrsia network, fetching from peer {}.",
                 hash, peer
             );
-            match get_blob_from_other_peer(p2p_client.clone(), peer, name, hash).await {
-                true => true,
-                false => get_blob_from_docker_hub(name, hash).await?,
+            if get_blob_from_other_peer(p2p_client.clone(), peer, name, hash)
+                .await
+                .is_err()
+            {
+                get_blob_from_docker_hub(name, hash).await?
             }
         }
         None => {
@@ -180,7 +176,9 @@ async fn get_blob_from_network(
             );
             get_blob_from_docker_hub(name, hash).await?
         }
-    })
+    }
+
+    Ok(())
 }
 
 // Request the content of the artifact from other peer
@@ -189,7 +187,7 @@ async fn get_blob_from_other_peer(
     peer_id: &PeerId,
     name: &str,
     hash: &str,
-) -> bool {
+) -> Result<(), RegistryError> {
     info!(
         "Reading blob from Pyrsia Node {}: {}",
         peer_id,
@@ -202,56 +200,48 @@ async fn get_blob_from_other_peer(
         Ok(artifact) => {
             let id = Uuid::new_v4();
             debug!("Step 2: YES, {:?} exists in the Pyrsia network.", hash);
-            match blobs::store_blob_in_filesystem(
+
+            blobs::create_upload_directory(name, &id.to_string()).map_err(RegistryError::from)?;
+            blobs::store_blob_in_filesystem(
                 name,
                 &id.to_string(),
                 hash,
                 bytes::Bytes::from(artifact),
-            ) {
-                Ok(stored) => {
-                    debug!(
-                        "Step 2: {:?} successfully stored locally from Pyrsia network.",
-                        hash
-                    );
-                    stored
-                }
-                Err(error) => {
-                    debug!("Error while storing artifact in filesystem: {}", error);
-                    false
-                }
-            }
+            )
+            .map_err(RegistryError::from)?;
+            debug!(
+                "Step 2: {:?} successfully stored locally from Pyrsia network.",
+                hash
+            );
+            Ok(())
         }
         Err(error) => {
             debug!(
                 "Step 2: Error while retrieving {:?} from the Pyrsia network from peer {}: {}",
                 hash, peer_id, error
             );
-            false
+            Err(RegistryError::from(error))
         }
     }
 }
 
-async fn get_blob_from_docker_hub(name: &str, hash: &str) -> Result<bool, RegistryError> {
+async fn get_blob_from_docker_hub(name: &str, hash: &str) -> Result<(), RegistryError> {
     debug!("Step 3: Retrieving {:?} from docker.io", hash);
     let token = get_docker_hub_auth_token(name).await?;
 
-    match get_blob_from_docker_hub_with_token(name, hash, token).await {
-        Ok(stored) => {
-            debug!(
-                "Step 3: {:?} successfully stored locally from docker.io",
-                hash
-            );
-            Ok(stored)
-        }
-        Err(error) => Err(error),
-    }
+    get_blob_from_docker_hub_with_token(name, hash, token).await?;
+    debug!(
+        "Step 3: {:?} successfully stored locally from docker.io",
+        hash
+    );
+    Ok(())
 }
 
 async fn get_blob_from_docker_hub_with_token(
     name: &str,
     hash: &str,
     token: String,
-) -> Result<bool, RegistryError> {
+) -> Result<(), RegistryError> {
     let url = format!(
         "https://registry-1.docker.io/v2/library/{}/blobs/{}",
         name, hash
@@ -270,9 +260,5 @@ async fn get_blob_from_docker_hub_with_token(
     let id = Uuid::new_v4();
 
     blobs::create_upload_directory(name, &id.to_string()).map_err(RegistryError::from)?;
-
-    let blob_push = blobs::store_blob_in_filesystem(name, &id.to_string(), hash, bytes)
-        .map_err(RegistryError::from)?;
-
-    Ok(blob_push)
+    blobs::store_blob_in_filesystem(name, &id.to_string(), hash, bytes).map_err(RegistryError::from)
 }
