@@ -66,7 +66,7 @@ Notice that node A and node B have now connected as peers and are able to commun
 If you saw the above lines in your logs and did not see any failure/error messages your Pyrsia node network has now been setup.
 Also that means we did not break anything 😜
 
-You should now be able to interact with the Pyrsia Pode.
+You should now be able to interact with the Pyrsia Node.
 
 ## Using the Pyrsia CLI
 
