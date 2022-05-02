@@ -20,7 +20,7 @@ use std::fmt::{Display, Formatter};
 
 const CONF_FILE: &str = "pyrsia-cli";
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CliConfig {
     pub host: String,
     pub port: String,
@@ -94,13 +94,18 @@ mod tests {
     #[assay(teardown = tear_down())]
     fn test_config_file_update() {
         let cfg: CliConfig = get_config().expect("could not get conf file");
-        assert_eq!(cfg.port, "7888".to_string());
-        let cfg = CliConfig {
+        let cfg2: CliConfig = CliConfig {
+            port: "7888".to_string(),
+            ..cfg.clone()
+        };
+        let cfg3: CliConfig = CliConfig {
             port: "7878".to_string(),
-            ..cfg
+            ..cfg.clone()
         };
 
-        add_config(cfg).expect("could not update conf file");
+        add_config(cfg2.clone()).expect("could not update conf file");
+        assert_eq!(cfg2.port, "7888".to_string());
+        add_config(cfg3).expect("could not update conf file");
         let new_cfg: CliConfig = get_config().expect("could not get conf file");
         assert_eq!(new_cfg.port, "7878".to_string());
     }
