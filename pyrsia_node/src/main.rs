@@ -57,8 +57,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
         if let Some(event) = p2p_events.next().await {
             match event {
                 // Reply with the content of the artifact on incoming requests.
-                pyrsia::network::event_loop::PyrsiaEvent::RequestArtifact { hash, channel } => {
-                    handlers::handle_request_artifact(p2p_client.clone(), &hash, channel).await
+                pyrsia::network::event_loop::PyrsiaEvent::RequestArtifact {
+                    artifact_type,
+                    artifact_hash,
+                    channel,
+                } => {
+                    handlers::handle_request_artifact(
+                        p2p_client.clone(),
+                        artifact_type,
+                        &artifact_hash,
+                        channel,
+                    )
+                    .await
                 }
             }
         }
