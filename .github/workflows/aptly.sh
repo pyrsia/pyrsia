@@ -72,5 +72,9 @@ EOL
 # publish the merged snapshot
 ./aptly publish snapshot -batch -passphrase="" -config=/tmp/aptly.conf $RELTYPE $RELTYPE
 
+# Generate pretty directory listing web pages
+cd /tmp/aptly/public/$RELTYPE
+python /home/runner/work/pyrsia/pyrsia/.github/workflows/genlisting.py -r
+
 # copy new public repo to GCS
 gsutil -m rsync -r /tmp/aptly/public/$RELTYPE gs://debrepo/repos/$RELTYPE
