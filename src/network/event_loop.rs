@@ -17,6 +17,7 @@
 use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse};
 use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::client::command::Command;
+use crate::network::client::ArtifactType;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
@@ -182,7 +183,8 @@ impl PyrsiaEventLoop {
                 } => {
                     self.event_sender
                         .send(PyrsiaEvent::RequestArtifact {
-                            hash: request.0,
+                            artifact_type: request.0,
+                            artifact_hash: request.1,
                             channel,
                         })
                         .await
@@ -303,12 +305,17 @@ impl PyrsiaEventLoop {
                     .get_providers(kademlia_key.into_bytes().into());
                 self.pending_list_providers.insert(query_id, sender);
             }
-            Command::RequestArtifact { hash, peer, sender } => {
+            Command::RequestArtifact {
+                artifact_type,
+                artifact_hash,
+                peer,
+                sender,
+            } => {
                 let request_id = self
                     .swarm
                     .behaviour_mut()
                     .request_response
-                    .send_request(&peer, ArtifactRequest(hash));
+                    .send_request(&peer, ArtifactRequest(artifact_type, artifact_hash.hash));
                 self.pending_request_artifact.insert(request_id, sender);
             }
             Command::RespondArtifact { artifact, channel } => {
@@ -325,7 +332,8 @@ impl PyrsiaEventLoop {
 #[derive(Debug)]
 pub enum PyrsiaEvent {
     RequestArtifact {
-        hash: String,
+        artifact_type: ArtifactType,
+        artifact_hash: String,
         channel: ResponseChannel<ArtifactResponse>,
     },
 }

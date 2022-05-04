@@ -50,6 +50,8 @@ const INITIAL_DELAY_MS: u128 = 5000;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    pretty_env_logger::init();
+
     // If the key file exists, load the key pair. Otherwise, create a random keypair and save to the key file
     let id_keys = create_ed25519_keypair();
     let ed25519_pair = identity::Keypair::Ed25519(id_keys.clone());
@@ -206,22 +208,24 @@ pub fn get_keyfile_name() -> String {
     path.push(BLOCK_KEYPAIR_FILENAME);
 
     let filepath = path.into_os_string().into_string().unwrap();
-    println!("filename : {:?}", filepath);
+    debug!("filename : {:?}", filepath);
     filepath
 }
 
 pub fn create_ed25519_keypair() -> libp2p::identity::ed25519::Keypair {
     let filename = get_keyfile_name();
+    debug!("Get Keypair file name {:?}", filename);
     match read_keypair(&filename) {
         Ok(v) => {
             let data: &mut [u8] = &mut v.clone();
+            debug!("Get Key Pair from File");
             libp2p::identity::ed25519::Keypair::decode(data).unwrap()
         }
         Err(_) => {
             let id_keys = identity::ed25519::Keypair::generate();
 
             let data = id_keys.encode();
-
+            debug!("Create Key Pair");
             write_keypair(&filename, &data);
             id_keys
         }

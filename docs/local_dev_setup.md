@@ -8,7 +8,7 @@ For now Pyrsia only supports Docker artifacts.
 
 Setup rust on your local machine as described in [Rust's getting started guide](https://www.rust-lang.org/learn/get-started).
 You may also follow [How to Debug Rust with Visual Studio Code](https://www.forrestthewoods.com/blog/how-to-debug-rust-with-visual-studio-code/)
-if you are loking to make code changes.
+if you are looking to make code changes.
 
 ### Integrating and Building with Docker
 
