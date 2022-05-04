@@ -16,6 +16,7 @@
 
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::client::{ArtifactHash, ArtifactType};
+use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use futures::channel::oneshot;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
@@ -58,6 +59,14 @@ pub enum Command {
     RespondArtifact {
         artifact: Vec<u8>,
         channel: ResponseChannel<ArtifactResponse>,
+    },
+    RequestIdleMetric {
+        peer: PeerId,
+        sender: oneshot::Sender<Result<PeerMetrics, Box<dyn Error + Send>>>,
+    },
+    RespondIdleMetric {
+        metric: PeerMetrics,
+        channel: ResponseChannel<IdleMetricResponse>,
     },
 }
 

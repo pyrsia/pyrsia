@@ -18,6 +18,7 @@ pub mod command;
 
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::client::command::Command;
+use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_manager::model::package_version::PackageVersion;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
@@ -26,6 +27,27 @@ use libp2p::request_response::ResponseChannel;
 use log::debug;
 use std::collections::HashSet;
 use std::error;
+use std::error::Error;
+
+/* peer metrics support */
+use std::cmp::Ordering;
+
+const PEER_METRIC_THRESHOLD: f64 = 0.5_f64;
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
+struct IdleMetric {
+    pub peer: PeerId,
+    pub metric: f64,
+}
+
+pub fn cmp_f64(a: &f64, b: &f64) -> Ordering {
+    if a < b {
+        return Ordering::Less;
+    } else if a > b {
+        return Ordering::Greater;
+    }
+    Ordering::Equal
+}
+/* peer metric support */
 use strum_macros::Display;
 
 /// Defines the different types of artifacts that can be transferred
@@ -208,6 +230,76 @@ impl Client {
             .await
             .expect("Command receiver not to be dropped.");
     }
+
+    pub fn metric_to_f64(&mut self, metrics: PeerMetrics) -> Result<f64, Box<dyn Error>> {
+        let float_rep: f64 = f64::from_le_bytes(metrics.idle_metric);
+        Ok(float_rep)
+    }
+
+    //get a peer with a low enough work load to download artifact otherwise the lowest work load of the set
+    //TODO: chunk the peers to some limit to keep from shotgunning the network
+    pub async fn get_idle_peer(&mut self, providers: HashSet<PeerId>) -> Option<PeerId> {
+        debug!(
+            "p2p::Client::get_idle_peer() entered with {} peers",
+            providers.len()
+        );
+        let mut metrics_array: Vec<IdleMetric> = Vec::new();
+        for peer in providers.iter() {
+            let (sender, receiver) = oneshot::channel();
+            self.sender
+                .send(Command::RequestIdleMetric {
+                    peer: *peer,
+                    sender,
+                })
+                .await
+                .expect("Command receiver not to be dropped");
+
+            let peer_metric: PeerMetrics =
+                receiver.await.expect("Sender not to be dropped.").unwrap();
+            let metric: f64 = self.metric_to_f64(peer_metric).unwrap();
+            let idle_metric = IdleMetric {
+                peer: *peer,
+                metric,
+            };
+            if idle_metric.metric < PEER_METRIC_THRESHOLD {
+                debug!(
+                    "p2p::Client::get_idle_peer() Found peer with a below threshold idle value {}",
+                    metric
+                );
+                return Some(idle_metric.peer);
+            } else {
+                debug!(
+                    "p2p::Client::get_idle_peer() Pushing idle peer with value {}",
+                    metric
+                );
+                metrics_array.push(idle_metric);
+            }
+        }
+
+        //sort the peers in ascending order according to their idle metric and return top of list
+        metrics_array.sort_by(|a, b| cmp_f64(&a.metric, &b.metric));
+        if !metrics_array.is_empty() {
+            Some(metrics_array[0].peer)
+        } else {
+            None
+        }
+    }
+
+    pub async fn respond_idle_metric(
+        &mut self,
+        metric: PeerMetrics,
+        channel: ResponseChannel<IdleMetricResponse>,
+    ) {
+        debug!(
+            "p2p::Client::respond_idle_metric PeerMetrics metric ={:?}",
+            metric
+        );
+
+        self.sender
+            .send(Command::RespondIdleMetric { metric, channel })
+            .await
+            .expect("Command receiver not to be dropped.");
+    }
 }
 
 #[cfg(test)]
@@ -216,6 +308,7 @@ mod tests {
     use libp2p::identity::Keypair;
     use rand::distributions::Alphanumeric;
     use rand::{thread_rng, Rng};
+    //#[path = "../../../../pyrsia_node/src/network/handlers"] mod handlers;
 
     #[tokio::test]
     async fn test_listen() {
@@ -284,6 +377,35 @@ mod tests {
                     let _ = sender.send(Default::default());
                 },
                 _ => panic!("Command must match Command::ListPeers")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_idle_metric() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+        let mut client = Client {
+            sender,
+            local_peer_id,
+        };
+
+        let mut peers: HashSet<PeerId> = HashSet::new();
+        peers.insert(client.local_peer_id);
+        tokio::spawn(async move { client.get_idle_peer(peers).await });
+
+        futures::select! {
+            command = receiver.next() => match command {
+                Some(Command::RequestIdleMetric { peer, sender }) => {
+                    assert_eq!(peer, local_peer_id);
+                    let peer_metric = PeerMetrics {
+                        idle_metric: 8675309f64.to_le_bytes(),
+                    };
+                    let _ = sender.send(Ok(peer_metric));
+                },
+                None => {},
+                _ => panic!("Command must match Command::RequestIdleMetric")
             }
         }
     }
@@ -382,5 +504,23 @@ mod tests {
                 _ => panic!("Command must match Command::RequestArtifact")
             }
         }
+    }
+
+    #[test]
+    fn test_metric_conversion() {
+        let (sender, _receiver) = mpsc::channel(1);
+
+        let mut client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let metric: f64 = 3456322f64;
+        let as_bytes = metric.to_le_bytes();
+        let peer_metric = PeerMetrics {
+            idle_metric: as_bytes,
+        };
+        let decoded_metric = client.metric_to_f64(peer_metric).unwrap();
+        assert_eq!(metric, decoded_metric);
     }
 }

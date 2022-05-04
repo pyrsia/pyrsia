@@ -20,6 +20,7 @@ use log::{debug, info};
 use pyrsia::artifacts_repository::hash_util::HashAlgorithm;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
 use pyrsia::network::client::{ArtifactType, Client};
+use pyrsia::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use pyrsia::node_manager;
 
 /// Reach out to another node with the specified address
@@ -55,4 +56,16 @@ pub async fn handle_request_artifact(
             hash, e
         ),
     }
+}
+
+//Respond to the IdleMetricRequest event
+pub async fn handle_request_idle_metric(
+    mut p2p_client: Client,
+    channel: ResponseChannel<IdleMetricResponse>,
+) {
+    let metric = node_manager::handlers::get_quality_metric().unwrap();
+    let peer_metrics: PeerMetrics = PeerMetrics {
+        idle_metric: metric.to_le_bytes(),
+    };
+    p2p_client.respond_idle_metric(peer_metrics, channel).await;
 }
