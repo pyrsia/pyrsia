@@ -2,7 +2,7 @@
 name = "pyrsia_cli"
 version = "0.1.1"
 build = "build.rs"
-description = "Zero-Trust Decentralized Package Network"
+description = "Decentralized Package Network"
 edition = "2021"
 
 [dependencies]

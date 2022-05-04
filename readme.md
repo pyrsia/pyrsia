@@ -1,6 +1,6 @@
 ![logo](https://raw.githubusercontent.com/pyrsia/.github/main/images/logo-color.svg)
 
-> Zero-Trust Decentralized Package Network
+> Decentralized Package Network
 
 ## Current Development Phase
 

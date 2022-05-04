@@ -1,7 +1,7 @@
 [package]
 name = "pyrsia_node"
 version = "0.1.0"
-description = "Pyrsia Node instance which can connect and participate in the Pyrsia network with other nodes"
+description = "Pyrsia Node instance which can connect and participate in the Pyrsia Network with other Nodes"
 authors = ["pyrsiaoss <pyrsiaopensource@gmail.com>"]
 edition = "2021"
 
