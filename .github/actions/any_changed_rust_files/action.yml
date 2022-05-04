@@ -13,6 +13,7 @@ runs:
     - name: Checkout code
       uses: actions/checkout@v3
       with:
+        path: ${{ github.repository }}
         fetch-depth: 0
     - name: Get changed rust files
       id: changed-rust-files
