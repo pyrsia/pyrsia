@@ -133,7 +133,9 @@ jobs:
         GPG_KEY: ${{ secrets.GPG_KEY }}
 
   rust-files:
-    uses: ./.github/workflows/any_changed_rust_files.yml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/any_changed_rust_files/action.yml
 
   # Coverage wipes the cache in order to instrument the code.  No need to wait for other jobs to run it.
   coverage:

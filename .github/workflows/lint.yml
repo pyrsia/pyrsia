@@ -9,7 +9,9 @@ permissions:
 jobs:
 
   rust-files:
-    uses: ./.github/workflows/any_changed_rust_files.yml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/any_changed_rust_files/action.yml
 
   security-audit:
     needs: rust-files
