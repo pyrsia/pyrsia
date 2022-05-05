@@ -32,6 +32,18 @@ pub async fn dial_other_peer(mut p2p_client: Client, to_dial: &Multiaddr) {
 
 /// Provide all known artifacts on the p2p network
 pub async fn provide_artifacts(mut p2p_client: Client) {
+    if let Ok(package_versions) = node_manager::handlers::METADATA_MGR.list_package_versions() {
+        debug!(
+            "Start providing {} package versions",
+            package_versions.len()
+        );
+        for package_version in package_versions.iter() {
+            p2p_client
+                .provide(ArtifactType::PackageVersion, package_version.into())
+                .await;
+        }
+    }
+
     if let Ok(artifact_hashes) = node_manager::handlers::get_artifact_hashes() {
         debug!("Start providing {} artifacts", artifact_hashes.len());
         for artifact_hash in artifact_hashes.iter() {
