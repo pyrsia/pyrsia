@@ -16,7 +16,6 @@
 
 use clap::Parser;
 
-pub const DEFAULT_BLOCK_FILE_PATH: &str = "./blockchain_storage";
 pub const DEFAULT_BLOCK_KEYPAIR_FILENAME: &str = ".block_keypair";
 
 /// Application to connect to and participate in the Pyrsia blockchain network
