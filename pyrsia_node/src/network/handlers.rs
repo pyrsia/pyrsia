@@ -91,6 +91,8 @@ pub async fn handle_request_idle_metric(
         idle_metric: metric.to_le_bytes(),
     };
     p2p_client.respond_idle_metric(peer_metrics, channel).await;
+}
+
 /// Get the artifact with the provided hash from the artifact manager.
 fn get_artifact(artifact_hash: &str) -> anyhow::Result<Vec<u8>> {
     let decoded_hash = hex::decode(&artifact_hash.get(7..).unwrap()).unwrap();
