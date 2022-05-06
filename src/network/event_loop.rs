@@ -17,8 +17,8 @@
 use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse};
 use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::client::command::Command;
-use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
 use crate::network::client::ArtifactType;
+use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
