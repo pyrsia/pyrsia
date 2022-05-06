@@ -1,0 +1,82 @@
+services:
+  docker1:
+    image: docker:dind
+    privileged: true
+    command:
+      - "--registry-mirror"
+      - "http://pyrsia1:7888"
+    environment:
+      - DOCKER_CERT_PATH=/certs
+    expose:
+      - 2376
+    networks:
+      - docker1
+    volumes:
+      - certs-client1:/certs/client
+
+  docker2:
+    image: docker:dind
+    privileged: true
+    command:
+      - "--registry-mirror"
+      - "http://pyrsia2:7888"
+    environment:
+      - DOCKER_CERT_PATH=/certs
+    expose:
+      - 2376
+    networks:
+      - docker2
+    volumes:
+      - certs-client2:/certs/client
+
+  pyrsia1:
+    image: pyrsia/node:1
+    build:
+      context: ..
+      target: node-it
+      args:
+        - P2P_KEYPAIR=p2p_keypair_pyrsia1.ser
+    environment:
+      - RUST_LOG=pyrsia=debug
+      - DEV_MODE=on
+    command: ["--host" , "0.0.0.0", "--listen", "/ip4/0.0.0.0/tcp/44001"]
+    networks:
+      - docker1
+      - pyrsia
+
+  pyrsia2:
+    image: pyrsia/node:2
+    build:
+      context: ..
+      target: node-it
+      args:
+        - P2P_KEYPAIR=p2p_keypair_pyrsia2.ser
+    environment:
+      - RUST_LOG=pyrsia=debug
+      - DEV_MODE=on
+    command: ["--host" , "0.0.0.0", "--listen", "/ip4/0.0.0.0/tcp/44002", "--peer", "/dns4/pyrsia1/tcp/44001/p2p/12D3KooWS2qJtetLCeerZg5hNZRLpaCcP7bF4ArpT2FaLXAEL1dL"]
+    networks:
+      - docker2
+      - pyrsia
+
+  pyrsia-it:
+    image: pyrsia/node-it
+    build:
+      context: ..
+      target: it-test
+    volumes:
+      - certs-client1:/certs/client1:ro
+      - certs-client2:/certs/client2:ro
+    networks:
+      - docker1
+      - docker2
+      - pyrsia
+
+networks:
+  docker1:
+  docker2:
+  pyrsia:
+
+volumes:
+  certs-client1:
+  certs-client2:
