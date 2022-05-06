@@ -52,7 +52,8 @@ pub enum Command {
         sender: oneshot::Sender<HashSet<PeerId>>,
     },
     RequestArtifact {
-        hash: String,
+        artifact_type: ArtifactType,
+        artifact_hash: ArtifactHash,
         peer: PeerId,
         sender: oneshot::Sender<Result<Vec<u8>, Box<dyn Error + Send>>>,
     },

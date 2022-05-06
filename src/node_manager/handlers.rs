@@ -44,26 +44,26 @@ const DISK_STRESS_WEIGHT: f64 = 0.001_f64;
 //#[derive(Debug, Clone, Copy)]
 
 lazy_static! {
-    pub static ref ARTIFACTS_DIR: String = log_static_initialization_failure(
-        "Pyrsia Artifact directory",
-        Ok(read_var("PYRSIA_ARTIFACT_PATH", "pyrsia"))
-    );
-    pub static ref ART_MGR: ArtifactManager = {
+    pub static ref ARTIFACTS_DIR: String = {
+        let pyrsia_artifact_path = read_var("PYRSIA_ARTIFACT_PATH", "pyrsia");
         let dev_mode = read_var("DEV_MODE", "off");
         if dev_mode.to_lowercase() == "on" {
             log_static_initialization_failure(
-                "Artifact Manager Directory",
-                fs::create_dir_all(ARTIFACTS_DIR.as_str())
+                "Pyrsia Artifact directory",
+                fs::create_dir_all(&pyrsia_artifact_path)
                     .with_context(|| "Failed to create artifact manager directory in dev mode"),
             );
         }
-        log_static_initialization_failure(
-            "Artifact Manager",
-            ArtifactManager::new(ARTIFACTS_DIR.as_str()),
-        )
+        pyrsia_artifact_path
     };
-    pub static ref METADATA_MGR: Metadata =
-        log_static_initialization_failure("Metadata Manager", Metadata::new());
+    pub static ref ART_MGR: ArtifactManager = log_static_initialization_failure(
+        "Artifact Manager",
+        ArtifactManager::new(ARTIFACTS_DIR.as_str()),
+    );
+    pub static ref METADATA_MGR: Metadata = log_static_initialization_failure(
+        "Metadata Manager",
+        Metadata::new(ARTIFACTS_DIR.as_str())
+    );
 }
 
 fn log_static_initialization_failure<T: UnwindSafe>(

@@ -14,7 +14,8 @@
    limitations under the License.
 */
 
-pub mod constants;
-mod docker_hub_util;
-pub mod error_util;
-pub mod v2;
+pub const MEDIA_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.tar.gzip";
+pub const MEDIA_TYPE_SCHEMA_1: &str = "application/vnd.docker.distribution.manifest.v1+json";
+pub const MEDIA_TYPE_IMAGE_MANIFEST: &str = "application/vnd.docker.distribution.manifest.v2+json";
+pub const MEDIA_TYPE_MANIFEST_LIST: &str =
+    "application/vnd.docker.distribution.manifest.list.v2+json";
