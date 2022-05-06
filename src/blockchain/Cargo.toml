@@ -31,4 +31,4 @@ name = "simple_node"
 
 [dev-dependencies]
 pretty_env_logger = "0.4.0"
-tokio = { version = "1.18.0", features = [ "macros", "rt-multi-thread", "io-std" ] }
+tokio = { version = "1.18.1", features = [ "macros", "rt-multi-thread", "io-std" ] }

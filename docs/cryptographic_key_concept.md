@@ -1,4 +1,4 @@
-# Cryptographic Concetpts
+# Cryptographic Concepts
 
 ## Edward's Glossary
 
