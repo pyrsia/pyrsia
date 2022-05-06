@@ -63,7 +63,7 @@ pub async fn handle_request_idle_metric(
     mut p2p_client: Client,
     channel: ResponseChannel<IdleMetricResponse>,
 ) {
-    let metric = node_manager::handlers::get_quality_metric().unwrap();
+    let metric = node_manager::handlers::get_quality_metric();
     let peer_metrics: PeerMetrics = PeerMetrics {
         idle_metric: metric.to_le_bytes(),
     };

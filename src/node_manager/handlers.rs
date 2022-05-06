@@ -180,11 +180,10 @@ pub fn disk_usage() -> Result<f64, anyhow::Error> {
  * Peer Quality Metrics
  ***************************************************/
 // Get the local stress metric to advertise to peers
-pub fn get_quality_metric() -> Result<f64, anyhow::Error> {
+pub fn get_quality_metric() -> f64 {
     let mut qm = get_cpu_stress() * CPU_STRESS_WEIGHT;
     qm += get_network_stress() * NETWORK_STRESS_WEIGHT;
-    qm += get_disk_stress() * DISK_STRESS_WEIGHT;
-    Ok(qm)
+    qm + get_disk_stress() * DISK_STRESS_WEIGHT
 }
 
 // This function gets the current CPU load on the system.
@@ -472,6 +471,6 @@ mod tests {
     #[test]
     fn quality_metric_test() {
         let quality_metric = get_quality_metric();
-        assert!(quality_metric.unwrap() != 0_f64);
+        assert!(quality_metric != 0_f64);
     }
 }
