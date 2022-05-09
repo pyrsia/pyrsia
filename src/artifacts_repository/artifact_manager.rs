@@ -202,7 +202,7 @@ impl ArtifactManager {
                 Some(x) => {
                     dir_1 = &path[0..x];
                 }
-                None => info!("No match"),
+                None => (),
             }
 
             if !dir_1.is_empty() {
@@ -212,7 +212,7 @@ impl ArtifactManager {
                     Some(x) => {
                         *dirs_map.entry(dir_1[x + 1..len].to_string()).or_insert(0) += 1;
                     }
-                    None => info!("No match"),
+                    None => (),
                 }
             }
         }
