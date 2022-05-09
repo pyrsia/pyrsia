@@ -25,4 +25,7 @@ pub struct BlockchainNodeArgs {
     /// A string to specify the keypair filename
     #[clap(long, short = 'K', default_value = DEFAULT_BLOCK_KEYPAIR_FILENAME)]
     pub key_filename: String,
+    /// An unsigned number to specify the node index on Aleph algorithm
+    #[clap(long, short = 'I', required = true)]
+    pub peer_index: usize,
 }

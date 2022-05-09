@@ -243,6 +243,7 @@ mod tests {
         path.push(DEFAULT_BLOCK_KEYPAIR_FILENAME);
         let args = BlockchainNodeArgs {
             key_filename: DEFAULT_BLOCK_KEYPAIR_FILENAME.to_string(),
+            peer_index: 0,
         };
         assert_eq!(
             path.into_os_string().into_string().unwrap(),
@@ -270,6 +271,7 @@ mod tests {
     fn test_create_keypair_succeeded() {
         let args = BlockchainNodeArgs {
             key_filename: DEFAULT_BLOCK_KEYPAIR_FILENAME.to_string(),
+            peer_index: 0,
         };
         let result = std::panic::catch_unwind(|| create_ed25519_keypair(args));
         assert!(result.is_ok());
