@@ -29,8 +29,6 @@ use std::collections::HashSet;
 use std::error;
 
 /* peer metrics support */
-//use std::cmp::Ordering;
-
 const PEER_METRIC_THRESHOLD: f64 = 0.5_f64;
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 struct IdleMetric {
@@ -243,11 +241,6 @@ impl Client {
             .expect("Command receiver not to be dropped.");
     }
 
-    /*pub fn metric_to_f64(&mut self, metrics: PeerMetrics) -> f64 {
-        let float_rep: f64 = f64::from_le_bytes(metrics.idle_metric);
-        float_rep
-    }*/
-
     //get a peer with a low enough work load to download artifact otherwise the lowest work load of the set
     //TODO: chunk the peers to some limit to keep from shotgunning the network
     pub async fn get_idle_peer(&mut self, providers: HashSet<PeerId>) -> Option<PeerId> {
@@ -328,7 +321,6 @@ mod tests {
     use libp2p::identity::Keypair;
     use rand::distributions::Alphanumeric;
     use rand::{thread_rng, Rng};
-    //#[path = "../../../../pyrsia_node/src/network/handlers"] mod handlers;
 
     #[tokio::test]
     async fn test_listen() {
