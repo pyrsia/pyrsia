@@ -1,7 +1,7 @@
 [package]
 name = "pyrsia_node"
 version = "0.1.0"
-description = "Pyrsia Node instance which can connect and participate in the Pyrsia network with other nodes"
+description = "Pyrsia Node instance which can connect and participate in the Pyrsia Network with other Nodes"
 authors = ["pyrsiaoss <pyrsiaopensource@gmail.com>"]
 edition = "2021"
 
@@ -11,7 +11,7 @@ edition = "2021"
 pyrsia = { path = ".." }
 
 anyhow = "1.0.57"
-clap = { version = "3.1.15", features= [ "cargo", "derive" ] }
+clap = { version = "3.1.17", features= [ "cargo", "derive" ] }
 futures = "0.3.19"
 hex = "0.4.3"
 libp2p = { version = "0.44.0", features=["dns-tokio", "tcp-tokio"]}

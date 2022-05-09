@@ -17,11 +17,11 @@ Explain the proposal as if it was already included in the language and you were 
 
 - Introducing new named concepts.
 - Explaining the feature largely in terms of examples.
-- Explaining how Pysia users should *think* about the feature, and how it should impact the way they use Pyrsia. It should explain the impact as concretely as possible.
+- Explaining how Pyrsia users should *think* about the feature, and how it should impact the way they use Pyrsia. It should explain the impact as concretely as possible.
 - If applicable, provide sample error messages, deprecation warnings, or migration guidance.
 - If applicable, describe the differences between teaching this to existing Pyrsia users and new Pyrsia users.
 
-For implementation-oriented RFCs (e.g. for peer-to-peer networking technology stack), this section should focus on how compiler contributors should think about the change, and give examples of its concrete impact. 
+For implementation-oriented RFCs (e.g. for peer-to-peer networking technology stack), this section should focus on how code contributors should think about the change, and give examples of its concrete impact.
 
 # Reference-level explanation
 
@@ -53,7 +53,7 @@ A few examples of what this can include are:
 - For other teams: What lessons can we learn from what other communities have done here?
 - References: Are there any published papers or great posts that discuss this? If you have some relevant research to refer to, this can serve as a more detailed theoretical background. Existing implementation references for practical background can also help fill in a proposal.
 
-This is an excellent place to share research notes, articales or proof of concepts that can support or educate the reviewers.
+This is an excellent place to share research notes, articles or proof of concepts that can support or educate the reviewers.
 
 # Unresolved questions
 
@@ -67,7 +67,7 @@ Think about what the natural extension and evolution of your proposal would
 be and how it would affect the project as a whole in a holistic
 way. Try to use this section as a tool to more fully consider all possible
 interactions with the project and language in your proposal.
-Also consider how this all fits into the roadmap for the project
+Also consider how this all fits into the road map for the project
 and of the relevant sub-team.
 
 This is also a good place to "dump ideas", if they are out of scope for the

@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use clap::Parser;
 use dirs;
 use futures::channel::{mpsc as futures_mpsc, oneshot};
 use futures::StreamExt;
@@ -29,6 +30,7 @@ use std::{
 use tokio::io;
 
 // use pyrsia_blockchain_network::blockchain::Blockchain;
+use pyrsia_blockchain_network::args::parser::BlockchainNodeArgs;
 use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
 use pyrsia_blockchain_network::identities::{
     authority_pen::AuthorityPen, authority_verifier::AuthorityVerifier, key_box::KeyBox,
@@ -40,9 +42,6 @@ use pyrsia_blockchain_network::{
     default_config, gen_chain_config, run_blockchain, run_session, NodeIndex,
 };
 
-pub const BLOCK_FILE_PATH: &str = "./blockchain_storage";
-pub const BLOCK_KEYPAIR_FILENAME: &str = ".block_keypair";
-
 const TXS_PER_BLOCK: usize = 50000;
 const TX_SIZE: usize = 300;
 const BLOCK_TIME_MS: u128 = 500;
@@ -52,12 +51,14 @@ const INITIAL_DELAY_MS: u128 = 5000;
 async fn main() -> Result<(), Box<dyn Error>> {
     pretty_env_logger::init();
 
-    // If the key file exists, load the key pair. Otherwise, create a random keypair and save to the key file
-    let id_keys = create_ed25519_keypair();
+    let args = BlockchainNodeArgs::parse();
+
+    // If the key file exists, load the key pair. Otherwise, create a random keypair and save to the keypair file
+    let id_keys = create_ed25519_keypair(args);
     let ed25519_pair = identity::Keypair::Ed25519(id_keys.clone());
     let _peer_id = PeerId::from(ed25519_pair.public());
 
-    info!("Getting network up.");
+    info!("Getting network up!");
     let n_members = 3;
     let my_node_ix = NodeIndex(0); // TODO(prince-chrismc): Should be a CLI arg?
 
@@ -203,29 +204,27 @@ pub fn read_keypair(path: &String) -> Result<[u8; 64], Box<dyn Error>> {
     }
 }
 
-pub fn get_keyfile_name() -> String {
+pub fn get_keyfile_name(args: BlockchainNodeArgs) -> String {
     let mut path = dirs::home_dir().unwrap();
-    path.push(BLOCK_KEYPAIR_FILENAME);
-
+    path.push(args.key_filename);
     let filepath = path.into_os_string().into_string().unwrap();
-    debug!("filename : {:?}", filepath);
     filepath
 }
 
-pub fn create_ed25519_keypair() -> libp2p::identity::ed25519::Keypair {
-    let filename = get_keyfile_name();
-    debug!("Get Keypair file name {:?}", filename);
+pub fn create_ed25519_keypair(args: BlockchainNodeArgs) -> libp2p::identity::ed25519::Keypair {
+    let filename = get_keyfile_name(args);
+    debug!("Get Keypair File Name: {:?}", filename);
     match read_keypair(&filename) {
         Ok(v) => {
             let data: &mut [u8] = &mut v.clone();
-            debug!("Get Key Pair from File");
+            debug!("Load Keypair from {:?}", filename);
             libp2p::identity::ed25519::Keypair::decode(data).unwrap()
         }
         Err(_) => {
             let id_keys = identity::ed25519::Keypair::generate();
 
             let data = id_keys.encode();
-            debug!("Create Key Pair");
+            debug!("Create Keypair");
             write_keypair(&filename, &data);
             id_keys
         }
@@ -235,15 +234,19 @@ pub fn create_ed25519_keypair() -> libp2p::identity::ed25519::Keypair {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pyrsia_blockchain_network::args::parser::DEFAULT_BLOCK_KEYPAIR_FILENAME;
     const TEST_KEYPAIR_FILENAME: &str = "./test_keypair";
     #[test]
     fn test_get_keyfile_name_succeeded() {
         let mut path = dirs::home_dir().unwrap();
 
-        path.push(BLOCK_KEYPAIR_FILENAME);
+        path.push(DEFAULT_BLOCK_KEYPAIR_FILENAME);
+        let args = BlockchainNodeArgs {
+            key_filename: DEFAULT_BLOCK_KEYPAIR_FILENAME.to_string(),
+        };
         assert_eq!(
             path.into_os_string().into_string().unwrap(),
-            get_keyfile_name()
+            get_keyfile_name(args)
         );
     }
 
@@ -265,7 +268,10 @@ mod tests {
 
     #[test]
     fn test_create_keypair_succeeded() {
-        let result = std::panic::catch_unwind(|| create_ed25519_keypair());
+        let args = BlockchainNodeArgs {
+            key_filename: DEFAULT_BLOCK_KEYPAIR_FILENAME.to_string(),
+        };
+        let result = std::panic::catch_unwind(|| create_ed25519_keypair(args));
         assert!(result.is_ok());
     }
 }
