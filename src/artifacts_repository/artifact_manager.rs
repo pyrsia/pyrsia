@@ -187,7 +187,7 @@ impl ArtifactManager {
 
     pub fn artifacts_count_bydir(&self) -> Result<HashMap<String, usize>, Error> {
         let mut dirs_map: HashMap<String, usize> = HashMap::new();
-        println!("repo_path  {:?}", self.repository_path.clone());
+
         for file in WalkDir::new(self.repository_path.clone())
             .into_iter()
             .filter_entry(is_directory_or_artifact_file)
@@ -205,9 +205,7 @@ impl ArtifactManager {
                 None => info!("No match"),
             }
 
-            if dir_1.len() > 0 {
-                println!("dir_1  {:?}", dir_1);
-
+            if !dir_1.is_empty() {
                 let len = dir_1.len();
                 let result = dir_1.rfind('/');
                 match result {

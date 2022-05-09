@@ -63,10 +63,10 @@ pub async fn handle_get_status(mut p2p_client: Client) -> Result<impl Reply, Rej
     let mut art_summ_map: HashMap<String, usize> = HashMap::new();
     for (k, v) in art_count_result.unwrap().iter() {
         if k == "SHA256" {
-            total_artifacts = total_artifacts + v;
+            total_artifacts += v;
             art_summ_map.insert("blobs".to_string(), *v);
         } else if k == "SHA512" {
-            total_artifacts = total_artifacts + v;
+            total_artifacts += v;
             art_summ_map.insert("manifests".to_string(), *v);
         }
     }
