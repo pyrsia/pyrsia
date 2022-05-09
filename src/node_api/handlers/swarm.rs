@@ -19,8 +19,8 @@ use crate::network::client::Client;
 use crate::node_manager::{handlers::*, model::cli::*};
 
 use log::debug;
-use warp::{http::StatusCode, Rejection, Reply};
 use std::collections::HashMap;
+use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_peers(mut p2p_client: Client) -> Result<impl Reply, Rejection> {
     let peers = p2p_client.list_peers().await;
@@ -60,18 +60,17 @@ pub async fn handle_get_status(mut p2p_client: Client) -> Result<impl Reply, Rej
         }));
     }
     let mut total_artifacts = 0;
-    let mut art_summ_map: HashMap<String,usize> = HashMap::new();
-    for  (k, v) in art_count_result.unwrap().iter() {
-        if k == "SHA256"{
+    let mut art_summ_map: HashMap<String, usize> = HashMap::new();
+    for (k, v) in art_count_result.unwrap().iter() {
+        if k == "SHA256" {
             total_artifacts = total_artifacts + v;
-            art_summ_map.insert("blobs".to_string(),*v);
-        } else if k == "SHA512"{
+            art_summ_map.insert("blobs".to_string(), *v);
+        } else if k == "SHA512" {
             total_artifacts = total_artifacts + v;
-            art_summ_map.insert("manifests".to_string(),*v);
+            art_summ_map.insert("manifests".to_string(), *v);
         }
-
     }
-    let artifacts_summary = ArtifactsSummary{
+    let artifacts_summary = ArtifactsSummary {
         total: total_artifacts.to_string(),
         summary: art_summ_map,
     };

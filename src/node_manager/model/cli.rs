@@ -19,7 +19,6 @@ use std::collections::HashMap;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Status {
-
     pub peers_count: usize,
     pub peer_id: String,
     pub artifact_count: ArtifactsSummary,
@@ -27,10 +26,10 @@ pub struct Status {
     pub disk_usage: String,
 }
 
-#[derive(Debug,Deserialize, Serialize)]
-pub struct ArtifactsSummary{
-  pub total: String,
-  pub summary: HashMap<String,usize>,
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ArtifactsSummary {
+    pub total: String,
+    pub summary: HashMap<String, usize>,
 }
 
 impl std::fmt::Display for Status {
