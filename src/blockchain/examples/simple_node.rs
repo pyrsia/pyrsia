@@ -53,8 +53,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let args = BlockchainNodeArgs::parse();
 
+    let key_path = get_keyfile_name(args.clone());
+
     // If the key file exists, load the key pair. Otherwise, create a random keypair and save to the keypair file
-    let id_keys = create_ed25519_keypair(args.clone());
+    let id_keys = create_ed25519_keypair(key_path);
     let ed25519_pair = identity::Keypair::Ed25519(id_keys.clone());
     let _peer_id = PeerId::from(ed25519_pair.public());
 
@@ -211,9 +213,7 @@ pub fn get_keyfile_name(args: BlockchainNodeArgs) -> String {
     filepath
 }
 
-pub fn create_ed25519_keypair(args: BlockchainNodeArgs) -> libp2p::identity::ed25519::Keypair {
-    let filename = get_keyfile_name(args);
-    debug!("Get Keypair File Name: {:?}", filename);
+pub fn create_ed25519_keypair(filename: String) -> libp2p::identity::ed25519::Keypair {
     match read_keypair(&filename) {
         Ok(v) => {
             let data: &mut [u8] = &mut v.clone();
