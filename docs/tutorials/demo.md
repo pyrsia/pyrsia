@@ -199,9 +199,9 @@ pyrsia -s
 You should see something very similar to:
 ```
 Connected Peers Count:       1
-Artifacts Count:             0
-Total Disk Space Allocated:  10.84 GB
-Disk Space Used:             0.0000%
+Artifacts Count:             2 {"manifests": 1, "blobs": 2}
+Total Disk Space Allocated:  5.84 GB
+Disk Space Used:             0.0002%
 ```
 
 List the node's peers:
@@ -303,8 +303,8 @@ You should see something very similar to:
 
 ```
 Connected Peers Count:       1
-Artifacts Count:             3
-Total Disk Space Allocated:  10.84 GB
-Disk Space Used:             0.0260%
+Artifacts Count:             2 {"manifests": 1, "blobs": 2}
+Total Disk Space Allocated:  5.84 GB
+Disk Space Used:             0.0002%
 ```
 
