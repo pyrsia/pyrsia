@@ -54,13 +54,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = BlockchainNodeArgs::parse();
 
     // If the key file exists, load the key pair. Otherwise, create a random keypair and save to the keypair file
-    let id_keys = create_ed25519_keypair(args);
+    let id_keys = create_ed25519_keypair(args.clone());
     let ed25519_pair = identity::Keypair::Ed25519(id_keys.clone());
     let _peer_id = PeerId::from(ed25519_pair.public());
 
     info!("Getting network up!");
     let n_members = 3;
-    let my_node_ix = NodeIndex(0); // TODO(prince-chrismc): Should be a CLI arg?
+    let my_node_ix = NodeIndex(args.peer_index);
 
     let pen = AuthorityPen::new(my_node_ix, id_keys.clone());
     let verifier = AuthorityVerifier::new();
