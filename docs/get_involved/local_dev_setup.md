@@ -1,3 +1,7 @@
+---
+sidebar_position: 0
+---
+
 # Getting Started
 
 For now Pyrsia only supports Docker artifacts.

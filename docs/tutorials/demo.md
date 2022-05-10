@@ -1,6 +1,11 @@
 # Demo on two Ubuntu instances
 
-This demo tutorial is a first step in demonstrating Pyrsia's capabilities. You will setup 2 Pyrsia nodes on 2 separate Ubuntu instances, wire them together in a very small p2p network, and use the regular Docker client on Ubuntu to pull images off the Pyrsia network. The Pyrsia nodes use Docker Hub as a fallback mechanism in case the image is not yet available in the Pyrsia network.
+This demo tutorial is a first step in demonstrating Pyrsia's capabilities.
+
+- This is the first step in meeting out goal which is...
+- 
+
+You will setup 2 Pyrsia nodes on 2 separate Ubuntu instances, wire them together in a very small p2p network, and use the regular Docker client on Ubuntu to pull images off the Pyrsia network. The Pyrsia nodes use Docker Hub as a fallback mechanism in case the image is not yet available in the Pyrsia network.
 
 
 ```mermaid
