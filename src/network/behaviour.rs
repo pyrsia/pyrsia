@@ -15,6 +15,9 @@
 */
 
 use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactRequest, ArtifactResponse};
+use crate::network::idle_metric_protocol::{
+    IdleMetricExchangeCodec, IdleMetricRequest, IdleMetricResponse,
+};
 
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::kad::record::store::MemoryStore;
@@ -35,6 +38,7 @@ pub struct PyrsiaNetworkBehaviour {
     pub identify: Identify,
     pub kademlia: Kademlia<MemoryStore>,
     pub request_response: RequestResponse<ArtifactExchangeCodec>,
+    pub idle_metric_request_response: RequestResponse<IdleMetricExchangeCodec>,
 }
 
 /// Each event in the `PyrsiaNetworkBehaviour` is wrapped in a
@@ -44,6 +48,7 @@ pub enum PyrsiaNetworkEvent {
     Identify(IdentifyEvent),
     Kademlia(KademliaEvent),
     RequestResponse(RequestResponseEvent<ArtifactRequest, ArtifactResponse>),
+    IdleMetricRequestResponse(RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>),
 }
 
 impl From<IdentifyEvent> for PyrsiaNetworkEvent {
@@ -61,5 +66,11 @@ impl From<KademliaEvent> for PyrsiaNetworkEvent {
 impl From<RequestResponseEvent<ArtifactRequest, ArtifactResponse>> for PyrsiaNetworkEvent {
     fn from(event: RequestResponseEvent<ArtifactRequest, ArtifactResponse>) -> Self {
         PyrsiaNetworkEvent::RequestResponse(event)
+    }
+}
+
+impl From<RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>> for PyrsiaNetworkEvent {
+    fn from(event: RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>) -> Self {
+        PyrsiaNetworkEvent::IdleMetricRequestResponse(event)
     }
 }
