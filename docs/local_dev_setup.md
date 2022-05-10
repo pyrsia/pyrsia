@@ -121,7 +121,7 @@ following steps:
     ```sh
     $ ./pyrsia -s
     Connected Peers Count:       1
-    Artifacts Count:             2 {"manifests": 1, "blobs": 2}
+    Artifacts Count:             3 {"manifests": 1, "blobs": 2}
     Total Disk Space Allocated:  5.84 GB
     Disk Space Used:             0.0002%
     ```
@@ -160,7 +160,7 @@ Re-running the status command, there should be an connect peer.
 ```sh 
 $ ./pyrsia -s
 Connected Peers Count:       1
-Artifacts Count:             2 {"manifests": 1, "blobs": 2}
+Artifacts Count:             3 {"manifests": 1, "blobs": 2}
 Total Disk Space Allocated:  5.84 GB
 Disk Space Used:             0.0002%
 ```
