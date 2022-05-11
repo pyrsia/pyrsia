@@ -23,4 +23,4 @@ items for the road map or pick up on existing ones.
 Ready to start working? Then check out some of our guides
 
 - [Things to Know](things-to-know)
-- [Getting Started](/docs/get_involved/dev_workflow)
+- [Getting Started](/docs/get_involved/local_dev_setup)
