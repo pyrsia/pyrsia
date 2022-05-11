@@ -1,0 +1,57 @@
+---
+sidebar_position: 0
+---
+
+# Quick Installation
+
+Pyrsia can easily be setup on a local Ubuntu (or Debian based) machine by using our `apt` installer package.
+
+## Supported Platforms
+
+:::warning Limited platform support
+
+Currently our team is working very hard on core features. There may be missing support for you Operating System (OS).
+
+:::
+
+- Ubuntu Focal (x86_64)
+
+## Using the Web Script
+
+```sh
+curl -sS https://pyrsia.io/install.sh | sh
+```
+
+## From the Command Line
+
+```sh
+# Update system and install base tooling
+sudo apt-get update
+sudo apt-get install -y wget gnupg
+
+# Add the Pyrsia keys to verify packages
+wget -q -O - https://repo.pyrsia.io/repos/Release.key |  gpg --dearmor  > pyrsia.gpg
+sudo install -o root -g root -m 644 pyrsia.gpg /etc/apt/trusted.gpg.d/
+rm pyrsia.gpg
+echo "deb https://repo.pyrsia.io/repos/nightly focal main" | sudo tee -a /etc/apt/sources.list > /dev/null
+sudo apt-get update
+
+# Install
+sudo apt-get install -y pyrsia
+```
+
+## Verify everything is running smoothly
+
+```sh
+$ pyrsia --version
+pyrsia 0.1.0
+$ pyrsia ping
+Connection Successfull !! {}
+```
+
+If you see the follow output, then your installation has failed
+
+```sh
+$ pyrsia ping
+Error: error sending request for url (http://localhost:7888/v2): error trying to connect: tcp connect error: Connection refused (os error 111)
+```
