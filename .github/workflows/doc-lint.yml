@@ -1,10 +1,10 @@
 name: Docs Linting 
 on:
   pull_request:
-    paths: |
-      .github/workflows/doc-lint.yml
-      **/*.md
-      **/*.mdx
+    paths:
+      - .github/workflows/doc-lint.yml
+      - '**/*.md'
+      - '**/*.mdx'
       
 jobs:
   markdown-docs:

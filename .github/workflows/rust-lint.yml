@@ -1,11 +1,11 @@
 name: Rust Linting 
 on:
   pull_request:
-    paths: |
-      .github/workflows/rust-lint.yml
-      **/*.rs
-      **/Cargo.toml
-      Cargo.lock
+    paths:
+      - .github/workflows/rust-lint.yml
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - Cargo.lock
       
 jobs:
   security-audit:
