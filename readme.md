@@ -50,6 +50,7 @@ The Pyrsia node will always join the "main net" and connect with other peers. Yo
 ```sh
 $ ./pyrsia status
 Connected Peers Count:   17 # Shows the number of visible peers
-Artifacts Count:         12 # Total number of artifacts cached locally
-Total Disk Available:    10.5 GB
+Artifacts Count:         3 {"manifests": 1, "blobs": 2} # Total number of artifacts cached locally
+Total Disk Space Allocated:  5.84 GB
+Disk Space Used:             0.0002%
 ```

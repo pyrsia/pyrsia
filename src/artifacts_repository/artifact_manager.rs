@@ -19,6 +19,7 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use fs_extra::dir::get_size;
 use log::{debug, error, info, warn}; //log_enabled, Level,
 use path::PathBuf;
+use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::fs::{File, OpenOptions};
@@ -182,6 +183,40 @@ impl ArtifactManager {
             }
         }
         Ok(total_files)
+    }
+
+    pub fn artifacts_count_bydir(&self) -> Result<HashMap<String, usize>, Error> {
+        let mut dirs_map: HashMap<String, usize> = HashMap::new();
+
+        for file in WalkDir::new(self.repository_path.clone())
+            .into_iter()
+            .filter_entry(is_directory_or_artifact_file)
+            .filter_map(|file| file.ok())
+        {
+            let path = file.path().display().to_string();
+
+            let result_1 = path.rfind('/');
+            let mut dir_1 = "";
+
+            match result_1 {
+                Some(x) => {
+                    dir_1 = &path[0..x];
+                }
+                None => (),
+            }
+
+            if !dir_1.is_empty() {
+                let len = dir_1.len();
+                let result = dir_1.rfind('/');
+                match result {
+                    Some(x) => {
+                        *dirs_map.entry(dir_1[x + 1..len].to_string()).or_insert(0) += 1;
+                    }
+                    None => (),
+                }
+            }
+        }
+        Ok(dirs_map)
     }
 
     /// List all artifacts that are known locally.
