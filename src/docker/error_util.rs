@@ -58,6 +58,14 @@ pub struct RegistryError {
     pub code: RegistryErrorCode,
 }
 
+impl From<anyhow::Error> for RegistryError {
+    fn from(err: anyhow::Error) -> RegistryError {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(err.to_string()),
+        }
+    }
+}
+
 impl From<reqwest::Error> for RegistryError {
     fn from(err: reqwest::Error) -> RegistryError {
         RegistryError {

@@ -14,7 +14,18 @@
    limitations under the License.
 */
 
-pub mod constants;
-mod docker_hub_util;
-pub mod error_util;
-pub mod v2;
+use clap::Parser;
+
+pub const DEFAULT_BLOCK_KEYPAIR_FILENAME: &str = ".block_keypair";
+
+/// Application to connect to and participate in the Pyrsia blockchain network
+#[derive(Debug, Parser, Clone)]
+#[clap(long_about = None)]
+pub struct BlockchainNodeArgs {
+    /// A string to specify the keypair filename
+    #[clap(long, short = 'K', default_value = DEFAULT_BLOCK_KEYPAIR_FILENAME)]
+    pub key_filename: String,
+    /// An unsigned number to specify the node index on Aleph algorithm.
+    #[clap(long, short = 'I', required = true)]
+    pub peer_index: usize,
+}
