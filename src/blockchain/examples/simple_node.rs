@@ -53,14 +53,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let args = BlockchainNodeArgs::parse();
 
+    let key_path = get_keyfile_name(args.clone());
+
     // If the key file exists, load the key pair. Otherwise, create a random keypair and save to the keypair file
-    let id_keys = create_ed25519_keypair(args);
+    let id_keys = create_ed25519_keypair(key_path);
     let ed25519_pair = identity::Keypair::Ed25519(id_keys.clone());
     let _peer_id = PeerId::from(ed25519_pair.public());
 
     info!("Getting network up!");
     let n_members = 3;
-    let my_node_ix = NodeIndex(0); // TODO(prince-chrismc): Should be a CLI arg?
+    let my_node_ix = NodeIndex(args.peer_index);
 
     let pen = AuthorityPen::new(my_node_ix, id_keys.clone());
     let verifier = AuthorityVerifier::new();
@@ -211,9 +213,7 @@ pub fn get_keyfile_name(args: BlockchainNodeArgs) -> String {
     filepath
 }
 
-pub fn create_ed25519_keypair(args: BlockchainNodeArgs) -> libp2p::identity::ed25519::Keypair {
-    let filename = get_keyfile_name(args);
-    debug!("Get Keypair File Name: {:?}", filename);
+pub fn create_ed25519_keypair(filename: String) -> libp2p::identity::ed25519::Keypair {
     match read_keypair(&filename) {
         Ok(v) => {
             let data: &mut [u8] = &mut v.clone();
@@ -243,6 +243,7 @@ mod tests {
         path.push(DEFAULT_BLOCK_KEYPAIR_FILENAME);
         let args = BlockchainNodeArgs {
             key_filename: DEFAULT_BLOCK_KEYPAIR_FILENAME.to_string(),
+            peer_index: 0,
         };
         assert_eq!(
             path.into_os_string().into_string().unwrap(),
@@ -270,6 +271,7 @@ mod tests {
     fn test_create_keypair_succeeded() {
         let args = BlockchainNodeArgs {
             key_filename: DEFAULT_BLOCK_KEYPAIR_FILENAME.to_string(),
+            peer_index: 0,
         };
         let result = std::panic::catch_unwind(|| create_ed25519_keypair(args));
         assert!(result.is_ok());
