@@ -12,6 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: sudo gem install mdl
+      - run: echo "::add-matcher::.github/workflows/md-docs-matchers.json"
       - run: mdl docs
 
   markdown-link-check:
