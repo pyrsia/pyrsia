@@ -16,9 +16,10 @@
 
 use super::{get_config, RegistryError, RegistryErrorCode};
 use crate::network::client::Client;
-use crate::node_manager::{handlers::*, model::cli::Status};
+use crate::node_manager::{handlers::*, model::cli::*};
 
 use log::debug;
+use std::collections::HashMap;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_peers(mut p2p_client: Client) -> Result<impl Reply, Rejection> {
@@ -38,7 +39,7 @@ pub async fn handle_get_peers(mut p2p_client: Client) -> Result<impl Reply, Reje
 pub async fn handle_get_status(mut p2p_client: Client) -> Result<impl Reply, Rejection> {
     let peers = p2p_client.list_peers().await;
 
-    let art_count_result = get_arts_count();
+    let art_count_result = get_arts_summary();
     if art_count_result.is_err() {
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(art_count_result.err().unwrap().to_string()),
@@ -58,9 +59,24 @@ pub async fn handle_get_status(mut p2p_client: Client) -> Result<impl Reply, Rej
             code: RegistryErrorCode::Unknown(cli_config.err().unwrap().to_string()),
         }));
     }
+    let mut total_artifacts = 0;
+    let mut art_summ_map: HashMap<String, usize> = HashMap::new();
+    for (k, v) in art_count_result.unwrap().iter() {
+        if k == "SHA256" {
+            total_artifacts += v;
+            art_summ_map.insert("blobs".to_string(), *v);
+        } else if k == "SHA512" {
+            total_artifacts += v;
+            art_summ_map.insert("manifests".to_string(), *v);
+        }
+    }
+    let artifacts_summary = ArtifactsSummary {
+        total: total_artifacts.to_string(),
+        summary: art_summ_map,
+    };
 
     let status = Status {
-        artifact_count: art_count_result.unwrap(),
+        artifact_count: artifacts_summary,
         peers_count: peers.len(),
         peer_id: p2p_client.local_peer_id.to_string(),
         disk_allocated: cli_config.unwrap().disk_allocated,
