@@ -97,7 +97,7 @@ Let us run through a few examples of how you can use the Pyrsia CLI
 ```
 $ ./pyrsia status
 Connected Peers Count:       1
-Artifacts Count:             2 {"manifests": 1, "blobs": 2}
+Artifacts Count:             3 {"manifests": 1, "blobs": 2}
 Total Disk Space Allocated:  5.84 GB
 Disk Space Used:             0.0002%
 ```
