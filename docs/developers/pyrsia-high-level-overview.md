@@ -18,7 +18,7 @@ Pyrsia aims to support these use cases in the MVP milestone:
 ```mermaid
 sequenceDiagram
 participant Admin as Admin User
-participant Node as Pyrsia Central Node
+participant Node as Pyrsia Authoritative Node
 participant PNW as Pyrsia Network
 participant DockerHub as Docker Hub
 
