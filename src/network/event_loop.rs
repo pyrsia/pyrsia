@@ -17,6 +17,8 @@
 use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse};
 use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::client::command::Command;
+use crate::network::client::ArtifactType;
+use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
@@ -38,6 +40,8 @@ type PendingListPeersMap = HashMap<QueryId, oneshot::Sender<HashSet<PeerId>>>;
 type PendingStartProvidingMap = HashMap<QueryId, oneshot::Sender<()>>;
 type PendingRequestArtifactMap =
     HashMap<RequestId, oneshot::Sender<Result<Vec<u8>, Box<dyn Error + Send>>>>;
+type PendingRequestIdleMetricMap =
+    HashMap<RequestId, oneshot::Sender<Result<PeerMetrics, Box<dyn Error + Send>>>>;
 
 /// The `PyrsiaEventLoop` is responsible for taking care of incoming
 /// events from the libp2p [`Swarm`] itself, the different network
@@ -52,6 +56,7 @@ pub struct PyrsiaEventLoop {
     pending_start_providing: PendingStartProvidingMap,
     pending_list_providers: PendingListPeersMap,
     pending_request_artifact: PendingRequestArtifactMap,
+    pending_idle_metric_requests: PendingRequestIdleMetricMap,
 }
 
 impl PyrsiaEventLoop {
@@ -69,6 +74,7 @@ impl PyrsiaEventLoop {
             pending_start_providing: Default::default(),
             pending_list_providers: Default::default(),
             pending_request_artifact: Default::default(),
+            pending_idle_metric_requests: Default::default(),
         }
     }
 
@@ -81,6 +87,7 @@ impl PyrsiaEventLoop {
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Identify(identify_event)) => self.handle_identify_event(identify_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Kademlia(kademlia_event)) => self.handle_kademlia_event(kademlia_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::RequestResponse(request_response_event)) => self.handle_request_response_event(request_response_event).await,
+                    SwarmEvent::Behaviour(PyrsiaNetworkEvent::IdleMetricRequestResponse(request_response_event)) => self.handle_idle_metric_request_response_event(request_response_event).await,
                     swarm_event => self.handle_swarm_event(swarm_event).await,
                 },
                 command = self.command_receiver.next() => match command {
@@ -182,7 +189,8 @@ impl PyrsiaEventLoop {
                 } => {
                     self.event_sender
                         .send(PyrsiaEvent::RequestArtifact {
-                            hash: request.0,
+                            artifact_type: request.0,
+                            artifact_hash: request.1,
                             channel,
                         })
                         .await
@@ -213,6 +221,45 @@ impl PyrsiaEventLoop {
         }
     }
 
+    // Handles events from the `RequestResponse` for peer metric exchange
+    // network behaviour.
+    async fn handle_idle_metric_request_response_event(
+        &mut self,
+        event: RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>,
+    ) {
+        trace!("Handle RequestResponseEvent: {:?}", event);
+        match event {
+            RequestResponseEvent::Message { message, .. } => match message {
+                RequestResponseMessage::Request { channel, .. } => {
+                    self.event_sender
+                        .send(PyrsiaEvent::IdleMetricRequest { channel })
+                        .await
+                        .expect("Event receiver not to be dropped.");
+                }
+                RequestResponseMessage::Response {
+                    request_id,
+                    response,
+                } => {
+                    let _ = self
+                        .pending_idle_metric_requests
+                        .remove(&request_id)
+                        .expect("Request to still be pending.")
+                        .send(Ok(response.0));
+                }
+            },
+            RequestResponseEvent::InboundFailure { .. } => {}
+            RequestResponseEvent::OutboundFailure {
+                request_id, error, ..
+            } => {
+                let _ = self
+                    .pending_idle_metric_requests
+                    .remove(&request_id)
+                    .expect("Request to still be pending.")
+                    .send(Err(Box::new(error)));
+            }
+            RequestResponseEvent::ResponseSent { .. } => {}
+        }
+    }
     // Handles all other events from the libp2p `Swarm`.
     async fn handle_swarm_event(&mut self, event: SwarmEvent<PyrsiaNetworkEvent, impl Error>) {
         trace!("Handle SwarmEvent: {:?}", event);
@@ -276,29 +323,44 @@ impl PyrsiaEventLoop {
                     .get_closest_peers(peer_id);
                 self.pending_list_peers.insert(query_id, sender);
             }
-            Command::Provide { hash, sender } => {
+            Command::Provide {
+                artifact_type,
+                artifact_hash,
+                sender,
+            } => {
+                let kademlia_key = format!("{}|{}", artifact_type, artifact_hash.hash);
                 let query_id = self
                     .swarm
                     .behaviour_mut()
                     .kademlia
-                    .start_providing(hash.into_bytes().into())
+                    .start_providing(kademlia_key.into_bytes().into())
                     .expect("No store error.");
                 self.pending_start_providing.insert(query_id, sender);
             }
-            Command::ListProviders { hash, sender } => {
+            Command::ListProviders {
+                artifact_type,
+                artifact_hash,
+                sender,
+            } => {
+                let kademlia_key = format!("{}|{}", artifact_type, artifact_hash.hash);
                 let query_id = self
                     .swarm
                     .behaviour_mut()
                     .kademlia
-                    .get_providers(hash.into_bytes().into());
+                    .get_providers(kademlia_key.into_bytes().into());
                 self.pending_list_providers.insert(query_id, sender);
             }
-            Command::RequestArtifact { hash, peer, sender } => {
+            Command::RequestArtifact {
+                artifact_type,
+                artifact_hash,
+                peer,
+                sender,
+            } => {
                 let request_id = self
                     .swarm
                     .behaviour_mut()
                     .request_response
-                    .send_request(&peer, ArtifactRequest(hash));
+                    .send_request(&peer, ArtifactRequest(artifact_type, artifact_hash.hash));
                 self.pending_request_artifact.insert(request_id, sender);
             }
             Command::RespondArtifact { artifact, channel } => {
@@ -308,6 +370,21 @@ impl PyrsiaEventLoop {
                     .send_response(channel, ArtifactResponse(artifact))
                     .expect("Connection to peer to be still open.");
             }
+            Command::RequestIdleMetric { peer, sender } => {
+                let request_id = self
+                    .swarm
+                    .behaviour_mut()
+                    .idle_metric_request_response
+                    .send_request(&peer, IdleMetricRequest());
+                self.pending_idle_metric_requests.insert(request_id, sender);
+            }
+            Command::RespondIdleMetric { metric, channel } => {
+                self.swarm
+                    .behaviour_mut()
+                    .idle_metric_request_response
+                    .send_response(channel, IdleMetricResponse(metric))
+                    .expect("Connection to peer to be still open.");
+            }
         }
     }
 }
@@ -315,7 +392,11 @@ impl PyrsiaEventLoop {
 #[derive(Debug)]
 pub enum PyrsiaEvent {
     RequestArtifact {
-        hash: String,
+        artifact_type: ArtifactType,
+        artifact_hash: String,
         channel: ResponseChannel<ArtifactResponse>,
+    },
+    IdleMetricRequest {
+        channel: ResponseChannel<IdleMetricResponse>,
     },
 }

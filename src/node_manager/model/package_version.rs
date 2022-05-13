@@ -81,6 +81,17 @@ impl PackageVersion {
             tags: Default::default(),
         }
     }
+
+    pub fn get_artifact_by_mime_type(&self, mime_types: Vec<&str>) -> Option<&Artifact> {
+        for artifact in &self.artifacts {
+            if let Some(mime_type) = artifact.mime_type() {
+                if mime_types.contains(&mime_type.as_str()) {
+                    return Some(artifact);
+                }
+            }
+        }
+        None
+    }
 }
 
 #[derive(EnumIter, Debug, Display, PartialEq, EnumString, Serialize, Deserialize, Clone)]
@@ -88,4 +99,45 @@ pub enum LicenseTextMimeType {
     Text,
     Html,
     Xml,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::artifacts_repository::hash_util::HashAlgorithm;
+    use crate::node_manager::model::artifact::ArtifactBuilder;
+
+    #[test]
+    fn get_artifact_by_mime_type() -> anyhow::Result<()> {
+        let artifact: Artifact = ArtifactBuilder::default()
+            .hash(vec![0x38u8, 0x4fu8])
+            .algorithm(HashAlgorithm::SHA256)
+            .mime_type("text/xml".to_string())
+            .name("acme".to_string())
+            .build()?;
+
+        let package_version = PackageVersion::new(
+            "id".to_string(),
+            "namespace_id".to_string(),
+            "name".to_string(),
+            PackageTypeName::Docker,
+            Map::new(),
+            "version".to_string(),
+            vec![artifact.clone()],
+        );
+
+        let artifacts = package_version.get_artifact_by_mime_type(vec!["application/json"]);
+        assert!(artifacts.is_none());
+
+        let artifacts = package_version.get_artifact_by_mime_type(vec!["text/xml"]);
+        assert!(artifacts.is_some());
+        assert_eq!(artifacts.unwrap().hash(), artifact.hash());
+
+        let artifacts =
+            package_version.get_artifact_by_mime_type(vec!["application/json", "text/xml"]);
+        assert!(artifacts.is_some());
+        assert_eq!(artifacts.unwrap().hash(), artifact.hash());
+
+        Ok(())
+    }
 }

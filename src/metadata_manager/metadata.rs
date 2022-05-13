@@ -73,9 +73,8 @@ fn init_package_types() -> Result<Vec<String>> {
         name: PackageTypeName::Docker,
         description: "docker packages".to_string(),
     };
-    Ok(vec![serde_json::to_string(&package_type).unwrap_or_else(
-        |_| "package type for pre-installation somehow does not have JSON".to_string(),
-    )])
+    let package_type_json = serde_json::to_string(&package_type)?;
+    Ok(vec![package_type_json])
 }
 
 // Definitions for name spaces
@@ -144,11 +143,13 @@ pub enum MetadataCreationStatus {
 }
 
 impl Metadata {
-    pub fn new() -> Result<Metadata, anyhow::Error> {
+    pub fn new(metadata_path: &str) -> Result<Metadata, anyhow::Error> {
         info!("Creating new instance of metadata manager");
-        let package_type_docs = DocumentStore::open(DS_PACKAGE_TYPES, ix_package_types())?;
-        let namespace_docs = DocumentStore::open(DS_NAMESPACES, ix_namespaces())?;
-        let package_version_docs = DocumentStore::open(DS_PACKAGE_VERSIONS, ix_package_versions())?;
+        let package_type_docs =
+            DocumentStore::open(metadata_path, DS_PACKAGE_TYPES, ix_package_types())?;
+        let namespace_docs = DocumentStore::open(metadata_path, DS_NAMESPACES, ix_namespaces())?;
+        let package_version_docs =
+            DocumentStore::open(metadata_path, DS_PACKAGE_VERSIONS, ix_package_versions())?;
         let metadata = Metadata {
             package_type_docs,
             namespace_docs,
@@ -219,6 +220,16 @@ impl Metadata {
             FLD_PACKAGE_VERSIONS_VERSION => version,
         };
         fetch_package_version(self, IX_PACKAGE_VERSIONS_VERSION, filter)
+    }
+
+    pub fn list_package_versions(&self) -> anyhow::Result<Vec<PackageVersion>> {
+        match self.package_version_docs.fetch_all() {
+            Err(error) => bail!("Error fetching package versions: {}", error.to_string()),
+            Ok(package_versions) => package_versions
+                .iter()
+                .map(|json| serde_json::from_str(json).map_err(From::from))
+                .collect(),
+        }
     }
 }
 
@@ -292,7 +303,6 @@ fn insert_metadata(ds: &DocumentStore, metadata: String) -> anyhow::Result<Metad
 mod tests {
     use super::*;
     use crate::artifacts_repository::hash_util::HashAlgorithm;
-    use crate::node_manager::handlers::METADATA_MGR;
     use crate::node_manager::model::artifact::ArtifactBuilder;
     use crate::node_manager::model::package_version::LicenseTextMimeType;
     use rand::RngCore;
@@ -300,7 +310,10 @@ mod tests {
 
     #[test]
     fn package_type_test() -> Result<()> {
-        let metadata = &METADATA_MGR;
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().to_str().unwrap();
+        let metadata = Metadata::new(path)?;
+
         let package_type = PackageType {
             id: Uuid::new_v4().to_string(),
             name: PackageTypeName::Docker,
@@ -309,14 +322,16 @@ mod tests {
         // Because the Docker package type is pre-installed, we expect an attempt to add one to
         // produce a duplicate result.
         match metadata.create_package_type(&package_type)? {
-            MetadataCreationStatus::Created => bail!("Docker package type is supposed to be pre-installed, but we were just able to create it!"),
+            MetadataCreationStatus::Created => panic!("Docker package type is supposed to be pre-installed, but we were just able to create it!"),
             MetadataCreationStatus::Duplicate{ json: _} => Ok(())
         }
     }
 
     #[test]
     fn namespace_test() -> Result<()> {
-        let metadata = &METADATA_MGR;
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().to_str().unwrap();
+        let metadata = Metadata::new(path)?;
 
         let id = Uuid::new_v4().to_string();
         let path = append_random("all/or/nothing");
@@ -338,17 +353,21 @@ mod tests {
             }
             MetadataCreationStatus::Duplicate { json: _ } => (),
         }
+
         Ok(())
     }
+
     fn now_as_iso8601_string() -> String {
         time::OffsetDateTime::now_utc()
             .format(&time::format_description::well_known::Rfc3339)
             .unwrap()
     }
+
     #[test]
     fn package_version_test() -> Result<()> {
-        let metadata = &METADATA_MGR;
-        info!("Got metadata instance");
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().to_str().unwrap();
+        let metadata = Metadata::new(path)?;
 
         let hash1: Vec<u8> = vec![
             0xa3, 0x3f, 0x49, 0x64, 0x00, 0xa5, 0x67, 0xe1, 0xb4, 0xe5, 0xbe, 0x4c, 0x81, 0x30,
@@ -402,6 +421,9 @@ mod tests {
             artifacts: artifacts,
         };
 
+        let fetched_package_versions = metadata.list_package_versions()?;
+        assert_eq!(0, fetched_package_versions.len());
+
         match metadata.create_package_version(&package_version)? {
             MetadataCreationStatus::Created => (),
             status => panic!(
@@ -414,6 +436,10 @@ mod tests {
             metadata.get_package_version(&namespace_id, &name, &version)?;
         assert!(fetched_package_version2.is_some());
         assert_eq!(package_version, fetched_package_version2.unwrap());
+
+        let fetched_package_versions = metadata.list_package_versions()?;
+        assert_eq!(1, fetched_package_versions.len());
+        assert_eq!(package_version, fetched_package_versions[0]);
 
         Ok(())
     }

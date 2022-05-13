@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
       - name: Get changed rust files
         id: changed-rust-files
-        uses: tj-actions/changed-files@v18.7
+        uses: tj-actions/changed-files@v19
         with:
           files: |
             **/*.rs
@@ -45,6 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: rustup component add rustfmt
+      - run: cargo fmt --version
       - run: cargo fmt -- --check # Prints diff in the action logs
       - if: failure()
         run: echo "::error ::You need to run `rustfmt` loaclly, commit the changes, and push"
@@ -56,6 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: rustup component add clippy
+      - run: cargo clippy --version
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

@@ -18,6 +18,8 @@ pub mod command;
 
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::client::command::Command;
+use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
+use crate::node_manager::model::package_version::PackageVersion;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
@@ -25,6 +27,79 @@ use libp2p::request_response::ResponseChannel;
 use log::debug;
 use std::collections::HashSet;
 use std::error;
+
+/* peer metrics support */
+const PEER_METRIC_THRESHOLD: f64 = 0.5_f64;
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
+struct IdleMetric {
+    pub peer: PeerId,
+    pub metric: f64,
+}
+/* peer metric support */
+
+use strum_macros::Display;
+/// Defines the different types of artifacts that can be transferred
+/// within the libp2p swarm.
+#[derive(Clone, Debug, Display, PartialEq, Eq)]
+pub enum ArtifactType {
+    PackageVersion,
+    Artifact,
+}
+
+/// A utility struct for easily defining a hash from different
+/// types that can be used as a provisioning key within the
+/// libp2p swarm.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ArtifactHash {
+    pub hash: String,
+}
+
+/// Construct an ArtifactHash from `String`
+impl From<String> for ArtifactHash {
+    fn from(hash: String) -> Self {
+        ArtifactHash { hash }
+    }
+}
+
+/// Construct an ArtifactHash from `&String`
+impl From<&String> for ArtifactHash {
+    fn from(hash: &String) -> Self {
+        ArtifactHash { hash: hash.clone() }
+    }
+}
+
+/// Construct an ArtifactHash from `&str`
+impl From<&str> for ArtifactHash {
+    fn from(hash: &str) -> Self {
+        ArtifactHash {
+            hash: String::from(hash),
+        }
+    }
+}
+
+/// Construct an ArtifactHash from `PackageVersion`
+impl From<PackageVersion> for ArtifactHash {
+    fn from(package_version: PackageVersion) -> Self {
+        ArtifactHash {
+            hash: format!(
+                "{}/{}/{}",
+                package_version.namespace_id, package_version.name, package_version.version
+            ),
+        }
+    }
+}
+
+/// Construct an ArtifactHash from `&PackageVersion`
+impl From<&PackageVersion> for ArtifactHash {
+    fn from(package_version: &PackageVersion) -> Self {
+        ArtifactHash {
+            hash: format!(
+                "{}/{}/{}",
+                package_version.namespace_id, package_version.name, package_version.version
+            ),
+        }
+    }
+}
 
 /// The `Client` provides entry points to interact with the libp2p swarm.
 #[derive(Clone)]
@@ -81,14 +156,19 @@ impl Client {
     }
 
     /// Inform the swarm that this node is currently a
-    /// provider of the artifact with the specified `hash`.
-    pub async fn provide(&mut self, hash: &str) {
-        debug!("p2p::Client::provide {:?}", hash);
+    /// provider of the artifact with the specified `type`
+    /// and `hash`.
+    pub async fn provide(&mut self, artifact_type: ArtifactType, artifact_hash: ArtifactHash) {
+        debug!(
+            "p2p::Client::provide {:?}={:?}",
+            artifact_type, artifact_hash
+        );
 
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::Provide {
-                hash: String::from(hash),
+                artifact_type,
+                artifact_hash,
                 sender,
             })
             .await
@@ -97,12 +177,22 @@ impl Client {
     }
 
     /// List all peers in the swarm that are providing
-    /// the artifact with the specified `hash`.
-    pub async fn list_providers(&mut self, hash: &str) -> HashSet<PeerId> {
+    /// the artifact with the specified `type` and `hash`.
+    pub async fn list_providers(
+        &mut self,
+        artifact_type: ArtifactType,
+        artifact_hash: ArtifactHash,
+    ) -> HashSet<PeerId> {
+        debug!(
+            "p2p::Client::list_providers {:?}={:?}",
+            artifact_type, artifact_hash
+        );
+
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::ListProviders {
-                hash: String::from(hash),
+                artifact_type,
+                artifact_hash,
                 sender,
             })
             .await
@@ -110,19 +200,24 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
-    /// Request an artifact with the specified `hash` from
-    /// the swarm.
+    /// Request an artifact with the specified `type` and `hash`
+    /// from the swarm.
     pub async fn request_artifact(
         &mut self,
         peer: &PeerId,
-        hash: &str,
+        artifact_type: ArtifactType,
+        artifact_hash: ArtifactHash,
     ) -> Result<Vec<u8>, Box<dyn error::Error + Send>> {
-        debug!("p2p::Client::request_artifact {:?}: {:?}", peer, hash);
+        debug!(
+            "p2p::Client::request_artifact {:?}: {:?}={:?}",
+            peer, artifact_type, artifact_hash
+        );
 
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::RequestArtifact {
-                hash: String::from(hash),
+                artifact_type,
+                artifact_hash,
                 peer: *peer,
                 sender,
             })
@@ -142,6 +237,79 @@ impl Client {
 
         self.sender
             .send(Command::RespondArtifact { artifact, channel })
+            .await
+            .expect("Command receiver not to be dropped.");
+    }
+
+    //get a peer with a low enough work load to download artifact otherwise the lowest work load of the set
+    //TODO: chunk the peers to some limit to keep from shotgunning the network
+    pub async fn get_idle_peer(&mut self, providers: HashSet<PeerId>) -> Option<PeerId> {
+        debug!(
+            "p2p::Client::get_idle_peer() entered with {} peers",
+            providers.len()
+        );
+        let mut metrics_array: Vec<IdleMetric> = Vec::new();
+        for peer in providers.iter() {
+            let (sender, receiver) = oneshot::channel();
+            self.sender
+                .send(Command::RequestIdleMetric {
+                    peer: *peer,
+                    sender,
+                })
+                .await
+                .expect("Command receiver not to be dropped");
+
+            match receiver.await.expect("Sender not to be dropped.") {
+                Ok(peer_metric) => {
+                    let metric: f64 = f64::from_le_bytes(peer_metric.idle_metric);
+                    let idle_metric = IdleMetric {
+                        peer: *peer,
+                        metric,
+                    };
+                    if idle_metric.metric < PEER_METRIC_THRESHOLD {
+                        debug!(
+                                "p2p::Client::get_idle_peer() Found peer with a below threshold idle value {}",
+                                metric
+                            );
+                        return Some(idle_metric.peer);
+                    } else {
+                        debug!(
+                            "p2p::Client::get_idle_peer() Pushing idle peer with value {}",
+                            metric
+                        );
+                        metrics_array.push(idle_metric);
+                    }
+                }
+                Err(e) => {
+                    debug!(
+                            "p2p::Client::get_idle_peer() Unable to get peer metric for peer {} error {}",
+                            peer, e
+                        );
+                }
+            };
+        }
+
+        //sort the peers in ascending order according to their idle metric and return top of list
+        metrics_array.sort_by(|a, b| a.metric.partial_cmp(&b.metric).unwrap());
+        if !metrics_array.is_empty() {
+            Some(metrics_array[0].peer)
+        } else {
+            None
+        }
+    }
+
+    pub async fn respond_idle_metric(
+        &mut self,
+        metric: PeerMetrics,
+        channel: ResponseChannel<IdleMetricResponse>,
+    ) {
+        debug!(
+            "p2p::Client::respond_idle_metric PeerMetrics metric ={:?}",
+            metric
+        );
+
+        self.sender
+            .send(Command::RespondIdleMetric { metric, channel })
             .await
             .expect("Command receiver not to be dropped.");
     }
@@ -226,6 +394,35 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_get_idle_metric() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+        let mut client = Client {
+            sender,
+            local_peer_id,
+        };
+
+        let mut peers: HashSet<PeerId> = HashSet::new();
+        peers.insert(client.local_peer_id);
+        tokio::spawn(async move { client.get_idle_peer(peers).await });
+
+        futures::select! {
+            command = receiver.next() => match command {
+                Some(Command::RequestIdleMetric { peer, sender }) => {
+                    assert_eq!(peer, local_peer_id);
+                    let peer_metric = PeerMetrics {
+                        idle_metric: 8675309f64.to_le_bytes(),
+                    };
+                    let _ = sender.send(Ok(peer_metric));
+                },
+                None => {},
+                _ => panic!("Command must match Command::RequestIdleMetric")
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn test_provide() {
         let (sender, mut receiver) = mpsc::channel(1);
 
@@ -240,12 +437,17 @@ mod tests {
             .map(char::from)
             .collect();
         let cloned_random_hash = random_hash.clone();
-        tokio::spawn(async move { client.provide(&random_hash).await });
+        tokio::spawn(async move {
+            client
+                .provide(ArtifactType::Artifact, random_hash.into())
+                .await
+        });
 
         futures::select! {
             command = receiver.next() => match command {
-                Some(Command::Provide { hash, sender }) => {
-                    assert_eq!(hash, cloned_random_hash);
+                Some(Command::Provide { artifact_type, artifact_hash, sender }) => {
+                    assert_eq!(artifact_type, ArtifactType::Artifact);
+                    assert_eq!(artifact_hash.hash, cloned_random_hash);
                     let _ = sender.send(());
                 },
                 _ => panic!("Command must match Command::Provide")
@@ -268,12 +470,17 @@ mod tests {
             .map(char::from)
             .collect();
         let cloned_random_hash = random_hash.clone();
-        tokio::spawn(async move { client.list_providers(&random_hash).await });
+        tokio::spawn(async move {
+            client
+                .list_providers(ArtifactType::Artifact, random_hash.into())
+                .await
+        });
 
         futures::select! {
             command = receiver.next() => match command {
-                Some(Command::ListProviders { hash, sender }) => {
-                    assert_eq!(hash, cloned_random_hash);
+                Some(Command::ListProviders { artifact_type, artifact_hash, sender }) => {
+                    assert_eq!(artifact_type, ArtifactType::Artifact);
+                    assert_eq!(artifact_hash.hash, cloned_random_hash);
                     let _ = sender.send(Default::default());
                 },
                 _ => panic!("Command must match Command::ListProviders")
@@ -297,13 +504,18 @@ mod tests {
             .map(char::from)
             .collect();
         let cloned_random_hash = random_hash.clone();
-        tokio::spawn(async move { client.request_artifact(&other_peer_id, &random_hash).await });
+        tokio::spawn(async move {
+            client
+                .request_artifact(&other_peer_id, ArtifactType::Artifact, random_hash.into())
+                .await
+        });
 
         futures::select! {
             command = receiver.next() => match command {
-                Some(Command::RequestArtifact { peer, hash, sender }) => {
+                Some(Command::RequestArtifact { peer, artifact_type, artifact_hash, sender }) => {
                     assert_eq!(peer, other_peer_id);
-                    assert_eq!(hash, cloned_random_hash);
+                    assert_eq!(artifact_type, ArtifactType::Artifact);
+                    assert_eq!(artifact_hash.hash, cloned_random_hash);
                     let _ = sender.send(Ok(vec![]));
                 },
                 _ => panic!("Command must match Command::RequestArtifact")

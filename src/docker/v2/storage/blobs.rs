@@ -58,7 +58,7 @@ pub fn store_blob_in_filesystem(
     id: &str,
     digest: &str,
     bytes: Bytes,
-) -> Result<bool, Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error>> {
     let blob_upload_dest_dir = format!(
         "/tmp/registry/docker/registry/v2/repositories/{}/_uploads/{}",
         name, id
@@ -78,7 +78,7 @@ pub fn store_blob_in_filesystem(
     //put blob in artifact manager
     let reader = File::open(blob_upload_dest_data.as_str()).unwrap();
 
-    let push_result = put_artifact(
+    put_artifact(
         hex::decode(&digest.get(7..).unwrap()).unwrap().as_ref(),
         Box::new(reader),
         HashAlgorithm::SHA256,
@@ -86,7 +86,7 @@ pub fn store_blob_in_filesystem(
 
     fs::remove_dir_all(&blob_upload_dest_dir)?;
 
-    Ok(push_result)
+    Ok(())
 }
 
 #[cfg(test)]

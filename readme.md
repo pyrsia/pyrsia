@@ -1,6 +1,6 @@
 ![logo](https://raw.githubusercontent.com/pyrsia/.github/main/images/logo-color.svg)
 
-> Zero-Trust Decentralized Package Network
+> Decentralized Package Network
 
 ## Current Development Phase
 
@@ -48,8 +48,9 @@ There are two components of this project
 The Pyrsia node will always join the "main net" and connect with other peers. You can see this using the CLI's "status" command:
 
 ```sh
-$ ./pyrsia node -s
+$ ./pyrsia status
 Connected Peers Count:   17 # Shows the number of visible peers
-Artifacts Count:         12 # Total number of artifacts cached locally
-Total Disk Available:    10.5 GB
+Artifacts Count:         3 {"manifests": 1, "blobs": 2} # Total number of artifacts cached locally
+Total Disk Space Allocated:  5.84 GB
+Disk Space Used:             0.0002%
 ```

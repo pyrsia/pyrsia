@@ -8,15 +8,25 @@ For now Pyrsia only supports Docker artifacts.
 
 Setup rust on your local machine as described in [Rust's getting started guide](https://www.rust-lang.org/learn/get-started).
 You may also follow [How to Debug Rust with Visual Studio Code](https://www.forrestthewoods.com/blog/how-to-debug-rust-with-visual-studio-code/)
-if you are loking to make code changes.
+if you are looking to make code changes.
 
 ### Integrating and Building with Docker
 
 - Install [Docker](https://www.docker.com/get-started)
     * macOS and Windows: Compose is included in Docker Desktop
     * Linux: [Downloaded Compose](https://github.com/docker/compose#linux)
+    
+### Installing System Dependencies
 
-The Pyrsia Node will then be running on `http://localhost:7888`.
+- Install Clang and OpenSSL
+  * macOS: use [homebrew](https://brew.sh/) to install OpenSSL
+    ```sh
+    brew install openssl@1.1
+    ```
+  * Linux (ubuntu): use `apt` to install Clang and OpenSSL
+    ```sh
+    apt install clang libssl-dev
+    ```
 
 ## Obtain the Source Code
 
@@ -87,10 +97,10 @@ following steps:
    cd ../target/debug
    ```
 
-8. Configure the CLI tool for your node using subcommand "config" 
+8. Configure the CLI tool for your node using interactive subcommand "config" 
 
    ```
-    ./pyrsia config --add localhost:7888
+    ./pyrsia config --add
     ```
 
    OR place the config file in these OS specific locations:
@@ -104,15 +114,16 @@ following steps:
 9. Ping the Pyrsia node and list the status
 
     ```sh
-    $ ./pyrsia --ping
+    $ ./pyrsia ping
     Connection Successfull !! {}
     ```
 
     ```sh
     $ ./pyrsia -s
-    Connected Peers Count:   0
-    Artifacts Count:         12 # reflects the number of artifacts that the pyrsia_node has stored on the network
-    Total Disk Available:    10.5 GB
+    Connected Peers Count:       1
+    Artifacts Count:             3 {"manifests": 1, "blobs": 2}
+    Total Disk Space Allocated:  5.84 GB
+    Disk Space Used:             0.0002%
     ```
 
 If you see a status message similar to:
@@ -148,9 +159,10 @@ Re-running the status command, there should be an connect peer.
 
 ```sh 
 $ ./pyrsia -s
-Connected Peers Count:   1 # Shows the additional node that joined the list of peers
-Artifacts Count:         12
-Total Disk Available:    10.5 GB
+Connected Peers Count:       1
+Artifacts Count:             3 {"manifests": 1, "blobs": 2}
+Total Disk Space Allocated:  5.84 GB
+Disk Space Used:             0.0002%
 ```
 
 In a real life deployment these nodes will be spread over the network and will all run on their own 7888 port.
@@ -161,6 +173,6 @@ In a real life deployment these nodes will be spread over the network and will a
 
 To test the pyrsia_node status you can use `curl`  and
 
-```
+```sh
 curl --location --request GET 'http://localhost:7888/status'
 ```

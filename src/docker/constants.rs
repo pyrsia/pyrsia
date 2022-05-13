@@ -14,13 +14,8 @@
    limitations under the License.
 */
 
-use codec::{Decode, Encode};
-use serde::{Deserialize, Serialize};
-
-use super::block::Block;
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone, Decode, Encode, Hash, PartialEq, Eq)]
-pub struct Chain {
-    // TODO(prince-chrismc): This eventually needs to be an ordered set so block sequence is always sorted by ordinal
-    pub blocks: Vec<Block>,
-}
+pub const MEDIA_TYPE_BLOB_GZIPPED: &str = "application/vnd.docker.image.rootfs.diff.tar.gzip";
+pub const MEDIA_TYPE_SCHEMA_1: &str = "application/vnd.docker.distribution.manifest.v1+json";
+pub const MEDIA_TYPE_IMAGE_MANIFEST: &str = "application/vnd.docker.distribution.manifest.v2+json";
+pub const MEDIA_TYPE_MANIFEST_LIST: &str =
+    "application/vnd.docker.distribution.manifest.list.v2+json";

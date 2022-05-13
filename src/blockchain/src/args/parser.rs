@@ -14,13 +14,18 @@
    limitations under the License.
 */
 
-use codec::{Decode, Encode};
-use serde::{Deserialize, Serialize};
+use clap::Parser;
 
-use super::block::Block;
+pub const DEFAULT_BLOCK_KEYPAIR_FILENAME: &str = ".block_keypair";
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone, Decode, Encode, Hash, PartialEq, Eq)]
-pub struct Chain {
-    // TODO(prince-chrismc): This eventually needs to be an ordered set so block sequence is always sorted by ordinal
-    pub blocks: Vec<Block>,
+/// Application to connect to and participate in the Pyrsia blockchain network
+#[derive(Debug, Parser, Clone)]
+#[clap(long_about = None)]
+pub struct BlockchainNodeArgs {
+    /// A string to specify the keypair filename
+    #[clap(long, short = 'K', default_value = DEFAULT_BLOCK_KEYPAIR_FILENAME)]
+    pub key_filename: String,
+    /// An unsigned number to specify the node index on Aleph algorithm.
+    #[clap(long, short = 'I', required = true)]
+    pub peer_index: usize,
 }
