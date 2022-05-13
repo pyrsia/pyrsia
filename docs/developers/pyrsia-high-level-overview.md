@@ -82,8 +82,8 @@ deactivate User
    log information
 1. Artifact service uses local storage as a first step to find requested images
 1. Artifact service uses the Pyrsia p2p network if the image is not found locally
-1. a. Artifact service uses the transparency log service to add an artifact
-   b. Artifact service uses the transparency log service to verify an artifact
+1. Artifact service uses the transparency log service to (a) add an artifact and
+   (b) verify an artifact
 1. Pyrsia CLI uses Transparency log to find requested information / get logs
    for an artifact
 1. Transparency log uses Blockchain to (a) add blocks and (b) listen for (new)
