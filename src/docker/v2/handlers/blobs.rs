@@ -156,13 +156,13 @@ async fn get_blob_from_network(
         hash, providers
     );
 
-    match providers.iter().next() {
+    match p2p_client.get_idle_peer(providers).await {
         Some(peer) => {
             debug!(
-                "Step 2: YES, {:?} exists in the Pyrsia network, fetching from peer {}.",
+                "Step 2: YES, {:?} exists in the Pyrsia network, fetching from peer {:?}.",
                 hash, peer
             );
-            if get_blob_from_other_peer(p2p_client.clone(), peer, name, hash)
+            if get_blob_from_other_peer(p2p_client.clone(), &peer, name, hash)
                 .await
                 .is_err()
             {

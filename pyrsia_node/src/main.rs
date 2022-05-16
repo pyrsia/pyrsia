@@ -70,6 +70,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     )
                     .await
                 }
+                pyrsia::network::event_loop::PyrsiaEvent::IdleMetricRequest { channel } => {
+                    handlers::handle_request_idle_metric(p2p_client.clone(), channel).await
+                }
             }
         }
     }
@@ -119,7 +122,6 @@ async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
     if let Some(to_dial) = args.peer {
         handlers::dial_other_peer(p2p_client.clone(), &to_dial).await;
     }
-
     debug!("Provide local artifacts");
     handlers::provide_artifacts(p2p_client.clone()).await;
 }
