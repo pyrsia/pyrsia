@@ -16,6 +16,7 @@
 
 use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactExchangeProtocol};
 use crate::network::client::Client;
+use crate::network::idle_metric_protocol::{IdleMetricExchangeCodec, IdleMetricExchangeProtocol};
 use crate::network_central::behaviour::PyrsiaNetworkBehaviour;
 use crate::network_central::event_loop::{PyrsiaEvent, PyrsiaEventLoop};
 use crate::util::keypair_util;
@@ -165,6 +166,11 @@ fn create_swarm(
                 request_response: RequestResponse::new(
                     ArtifactExchangeCodec(),
                     iter::once((ArtifactExchangeProtocol(), ProtocolSupport::Full)),
+                    Default::default(),
+                ),
+                idle_metric_request_response: RequestResponse::new(
+                    IdleMetricExchangeCodec(),
+                    iter::once((IdleMetricExchangeProtocol(), ProtocolSupport::Full)),
                     Default::default(),
                 ),
             },
