@@ -58,9 +58,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
             match event {
                 // Reply with the content of the artifact on incoming requests.
                 pyrsia::network_central::event_loop::PyrsiaEvent::RequestArtifact {
-                    hash,
+                    artifact_type,
+                    artifact_hash,
                     channel,
-                } => handlers::handle_request_artifact(p2p_client.clone(), &hash, channel).await,
+                } => {
+                    handlers::handle_request_artifact(
+                        p2p_client.clone(),
+                        artifact_type,
+                        &artifact_hash,
+                        channel,
+                    )
+                    .await
+                }
+                pyrsia::network::event_loop::PyrsiaEvent::IdleMetricRequest { channel } => {
+                    handlers::handle_request_idle_metric(p2p_client.clone(), channel).await
+                }
             }
         }
     }
