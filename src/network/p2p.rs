@@ -28,7 +28,7 @@ use libp2p::dns;
 use libp2p::identify;
 use libp2p::identity;
 use libp2p::kad;
-use libp2p::kad::record::store::MemoryStore;
+use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
 use libp2p::mplex;
 use libp2p::noise;
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
@@ -56,6 +56,11 @@ use std::iter;
 /// * Kademlia: a DHT to share information over the libp2p network
 /// * RequestResponse: a generic request/response protocol implementation for
 /// the [`FileExchangeProtocol`]
+///
+/// The maximum number of provided keys for the memory store that is used by
+/// Kademlia can be provided with the `max_provider_keys` parameter. This number
+/// should be equal to or higher than the total number of artifacts and manifests
+/// that the pyrsia node will be providing.
 ///
 /// The Client uses the command channel to send commands that interact with the libp2p
 /// network. This is the main entry point for an application to perform actions on the
@@ -99,10 +104,11 @@ use std::iter;
 ///  * the receiver part of the event channel
 ///  * the PyrsiaEventLoop
 pub fn setup_libp2p_swarm(
+    max_provider_keys: usize,
 ) -> Result<(Client, impl Stream<Item = PyrsiaEvent>, PyrsiaEventLoop), Box<dyn Error>> {
     let local_keypair = keypair_util::load_or_generate_ed25519();
 
-    let (swarm, local_peer_id) = create_swarm(local_keypair)?;
+    let (swarm, local_peer_id) = create_swarm(local_keypair, max_provider_keys)?;
 
     let (command_sender, command_receiver) = mpsc::channel(32);
     let (event_sender, event_receiver) = mpsc::channel(32);
@@ -142,18 +148,27 @@ fn create_transport(
 // create the libp2p swarm
 fn create_swarm(
     keypair: identity::Keypair,
+    max_provided_keys: usize,
 ) -> Result<(Swarm<PyrsiaNetworkBehaviour>, core::PeerId), Box<dyn Error>> {
     let peer_id = keypair.public().to_peer_id();
 
     let identify_config =
         identify::IdentifyConfig::new(String::from("ipfs/1.0.0"), keypair.public());
 
+    let memory_store_config = MemoryStoreConfig {
+        max_provided_keys,
+        ..Default::default()
+    };
+
     Ok((
         SwarmBuilder::new(
             create_transport(keypair)?,
             PyrsiaNetworkBehaviour {
                 identify: identify::Identify::new(identify_config),
-                kademlia: kad::Kademlia::new(peer_id, MemoryStore::new(peer_id)),
+                kademlia: kad::Kademlia::new(
+                    peer_id,
+                    MemoryStore::with_config(peer_id, memory_store_config),
+                ),
                 request_response: RequestResponse::new(
                     ArtifactExchangeCodec(),
                     iter::once((ArtifactExchangeProtocol(), ProtocolSupport::Full)),
