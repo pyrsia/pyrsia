@@ -1,0 +1,540 @@
+openapi: 3.0.3
+info:
+  description: >-
+    Pyrsia Restful API Endpoint for querying the transparency ledger and
+    associated artifact metadata
+  version: 0.1.0-oas3
+  title: Pyrsia
+  contact:
+    name: Pyrsia Open-source Project
+    url: https://pyrsia.io
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+paths:
+  /verify:
+    post:
+      operationId: verifyImage
+      tags: 
+        - image
+      summary: Verify my images including the base images consumed
+      externalDocs:
+        description: Docker Build Use Case
+        url: >-
+          https://docs.google.com/document/d/1gr2DG5FcnOfbG331haBPEPKIzMxsjyssHi6v7VA1_U8/edit#
+      requestBody:
+        $ref: '#/components/requestBodies/Purl'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/MyImage'
+        '400':
+          description: Invalid status value
+  /sbom:
+    post:
+      operationId: getSBOM
+      tags: 
+        - image
+      summary: SPDX or CycloneDX SBOM for image
+      externalDocs:
+        description: SBOM Use Case
+        url: >-
+          https://docs.google.com/document/d/1xX7JZCs9KR-c5SSotEitqF4F8-_2UUi-_rfJOeTqjyU/edit#
+      requestBody:
+        $ref: '#/components/requestBodies/Purl'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CycloneDX_SBOM'
+                  - $ref: '#/components/schemas/SPDX_SBOM'
+              examples:
+                CycloneDX:
+                  summary: CycloneDX SBOM
+                  externalValue: "https://gist.githubusercontent.com/sbtaylor15/ca1e4f9925e34c2f0dcfcc7d37ffb48d/raw/40f8a16faf0c6d05b47efe4a779ce8c595efe7bd/cyclonedx-sbom.json"
+                SDPX:
+                  summary: SPDX SBOM
+                  externalValue: "https://gist.githubusercontent.com/sbtaylor15/a259ef30c182038958e259462d059e8a/raw/f054a990567214a8b140a3091b10411200109974/spdx.json"
+
+        '400':
+          description: Invalid status value
+  /vulns:
+    post:
+      operationId: getVulns
+      tags: 
+        - image
+      summary: Vulnerabilities for image
+      externalDocs:
+        description: Vulnerabilities Use Case
+        url: >-
+          https://docs.google.com/document/d/1FNa-5XkSy3RUYyjaL0jEuMOy_iqV4UMAioZuzKPSxU8/edit#
+      requestBody:
+        $ref: '#/components/requestBodies/Purl'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vulnerabilities'
+              examples:
+                osv:
+                  summary: OSV Vulns
+                  externalValue: "https://gist.githubusercontent.com/sbtaylor15/a89223970a2aaf5d97ba0e2b16659448/raw/aec793eecc42fe7f6b346c8d237e2a4e9cc4cc0b/osv-vulns.json"
+        '400':
+          description: Invalid status value
+  /log-oneline:
+    post:
+      operationId: getLogOneLine
+      tags: 
+        - image
+      summary: History for an image (like git log --oneline)
+      externalDocs:
+        description: Transparency Log Use Case
+        url: https://docs.google.com/document/d/10b-HS3AVKDrMWsDxNSAwaBV-gNcV59KyC_up6I77wXU/edit#heading=h.eu3lnk8lgy6i
+      requestBody:
+        $ref: '#/components/requestBodies/Purl'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/LogOneLiner'
+        '400':
+          description: Invalid status value
+  /log-detail:
+    post:
+      operationId: getLogDetail
+      tags: 
+        - image
+      summary: History for an image
+      externalDocs:
+        description: Transparency Log Use Case
+        url: https://docs.google.com/document/d/1tkZgkkBcV4g1t4e_VjPlpE7ZPc4R4tQlyU-nrszrw6o/edit#
+      requestBody:
+        $ref: '#/components/requestBodies/Purl'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/LogDetail'
+        '400':
+          description: Invalid status value
+  /descibe:
+    post:
+      operationId: getDetail
+      tags: 
+        - image
+      summary: Show details about the image
+      externalDocs:
+        description: Provenance Use Case
+        url: https://docs.google.com/document/d/1Y30GYPy0rzPJSQM3EfxL-EV7dU0Jt0Mv3ctT5QGU_nY/edit#
+      requestBody:
+        $ref: '#/components/requestBodies/Purl'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Vulnerabilities'
+        '400':
+          description: Invalid status value
+servers:
+  - url: https://boot.pyrsia.link
+components:
+  requestBodies:
+    Purl:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Purl'
+    DockerPurl:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DockerPurl'
+  schemas:
+    Purl:
+      properties:
+        purl:
+          type: string
+          description: >-
+            purl for the package or image -
+            https://github.com/package-url/purl-spec/blob/master/PURL-SPECIFICATION.rst
+      example:
+        purl: pkg:docker/cassandra@sha256:244fd47e07d1004f0aed9c
+    DockerPurl:
+      properties:
+        purl:
+          type: string
+          description: >-
+            purl for the package or image -
+            https://github.com/package-url/purl-spec/blob/master/PURL-SPECIFICATION.rst
+        layers:
+          type: array
+          items:
+            type: string
+          description: >-
+            array of the image layers.  This list is used to match with the layers stored in Pyrsia.
+      example:
+        purl: pkg:docker/cassandra@sha256:244fd47e07d1004f0aed9c
+        layers: 
+          - "sha256:df9b9388f04ad6279a7410b85cedfdcb2208c0a003da7ab5613af71079148139"
+          - "sha256:ad52ca04f05112d161580fe8a1d812afb0e7fb42347e3a49cc3dfbfa3fa1dd6d"
+          - "sha256:050ec82c6ba4208fb46431c292a5d045c5911168af8d90b44f1bc86749738747"
+    MyImage:
+      properties:
+        manifest:
+          $ref: '#/components/schemas/DockerImage'
+        baseImages:
+          type: array
+          items:
+            $ref: '#/components/schemas/DockerImage'
+    DockerImage:
+      properties:
+        id:
+          type: string
+          description: sha256 digest for image
+        name:
+          type: string
+          description: name of the image
+        created:
+          type: string
+          format: date-time
+          description: created timestamp
+        architecture:
+          type: string
+          description: architecture for image (amd64, arm64 etc)
+        os:
+          type: string
+          description: os for the image (linux, windows etc)
+        tags:
+          type: array
+          description: array of image tags
+          items:
+            type: string
+        signature_valid:
+          type: boolean
+          description: Is image signed and valid?
+        layers:
+          type: array
+          description: array of image sha256 layers
+          items:
+            type: string
+    CycloneDX_SBOM:
+      properties: 
+        bomFormat: 
+          type: string
+        specVersion: 
+          type: string
+        serialNumber: 
+          type: string
+        version: 
+          type: integer
+          format: int32
+        metadata: 
+          type: object
+          properties: 
+            timestamp: 
+              type: string
+              format: date-time
+            tools: 
+              type: array
+              items: 
+                type: object
+                properties: 
+                  vendor: 
+                    type: string
+                  name: 
+                    type: string
+                  version: 
+                    type: string
+                  hashes: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        alg: 
+                          type: string
+                        content: 
+                          type: string
+            component: 
+              type: object
+              properties: 
+                publisher: 
+                  type: string
+                group: 
+                  type: string
+                name: 
+                  type: string
+                version: 
+                  type: string
+                description: 
+                  type: string
+                licenses: 
+                  type: array
+                  items: 
+                    type: object
+                    properties: 
+                      license: 
+                        type: object
+                        properties: 
+                          id: 
+                            type: string
+                purl: 
+                  type: string
+                externalReferences: 
+                  type: array
+                  items: 
+                    type: object
+                    properties: 
+                      type: 
+                        type: string
+                      url: 
+                        type: string
+                type: 
+                  type: string
+                bom-ref: 
+                  type: string
+        components: 
+          type: array
+          items: 
+            type: object
+            properties: 
+              publisher: 
+                type: string
+              group: 
+                type: string
+              name: 
+                type: string
+              version: 
+                type: string
+              description: 
+                type: string
+              scope: 
+                type: string
+              hashes: 
+                type: array
+                items: 
+                  type: object
+                  properties: 
+                    alg: 
+                      type: string
+                    content: 
+                      type: string
+              licenses: 
+                type: array
+                items: 
+                  type: object
+                  properties: 
+                    license: 
+                      type: object
+                      properties: 
+                        id: 
+                          type: string
+              purl: 
+                type: string
+              externalReferences: 
+                type: array
+                items: 
+                  type: object
+                  properties: 
+                    type: 
+                      type: string
+                    url: 
+                      type: string
+              type: 
+                type: string
+              bom-ref: 
+                type: string
+        dependencies: 
+          type: array
+          items: 
+            type: object
+            properties: 
+              ref: 
+                type: string
+              dependsOn: 
+                type: array
+                items: 
+                  type: string
+    SPDX_SBOM:
+      properties:
+          SPDXID: 
+            type: string
+          name: 
+            type: string
+          spdxVersion: 
+            type: string
+          creationInfo: 
+            type: object
+            properties: 
+              created: 
+                type: string
+              creators: 
+                type: array
+                items: 
+                  type: string
+              licenseListVersion: 
+                type: string
+          dataLicense: 
+            type: string
+          documentNamespace: 
+            type: string
+          packages: 
+            type: array
+            items: 
+              type: object
+              properties: 
+                SPDXID: 
+                  type: string
+                name: 
+                  type: string
+                licenseConcluded: 
+                  type: string
+                description: 
+                  type: string
+                downloadLocation: 
+                  type: string
+                externalRefs: 
+                  type: array
+                  items: 
+                    type: object
+                    properties: 
+                      referenceCategory: 
+                        type: string
+                      referenceLocator: 
+                        type: string
+                      referenceType: 
+                        type: string
+                filesAnalyzed: 
+                  type: boolean
+                licenseDeclared: 
+                  type: string
+                originator: 
+                  type: string
+                sourceInfo: 
+                  type: string
+                versionInfo: 
+                  type: string
+          files: 
+            type: array
+            items: 
+              type: object
+              properties: 
+                SPDXID: 
+                  type: string
+                comment: 
+                  type: string
+                licenseConcluded: 
+                  type: string
+                fileName: 
+                  type: string
+          relationships: 
+            type: array
+            items: 
+              type: object
+              properties: 
+                spdxElementId: 
+                  type: string
+                relationshipType: 
+                  type: string
+                relatedSpdxElement: 
+                  type: string
+
+    Vulnerabilities:
+      properties:
+        vulns: 
+          type: array
+          items: 
+            type: object
+            properties: 
+              id: 
+                type: string
+              details: 
+                type: string
+              aliases: 
+                type: array
+                items: 
+                  type: string
+              modified: 
+                type: string
+              published: 
+                type: string
+                format: date-time
+              references: 
+                type: array
+                items: 
+                  type: object
+                  properties: 
+                    type: 
+                      type: string
+                    url: 
+                      type: string
+              affected: 
+                type: array
+                items: 
+                  type: object
+                  properties: 
+                    package: 
+                      type: object
+                      properties: 
+                        name: 
+                          type: string
+                        ecosystem: 
+                          type: string
+                        purl: 
+                          type: string
+                    ranges: 
+                      type: array
+                      items: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                          events: 
+                            type: array
+                            items: 
+                              type: object
+                              properties: 
+                                introduced: 
+                                  type: string
+                    versions: 
+                      type: array
+                      items: 
+                        type: string
+                    database_specific: 
+                      type: object
+                      properties: 
+                        source: 
+                          type: string
+              schema_version: 
+                type: string
+
+    LogOneLiner:
+      properties:
+        summary:
+          type: string
+          description: one line summary log message
+    LogDetail:
+      properties:
+        summary:
+          type: string
+          description: one line summary log message
+        detail:
+          type: string
+          description: detail log message
