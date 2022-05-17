@@ -10,6 +10,7 @@ repository = "https://github.com/pyrsia/pyrsia"
 
 [package.metadata.deb]
 assets = [
+    ["target/release/pyrsia_central_node", "usr/bin/", "755"],
     ["target/release/pyrsia_node", "usr/bin/", "755"],
     ["target/release/pyrsia", "usr/bin/", "755"],
     ["readme.md", "usr/share/doc/pyrsia/README", "644"]
@@ -90,6 +91,7 @@ directories = "^4.0"
 
 [workspace]
 members = [
+    "pyrsia_central_node",
     "pyrsia_node",
     "pyrsia_cli",
     "src/blockchain"
