@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     )
                     .await
                 }
-                pyrsia::network::event_loop::PyrsiaEvent::IdleMetricRequest { channel } => {
+                pyrsia::network_central::event_loop::PyrsiaEvent::IdleMetricRequest { channel } => {
                     handlers::handle_request_idle_metric(p2p_client.clone(), channel).await
                 }
             }
