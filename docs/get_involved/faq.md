@@ -23,7 +23,7 @@ For docker you still continue to use docker commands and pyrsia nodes act as a c
 
 Signing will be part of how the ledger is recorded (and will include support for sigstore/rekor and Notary V2) But more importantly other than signing the ledger will provide a transparency log - for provenance.
 
-## I heard that Pyrsia uses a blockchain? Arent' blockchains used for CryptoCurrencies and take a lot of time and energy for consensus?
+## I heard that Pyrsia uses a blockchain? Aren't blockchains used for CryptoCurrencies and take a lot of time and energy for consensus?
 
 This is currently going through the design phase. But remote verification is the key requirement. The scale of the network as well as the security promise are currently being balanced and we are working on a Proof of Concept to prove out a simple Proof of Authority mechanism and evolve it as we scale.
 I think it's BFT, so relies on trusted nodes rather than PoW or PoS or sec enclaves
