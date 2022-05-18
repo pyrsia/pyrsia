@@ -16,6 +16,7 @@
 
 use clap::Parser;
 use libp2p::Multiaddr;
+use std::str::FromStr;
 
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_LISTEN_ADDRESS: &str = "/ip4/0.0.0.0/tcp/0";
@@ -37,4 +38,29 @@ pub struct PyrsiaNodeArgs {
     /// An address to connect with another Pyrsia Node (eg /ip4/127.0.0.1/tcp/45153/p2p/12D3KooWKsHbKbcVgyiRRgeXGCK4bp3MngnSU7ioeKTfQzd18B2v)
     #[clap(long, short = 'P')]
     pub peer: Option<Multiaddr>,
+    /// The mode (client-listen, client-dial) for dcutr or NoRelay
+    #[clap(long)]
+    pub mode: Mode,
+    /// The listening address
+    #[clap(long)]
+    pub relay_address: Option<Multiaddr>,
+}
+
+#[derive(Debug, Parser, PartialEq)]
+pub enum Mode {
+    Dial,
+    Listen,
+    NoRelay,
+}
+
+impl FromStr for Mode {
+    type Err = String;
+    fn from_str(mode: &str) -> Result<Self, Self::Err> {
+        match mode {
+            "dial" => Ok(Mode::Dial),
+            "listen" => Ok(Mode::Listen),
+            "NoRelay" => Ok(Mode::NoRelay),
+            _ => Err("Expected either 'dial' or 'listen'".to_string()),
+        }
+    }
 }

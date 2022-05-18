@@ -33,6 +33,10 @@ pub enum Command {
         addr: Multiaddr,
         sender: oneshot::Sender<Result<(), Box<dyn Error + Send>>>,
     },
+    ListenRelay {
+        addr: Multiaddr,
+        sender: oneshot::Sender<Result<(), Box<dyn Error + Send>>>,
+    },
     Dial {
         peer_addr: Multiaddr,
         sender: oneshot::Sender<Result<(), Box<dyn Error + Send>>>,

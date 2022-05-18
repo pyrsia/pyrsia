@@ -124,6 +124,21 @@ impl Client {
         receiver.await.expect("Sender not to be dropped.")
     }
 
+    /// Instruct the swarm to start listening on the relay address.
+    pub async fn listen_relay(&mut self, addr: &Multiaddr) -> Result<(), Box<dyn error::Error + Send>> {
+        debug!("p2p::Client::listen {:?}", addr);
+
+        let (sender, receiver) = oneshot::channel();
+        self.sender
+            .send(Command::ListenRelay {
+                addr: addr.clone(),
+                sender,
+            })
+            .await
+            .expect("Command receiver not to be dropped.");
+        receiver.await.expect("Sender not to be dropped.")
+    }
+
     /// Dial a peer with the specified address.
     pub async fn dial(
         &mut self,

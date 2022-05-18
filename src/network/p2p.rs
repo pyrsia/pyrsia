@@ -24,6 +24,7 @@ use crate::util::keypair_util;
 use futures::channel::mpsc;
 use futures::prelude::*;
 use libp2p::core;
+use libp2p::dcutr;
 use libp2p::dns;
 use libp2p::identify;
 use libp2p::identity;
@@ -31,11 +32,14 @@ use libp2p::kad;
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::mplex;
 use libp2p::noise;
+use libp2p::relay::v2::client::transport::ClientTransport;
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
+use libp2p::core::transport::OrTransport;
 use libp2p::swarm::{Swarm, SwarmBuilder};
 use libp2p::tcp;
 use libp2p::yamux;
 use libp2p::Transport;
+use libp2p::relay::v2::client::Client as RelayClient;
 use std::error::Error;
 use std::iter;
 
@@ -128,6 +132,7 @@ fn create_transport(
     let tcp = tcp::TokioTcpConfig::new().nodelay(true);
     let dns = dns::TokioDnsConfig::system(tcp)?;
 
+        
     Ok(dns
         .upgrade(core::upgrade::Version::V1)
         .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
@@ -137,6 +142,7 @@ fn create_transport(
         ))
         .timeout(std::time::Duration::from_secs(20))
         .boxed())
+
 }
 
 // create the libp2p swarm
@@ -148,10 +154,13 @@ fn create_swarm(
     let identify_config =
         identify::IdentifyConfig::new(String::from("ipfs/1.0.0"), keypair.public());
 
+    let (_relay_transport, client) = RelayClient::new_transport_and_behaviour(peer_id);
+
     Ok((
         SwarmBuilder::new(
             create_transport(keypair)?,
             PyrsiaNetworkBehaviour {
+                relay_client: client,
                 identify: identify::Identify::new(identify_config),
                 kademlia: kad::Kademlia::new(peer_id, MemoryStore::new(peer_id)),
                 request_response: RequestResponse::new(
@@ -159,6 +168,7 @@ fn create_swarm(
                     iter::once((ArtifactExchangeProtocol(), ProtocolSupport::Full)),
                     Default::default(),
                 ),
+                dcutr: dcutr::behaviour::Behaviour::new(),
                 idle_metric_request_response: RequestResponse::new(
                     IdleMetricExchangeCodec(),
                     iter::once((IdleMetricExchangeProtocol(), ProtocolSupport::Full)),
