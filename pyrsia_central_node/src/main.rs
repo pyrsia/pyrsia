@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = PyrsiaNodeArgs::parse();
 
     debug!("Create p2p components");
-    let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm()?;
+    let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm(args.max_provided_keys)?;
 
     debug!("Start p2p event loop");
     tokio::spawn(event_loop.run());
