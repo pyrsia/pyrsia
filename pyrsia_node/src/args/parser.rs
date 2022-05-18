@@ -59,8 +59,8 @@ impl FromStr for Mode {
         match mode {
             "dial" => Ok(Mode::Dial),
             "listen" => Ok(Mode::Listen),
-            "NoRelay" => Ok(Mode::NoRelay),
-            _ => Err("Expected either 'dial' or 'listen'".to_string()),
+            "norelay" => Ok(Mode::NoRelay),
+            _ => Err("Expected either 'dial' or 'listen' or 'norelay'".to_string()),
         }
     }
 }

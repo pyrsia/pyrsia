@@ -116,9 +116,6 @@ fn setup_http(args: &PyrsiaNodeArgs, p2p_client: Client) {
 }
 
 async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
-
-    //let opts = PyrsiaNodeArgs::parse();
-
     match &args.mode {
         Mode::Dial => {
             if let Some(relay_address) = args.relay_address {
@@ -128,24 +125,23 @@ async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
         Mode::Listen => {
             if let Some(relay_address) = args.relay_address {
                 p2p_client
-                .listen_relay(&relay_address)
-                .await
-                .expect("Listening should not fail");
+                    .listen_relay(&relay_address)
+                    .await
+                    .expect("Listening should not fail");
+            }
         }
-    }
         Mode::NoRelay => {
             p2p_client
-        .listen(&args.listen_address)
-        .await
-        .expect("Listening should not fail");
+                .listen(&args.listen_address)
+                .await
+                .expect("Listening should not fail");
 
-        if let Some(to_dial) = args.peer {
-            handlers::dial_other_peer(p2p_client.clone(), &to_dial).await;
-        }
-
+            if let Some(to_dial) = args.peer {
+                handlers::dial_other_peer(p2p_client.clone(), &to_dial).await;
+            }
         }
     }
-    
+
     debug!("Provide local artifacts");
     handlers::provide_artifacts(p2p_client.clone()).await;
 }
