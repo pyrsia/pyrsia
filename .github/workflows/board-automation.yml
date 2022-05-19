@@ -37,7 +37,7 @@ jobs:
           column: In Progress
           repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
       - if: github.event.pull_request.user.login == 'dependabot[bot]'
-        uses: actions/github-script@v6.0.0
+        uses: actions/github-script@v6.1.0
         with:
           github-token: ${{ secrets.ORG_ACCESS_TOKEN }}
           script: |

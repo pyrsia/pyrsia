@@ -23,7 +23,7 @@ use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::make_docker_routes;
 use pyrsia::logging::*;
 use pyrsia::network::client::Client;
-use pyrsia::network::p2p;
+use pyrsia::network_central::p2p;
 use pyrsia::node_api::routes::make_node_routes;
 
 use clap::Parser;
@@ -33,8 +33,6 @@ use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use warp::Filter;
 
-use crate::args::parser::Mode;
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     pretty_env_logger::init();
@@ -43,7 +41,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = PyrsiaNodeArgs::parse();
 
     debug!("Create p2p components");
-    let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm(args.max_provided_keys)?;
+    let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm()?;
 
     debug!("Start p2p event loop");
     tokio::spawn(event_loop.run());
@@ -59,7 +57,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         if let Some(event) = p2p_events.next().await {
             match event {
                 // Reply with the content of the artifact on incoming requests.
-                pyrsia::network::event_loop::PyrsiaEvent::RequestArtifact {
+                pyrsia::network_central::event_loop::PyrsiaEvent::RequestArtifact {
                     artifact_type,
                     artifact_hash,
                     channel,
@@ -72,7 +70,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     )
                     .await
                 }
-                pyrsia::network::event_loop::PyrsiaEvent::IdleMetricRequest { channel } => {
+                pyrsia::network_central::event_loop::PyrsiaEvent::IdleMetricRequest { channel } => {
                     handlers::handle_request_idle_metric(p2p_client.clone(), channel).await
                 }
             }
@@ -116,30 +114,13 @@ fn setup_http(args: &PyrsiaNodeArgs, p2p_client: Client) {
 }
 
 async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
-    match &args.mode {
-        Mode::Dial => {
-            if let Some(relay_address) = args.relay_address {
-                handlers::dial_other_peer(p2p_client.clone(), &relay_address).await;
-            }
-        }
-        Mode::Listen => {
-            if let Some(relay_address) = args.relay_address {
-                p2p_client
-                    .listen_relay(&relay_address)
-                    .await
-                    .expect("Listening should not fail");
-            }
-        }
-        Mode::NoRelay => {
-            p2p_client
-                .listen(&args.listen_address)
-                .await
-                .expect("Listening should not fail");
+    p2p_client
+        .listen(&args.listen_address)
+        .await
+        .expect("Listening should not fail");
 
-            if let Some(to_dial) = args.peer {
-                handlers::dial_other_peer(p2p_client.clone(), &to_dial).await;
-            }
-        }
+    if let Some(to_dial) = args.peer {
+        handlers::dial_other_peer(p2p_client.clone(), &to_dial).await;
     }
 
     debug!("Provide local artifacts");

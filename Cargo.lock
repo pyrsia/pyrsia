@@ -3665,6 +3665,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pyrsia_central_node"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 3.1.18",
+ "futures",
+ "hex",
+ "libp2p",
+ "log",
+ "pretty_env_logger",
+ "pyrsia",
+ "test-log",
+ "tokio",
+ "warp",
+]
+
+[[package]]
 name = "pyrsia_cli"
 version = "0.1.1"
 dependencies = [
