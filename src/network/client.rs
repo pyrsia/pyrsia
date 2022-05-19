@@ -26,7 +26,6 @@ use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
 use log::debug;
 use std::collections::HashSet;
-use std::error;
 
 /* peer metrics support */
 const PEER_METRIC_THRESHOLD: f64 = 0.5_f64;
@@ -110,7 +109,7 @@ pub struct Client {
 
 impl Client {
     /// Instruct the swarm to start listening on the specified address.
-    pub async fn listen(&mut self, addr: &Multiaddr) -> Result<(), Box<dyn error::Error + Send>> {
+    pub async fn listen(&mut self, addr: &Multiaddr) -> anyhow::Result<()> {
         debug!("p2p::Client::listen {:?}", addr);
 
         let (sender, receiver) = oneshot::channel();
@@ -119,9 +118,8 @@ impl Client {
                 addr: addr.clone(),
                 sender,
             })
-            .await
-            .expect("Command receiver not to be dropped.");
-        receiver.await.expect("Sender not to be dropped.")
+            .await?;
+        receiver.await?
     }
 
     /// Instruct the swarm to start listening on the relay address.
@@ -143,10 +141,7 @@ impl Client {
     }
 
     /// Dial a peer with the specified address.
-    pub async fn dial(
-        &mut self,
-        peer_addr: &Multiaddr,
-    ) -> Result<(), Box<dyn error::Error + Send>> {
+    pub async fn dial(&mut self, peer_addr: &Multiaddr) -> anyhow::Result<()> {
         debug!("p2p::Client::dial {:?}", peer_addr);
 
         let (sender, receiver) = oneshot::channel();
@@ -155,28 +150,30 @@ impl Client {
                 peer_addr: peer_addr.clone(),
                 sender,
             })
-            .await
-            .expect("Command receiver not to be dropped.");
-        receiver.await.expect("Sender not to be dropped.")
+            .await?;
+        receiver.await?
     }
 
     /// List the peers that this node is connected to.
-    pub async fn list_peers(&mut self) -> HashSet<PeerId> {
+    pub async fn list_peers(&mut self) -> anyhow::Result<HashSet<PeerId>> {
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::ListPeers {
                 peer_id: self.local_peer_id,
                 sender,
             })
-            .await
-            .expect("Command receiver not to be dropped.");
-        receiver.await.expect("Sender not to be dropped.")
+            .await?;
+        Ok(receiver.await?)
     }
 
     /// Inform the swarm that this node is currently a
     /// provider of the artifact with the specified `type`
     /// and `hash`.
-    pub async fn provide(&mut self, artifact_type: ArtifactType, artifact_hash: ArtifactHash) {
+    pub async fn provide(
+        &mut self,
+        artifact_type: ArtifactType,
+        artifact_hash: ArtifactHash,
+    ) -> anyhow::Result<()> {
         debug!(
             "p2p::Client::provide {:?}={:?}",
             artifact_type, artifact_hash
@@ -189,9 +186,8 @@ impl Client {
                 artifact_hash,
                 sender,
             })
-            .await
-            .expect("Command receiver not to be dropped.");
-        receiver.await.expect("Sender not to be dropped.")
+            .await?;
+        Ok(receiver.await?)
     }
 
     /// List all peers in the swarm that are providing
@@ -200,7 +196,7 @@ impl Client {
         &mut self,
         artifact_type: ArtifactType,
         artifact_hash: ArtifactHash,
-    ) -> HashSet<PeerId> {
+    ) -> anyhow::Result<HashSet<PeerId>> {
         debug!(
             "p2p::Client::list_providers {:?}={:?}",
             artifact_type, artifact_hash
@@ -213,9 +209,8 @@ impl Client {
                 artifact_hash,
                 sender,
             })
-            .await
-            .expect("Command receiver not to be dropped.");
-        receiver.await.expect("Sender not to be dropped.")
+            .await?;
+        Ok(receiver.await?)
     }
 
     /// Request an artifact with the specified `type` and `hash`
@@ -225,7 +220,7 @@ impl Client {
         peer: &PeerId,
         artifact_type: ArtifactType,
         artifact_hash: ArtifactHash,
-    ) -> Result<Vec<u8>, Box<dyn error::Error + Send>> {
+    ) -> anyhow::Result<Vec<u8>> {
         debug!(
             "p2p::Client::request_artifact {:?}: {:?}={:?}",
             peer, artifact_type, artifact_hash
@@ -239,9 +234,8 @@ impl Client {
                 peer: *peer,
                 sender,
             })
-            .await
-            .expect("Command receiver not to be dropped.");
-        receiver.await.expect("Sender not to be dropped.")
+            .await?;
+        receiver.await?
     }
 
     /// Put the artifact as a response to an incoming artifact
@@ -250,23 +244,27 @@ impl Client {
         &mut self,
         artifact: Vec<u8>,
         channel: ResponseChannel<ArtifactResponse>,
-    ) {
+    ) -> anyhow::Result<()> {
         debug!("p2p::Client::respond_artifact size={:?}", artifact.len());
 
         self.sender
             .send(Command::RespondArtifact { artifact, channel })
-            .await
-            .expect("Command receiver not to be dropped.");
+            .await?;
+
+        Ok(())
     }
 
     //get a peer with a low enough work load to download artifact otherwise the lowest work load of the set
     //TODO: chunk the peers to some limit to keep from shotgunning the network
-    pub async fn get_idle_peer(&mut self, providers: HashSet<PeerId>) -> Option<PeerId> {
+    pub async fn get_idle_peer(
+        &mut self,
+        providers: HashSet<PeerId>,
+    ) -> anyhow::Result<Option<PeerId>> {
         debug!(
             "p2p::Client::get_idle_peer() entered with {} peers",
             providers.len()
         );
-        let mut metrics_array: Vec<IdleMetric> = Vec::new();
+        let mut idle_metrics: Vec<IdleMetric> = Vec::new();
         for peer in providers.iter() {
             let (sender, receiver) = oneshot::channel();
             self.sender
@@ -274,8 +272,7 @@ impl Client {
                     peer: *peer,
                     sender,
                 })
-                .await
-                .expect("Command receiver not to be dropped");
+                .await?;
 
             match receiver.await.expect("Sender not to be dropped.") {
                 Ok(peer_metric) => {
@@ -289,13 +286,13 @@ impl Client {
                                 "p2p::Client::get_idle_peer() Found peer with a below threshold idle value {}",
                                 metric
                             );
-                        return Some(idle_metric.peer);
+                        return Ok(Some(idle_metric.peer));
                     } else {
                         debug!(
                             "p2p::Client::get_idle_peer() Pushing idle peer with value {}",
                             metric
                         );
-                        metrics_array.push(idle_metric);
+                        idle_metrics.push(idle_metric);
                     }
                 }
                 Err(e) => {
@@ -308,19 +305,15 @@ impl Client {
         }
 
         //sort the peers in ascending order according to their idle metric and return top of list
-        metrics_array.sort_by(|a, b| a.metric.partial_cmp(&b.metric).unwrap());
-        if !metrics_array.is_empty() {
-            Some(metrics_array[0].peer)
-        } else {
-            None
-        }
+        idle_metrics.sort_by(|a, b| a.metric.partial_cmp(&b.metric).unwrap());
+        Ok(idle_metrics.first().map(|idle_metric| idle_metric.peer))
     }
 
     pub async fn respond_idle_metric(
         &mut self,
         metric: PeerMetrics,
         channel: ResponseChannel<IdleMetricResponse>,
-    ) {
+    ) -> anyhow::Result<()> {
         debug!(
             "p2p::Client::respond_idle_metric PeerMetrics metric ={:?}",
             metric
@@ -328,8 +321,9 @@ impl Client {
 
         self.sender
             .send(Command::RespondIdleMetric { metric, channel })
-            .await
-            .expect("Command receiver not to be dropped.");
+            .await?;
+
+        Ok(())
     }
 }
 

@@ -60,7 +60,7 @@ use std::iter;
 /// the [`FileExchangeProtocol`]
 ///
 /// The maximum number of provided keys for the memory store that is used by
-/// Kademlia can be provided with the `max_provider_keys` parameter. This number
+/// Kademlia can be provided with the `max_provided_keys` parameter. This number
 /// should be equal to or higher than the total number of artifacts and manifests
 /// that the pyrsia node will be providing.
 ///
@@ -106,11 +106,11 @@ use std::iter;
 ///  * the receiver part of the event channel
 ///  * the PyrsiaEventLoop
 pub fn setup_libp2p_swarm(
-    max_provider_keys: usize,
+    max_provided_keys: usize,
 ) -> Result<(Client, impl Stream<Item = PyrsiaEvent>, PyrsiaEventLoop), Box<dyn Error>> {
     let local_keypair = keypair_util::load_or_generate_ed25519();
 
-    let (swarm, local_peer_id) = create_swarm(local_keypair, max_provider_keys)?;
+    let (swarm, local_peer_id) = create_swarm(local_keypair, max_provided_keys)?;
 
     let (command_sender, command_receiver) = mpsc::channel(32);
     let (event_sender, event_receiver) = mpsc::channel(32);

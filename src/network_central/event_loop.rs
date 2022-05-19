@@ -37,13 +37,11 @@ use std::collections::hash_map::Entry::Vacant;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 
-type PendingDialMap = HashMap<Multiaddr, oneshot::Sender<Result<(), Box<dyn Error + Send>>>>;
+type PendingDialMap = HashMap<Multiaddr, oneshot::Sender<anyhow::Result<()>>>;
 type PendingListPeersMap = HashMap<QueryId, oneshot::Sender<HashSet<PeerId>>>;
 type PendingStartProvidingMap = HashMap<QueryId, oneshot::Sender<()>>;
-type PendingRequestArtifactMap =
-    HashMap<RequestId, oneshot::Sender<Result<Vec<u8>, Box<dyn Error + Send>>>>;
-type PendingRequestIdleMetricMap =
-    HashMap<RequestId, oneshot::Sender<Result<PeerMetrics, Box<dyn Error + Send>>>>;
+type PendingRequestArtifactMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<Vec<u8>>>>;
+type PendingRequestIdleMetricMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<PeerMetrics>>>;
 
 /// The `PyrsiaEventLoop` is responsible for taking care of incoming
 /// events from the libp2p [`Swarm`] itself, the different network
@@ -218,7 +216,7 @@ impl PyrsiaEventLoop {
                     .pending_request_artifact
                     .remove(&request_id)
                     .expect("Request to still be pending.")
-                    .send(Err(Box::new(error)));
+                    .send(Err(From::from(error)));
             }
             RequestResponseEvent::ResponseSent { .. } => {}
         }
@@ -298,7 +296,7 @@ impl PyrsiaEventLoop {
                     .pending_idle_metric_requests
                     .remove(&request_id)
                     .expect("Request to still be pending.")
-                    .send(Err(Box::new(error)));
+                    .send(Err(From::from(error)));
             }
             RequestResponseEvent::ResponseSent { .. } => {}
         }
@@ -344,7 +342,7 @@ impl PyrsiaEventLoop {
             Command::Listen { addr, sender } => {
                 let _ = match self.swarm.listen_on(addr) {
                     Ok(_) => sender.send(Ok(())),
-                    Err(e) => sender.send(Err(Box::new(e))),
+                    Err(e) => sender.send(Err(From::from(e))),
                 };
             }
             Command::ListenRelay { addr, sender } => {
@@ -360,7 +358,7 @@ impl PyrsiaEventLoop {
                             self.pending_dial.insert(peer_addr, sender);
                         }
                         Err(e) => {
-                            let _ = sender.send(Err(Box::new(e)));
+                            let _ = sender.send(Err(From::from(e)));
                         }
                     }
                 }
