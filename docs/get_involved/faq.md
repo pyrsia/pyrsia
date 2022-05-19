@@ -11,13 +11,13 @@ In the broad sense Pyrsia may be referred to by users as the package manager, be
 ## What is missing in existing Package Managers - why do we need Pyrsia?
 
 Existing Community Package managers have the issues we talked about in the presentation. Single points of failure, owned by central authorities with no control to the general community.
-Pyrsia eliminates single points of failure, distributes control to the community and aims to empower under the guidance of OpenSSF
+Pyrsia eliminates single points of failure, distributes control to the community and aims to empower under the guidance of OpenSSF.
 
 ## For fetching images, how will that work for CLIs such as docker, podman etc?
 
 We know from experience that it is hard to change all the CI pipelines that already use `docker pull`. So we have integrated docker in a way where Pyrsia can be used in the background to provide features like - reliability, distribution network based on p2p to speed up downloads, and provides a provenance chain(transparency log) that can be used to produce SBOMs.
 
-For docker you still continue to use docker commands and pyrsia nodes act as a conduit. So nothing changes on your CI system(since there is a large installed base) but get the benefits of P2P and also network fault tolerance (so if npm is down your CD system can still work)
+For docker you still continue to use docker commands and pyrsia nodes act as a conduit. So nothing changes on your CI system (since there is a large installed base) but get the benefits of P2P and also network fault tolerance (so if npm is down your CD system can still work).
 
 ## Why not use sigstore/rekor for an immutable ledger?
 
