@@ -1,4 +1,6 @@
-# Frequently Asked Questions
+# Q&A Summary
+
+Here are some of the most frequently asked questions with snipets of answers from Presentations, Slack, and more.
 
 ## Is Pyrsia a new package manager?
 
@@ -25,8 +27,14 @@ Signing will be part of how the ledger is recorded (and will include support for
 
 ## I heard that Pyrsia uses a blockchain? Aren't blockchains used for CryptoCurrencies and take a lot of time and energy for consensus?
 
+This is certainly an area of concern, 
+[The NY Times has a great article](https://www.nytimes.com/interactive/2021/09/03/climate/bitcoin-carbon-footprint-electricity.html)
+for some background. You can also take a look at
+[Cambridge Bitcoin Electricity Consumption Index's Visualization](https://ccaf.io/cbeci/mining_map)
+
 This is currently going through the design phase. But remote verification is the key requirement. The scale of the network as well as the security promise are currently being balanced and we are working on a Proof of Concept to prove out a simple Proof of Authority mechanism and evolve it as we scale.
-I think it's BFT, so relies on trusted nodes rather than PoW or PoS or sec enclaves
+
+Unlike Proof of Work (which is used in the most popular cryptocurrencies), Proof of Authority does not rely on expensive computation to determine a magic number. Since nodes are granted authority to participate in the it's considerably faster and energy efficient to attest in the consesnsus.
 
 ## This seems to be trying to tackle 2 different aspects: distribution and attestation & validation - I don't think blockchain is a good fit for the former - blockchain doesn't deal with big amount of data very well -  I would think the sweet spot is more on the latter
 
