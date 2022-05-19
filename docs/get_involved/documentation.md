@@ -1,4 +1,4 @@
-# Pyrsia Contributors
+# Documentation Contribution Workflow
 
 To contribute to the blogs/documentation, you can follow the following steps to add new content.
 
