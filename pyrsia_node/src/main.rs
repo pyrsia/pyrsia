@@ -33,7 +33,7 @@ use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use warp::Filter;
 
-use crate::args::parser::Mode;
+use crate::args::parser::RelayMode;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -117,12 +117,12 @@ fn setup_http(args: &PyrsiaNodeArgs, p2p_client: Client) {
 
 async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
     match &args.mode {
-        Mode::Dial => {
+        RelayMode::Dial => {
             if let Some(relay_address) = args.relay_address {
                 handlers::dial_other_peer(p2p_client.clone(), &relay_address).await;
             }
         }
-        Mode::Listen => {
+        RelayMode::Listen => {
             if let Some(relay_address) = args.relay_address {
                 p2p_client
                     .listen_relay(&relay_address)
@@ -130,7 +130,7 @@ async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
                     .expect("Listening should not fail");
             }
         }
-        Mode::NoRelay => {
+        RelayMode::None => {
             p2p_client
                 .listen(&args.listen_address)
                 .await

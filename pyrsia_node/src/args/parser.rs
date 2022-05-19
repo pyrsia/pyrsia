@@ -44,27 +44,27 @@ pub struct PyrsiaNodeArgs {
     pub peer: Option<Multiaddr>,
     /// The mode (client-listen, client-dial) for dcutr or NoRelay
     #[clap(long)]
-    pub mode: Mode,
+    pub mode: RelayMode,
     /// The listening address
     #[clap(long)]
     pub relay_address: Option<Multiaddr>,
 }
 
 #[derive(Debug, Parser, PartialEq)]
-pub enum Mode {
+pub enum RelayMode {
     Dial,
     Listen,
-    NoRelay,
+    None,
 }
 
-impl FromStr for Mode {
+impl FromStr for RelayMode {
     type Err = String;
     fn from_str(mode: &str) -> Result<Self, Self::Err> {
         match mode {
-            "dial" => Ok(Mode::Dial),
-            "listen" => Ok(Mode::Listen),
-            "norelay" => Ok(Mode::NoRelay),
-            _ => Err("Expected either 'dial' or 'listen' or 'norelay'".to_string()),
+            "dial" => Ok(RelayMode::Dial),
+            "listen" => Ok(RelayMode::Listen),
+            "none" => Ok(RelayMode::None),
+            _ => Err("Expected either 'dial' or 'listen' or 'none'".to_string()),
         }
     }
 }

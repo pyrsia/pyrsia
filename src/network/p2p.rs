@@ -32,14 +32,12 @@ use libp2p::kad;
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
 use libp2p::mplex;
 use libp2p::noise;
-use libp2p::relay::v2::client::transport::ClientTransport;
+use libp2p::relay::v2::client::Client as RelayClient;
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
-use libp2p::core::transport::OrTransport;
 use libp2p::swarm::{Swarm, SwarmBuilder};
 use libp2p::tcp;
 use libp2p::yamux;
 use libp2p::Transport;
-use libp2p::relay::v2::client::Client as RelayClient;
 use std::error::Error;
 use std::iter;
 
@@ -138,7 +136,6 @@ fn create_transport(
     let tcp = tcp::TokioTcpConfig::new().nodelay(true);
     let dns = dns::TokioDnsConfig::system(tcp)?;
 
-        
     Ok(dns
         .upgrade(core::upgrade::Version::V1)
         .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
@@ -148,7 +145,6 @@ fn create_transport(
         ))
         .timeout(std::time::Duration::from_secs(20))
         .boxed())
-
 }
 
 // create the libp2p swarm

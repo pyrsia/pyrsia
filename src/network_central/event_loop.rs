@@ -347,6 +347,12 @@ impl PyrsiaEventLoop {
                     Err(e) => sender.send(Err(Box::new(e))),
                 };
             }
+            Command::ListenRelay { addr, sender } => {
+                let _ = match self.swarm.listen_on(addr.with(Protocol::P2pCircuit)) {
+                    Ok(_) => sender.send(Ok(())),
+                    Err(e) => sender.send(Err(Box::new(e))),
+                };
+            }
             Command::Dial { peer_addr, sender } => {
                 if let Vacant(_) = self.pending_dial.entry(peer_addr.clone()) {
                     match self.swarm.dial(peer_addr.clone()) {

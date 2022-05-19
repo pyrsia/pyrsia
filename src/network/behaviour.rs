@@ -19,13 +19,13 @@ use crate::network::idle_metric_protocol::{
     IdleMetricExchangeCodec, IdleMetricRequest, IdleMetricResponse,
 };
 
+use libp2p::dcutr;
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::kad::{Kademlia, KademliaEvent};
+use libp2p::relay::v2::client::{self, Client};
 use libp2p::request_response::{RequestResponse, RequestResponseEvent};
 use libp2p::NetworkBehaviour;
-use libp2p::dcutr;
-use libp2p::relay::v2::client::{self, Client};
 
 /// Defines the [`NetworkBehaviour`] to be used in the libp2p
 /// Swarm. The PyrsiaNetworkBehaviour consists of the following
