@@ -28,7 +28,7 @@ use pyrsia::node_api::routes::make_node_routes;
 
 use clap::Parser;
 use futures::StreamExt;
-use log::{debug, info};
+use log::{debug, info, warn};
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use warp::Filter;
@@ -64,16 +64,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     artifact_hash,
                     channel,
                 } => {
-                    handlers::handle_request_artifact(
+                    if let Err(error) = handlers::handle_request_artifact(
                         p2p_client.clone(),
-                        artifact_type,
+                        &artifact_type,
                         &artifact_hash,
                         channel,
                     )
                     .await
+                    {
+                        warn!(
+                            "This node failed to provide artifact with type {} and hash {}. Error: {:?}",
+                            artifact_type, artifact_hash, error
+                        );
+                    }
                 }
                 pyrsia::network::event_loop::PyrsiaEvent::IdleMetricRequest { channel } => {
-                    handlers::handle_request_idle_metric(p2p_client.clone(), channel).await
+                    if let Err(error) =
+                        handlers::handle_request_idle_metric(p2p_client.clone(), channel).await
+                    {
+                        warn!(
+                            "This node failed to provide idle metrics. Error: {:?}",
+                            error
+                        );
+                    }
                 }
             }
         }
@@ -143,5 +156,10 @@ async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
     }
 
     debug!("Provide local artifacts");
-    handlers::provide_artifacts(p2p_client.clone()).await;
+    if let Err(error) = handlers::provide_artifacts(p2p_client.clone()).await {
+        warn!(
+            "An error occured while providing local artifacts. Error: {:?}",
+            error
+        );
+    }
 }

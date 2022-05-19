@@ -21,7 +21,6 @@ use futures::channel::oneshot;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
 use std::collections::HashSet;
-use std::error::Error;
 use strum_macros::Display;
 
 /// Commands are sent by the [`Client`] to the [`PyrsiaEventLoop`].
@@ -31,7 +30,7 @@ use strum_macros::Display;
 pub enum Command {
     Listen {
         addr: Multiaddr,
-        sender: oneshot::Sender<Result<(), Box<dyn Error + Send>>>,
+        sender: oneshot::Sender<anyhow::Result<()>>,
     },
     ListenRelay {
         addr: Multiaddr,
@@ -39,7 +38,7 @@ pub enum Command {
     },
     Dial {
         peer_addr: Multiaddr,
-        sender: oneshot::Sender<Result<(), Box<dyn Error + Send>>>,
+        sender: oneshot::Sender<anyhow::Result<()>>,
     },
     ListPeers {
         peer_id: PeerId,
@@ -59,7 +58,7 @@ pub enum Command {
         artifact_type: ArtifactType,
         artifact_hash: ArtifactHash,
         peer: PeerId,
-        sender: oneshot::Sender<Result<Vec<u8>, Box<dyn Error + Send>>>,
+        sender: oneshot::Sender<anyhow::Result<Vec<u8>>>,
     },
     RespondArtifact {
         artifact: Vec<u8>,
@@ -67,7 +66,7 @@ pub enum Command {
     },
     RequestIdleMetric {
         peer: PeerId,
-        sender: oneshot::Sender<Result<PeerMetrics, Box<dyn Error + Send>>>,
+        sender: oneshot::Sender<anyhow::Result<PeerMetrics>>,
     },
     RespondIdleMetric {
         metric: PeerMetrics,
