@@ -1075,7 +1075,7 @@ mod tests {
                 let response = reply.into_response();
                 assert_eq!(response.status(), 201);
                 assert!(response.headers().contains_key(LOCATION));
-                assert_eq!("http://localhost:7878/v2/hello-world/manifests/sha256:e914f081939bddb7ea8ab2065df24b6f495d3eaa22c75e94ff7ab504ccf9f23f6728f42d135d48204d05e974e6e797cb48fa0612223887338de7b66a0144c48e",
+                assert_eq!("http://localhost:7878/v2/hello-world/manifests/sha256:cf3414b67634963b6d380c22c8e45ec0d4df6598bf3c34e710de084fc2364a68",
                 response.headers().get(LOCATION).unwrap());
             }
             Err(e) => {
@@ -1145,7 +1145,7 @@ mod tests {
         assert!(package_version.description.is_none());
         assert_eq!(5, package_version.artifacts.len());
 
-        assert_eq!(64, package_version.artifacts[0].hash().len());
+        assert_eq!(32, package_version.artifacts[0].hash().len());
         assert_eq!(&hash, package_version.artifacts[0].hash());
         assert_eq!(
             HashAlgorithm::SHA256,
