@@ -3,11 +3,15 @@
 Download a fresh copy of the codebase by cloning the repo or updating to the HEAD of `main`
 Let's call this folder `PYRSIA_HOME`. We will refer to this name in the following steps.
 
-Build binaries for `pyrsia_node` by running `cargo build --workspace`.
+Build binaries for `pyrsia_node` by running
+```
+cd $PYRSIA_HOME
+cargo build --workspace
+```
 
 ## Create 2 separate nodes "installations"
 
-This will create two copies of the same binary so that you can configure them as independent nodes.
+This will create two copies of the same binary so that you can configure them as independent nodes. In `PYRSIA_HOME`,
 
  - Create Node A
 
@@ -30,6 +34,7 @@ This will create two copies of the same binary so that you can configure them as
 In a new terminal start node A, http listen on 7888 and p2p listen on 44001
 
 ```sh
+cd $PYRSIA_HOME
 cd nodeA
 DEV_MODE=on RUST_LOG="pyrsia=debug,info"  ./pyrsia_node -H 0.0.0.0 -p 7888 -L /ip4/0.0.0.0/tcp/44001
 ```
@@ -40,13 +45,14 @@ If everything goes well, you will see a line similar to the following in the log
 # INFO  pyrsia::network::p2p > Local node is listening on "/ip4/192.168.0.110/tcp/44001/p2p/12D3KooWLKMbBzp4k1mcM2rYXs8VQgoCSNLxGUwnB1itouxYcnx3"
 ```
 
-If you do not find this line right away try running `grep 44001`
+If you do not find this line right away try with `grep 44001`
 
 ### Start Node B
 
 In a new terminal start node B, http listen on 7889, p2p listen on 44002 and connect to peer node A on port 44001
 
 ```sh
+cd $PYRSIA_HOME
 cd nodeB
 DEV_MODE=on RUST_LOG="pyrsia=debug,info"  ./pyrsia_node -H 0.0.0.0 -p 7889 -L /ip4/0.0.0.0/tcp/44002 --peer /ip4/127.0.0.1/tcp/44001
 ```
@@ -68,12 +74,48 @@ Also that means we did not break anything 😜
 
 You should now be able to interact with the Pyrsia Node.
 
-## Using the Pyrsia CLI
-
-On a fresh terminal, navigate to `PYRSIA_HOME`. We will now configure the `pyrsia_cli` to connect with Node B.
+### Pyrsia CLI options
+Pyrsia CLI is the `pyrsia` executable in the `$PYRSIA_HOME/target/debug` folder.
+The `--help` options can show you all the ways you can interact with the network.
 
 ```sh
+cd $PYRSIA_HOME/target/debug
+
+./pyrsia --help
+pyrsia_cli 0.1.1 (ed7e87160df35676815fec073be8082a8f8e9789)
+Decentralized Package Network
+
+USAGE:
+    pyrsia [SUBCOMMAND]
+
+OPTIONS:
+    -h, --help       Print help information
+    -V, --version    Print version information
+
+SUBCOMMANDS:
+    config -c    Pyrsia config commands
+    list -l      Shows list of connected Peers
+    ping         Pings configured pyrsia node
+    status -s    Shows node informationn
+    help         Print this message or the help of the given subcommand(s)
+```
+
+## Using the Pyrsia CLI
+
+We will now look at the configuration and also configure the `pyrsia_cli` to connect with Node B.
+
+```sh
+cd $PYRSIA_HOME
 $ cd target/debug
+./pyrsia config --show
+host = 'localhost'
+port = '7888'
+disk_allocated = '10 GB'
+```
+
+Your pyrsia CLI is now connected to the pyrsia node running on port 7888. If you  would like to connect the CLI to Node B change the configuration using the following commands
+
+```sh
 $ ./pyrsia config --add
 Enter host:
 localhost
@@ -91,7 +133,6 @@ Node configuration Saved !!
 Now you are ready to use the Pyrsia CLI.
 
 Let us run through a few examples of how you can use the Pyrsia CLI
-
 ### Get Node status
 
 ```
@@ -105,7 +146,7 @@ Disk Space Used:             0.0002%
 ### List all known peers
 
 ```sh
-$ ./pyrsia node -l
+$ ./pyrsia list
 Connected Peers:
 ["12D3KooWH1tJB9NMuzHcEd6TU9yG4mv2Lo4J2gaXaBLpyNCrqRR9"]
 ```
@@ -127,6 +168,7 @@ Setup node A as a registry mirror by adding/editing the following in the configu
 ```
 
 On MacOSX using localhost does not work(because the request is made from the Docker Desktop VM), so you will need to specify the IP address of host machine
+On Ubuntu(linuxy env) we were able to automate this and use localhost.
 
 You will need to restart Docker Desktop.
 Once restarted you should be able to pull docker images through Pyrsia
@@ -168,3 +210,8 @@ Now node B is acting as the pull-through cache and should show a line similar to
 ```
 # DEBUG pyrsia::docker::v2::handlers::blobs> Step 2: "sha256:3d243047344378e9b7136d552d48feb7ea8b6fe14ce0990e0cc011d5e369626a" successfully stored locally from Pyrsia network.
 ```
+Success!!!
+
+You have just built yourself a working Pyrsia network. Enjoy using it and showcasing it to your teams and please share any feedback!
+
+Next you can, follow the instructions in [demo.md](demo.md) and setup a real Pyrsia network and use it with your CI system.
