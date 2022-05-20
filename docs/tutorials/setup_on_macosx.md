@@ -76,6 +76,7 @@ Also that means we did not break anything 😜
 You should now be able to interact with the Pyrsia Node.
 
 ### Pyrsia CLI options
+
 Pyrsia CLI is the `pyrsia` executable in the `$PYRSIA_HOME/target/debug` folder.
 The `--help` options can show you all the ways you can interact with the network.
 
