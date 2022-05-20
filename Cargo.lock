@@ -3569,6 +3569,7 @@ dependencies = [
  "log",
  "pretty_env_logger",
  "pyrsia",
+ "pyrsia_blockchain_network",
  "test-log",
  "tokio",
  "warp",
