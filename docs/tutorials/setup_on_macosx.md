@@ -108,7 +108,7 @@ We will now look at the configuration and also configure the `pyrsia_cli` to con
 
 ```sh
 cd $PYRSIA_HOME
-$ cd target/debug
+cd target/debug
 ./pyrsia config --show
 host = 'localhost'
 port = '7888'
@@ -118,7 +118,7 @@ disk_allocated = '10 GB'
 Your pyrsia CLI is now connected to the pyrsia node running on port 7888. If you  would like to connect the CLI to Node B change the configuration using the following commands
 
 ```sh
-$ ./pyrsia config --add
+./pyrsia config --add
 Enter host:
 localhost
 Enter port:
@@ -138,7 +138,7 @@ Let us run through a few examples of how you can use the Pyrsia CLI
 ### Get Node status
 
 ```
-$ ./pyrsia status
+./pyrsia status
 Connected Peers Count:       1
 Artifacts Count:             3 {"manifests": 1, "blobs": 2}
 Total Disk Space Allocated:  5.84 GB
@@ -148,7 +148,7 @@ Disk Space Used:             0.0002%
 ### List all known peers
 
 ```sh
-$ ./pyrsia list
+./pyrsia list
 Connected Peers:
 ["12D3KooWH1tJB9NMuzHcEd6TU9yG4mv2Lo4J2gaXaBLpyNCrqRR9"]
 ```
@@ -216,4 +216,4 @@ Success!!!
 
 You have just built yourself a working Pyrsia network. Enjoy using it and showcasing it to your teams and please share any feedback!
 
-Next you can, follow the instructions in [demo.md](demo.md) and setup a real Pyrsia network and use it with your CI system.
+Next you can, follow the instructions in [demo.md](https://pyrsia.io/tutorials/demo/) and setup a real Pyrsia network and use it with your CI system.
