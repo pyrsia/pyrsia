@@ -102,7 +102,8 @@ use std::time::Duration;
 
 pub fn setup_libp2p_swarm(
 ) -> Result<(Client, impl Stream<Item = PyrsiaEvent>, PyrsiaEventLoop), Box<dyn Error>> {
-    let local_keypair = keypair_util::load_or_generate_ed25519();
+    let local_ed25519_keypair = keypair_util::load_or_generate_ed25519();
+    let local_keypair = identity::Keypair::Ed25519(local_ed25519_keypair);
 
     let (swarm, local_peer_id) = create_swarm(local_keypair)?;
 

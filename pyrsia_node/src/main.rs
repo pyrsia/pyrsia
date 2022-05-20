@@ -25,6 +25,7 @@ use pyrsia::logging::*;
 use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
+use pyrsia::transparency_log::log::TransparencyLog;
 
 use clap::Parser;
 use futures::StreamExt;
@@ -40,6 +41,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     debug!("Parse CLI arguments");
     let args = PyrsiaNodeArgs::parse();
 
+    debug!("Create transparency log");
+    let transparancy_log = TransparencyLog::new();
+
     debug!("Create p2p components");
     let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm(args.max_provided_keys)?;
 
@@ -47,7 +51,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tokio::spawn(event_loop.run());
 
     debug!("Setup HTTP server");
-    setup_http(&args, p2p_client.clone());
+    setup_http(&args, transparancy_log, p2p_client.clone());
 
     debug!("Start p2p components");
     setup_p2p(p2p_client.clone(), args).await;
@@ -78,7 +82,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn setup_http(args: &PyrsiaNodeArgs, p2p_client: Client) {
+fn setup_http(args: &PyrsiaNodeArgs, transparency_log: TransparencyLog, p2p_client: Client) {
     // Get host and port from the settings. Defaults to DEFAULT_HOST and DEFAULT_PORT
     debug!(
         "Pyrsia Docker Node will bind to host = {}, port = {}",
@@ -91,7 +95,7 @@ fn setup_http(args: &PyrsiaNodeArgs, p2p_client: Client) {
     );
 
     debug!("Setup HTTP routing");
-    let docker_routes = make_docker_routes(p2p_client.clone());
+    let docker_routes = make_docker_routes(transparency_log, p2p_client.clone());
     let node_api_routes = make_node_routes(p2p_client);
     let all_routes = docker_routes.or(node_api_routes);
 

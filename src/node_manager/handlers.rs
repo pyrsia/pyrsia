@@ -51,8 +51,12 @@ lazy_static! {
         if dev_mode.to_lowercase() == "on" {
             log_static_initialization_failure(
                 "Pyrsia Artifact directory",
-                fs::create_dir_all(&pyrsia_artifact_path)
-                    .with_context(|| "Failed to create artifact manager directory in dev mode"),
+                fs::create_dir_all(&pyrsia_artifact_path).with_context(|| {
+                    format!(
+                        "Failed to create artifact manager directory {:?} in dev mode",
+                        pyrsia_artifact_path
+                    )
+                }),
             );
         }
         pyrsia_artifact_path

@@ -66,6 +66,14 @@ impl From<anyhow::Error> for RegistryError {
     }
 }
 
+impl From<hex::FromHexError> for RegistryError {
+    fn from(err: hex::FromHexError) -> RegistryError {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(err.to_string()),
+        }
+    }
+}
+
 impl From<reqwest::Error> for RegistryError {
     fn from(err: reqwest::Error) -> RegistryError {
         RegistryError {
