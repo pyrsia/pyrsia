@@ -1,6 +1,6 @@
 # Q&A Summary
 
-Here are some of the most frequently asked questions with snipets of answers from Presentations, Slack, and more.
+Here are some of the most frequently asked questions with snipets of answers from presentations, Slack, and more.
 
 ## Is Pyrsia a new package manager?
 
@@ -35,20 +35,3 @@ for some background. You can also take a look at
 This is currently going through the design phase. But remote verification is the key requirement. The scale of the network as well as the security promise are currently being balanced and we are working on a Proof of Concept to prove out a simple Proof of Authority mechanism and evolve it as we scale.
 
 Unlike Proof of Work (which is used in the most popular cryptocurrencies), Proof of Authority does not rely on expensive computation to determine a magic number. Since nodes are granted authority to participate in the it's considerably faster and energy efficient to attest in the consesnsus.
-
-## This seems to be trying to tackle 2 different aspects: distribution and attestation & validation - I don't think blockchain is a good fit for the former - blockchain doesn't deal with big amount of data very well -  I would think the sweet spot is more on the latter
-
-Response: Our goal is to keep the blockchain lean so that it contains provenance information instead of packages.
-
-Response: The blockchain is being used to provide a distributed ledger that can be shared over the network. This ledger is basically the transparency log that is can repair after network partitions. The distribution of packages uses the basic file distribution mechanisms from libp2p.
-
-From Sudhindra Rao to Everyone 08:58 AM
-Pyrsia is not a package manager - but a very efficient distribution mechanism that is resilient to network partitions, and also provides an independent build mechanism to ensure that the developer machine is not the one we rely on for quality.
-
-From Luke lhinds@protonmail.com to Everyone 08:58 AM
-Comment: it is a package manager if you have a CLI that fetches artifacts 🙂
-
-"public" blockchains can be public-read not not public-write. Public-write does require a sybil-resistent mechanism like PoW/PoS or POET-like things. But public-read, trusted-node-write can use a BFT-variant consensus mechanism (or others)
-s/not not/but not/
-
-Response: Agree on this point. So we are carefully consider how we performed trusted/certified writes to the blockchain but allow public-read/consumption of the blockchain
