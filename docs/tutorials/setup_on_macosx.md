@@ -3,7 +3,8 @@
 Download a fresh copy of the codebase by cloning the repo or updating to the HEAD of `main`
 Let's call this folder `PYRSIA_HOME`. We will refer to this name in the following steps.
 
-Build binaries for `pyrsia_node` by running
+Build binaries for `pyrsia_node` by running:
+
 ```
 cd $PYRSIA_HOME
 cargo build --workspace
