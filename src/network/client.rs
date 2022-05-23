@@ -126,7 +126,7 @@ impl Client {
     pub async fn listen_relay(
         &mut self,
         addr: &Multiaddr,
-    ) -> Result<(), Box<dyn error::Error + Send>> {
+    ) -> anyhow::Result<()> {
         debug!("p2p::Client::listen {:?}", addr);
 
         let (sender, receiver) = oneshot::channel();
