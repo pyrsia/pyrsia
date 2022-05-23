@@ -29,7 +29,7 @@ use crate::transparency_log::log::TransparencyLog;
 use anyhow::{anyhow, bail, Context};
 use bytes::Buf;
 use bytes::Bytes;
-use easy_hasher::easy_hasher::raw_sha256;
+use easy_hasher::easy_hasher::raw_sha512;
 use libp2p::core::PeerId;
 use log::{debug, error, info};
 use reqwest;
@@ -47,7 +47,6 @@ pub async fn fetch_manifest(
     name: String,
     tag: String,
 ) -> Result<impl Reply, Rejection> {
-    let hash;
     let manifest_content;
     debug!("Fetching manifest for {} with tag: {}", name, tag);
 
@@ -69,8 +68,7 @@ pub async fn fetch_manifest(
                         "Step 1: YES, manifest for {} with tag {} exist in the metadata manager.",
                         name, tag
                     );
-                    hash = hex::encode(artifact.hash());
-                    manifest_content = get_artifact(artifact.hash(), HashAlgorithm::SHA256)
+                    manifest_content = get_artifact(artifact.hash(), HashAlgorithm::SHA512)
                         .map_err(|_| {
                             warp::reject::custom(RegistryError {
                                 code: RegistryErrorCode::ManifestUnknown,
@@ -82,16 +80,11 @@ pub async fn fetch_manifest(
                     error!("Bad metadata in local pyrsia, getting manifest from pyrsia network.");
                     debug!("Step 1: NO, manifest for {} with tag {} does not exist in the metadata manager.", name, tag);
 
-                    hash = get_manifest_from_network(
-                        transparency_log.clone(),
-                        p2p_client.clone(),
-                        &name,
-                        &tag,
-                    )
-                    .await?;
+                    let hash = get_manifest_from_network(transparency_log, p2p_client, &name, &tag)
+                        .await?;
                     let decoded_hash = hex::decode(&hash).map_err(RegistryError::from)?;
                     manifest_content =
-                        get_artifact(&decoded_hash, HashAlgorithm::SHA256).map_err(|_| {
+                        get_artifact(&decoded_hash, HashAlgorithm::SHA512).map_err(|_| {
                             warp::reject::custom(RegistryError {
                                 code: RegistryErrorCode::ManifestUnknown,
                             })
@@ -106,7 +99,7 @@ pub async fn fetch_manifest(
                 name, tag
             );
 
-            hash = get_manifest_from_network(
+            let hash = get_manifest_from_network(
                 transparency_log.clone(),
                 p2p_client.clone(),
                 &name,
@@ -115,7 +108,7 @@ pub async fn fetch_manifest(
             .await?;
             let decoded_hash = hex::decode(&hash).map_err(RegistryError::from)?;
             manifest_content =
-                get_artifact(&decoded_hash, HashAlgorithm::SHA256).map_err(|_| {
+                get_artifact(&decoded_hash, HashAlgorithm::SHA512).map_err(|_| {
                     warp::reject::custom(RegistryError {
                         code: RegistryErrorCode::ManifestUnknown,
                     })
@@ -132,7 +125,7 @@ pub async fn fetch_manifest(
                 name, tag
             );
 
-            hash = get_manifest_from_network(
+            let hash = get_manifest_from_network(
                 transparency_log.clone(),
                 p2p_client.clone(),
                 &name,
@@ -141,7 +134,7 @@ pub async fn fetch_manifest(
             .await?;
             let decoded_hash = hex::decode(&hash).map_err(RegistryError::from)?;
             manifest_content =
-                get_artifact(&decoded_hash, HashAlgorithm::SHA256).map_err(|_| {
+                get_artifact(&decoded_hash, HashAlgorithm::SHA512).map_err(|_| {
                     warp::reject::custom(RegistryError {
                         code: RegistryErrorCode::ManifestUnknown,
                     })
@@ -154,7 +147,6 @@ pub async fn fetch_manifest(
             "Content-Type",
             "application/vnd.docker.distribution.manifest.v2+json",
         )
-        .header("Docker-Content-Digest", format!("sha256:{}", hash))
         .header("Content-Length", manifest_content.len())
         .status(StatusCode::OK)
         .body(manifest_content)
@@ -323,7 +315,7 @@ async fn save_package_version(
         MetadataCreationStatus::Created => {
             let artifact_id = ArtifactHash::from(&package_version);
             let artifact_hash = format!(
-                "sha256:{}",
+                "sha512:{}",
                 hex::encode(package_version.artifacts[0].hash())
             );
             transparency_log.add_artifact(&artifact_id.hash, &artifact_hash)?;
@@ -400,21 +392,21 @@ fn store_manifest_in_artifact_manager(
     bytes: &Bytes,
 ) -> Result<(String, PackageVersion), Rejection> {
     let manifest_vec = bytes.to_vec();
-    let sha256: Vec<u8> = raw_sha256(manifest_vec).to_vec();
+    let sha512: Vec<u8> = raw_sha512(manifest_vec).to_vec();
     put_artifact(
-        &sha256,
+        &sha512,
         Box::new(bytes.clone().reader()),
-        HashAlgorithm::SHA256,
+        HashAlgorithm::SHA512,
     )
     .map_err(RegistryError::from)?;
-    let hash = hex::encode(&sha256);
+    let hash = hex::encode(&sha512);
     info!(
         "Stored manifest with {} hash {}",
-        HashAlgorithm::SHA256,
+        HashAlgorithm::SHA512,
         &hash
     );
     let package_version =
-        package_version_from_manifest_bytes(bytes, name, tag, HashAlgorithm::SHA256, sha256)
+        package_version_from_manifest_bytes(bytes, name, tag, HashAlgorithm::SHA512, sha512)
             .map_err(RegistryError::from)?;
 
     info!(
@@ -1075,7 +1067,7 @@ mod tests {
                 let response = reply.into_response();
                 assert_eq!(response.status(), 201);
                 assert!(response.headers().contains_key(LOCATION));
-                assert_eq!("http://localhost:7878/v2/hello-world/manifests/sha256:cf3414b67634963b6d380c22c8e45ec0d4df6598bf3c34e710de084fc2364a68",
+                assert_eq!("http://localhost:7878/v2/hello-world/manifests/sha256:e914f081939bddb7ea8ab2065df24b6f495d3eaa22c75e94ff7ab504ccf9f23f6728f42d135d48204d05e974e6e797cb48fa0612223887338de7b66a0144c48e",
                 response.headers().get(LOCATION).unwrap());
             }
             Err(e) => {
@@ -1096,8 +1088,8 @@ mod tests {
     }
 
     fn check_artifact_manager_side_effects() -> Result<(), Box<dyn StdError>> {
-        let manifest_sha256: Vec<u8> = raw_sha256(MANIFEST_V1_JSON.as_bytes().to_vec()).to_vec();
-        let manifest_content = get_artifact(manifest_sha256.as_ref(), HashAlgorithm::SHA256)?;
+        let manifest_sha512: Vec<u8> = raw_sha512(MANIFEST_V1_JSON.as_bytes().to_vec()).to_vec();
+        let manifest_content = get_artifact(manifest_sha512.as_ref(), HashAlgorithm::SHA512)?;
         assert!(!manifest_content.is_empty());
         assert_eq!(4698, manifest_content.len());
         Ok(())
@@ -1107,10 +1099,10 @@ mod tests {
         let mut file = get_test_file_reader(file_name)?;
         let mut data = Vec::new();
         file.read_to_end(&mut data).expect("Unable to read data");
-        let manifest_sha256: Vec<u8> = raw_sha256(data).to_vec();
+        let manifest_sha512: Vec<u8> = raw_sha512(data).to_vec();
         Ok(get_artifact(
-            manifest_sha256.as_ref(),
-            HashAlgorithm::SHA256,
+            manifest_sha512.as_ref(),
+            HashAlgorithm::SHA512,
         )?)
     }
 
@@ -1118,12 +1110,12 @@ mod tests {
     fn test_extraction_of_package_version_from_manifest_conforming_to_schema_version_1(
     ) -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V1_JSON);
-        let hash: Vec<u8> = raw_sha256(json_bytes.to_vec()).to_vec();
+        let hash: Vec<u8> = raw_sha512(json_bytes.to_vec()).to_vec();
         let package_version: PackageVersion = package_version_from_manifest_bytes(
             &json_bytes,
             "test_pkg",
             "v1.4",
-            HashAlgorithm::SHA256,
+            HashAlgorithm::SHA512,
             hash.clone(),
         )?;
         assert_eq!(32, package_version.id.len());
@@ -1145,10 +1137,10 @@ mod tests {
         assert!(package_version.description.is_none());
         assert_eq!(5, package_version.artifacts.len());
 
-        assert_eq!(32, package_version.artifacts[0].hash().len());
+        assert_eq!(64, package_version.artifacts[0].hash().len());
         assert_eq!(&hash, package_version.artifacts[0].hash());
         assert_eq!(
-            HashAlgorithm::SHA256,
+            HashAlgorithm::SHA512,
             *package_version.artifacts[0].algorithm()
         );
         assert!(package_version.artifacts[0].name().is_none());
@@ -1196,12 +1188,12 @@ mod tests {
     #[test]
     fn test_extraction_of_package_version_from_image_manifest() -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V2_IMAGE);
-        let hash: Vec<u8> = raw_sha256(json_bytes.to_vec()).to_vec();
+        let hash: Vec<u8> = raw_sha512(json_bytes.to_vec()).to_vec();
         let package_version: PackageVersion = package_version_from_manifest_bytes(
             &json_bytes,
             "test_pkg",
             "v1.4",
-            HashAlgorithm::SHA256,
+            HashAlgorithm::SHA512,
             hash.clone(),
         )?;
         assert_eq!(32, package_version.id.len());
@@ -1225,7 +1217,7 @@ mod tests {
 
         assert_eq!(&hash, package_version.artifacts[0].hash());
         assert_eq!(
-            HashAlgorithm::SHA256,
+            HashAlgorithm::SHA512,
             *package_version.artifacts[0].algorithm()
         );
         assert!(package_version.artifacts[0].name().is_none());
@@ -1296,12 +1288,12 @@ mod tests {
     #[test]
     fn test_extraction_of_package_version_from_manifest_list() -> Result<(), anyhow::Error> {
         let json_bytes = Bytes::from(MANIFEST_V2_LIST);
-        let hash: Vec<u8> = raw_sha256(json_bytes.to_vec()).to_vec();
+        let hash: Vec<u8> = raw_sha512(json_bytes.to_vec()).to_vec();
         let package_version: PackageVersion = package_version_from_manifest_bytes(
             &json_bytes,
             "test_impls",
             "v1.5.2",
-            HashAlgorithm::SHA256,
+            HashAlgorithm::SHA512,
             hash.clone(),
         )?;
         assert_eq!(32, package_version.id.len());
@@ -1325,7 +1317,7 @@ mod tests {
 
         assert_eq!(&hash, package_version.artifacts[0].hash());
         assert_eq!(
-            HashAlgorithm::SHA256,
+            HashAlgorithm::SHA512,
             *package_version.artifacts[0].algorithm()
         );
         assert!(package_version.artifacts[0].name().is_none());
