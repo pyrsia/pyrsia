@@ -45,7 +45,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: context.payload.number,
-              team_reviewers: ["pyrsia/collaborators"],
+              team_reviewers: ["collaborators"],
             });
     
   drafting-pr:
