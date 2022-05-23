@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_peers(mut p2p_client: Client) -> Result<impl Reply, Rejection> {
-    let peers = p2p_client.list_peers().await;
+    let peers = p2p_client.list_peers().await.map_err(RegistryError::from)?;
     debug!("Got received_peers: {:?}", peers);
 
     let str_peers: Vec<String> = peers.into_iter().map(|p| p.to_string()).collect();
@@ -37,7 +37,7 @@ pub async fn handle_get_peers(mut p2p_client: Client) -> Result<impl Reply, Reje
 }
 
 pub async fn handle_get_status(mut p2p_client: Client) -> Result<impl Reply, Rejection> {
-    let peers = p2p_client.list_peers().await;
+    let peers = p2p_client.list_peers().await.map_err(RegistryError::from)?;
 
     let art_count_result = get_arts_summary();
     if art_count_result.is_err() {

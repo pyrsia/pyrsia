@@ -20,7 +20,7 @@ use libp2p::Multiaddr;
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_LISTEN_ADDRESS: &str = "/ip4/0.0.0.0/tcp/0";
 const DEFAULT_MAX_PROVIDED_KEYS: &str = "32768";
-const DEFAULT_PORT: &str = "7888";
+const DEFAULT_PORT: &str = "8181";
 
 /// Application to connect to and participate in the Pyrsia network
 #[derive(Debug, Parser)]

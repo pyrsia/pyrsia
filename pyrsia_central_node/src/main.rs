@@ -23,7 +23,7 @@ use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::make_docker_routes;
 use pyrsia::logging::*;
 use pyrsia::network::client::Client;
-use pyrsia::network::p2p;
+use pyrsia::network_central::p2p;
 use pyrsia::node_api::routes::make_node_routes;
 
 use clap::Parser;
@@ -57,7 +57,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         if let Some(event) = p2p_events.next().await {
             match event {
                 // Reply with the content of the artifact on incoming requests.
-                pyrsia::network::event_loop::PyrsiaEvent::RequestArtifact {
+                pyrsia::network_central::event_loop::PyrsiaEvent::RequestArtifact {
                     artifact_type,
                     artifact_hash,
                     channel,
@@ -76,7 +76,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         );
                     }
                 }
-                pyrsia::network::event_loop::PyrsiaEvent::IdleMetricRequest { channel } => {
+                pyrsia::network_central::event_loop::PyrsiaEvent::IdleMetricRequest { channel } => {
                     if let Err(error) =
                         handlers::handle_request_idle_metric(p2p_client.clone(), channel).await
                     {
@@ -135,6 +135,7 @@ async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
     if let Some(to_dial) = args.peer {
         handlers::dial_other_peer(p2p_client.clone(), &to_dial).await;
     }
+
     debug!("Provide local artifacts");
     if let Err(error) = handlers::provide_artifacts(p2p_client.clone()).await {
         warn!(

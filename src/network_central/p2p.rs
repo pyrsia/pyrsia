@@ -15,29 +15,30 @@
 */
 
 use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactExchangeProtocol};
-use crate::network::behaviour::PyrsiaNetworkBehaviour;
 use crate::network::client::Client;
-use crate::network::event_loop::{PyrsiaEvent, PyrsiaEventLoop};
 use crate::network::idle_metric_protocol::{IdleMetricExchangeCodec, IdleMetricExchangeProtocol};
+use crate::network_central::behaviour::PyrsiaNetworkBehaviour;
+use crate::network_central::event_loop::{PyrsiaEvent, PyrsiaEventLoop};
 use crate::util::keypair_util;
 
 use futures::channel::mpsc;
 use futures::prelude::*;
 use libp2p::core;
 use libp2p::dns;
-use libp2p::identify;
-use libp2p::identity;
 use libp2p::kad;
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
 use libp2p::mplex;
 use libp2p::noise;
+use libp2p::relay::v2::relay::{self, Relay};
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
 use libp2p::swarm::{Swarm, SwarmBuilder};
 use libp2p::tcp;
 use libp2p::yamux;
 use libp2p::Transport;
+use libp2p::{identify, identity};
 use std::error::Error;
 use std::iter;
+use std::time::Duration;
 
 /// Sets up the libp2p [`Swarm`] with the necessary components, doing the following things:
 ///
@@ -103,6 +104,7 @@ use std::iter;
 ///  * the Client
 ///  * the receiver part of the event channel
 ///  * the PyrsiaEventLoop
+
 pub fn setup_libp2p_swarm(
     max_provided_keys: usize,
 ) -> Result<(Client, impl Stream<Item = PyrsiaEvent>, PyrsiaEventLoop), Box<dyn Error>> {
@@ -165,6 +167,13 @@ fn create_swarm(
             create_transport(keypair)?,
             PyrsiaNetworkBehaviour {
                 identify: identify::Identify::new(identify_config),
+                relay: Relay::new(
+                    peer_id,
+                    relay::Config {
+                        reservation_duration: Duration::from_secs(86400), // 1 hour
+                        ..Default::default()
+                    },
+                ),
                 kademlia: kad::Kademlia::new(
                     peer_id,
                     MemoryStore::with_config(peer_id, memory_store_config),

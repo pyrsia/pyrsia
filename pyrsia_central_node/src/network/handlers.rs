@@ -105,7 +105,7 @@ fn get_artifact(artifact_hash: &str) -> anyhow::Result<Vec<u8>> {
 ///  * version
 ///
 /// This is an example of an identifier: `4658011310974e1bb5c46fd4df7e78b9/alpine/3.15.4`
-fn get_package_version(package_version_identifier: &str) -> anyhow::Result<Vec<u8>> {
+fn get_package_version(package_version_identifier: &str) -> Result<Vec<u8>, anyhow::Error> {
     let decoded_hash: Vec<&str> = package_version_identifier.split('/').collect();
     if let Some(package_version) = node_manager::handlers::METADATA_MGR.get_package_version(
         decoded_hash[0],
