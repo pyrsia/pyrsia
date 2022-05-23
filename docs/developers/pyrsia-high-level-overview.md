@@ -1,6 +1,6 @@
-# Pyrsia high level overview for MVP
+# High Level Overview for MVP
 
-## Use cases
+## Use Cases
 
 Pyrsia aims to support these use cases in the MVP milestone:
 
@@ -11,9 +11,9 @@ Pyrsia aims to support these use cases in the MVP milestone:
    images from the Pyrsia p2p network and verify the authenticity of those images.
 1. A user can query the transparency log for any downloaded Docker image.
 
-## Sequence diagrams
+## Sequence Diagrams
 
-### Docker image publication
+### Docker Image Publication
 
 ```mermaid
 sequenceDiagram
@@ -32,7 +32,7 @@ Node ->> PNW: Add transaction to the blockchain
 Node ->> PNW: Publish artifact
 ```
 
-### Docker image retrieval
+### Docker Image Retrieval
 
 ```mermaid
 sequenceDiagram
@@ -68,7 +68,7 @@ Docker ->> User: docker pull image:1.0<br>done
 deactivate User
 ```
 
-## Component architecture
+## Component Architecture
 
 > green boxes: already available in the Demo milestone \
 > orange boxes: new in the MVP milestone
@@ -93,7 +93,7 @@ deactivate User
 1. Transparency log indexes the transaction payloads by 'artifact id'
 1. Blockchain uses Block storage to store and retrieve blocks
 
-### Artifact service
+### Artifact Service
 
 This is the component that allows other clients, like a Docker client to
 communicate with Pyrsia to publish and retrieve artifacts. It currently only
@@ -126,7 +126,7 @@ them to exchange files. (blocks and artifacts)
 Interface: Rust functions to interact with the lower-level libp2p APIs \
 Pyrsia Dependencies: no other Pyrsia components
 
-### Transparency log
+### Transparency Log
 
 This component adds a logical layer on top of the blockchain component to
 allow for easy:
