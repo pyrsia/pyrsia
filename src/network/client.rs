@@ -123,10 +123,7 @@ impl Client {
     }
 
     /// Instruct the swarm to start listening on the relay address.
-    pub async fn listen_relay(
-        &mut self,
-        addr: &Multiaddr,
-    ) -> anyhow::Result<()> {
+    pub async fn listen_relay(&mut self, addr: &Multiaddr) -> anyhow::Result<()> {
         debug!("p2p::Client::listen {:?}", addr);
 
         let (sender, receiver) = oneshot::channel();
