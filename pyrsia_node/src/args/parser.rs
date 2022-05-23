@@ -45,7 +45,7 @@ pub struct PyrsiaNodeArgs {
     /// The mode (client-listen, client-dial) for dcutr or NoRelay
     #[clap(long)]
     pub mode: RelayMode,
-    /// The listening address
+    /// The address of the relay server. (local address for `Listen` or remote address for `Dial`
     #[clap(long)]
     pub relay_address: Option<Multiaddr>,
 }
