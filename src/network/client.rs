@@ -135,9 +135,8 @@ impl Client {
                 addr: addr.clone(),
                 sender,
             })
-            .await
-            .expect("Command receiver not to be dropped.");
-        receiver.await.expect("Sender not to be dropped.")
+            .await?;
+        receiver.await?
     }
 
     /// Dial a peer with the specified address.
