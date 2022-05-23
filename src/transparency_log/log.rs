@@ -18,9 +18,28 @@ use crate::util::env_util::read_var;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::error;
+use std::fmt;
 use std::fs;
-use std::io::Write;
+use std::io::{self, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+#[derive(Debug, Clone)]
+enum TransparencyLogError {
+    DuplicateId { id: String },
+}
+
+impl error::Error for TransparencyLogError {}
+
+impl fmt::Display for TransparencyLogError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &*self {
+            TransparencyLogError::DuplicateId { id } => {
+                write!(f, "Duplicate ID {:?} in transparency log", id)
+            }
+        }
+    }
+}
 
 #[derive(Debug, strum_macros::Display, Deserialize, Serialize)]
 enum Operation {
@@ -32,7 +51,7 @@ struct Payload {
     id: String,
     hash: String,
     timestamp: u64,
-    operator: Operation,
+    operation: Operation,
 }
 
 #[derive(Clone)]
@@ -55,7 +74,7 @@ impl TransparencyLog {
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
-            operator: Operation::AddArtifact,
+            operation: Operation::AddArtifact,
         };
 
         let json_payload = write_payload(&payload)?;
@@ -77,10 +96,24 @@ fn write_payload(payload: &Payload) -> anyhow::Result<String> {
         "Storing transparency log payload at: {:?}",
         payload_filename
     );
-    let mut payload_file = fs::File::create(&payload_filename)?;
-    let json_payload = serde_json::to_string(payload)?;
-    payload_file.write_all(json_payload.as_bytes())?;
-    Ok(json_payload)
+    match fs::File::options()
+        .write(true)
+        .create_new(true)
+        .open(&payload_filename)
+    {
+        Ok(mut payload_file) => {
+            let json_payload = serde_json::to_string(payload)?;
+            payload_file.write_all(json_payload.as_bytes())?;
+            Ok(json_payload)
+        }
+        Err(e) => match e.kind() {
+            io::ErrorKind::AlreadyExists => Err(TransparencyLogError::DuplicateId {
+                id: payload.id.clone(),
+            }
+            .into()),
+            _ => Err(e.into()),
+        },
+    }
 }
 
 fn get_payload_storage_path() -> String {
@@ -143,5 +176,22 @@ mod tests {
         assert!(result.is_ok());
 
         assert!(log.payloads.contains_key("id/with/slash"));
+    }
+
+    #[assay(
+        env = [
+            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
+            ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+    )]
+    fn test_add_duplicate_artifact() {
+        let mut log = TransparencyLog::new();
+
+        let result = log.add_artifact("id", "hash");
+        assert!(result.is_ok());
+
+        let result = log.add_artifact("id", "hash2");
+        assert!(result.is_err());
     }
 }
