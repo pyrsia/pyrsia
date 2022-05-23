@@ -16,7 +16,7 @@
 
 use crate::util::env_util::read_var;
 
-use libp2p::identity::ed25519::Keypair;
+use libp2p::identity;
 use log::warn;
 use std::error;
 use std::fs;
@@ -26,16 +26,16 @@ const KEYPAIR_FILENAME: &str = "p2p_keypair.ser";
 
 /// Load a ed25519 keypair from disk. If a keypair file does not yet exist,
 /// a new keypair is generated and then saved to disk.
-pub fn load_or_generate_ed25519() -> Keypair {
+pub fn load_or_generate_ed25519() -> identity::Keypair {
     let keypair_path = get_keypair_path();
     match load_ed25519(&keypair_path) {
-        Ok(keypair) => keypair,
+        Ok(keypair) => identity::Keypair::Ed25519(keypair),
         Err(_) => {
-            let keypair = Keypair::generate();
+            let keypair = identity::ed25519::Keypair::generate();
             if let Err(e) = save_ed25519(&keypair, &keypair_path) {
                 warn!("Failed to persist newly generated keypair: {:?}", e);
             }
-            keypair
+            identity::Keypair::Ed25519(keypair)
         }
     }
 }
@@ -46,20 +46,23 @@ pub fn load_or_generate_ed25519() -> Keypair {
 //  * the file at the specified path exists
 //  * the size of the file is exactly 64 bytes
 //  * no io errors occured while reading from the file
-fn load_ed25519(keypair_path: &str) -> Result<Keypair, Box<dyn error::Error>> {
+fn load_ed25519(keypair_path: &str) -> Result<identity::ed25519::Keypair, Box<dyn error::Error>> {
     let mut keypair_file = fs::File::open(keypair_path)?;
     let keypair_metadata = fs::metadata(keypair_path)?;
     if keypair_metadata.len() == 64 {
         let mut buffer = vec![0; 64];
         keypair_file.read_exact(&mut buffer)?;
-        return Ok(Keypair::decode(&mut buffer)?);
+        return Ok(identity::ed25519::Keypair::decode(&mut buffer)?);
     }
 
     Err(Box::new(io::Error::from(io::ErrorKind::InvalidData)))
 }
 
 // Save the provided keypair to the specified path.
-fn save_ed25519(keypair: &Keypair, keypair_path: &str) -> Result<(), Box<dyn error::Error>> {
+fn save_ed25519(
+    keypair: &identity::ed25519::Keypair,
+    keypair_path: &str,
+) -> Result<(), Box<dyn error::Error>> {
     let mut keypair_file = fs::File::create(&keypair_path)?;
     keypair_file.write_all(&keypair.encode())?;
     Ok(())
@@ -112,7 +115,7 @@ mod tests {
     fn saved_keypair_can_be_loaded() {
         let tmp_file = tempfile::Builder::new().tempfile().unwrap();
 
-        let saved_keypair = Keypair::generate();
+        let saved_keypair = identity::ed25519::Keypair::generate();
         let save_result = save_ed25519(&saved_keypair, tmp_file.path().to_str().unwrap());
         assert!(save_result.is_ok());
 
