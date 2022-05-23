@@ -1070,8 +1070,7 @@ mod tests {
                 assert_eq!("http://localhost:7878/v2/hello-world/manifests/sha256:e914f081939bddb7ea8ab2065df24b6f495d3eaa22c75e94ff7ab504ccf9f23f6728f42d135d48204d05e974e6e797cb48fa0612223887338de7b66a0144c48e",
                 response.headers().get(LOCATION).unwrap());
             }
-            Err(e) => {
-                error!("{:?}", e);
+            Err(_) => {
                 assert!(false)
             }
         };
