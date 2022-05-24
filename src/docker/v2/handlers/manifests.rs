@@ -1074,8 +1074,7 @@ mod tests {
                     headers["content-length"]
                 );
             }
-            Err(e) => {
-                error!("ERROR: {:?}", e);
+            Err(_) => {
                 assert!(false)
             }
         };

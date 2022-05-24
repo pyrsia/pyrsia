@@ -72,14 +72,10 @@ impl TransparencyLog {
         write_payload(&payload)?;
         self.payloads.insert(id.into(), payload);
 
-        println!("AA_PAYLOADS: {:?}", self.payloads);
-
         Ok(())
     }
 
     pub fn verify_artifact(&mut self, id: &str, hash: &str) -> Result<(), TransparencyLogError> {
-        println!("VA_PAYLOADS: {:?}", self.payloads);
-
         if let Some(payload) = self.payloads.get(id) {
             if payload.hash == hash {
                 Ok(())
