@@ -5,7 +5,6 @@ authors:
   title: Pyrsia Contributor
   image_url: https://github.com/prince-chrismc.png
 tags: [blockchain, consensus, bitcoin, ethereum, proof-of-work, proof-of-stake]
-draft: true
 ---
 
 Blockchain technologies are trending. There’s a lot of information about what they do and how they work but often these are abstract high level overviews. Looking beneath the surface, these overviews skip some of the most fascinating parts of the implementations that bring these technologies to life. 
