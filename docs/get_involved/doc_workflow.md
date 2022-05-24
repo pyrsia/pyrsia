@@ -23,7 +23,7 @@ page with a good title.
 
 ## Previewing Changes
 
-Currently it is only possible to preview your changes locally, you should be following the [contributing guidelines](https://pyrsia.io/docs/get_involved/contributing/#dev-flow) and have worked the repository. To preview the changes:
+Currently it is only possible to preview your changes locally, you should be following the [contributing guidelines](https://pyrsia.io/docs/get_involved/contributing/#dev-flow) and have forked the repository. To preview the changes:
 
 
 1. Fork the [website's repository](https://github.com/pyrsia/pyrsia.github.io) and clone your fork.
