@@ -18,43 +18,28 @@ use crate::util::env_util::read_var;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::error;
-use std::fmt;
 use std::fs;
 use std::io::{self, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
-#[derive(Debug, Clone, Error)]
-enum TransparencyLogError {
+#[derive(Debug, Clone, Error, PartialEq)]
+pub enum TransparencyLogError {
     #[error("Duplicate ID {id:?} in transparency log")]
     DuplicateId { id: String },
+    #[error("ID {id:?} not found in transparency log")]
+    NotFound { id: String },
+    #[error("Hash Verification failed for ID {id:?}: {invalid_hash:?}")]
+    InvalidHash { id: String, invalid_hash: String },
 }
 
-#[derive(Debug, Clone)]
-enum TransparencyLogError {
-    DuplicateId { id: String },
-}
-
-impl error::Error for TransparencyLogError {}
-
-impl fmt::Display for TransparencyLogError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &*self {
-            TransparencyLogError::DuplicateId { id } => {
-                write!(f, "Duplicate ID {:?} in transparency log", id)
-            }
-        }
-    }
-}
-
-#[derive(Debug, strum_macros::Display, Deserialize, Serialize)]
-enum Operation {
+#[derive(Debug, Clone, strum_macros::Display, Deserialize, Serialize)]
+pub enum Operation {
     AddArtifact,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-struct Payload {
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Payload {
     id: String,
     hash: String,
     timestamp: u64,
@@ -63,7 +48,7 @@ struct Payload {
 
 #[derive(Clone)]
 pub struct TransparencyLog {
-    payloads: HashMap<String, String>,
+    payloads: HashMap<String, Payload>,
 }
 
 impl TransparencyLog {
@@ -84,14 +69,35 @@ impl TransparencyLog {
             operation: Operation::AddArtifact,
         };
 
-        let json_payload = write_payload(&payload)?;
-        self.payloads.insert(id.to_string(), json_payload);
+        write_payload(&payload)?;
+        self.payloads.insert(id.into(), payload);
+
+        println!("AA_PAYLOADS: {:?}", self.payloads);
 
         Ok(())
     }
+
+    pub fn verify_artifact(&mut self, id: &str, hash: &str) -> Result<(), TransparencyLogError> {
+        println!("VA_PAYLOADS: {:?}", self.payloads);
+
+        if let Some(payload) = self.payloads.get(id) {
+            if payload.hash == hash {
+                Ok(())
+            } else {
+                Err(TransparencyLogError::InvalidHash {
+                    id: String::from(id),
+                    invalid_hash: String::from(hash),
+                })
+            }
+        } else {
+            Err(TransparencyLogError::NotFound {
+                id: String::from(id),
+            })
+        }
+    }
 }
 
-fn write_payload(payload: &Payload) -> anyhow::Result<String> {
+fn write_payload(payload: &Payload) -> anyhow::Result<()> {
     let payload_storage_path = get_payload_storage_path();
     fs::create_dir_all(&payload_storage_path)?;
     let payload_filename = format!(
@@ -111,7 +117,7 @@ fn write_payload(payload: &Payload) -> anyhow::Result<String> {
         Ok(mut payload_file) => {
             let json_payload = serde_json::to_string(payload)?;
             payload_file.write_all(json_payload.as_bytes())?;
-            Ok(json_payload)
+            Ok(())
         }
         Err(e) => match e.kind() {
             io::ErrorKind::AlreadyExists => Err(TransparencyLogError::DuplicateId {
@@ -226,5 +232,66 @@ mod tests {
 
         let result = log.add_artifact("id", "hash2");
         assert!(result.is_err());
+    }
+
+    #[assay(
+        env = [
+            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
+            ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+    )]
+    fn test_verify_artifact() {
+        let mut log = TransparencyLog::new();
+
+        log.add_artifact("id", "hash")
+            .expect("Adding artifact failed.");
+
+        let result = log.verify_artifact("id", "hash");
+        assert!(result.is_ok());
+    }
+
+    #[assay(
+        env = [
+            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
+            ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+    )]
+    fn test_verify_unknown_artifact() {
+        let mut log = TransparencyLog::new();
+
+        let result = log.verify_artifact("id", "hash");
+        assert!(result.is_err());
+        assert_eq!(
+            result,
+            Err(TransparencyLogError::NotFound {
+                id: String::from("id")
+            })
+        );
+    }
+
+    #[assay(
+        env = [
+            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
+            ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+    )]
+    fn test_verify_artifact_with_invalid_hash() {
+        let mut log = TransparencyLog::new();
+
+        log.add_artifact("id", "hash")
+            .expect("Adding artifact failed.");
+
+        let result = log.verify_artifact("id", "invalid_hash");
+        assert!(result.is_err());
+        assert_eq!(
+            result,
+            Err(TransparencyLogError::InvalidHash {
+                id: String::from("id"),
+                invalid_hash: String::from("invalid_hash")
+            })
+        );
     }
 }

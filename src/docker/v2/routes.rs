@@ -21,6 +21,7 @@ use crate::transparency_log::log::TransparencyLog;
 use super::handlers::blobs::*;
 use super::handlers::manifests::*;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use warp::Filter;
 
 pub fn make_docker_routes(
@@ -41,16 +42,18 @@ pub fn make_docker_routes(
             "application/json",
         ));
 
-    let p2p_client_get_manifests = p2p_client.clone();
-    let p2p_client_put_manifests = p2p_client.clone();
-    let transparency_log_get_manifests = transparency_log.clone();
+    let transparency_log_fetch_manifest = Arc::new(Mutex::new(transparency_log));
+    let transparency_log_put_manifest = transparency_log_fetch_manifest.clone();
+
+    let p2p_client_fetch_manifest = p2p_client.clone();
+    let p2p_client_put_manifest = p2p_client.clone();
 
     let v2_manifests = warp::path!("v2" / "library" / String / "manifests" / String)
         .and(warp::get().or(warp::head()).unify())
         .and_then(move |name, tag| {
             fetch_manifest(
-                transparency_log_get_manifests.clone(),
-                p2p_client_get_manifests.clone(),
+                transparency_log_fetch_manifest.clone(),
+                p2p_client_fetch_manifest.clone(),
                 name,
                 tag,
             )
@@ -64,8 +67,8 @@ pub fn make_docker_routes(
         .and(warp::body::bytes())
         .and_then(move |name, reference, bytes| {
             put_manifest(
-                transparency_log.clone(),
-                p2p_client_put_manifests.clone(),
+                transparency_log_put_manifest.clone(),
+                p2p_client_put_manifest.clone(),
                 name,
                 reference,
                 bytes,

@@ -36,13 +36,14 @@ use reqwest;
 use reqwest::header;
 use serde_json::{json, Map, Value};
 use std::fmt::Display;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn fetch_manifest(
-    transparency_log: TransparencyLog,
+    transparency_log: Arc<Mutex<TransparencyLog>>,
     p2p_client: Client,
     name: String,
     tag: String,
@@ -80,8 +81,13 @@ pub async fn fetch_manifest(
                     error!("Bad metadata in local pyrsia, getting manifest from pyrsia network.");
                     debug!("Step 1: NO, manifest for {} with tag {} does not exist in the metadata manager.", name, tag);
 
-                    let hash = get_manifest_from_network(transparency_log, p2p_client, &name, &tag)
-                        .await?;
+                    let hash = get_manifest_from_network(
+                        transparency_log.clone(),
+                        p2p_client,
+                        &name,
+                        &tag,
+                    )
+                    .await?;
                     let decoded_hash = hex::decode(&hash).map_err(RegistryError::from)?;
                     manifest_content =
                         get_artifact(&decoded_hash, HashAlgorithm::SHA512).map_err(|_| {
@@ -142,6 +148,15 @@ pub async fn fetch_manifest(
         }
     };
 
+    let hash = raw_sha512(manifest_content.clone()).to_vec();
+    let encoded_hash = format!("sha512:{}", hex::encode(hash));
+    let artifact_id = format!("{}/{}/{}", DOCKER_NAMESPACE_ID, name, tag);
+    transparency_log
+        .lock()
+        .unwrap()
+        .verify_artifact(&artifact_id, &encoded_hash)
+        .map_err(RegistryError::from)?;
+
     Ok(warp::http::response::Builder::new()
         .header(
             "Content-Type",
@@ -157,7 +172,7 @@ const LOCATION: &str = "Location";
 
 // Handles PUT endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn put_manifest(
-    transparency_log: TransparencyLog,
+    transparency_log: Arc<Mutex<TransparencyLog>>,
     p2p_client: Client,
     name: String,
     reference: String,
@@ -209,7 +224,7 @@ fn internal_error_response(
 }
 
 async fn get_manifest_from_network(
-    transparency_log: TransparencyLog,
+    transparency_log: Arc<Mutex<TransparencyLog>>,
     mut p2p_client: Client,
     name: &str,
     tag: &str,
@@ -257,7 +272,7 @@ async fn get_manifest_from_network(
 
 // Request the content of the artifact from other peer
 async fn get_manifest_from_other_peer(
-    transparency_log: TransparencyLog,
+    transparency_log: Arc<Mutex<TransparencyLog>>,
     mut p2p_client: Client,
     peer_id: &PeerId,
     package_version: PackageVersion,
@@ -306,7 +321,7 @@ async fn get_manifest_from_other_peer(
 }
 
 async fn save_package_version(
-    mut transparency_log: TransparencyLog,
+    transparency_log: Arc<Mutex<TransparencyLog>>,
     mut p2p_client: Client,
     package_version: PackageVersion,
 ) -> anyhow::Result<()> {
@@ -319,7 +334,10 @@ async fn save_package_version(
                 "sha512:{}",
                 hex::encode(package_version.artifacts[0].hash())
             );
-            transparency_log.add_artifact(&artifact_id.hash, &artifact_hash)?;
+            transparency_log
+                .lock()
+                .unwrap()
+                .add_artifact(&artifact_id.hash, &artifact_hash)?;
             p2p_client
                 .provide(ArtifactType::PackageVersion, package_version.into())
                 .await?;
@@ -334,7 +352,7 @@ async fn save_package_version(
 }
 
 async fn get_manifest_from_docker_hub(
-    transparency_log: TransparencyLog,
+    transparency_log: Arc<Mutex<TransparencyLog>>,
     p2p_client: Client,
     name: &str,
     tag: &str,
@@ -349,7 +367,7 @@ async fn get_manifest_from_docker_hub(
 }
 
 async fn get_manifest_from_docker_hub_with_token(
-    transparency_log: TransparencyLog,
+    transparency_log: Arc<Mutex<TransparencyLog>>,
     p2p_client: Client,
     name: &str,
     tag: &str,
@@ -880,7 +898,7 @@ mod tests {
         let name = "hello-world";
         let reference = "v3.1";
 
-        let transparency_log = TransparencyLog::new();
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
 
         let (sender, mut receiver) = mpsc::channel(1);
 
@@ -930,7 +948,7 @@ mod tests {
         let name = "hello-world";
         let reference = "v3.1";
 
-        let transparency_log = TransparencyLog::new();
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
 
         let (sender, mut receiver) = mpsc::channel(1);
         let p2p_client = Client {
@@ -967,8 +985,8 @@ mod tests {
             fetch_manifest(
                 transparency_log,
                 p2p_client,
-                "hello-world".to_string(),
-                "v3.1".to_string(),
+                name.to_string(),
+                reference.to_string(),
             )
             .await
         };
@@ -986,7 +1004,7 @@ mod tests {
 
         assert!(check_manifest_is_stored_in_pyrsia("alpine_manifest.json").is_err());
 
-        let transparency_log = TransparencyLog::new();
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
 
         let (sender, mut receiver) = mpsc::channel(1);
 
@@ -1056,7 +1074,8 @@ mod tests {
                     headers["content-length"]
                 );
             }
-            Err(_) => {
+            Err(e) => {
+                error!("ERROR: {:?}", e);
                 assert!(false)
             }
         };
