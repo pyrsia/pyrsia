@@ -6,11 +6,11 @@
 
 _📢 We are looking for your feedback!_
 
-This project is currently in "early alpha". We are actively building on our miniumal viable product which will continue
+This project is currently in "early alpha". We are actively building on our minimal viable product which will continue
 to evolve over time as we add new features and support more workflows.
 
-Have a use case or workflow you would like to see support? Open and issue or share on [Slack](https://openssf.slack.com/archives/C02RC7Y5EUV).
-Check out our [Get Involved](https://pyrsia.io/docs/get_involved/) page for more way to connect.
+Have a use case or workflow you would like to see supported? Open an issue or share on [Slack](https://openssf.slack.com/archives/C02RC7Y5EUV).
+Check out our [Get Involved](https://pyrsia.io/docs/get_involved/) page for more ways to connect.
 
 ### Primary Focus
 
