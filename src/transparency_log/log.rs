@@ -18,27 +18,15 @@ use crate::util::env_util::read_var;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::error;
-use std::fmt;
 use std::fs;
 use std::io::{self, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
+use thiserror::Error;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 enum TransparencyLogError {
+    #[error("Duplicate ID {id:?} in transparency log")]
     DuplicateId { id: String },
-}
-
-impl error::Error for TransparencyLogError {}
-
-impl fmt::Display for TransparencyLogError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            TransparencyLogError::DuplicateId { id } => {
-                write!(f, "Duplicate ID {:?} in transparency log", id)
-            }
-        }
-    }
 }
 
 #[derive(Debug, strum_macros::Display, Deserialize, Serialize)]
@@ -144,6 +132,32 @@ mod tests {
                 env::var("PYRSIA_ARTIFACT_PATH").unwrap()
             ));
         }
+    }
+
+    #[assay(
+        env = [
+            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
+            ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+    )]
+    fn test_new_transparency_log_has_empty_payload() {
+        let mut log = TransparencyLog::new();
+
+        assert_eq!(log.payloads.len(), 0);
+    }
+
+    #[assay(
+        env = [
+            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
+            ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+    )]
+    fn test_with_default() {
+        let mut log: TransparencyLog = Default::default();
+
+        assert_eq!(log.payloads.len(), 0);
     }
 
     #[assay(
