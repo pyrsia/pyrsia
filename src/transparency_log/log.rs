@@ -33,7 +33,7 @@ impl error::Error for TransparencyLogError {}
 
 impl fmt::Display for TransparencyLogError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &*self {
+        match self {
             TransparencyLogError::DuplicateId { id } => {
                 write!(f, "Duplicate ID {:?} in transparency log", id)
             }
