@@ -42,7 +42,7 @@ DEV_MODE=on RUST_LOG="pyrsia=debug,info"  ./pyrsia_node -H 0.0.0.0 -p 7888 -L /i
 
 If everything goes well, you will see a line similar to the following in the logs on the terminal(The IP address could be different than in the sample below)
 
-```sh
+```text
 # INFO  pyrsia::network::p2p > Local node is listening on "/ip4/192.168.0.110/tcp/44001/p2p/12D3KooWLKMbBzp4k1mcM2rYXs8VQgoCSNLxGUwnB1itouxYcnx3"
 ```
 
@@ -60,7 +60,7 @@ DEV_MODE=on RUST_LOG="pyrsia=debug,info"  ./pyrsia_node -H 0.0.0.0 -p 7889 -L /i
 
 If everything goes well, you will see a line similar to the following in the logs on the terminal. (The IP address could be different than in the sample below)
 
-```sh
+```text
 # DEBUG libp2p_swarm          > Connection established: PeerId("12D3KooWKzta9MMwnhA87ZKRy9PhN44X8N7twmgRhsgx1c1ZG3ex") Dialer { address: "/ip4/127.0.0.1/tcp/44001", role_override: Dialer }; Total (peer): 1. Total non-banned (peer): 1
 # and in nodeA output something like:
 # DEBUG libp2p_swarm            > Connection established: PeerId("12D3KooWGPwQfKN3Qvt8LosFAUxEtUUPM2BLRUqQHhFefBbJRXzY") Listener { local_addr: "/ip4/127.0.0.1/tcp/44001", send_back_addr: "/ip4/127.0.0.1/tcp/62373" }; Total (peer): 1. Total non-banned (peer): 1
@@ -97,7 +97,7 @@ OPTIONS:
 SUBCOMMANDS:
     config -c    Pyrsia config commands
     list -l      Shows list of connected Peers
-    ping         Pings configured Pyrsia node
+    ping         Pings configured pyrsia node
     status -s    Shows node information
     help         Print this message or the help of the given subcommand(s)
 ```
