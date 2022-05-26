@@ -236,7 +236,7 @@ Mar 23 14:37:08 demo-pyrsia-node-2 pyrsia_node[42678]:  INFO  pyrsia::network::h
 
 Keep the log tail from the installation phase running and open a new terminal on both instances. (doesn’t have to be `root`)
 
-First, on node 1, pull any Docker image:
+First on `node1`, pull any Docker image:
 
 ```sh
 docker pull alpine
@@ -259,13 +259,13 @@ cat /var/log/syslog | grep Step
 
 It shows that Pyrsia didn’t have the image yet, but it fetched it from Docker Hub instead.
 
-Next on node2, pull the same Docker image:
+Next on `node2`, pull the same Docker image:
 
 ```sh
 docker pull alpine
 ```
 
-Inspect the syslog on node2, or grep for ‘Steps’:
+Inspect the syslog on `node2`, or grep for ‘Steps’:
 
 ```sh
 > Step 1: Does "sha256:e9adb5357e84d853cc3eb08cd4d3f9bd6cebdb8a67f0415cc884be7b0202416d" exist in the artifact manager?
@@ -291,7 +291,7 @@ docker rmi alpine
 docker pull alpine
 ```
 
-Inspect the syslog on node2 again:
+Inspect the syslog on `node2` again:
 
 ```sh
 > Step 1: YES, "sha256:e9adb5357e84d853cc3eb08cd4d3f9bd6cebdb8a67f0415cc884be7b0202416d" exist in the artifact manager.
@@ -299,7 +299,7 @@ Inspect the syslog on node2 again:
 > Final Step: "sha256:e9adb5357e84d853cc3eb08cd4d3f9bd6cebdb8a67f0415cc884be7b0202416d" successfully retrieved!
 ```
 
-It will show the local Pyrsia node already had this docker image and didn’t have to download it again.
+It will show the local Pyrsia node already had this Docker image and didn’t have to download it again.
 Inspect the Pyrsia node status again on both nodes:
 
 ```sh
