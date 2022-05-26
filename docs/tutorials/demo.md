@@ -54,19 +54,19 @@ These are the steps in more detail:
 ```mermaid
 sequenceDiagram
 participant User as User
-participant Docker1 as Docker Daemon on `node1`
-participant Node1 as Pyrsia Node on `node1`
+participant Docker1 as Docker Daemon on node1
+participant Node1 as Pyrsia Node on node1
 participant PNW as Pyrsia Network
-participant Docker2 as Docker Daemon on `node2`
-participant Node2 as Pyrsia Node on `node2`
+participant Docker2 as Docker Daemon on node2
+participant Node2 as Pyrsia Node on node2
 participant DockerHub as Docker Hub
 
 User ->> Node1: Installs Pyrsia
 activate User
 note left of User: Installation
-User ->> Node2: Installs Pyrsia and configures it to connect to `node1`
+User ->> Node2: Installs Pyrsia and configures it to connect to node1
 
-Node2 ->> Node1: Connects to peer `node1` on port 44000<br>`node1` and `node2` now form the 'Pyrsia Network'
+Node2 ->> Node1: Connects to peer node1 on port 44000<br>node1 and node2 now form the 'Pyrsia Network'
 
 deactivate User
 
@@ -89,7 +89,7 @@ note left of User: Check Pyrsia<br>node status
 
 User ->> Docker2: docker pull image
 activate User
-note left of User: Pull on `node2`
+note left of User: Pull on node2
 Docker2 ->> Node2: request image through the Docker Registry API<br>running inside the Pyrsia node on port 7888
 
 Node2 ->> PNW: Node2 checks if the image is available locally<br>or on the Pyrsia network<br>In this case, it is available on Node1
@@ -111,7 +111,7 @@ activate User
 note left of User: Pull again on node2
 Docker2 ->> Node2: request image through the Docker Registry API<br>running inside the Pyrsia node on port 7888
 Node2 ->> Docker2: The Pyrsia node responds with the requested image<br>because it was already available locally
-Docker2 ->> User: docker pull is completed successfully
+Docker2 ->> User: Docker pull is completed successfully
 deactivate User
 ```
 
