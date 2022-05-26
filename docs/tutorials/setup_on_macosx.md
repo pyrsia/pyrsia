@@ -1,11 +1,11 @@
-# How to run 2 pyrsia nodes natively on 1 MacOS machine
+# How to run 2 Pyrsia nodes natively on 1 MacOS machine
 
-Download a fresh copy of the codebase by cloning the repo or updating to the HEAD of `main`
+Download a fresh copy of the codebase by cloning the repo or updating to the HEAD of `main`.
 Let's call this folder `PYRSIA_HOME`. We will refer to this name in the following steps.
 
 Build binaries for `pyrsia_node` by running:
 
-```
+```sh
 cd $PYRSIA_HOME
 cargo build --workspace
 ```
@@ -42,7 +42,7 @@ DEV_MODE=on RUST_LOG="pyrsia=debug,info"  ./pyrsia_node -H 0.0.0.0 -p 7888 -L /i
 
 If everything goes well, you will see a line similar to the following in the logs on the terminal(The IP address could be different than in the sample below)
 
-```
+```sh
 # INFO  pyrsia::network::p2p > Local node is listening on "/ip4/192.168.0.110/tcp/44001/p2p/12D3KooWLKMbBzp4k1mcM2rYXs8VQgoCSNLxGUwnB1itouxYcnx3"
 ```
 
@@ -60,7 +60,7 @@ DEV_MODE=on RUST_LOG="pyrsia=debug,info"  ./pyrsia_node -H 0.0.0.0 -p 7889 -L /i
 
 If everything goes well, you will see a line similar to the following in the logs on the terminal. (The IP address could be different than in the sample below)
 
-```
+```sh
 # DEBUG libp2p_swarm          > Connection established: PeerId("12D3KooWKzta9MMwnhA87ZKRy9PhN44X8N7twmgRhsgx1c1ZG3ex") Dialer { address: "/ip4/127.0.0.1/tcp/44001", role_override: Dialer }; Total (peer): 1. Total non-banned (peer): 1
 # and in nodeA output something like:
 # DEBUG libp2p_swarm            > Connection established: PeerId("12D3KooWGPwQfKN3Qvt8LosFAUxEtUUPM2BLRUqQHhFefBbJRXzY") Listener { local_addr: "/ip4/127.0.0.1/tcp/44001", send_back_addr: "/ip4/127.0.0.1/tcp/62373" }; Total (peer): 1. Total non-banned (peer): 1
@@ -71,14 +71,14 @@ Notice that node A and node B have now connected as peers and are able to commun
 ### Good news
 
 If you saw the above lines in your logs and did not see any failure/error messages your Pyrsia node network has now been setup.
-Also that means we did not break anything 😜
+Also that means we did not break anything. 😜
 
 You should now be able to interact with the Pyrsia Node.
 
 ### Pyrsia CLI options
 
 Pyrsia CLI is the `pyrsia` executable in the `$PYRSIA_HOME/target/debug` folder.
-The `--help` options can show you all the ways you can interact with the network.
+The `--help` option can show you all the ways you can interact with the network.
 
 ```sh
 cd $PYRSIA_HOME/target/debug
@@ -88,7 +88,7 @@ pyrsia_cli 0.1.1 (ed7e87160df35676815fec073be8082a8f8e9789)
 Decentralized Package Network
 
 USAGE:
-    pyrsia [SUBCOMMAND]
+    Pyrsia [SUBCOMMAND]
 
 OPTIONS:
     -h, --help       Print help information
@@ -97,8 +97,8 @@ OPTIONS:
 SUBCOMMANDS:
     config -c    Pyrsia config commands
     list -l      Shows list of connected Peers
-    ping         Pings configured pyrsia node
-    status -s    Shows node informationn
+    ping         Pings configured Pyrsia node
+    status -s    Shows node information
     help         Print this message or the help of the given subcommand(s)
 ```
 
@@ -115,7 +115,7 @@ port = '7888'
 disk_allocated = '10 GB'
 ```
 
-Your pyrsia CLI is now connected to the pyrsia node running on port 7888. If you  would like to connect the CLI to Node B change the configuration using the following commands
+Your Pyrsia CLI is now connected to the Pyrsia node running on port 7888. If you  would like to connect the CLI to Node B change the configuration using the following commands
 
 ```sh
 ./pyrsia config --add
@@ -123,21 +123,22 @@ Enter host:
 localhost
 Enter port:
 7889
-Enter disk space to be allocated to pyrsia (Please enter with units ex: 10 GB):
+Enter disk space to be allocated to Pyrsia (Please enter with units ex: 10 GB):
 ```
 
 If everything worked well, you will see the following success message.
 
-```
+```sh
 Node configuration Saved !!
 ```
 
 Now you are ready to use the Pyrsia CLI.
 
 Let us run through a few examples of how you can use the Pyrsia CLI
+
 ### Get Node status
 
-```
+```sh
 ./pyrsia status
 Connected Peers Count:       1
 Artifacts Count:             3 {"manifests": 1, "blobs": 2}
@@ -157,10 +158,11 @@ Now that you have setup both the Pyrsia Node and Pyrsia CLI you are ready to sta
 
 # Using Pyrsia with Docker
 
-Once you have setup the pyrsia nodes and the CLI you are ready to start using Pyrsia with docker.
+Once you have setup the Pyrsia nodes and the CLI you are ready to start using Pyrsia with Docker.
 
-## Configure docker desktop to use node A as registry mirror
-In your Docker desktop installation -> Settings -> Docker Engine where docker allows you to set registry-mirrors.
+## Configure Docker desktop to use node A as registry mirror
+
+In your Docker desktop installation -> Settings -> Docker Engine where Docker allows you to set registry-mirrors.
 Setup node A as a registry mirror by adding/editing the following in the configuration.
 
 ```jsonc
@@ -169,24 +171,24 @@ Setup node A as a registry mirror by adding/editing the following in the configu
  ]
 ```
 
-On MacOSX using localhost does not work(because the request is made from the Docker Desktop VM), so you will need to specify the IP address of host machine
-On Ubuntu(linuxy env) we were able to automate this and use localhost.
+On Mac OS X using localhost does not work(because the request is made from the Docker Desktop VM), so you will need to specify the IP address of host machine
+On Ubuntu (linuxy env) we were able to automate this and use localhost.
 
 You will need to restart Docker Desktop.
 Once restarted you should be able to pull docker images through Pyrsia
 
 ## Pull `alpine` docker image
 
-First make sure alpine is not in local docker cache, then pull alpine:
+First make sure Alpine is not in local Docker cache, then pull Alpine:
 
-```
+```sh
 docker rmi alpine # remove alpine from local docker cache
 docker pull alpine
 ```
 
-When you pull an image of alpine from dockerhub Pyrsia node A should act as a pull-through cache and show a line similar to the following in its log
+When you pull an image of Alpine from Docker Hub, Pyrsia node A should act as a pull-through cache and show a line similar to the following in its log
 
-```
+```sh
 # DEBUG pyrsia::docker::v2::handlers::blobs> Step 3: "sha256:3d243047344378e9b7136d552d48feb7ea8b6fe14ce0990e0cc011d5e369626a" successfully stored locally from docker.io
 ```
 
@@ -209,9 +211,10 @@ docker pull alpine
 
 Now node B is acting as the pull-through cache and should show a line similar to the following in its log, indicating `alpine` was retrieved from the Pyrsia network (in this case node A).
 
-```
+```sh
 # DEBUG pyrsia::docker::v2::handlers::blobs> Step 2: "sha256:3d243047344378e9b7136d552d48feb7ea8b6fe14ce0990e0cc011d5e369626a" successfully stored locally from Pyrsia network.
 ```
+
 Success!!!
 
 You have just built yourself a working Pyrsia network. Enjoy using it and showcasing it to your teams and please share any feedback!

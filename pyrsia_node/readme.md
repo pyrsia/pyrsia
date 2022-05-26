@@ -9,18 +9,18 @@ The daemon running everything.
 
 ## Running the Docker integration
 
-1. Open a terminal and start a pyrsia node with: `RUST_LOG=pyrsia cargo run -q`
+1. Open a terminal and start a Pyrsia node with: `RUST_LOG=pyrsia cargo run -q`
 2. Open a second terminal:
-   - pull the alpine docker image from docker hub: `docker pull alpine`
-   - tag it to prepare for push to pyrsia node: `docker tag alpine localhost:7888/alpine`
-   - push it to pyrsia node: `docker push localhost:7888/alpine`
-   - remove all local alpine images: `docker rmi alpine and docker rmi localhost:7888/alpine`
-   - pull the image again, this time from pyrsia node: `docker pull localhost:7888/alpine`
+   - pull the Alpine Docker image from Docker Hub: `docker pull alpine`
+   - tag it to prepare to push to the Pyrsia node: `docker tag alpine localhost:7888/alpine`
+   - push it to the Pyrsia node: `docker push localhost:7888/alpine`
+   - remove all local Alpine images: `docker rmi alpine` and `docker rmi localhost:7888/alpine`
+   - pull the image again, this time from the Pyrsia node: `docker pull localhost:7888/alpine`
    - verify it works: `docker run -it localhost:7888/alpine cat /etc/issue`
 
 ### Manually interacting with Docker API
 
-1. Open a terminal and start a pyrsia node with: `RUST_LOG=pyrsia cargo run -q`
+1. Open a terminal and start a Pyrsia node with: `RUST_LOG=pyrsia cargo run -q`
 2. Start 3 more nodes with different ports by adding `-p ####` to the command above
 3. Try running the following commands:
 

@@ -1,6 +1,6 @@
 # Demo on two Ubuntu instances
 
-This demo tutorial is a first step in demonstrating Pyrsia's capabilities. You will setup 2 Pyrsia nodes on 2 separate Ubuntu instances, wire them together in a very small p2p network, and use the regular Docker client on Ubuntu to pull images off the Pyrsia network. The Pyrsia nodes use Docker Hub as a fallback mechanism in case the image is not yet available in the Pyrsia network.
+This demo tutorial is a first step in demonstrating Pyrsia's capabilities. You will setup two Pyrsia nodes on two separate Ubuntu instances, wire them together in a very small p2p network, and use the regular Docker client on Ubuntu to pull images off the Pyrsia network. The Pyrsia nodes use Docker Hub as a fallback mechanism in case the image is not yet available in the Pyrsia network.
 
 
 ```mermaid
@@ -24,8 +24,8 @@ flowchart TB
 
 - We assume you have docker installed. Follow these [instructions](https://docs.docker.com/engine/install/ubuntu/) if you do not.
 
-
 > If you ran these steps before and if you want to start from a clean sheet, do this:
+>
 > ```sh
 > apt-get remove pyrsia
 > rm -rf /usr/local/var/pyrsia
@@ -34,6 +34,7 @@ flowchart TB
 ## Demo Scenario
 
 This demo consists of several steps: (scroll down for instructions)
+
 1. [Installation and configuration](#install-and-configure-pyrsia)
    * Install Pyrsia on instance 1
    * Install and configure Pyrsia on instance 2, make it connect to node 1
@@ -115,9 +116,6 @@ Docker2 ->> User: docker pull is completed successfully
 deactivate User
 ```
 
-
-
-
 ## Install and configure Pyrsia
 
 > IMPORTANT: run the installation phase as root
@@ -143,8 +141,6 @@ apt-get update
 apt-get install -y pyrsia
 ```
 
-
-
 ### Edit configuration:
 
 Both nodes will already be listening on port 44000 when it starts. Let's now edit the configuration on node2 to connect to node1 at startup.
@@ -153,7 +149,7 @@ Both nodes will already be listening on port 44000 when it starts. Let's now edi
 
 Edit `/etc/systemd/system/multi-user.target.wants/pyrsia.service` and add `--peer /ip4/public_ip_of_node1/tcp/44000` to the `ExecStart` line so it looks like this:
 
-```
+```sh
 ExecStart=/usr/bin/pyrsia_node --host 0.0.0.0 -L /ip4/0.0.0.0/tcp/44000 --peer /ip4/public_ip_of_node1/tcp/44000
 ```
 
@@ -166,17 +162,20 @@ systemctl daemon-reload
 ```
 
 Restart the pyrsia node:
+
 ```sh
 service pyrsia restart
 ```
 
 Check the daemon status:
+
 ```sh
 service pyrsia status
 ```
 
 You should see something very similar to:
-```
+
+```sh
 ● pyrsia.service - Pyrsia Node
      Loaded: loaded (/lib/systemd/system/pyrsia.service; enabled; vendor preset: enabled)
      Active: active (running) since Wed 2022-03-23 14:29:55 UTC; 5min ago
@@ -197,7 +196,8 @@ pyrsia -s
 ```
 
 You should see something very similar to:
-```
+
+```sh
 Connected Peers Count:       1
 Artifacts Count:             3 {"manifests": 1, "blobs": 2}
 Total Disk Space Allocated:  5.84 GB
@@ -205,23 +205,27 @@ Disk Space Used:             0.0002%
 ```
 
 List the node's peers:
+
 ```sh
 pyrsia -l
 ```
 
 You should see something very similar to:
-```
+
+```sh
 Connected Peers:
 ["12D3KooWMD9ynPTdvhWMcdX7mh23Au1QpVS3ekTCQzpRTtd1g6h3"]
 ```
 
 ### Tail the log
+
 ```sh
 tail -f /var/log/syslog
 ```
 
 You should see something very similar to:
-```
+
+```sh
 Mar 23 14:37:08 demo-pyrsia-node-2 pyrsia_node[42678]:  DEBUG multistream_select::dialer_select > Dialer: Proposed protocol: /ipfs/id/1.0.0
 Mar 23 14:37:08 demo-pyrsia-node-2 pyrsia_node[42678]:  DEBUG multistream_select::dialer_select > Dialer: Received confirmation for protocol: /ipfs/id/1.0.0
 Mar 23 14:37:08 demo-pyrsia-node-2 pyrsia_node[42678]:  DEBUG libp2p_core::upgrade::apply       > Successfully applied negotiated protocol
@@ -230,18 +234,19 @@ Mar 23 14:37:08 demo-pyrsia-node-2 pyrsia_node[42678]:  DEBUG pyrsia::network::p
 Mar 23 14:37:08 demo-pyrsia-node-2 pyrsia_node[42678]:  INFO  pyrsia::network::handlers         > Dialed "/ip4/34.66.158.102/tcp/44000"
 ```
 
-
 ## Use Pyrsia
 
 Keep the log tail from the installation phase running and open a new terminal on both instances. (doesn’t have to be root)
 
-First, on node 1, pull any docker image:
+First, on node 1, pull any Docker image:
+
 ```sh
 docker pull alpine
 ```
-(make sure to remove it from the local docker cache if you already pulled it before: `docker rmi alpine`)
 
-Look at the syslog to show what happened. Alternatively grep the syslog for ‘Step’
+(make sure to remove it from the local Docker cache if you already pulled it before: `docker rmi alpine`)
+
+Look at the syslog to show what happened. Alternatively grep the syslog for ‘Step’.
 
 ```sh
 cat /var/log/syslog | grep Step
@@ -256,12 +261,15 @@ cat /var/log/syslog | grep Step
 
 It shows that Pyrsia didn’t have the image yet, but it fetched it from Docker Hub instead.
 
-Next on node2, pull the same docker image
+Next on node2, pull the same Docker image:
+
 ```sh
 docker pull alpine
 ```
+
 Inspect the syslog on node2, or grep for ‘Steps’:
-```
+
+```sh
 > Step 1: Does "sha256:e9adb5357e84d853cc3eb08cd4d3f9bd6cebdb8a67f0415cc884be7b0202416d" exist in the artifact manager?
 > Step 1: Does "sha256:3d243047344378e9b7136d552d48feb7ea8b6fe14ce0990e0cc011d5e369626a" exist in the artifact manager?
 > Step 1: NO, "sha256:e9adb5357e84d853cc3eb08cd4d3f9bd6cebdb8a67f0415cc884be7b0202416d" does not exist in the artifact manager.
@@ -286,7 +294,8 @@ docker pull alpine
 ```
 
 Inspect the syslog on node2 again:
-```
+
+```sh
 > Step 1: YES, "sha256:e9adb5357e84d853cc3eb08cd4d3f9bd6cebdb8a67f0415cc884be7b0202416d" exist in the artifact manager.
 > Final Step: "sha256:3d243047344378e9b7136d552d48feb7ea8b6fe14ce0990e0cc011d5e369626a" successfully retrieved!
 > Final Step: "sha256:e9adb5357e84d853cc3eb08cd4d3f9bd6cebdb8a67f0415cc884be7b0202416d" successfully retrieved!
@@ -295,16 +304,15 @@ Inspect the syslog on node2 again:
 It will show the local Pyrsia node already had this docker image and didn’t have to download it again.
 Inspect the Pyrsia node status again on both nodes:
 
-```
+```sh
 pyrsia -s
 ```
 
 You should see something very similar to:
 
-```
+```sh
 Connected Peers Count:       1
 Artifacts Count:             3 {"manifests": 1, "blobs": 2}
 Total Disk Space Allocated:  5.84 GB
 Disk Space Used:             0.0002%
 ```
-
