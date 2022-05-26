@@ -11,12 +11,11 @@ Blockchain technologies are trending. There’s a lot of information about what 
 
 ## What is a Blockchain?
 
-IBM has one of my favorite definitions:
+IBM has one of my [favorite definitions](https://www.ibm.com/topics/what-is-blockchain):
 
 > Blockchain is a shared, immutable ledger that facilitates the process of recording transactions and tracking assets \[... on] a network.
 > An asset can be tangible (a house, car, cash, land) or intangible (intellectual property, patents, copyrights, branding). Virtually 
 > anything of value can be tracked \[... ] on a blockchain network, reducing risk \[...] for all involved. 
-> [ref](https://www.ibm.com/topics/what-is-blockchain)
 
 There’s a few key items to highlight from this definition are:
 
