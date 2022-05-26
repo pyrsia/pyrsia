@@ -2,7 +2,6 @@
 
 This demo tutorial is a first step in demonstrating Pyrsia's capabilities. You will setup two Pyrsia nodes on two separate Ubuntu instances, wire them together in a very small p2p network, and use the regular Docker client on Ubuntu to pull images off the Pyrsia network. The Pyrsia nodes use Docker Hub as a fallback mechanism in case the image is not yet available in the Pyrsia network.
 
-
 ```mermaid
 flowchart TB
     subgraph Instance 1
@@ -18,11 +17,11 @@ flowchart TB
 
 ## Prerequisites
 
-- 2 Ubuntu instances with a public IP that allow inbound TCP traffic on port 44000. We will refer to them as:
-  - node1
-  - node2
+- Two Ubuntu instances with public IPs that allow inbound TCP traffic on port 44000. We will refer to them as:
+  - `node1`
+  - `node2`
 
-- We assume you have docker installed. Follow these [instructions](https://docs.docker.com/engine/install/ubuntu/) if you do not.
+- We assume you have Docker installed. Follow these [instructions](https://docs.docker.com/engine/install/ubuntu/) if you do not.
 
 > If you ran these steps before and if you want to start from a clean sheet, do this:
 >
@@ -36,38 +35,38 @@ flowchart TB
 This demo consists of several steps: (scroll down for instructions)
 
 1. [Installation and configuration](#install-and-configure-pyrsia)
-   * Install Pyrsia on instance 1
-   * Install and configure Pyrsia on instance 2, make it connect to node 1
-2. [Docker pull on node 1](#use-pyrsia)
+   * Install and configure Pyrsia on `node1`
+   * Install and configure Pyrsia on `node2`, make it connect to `node1`
+2. [Docker pull on `node1`](#use-pyrsia)
    * image is not available in the Pyrsia network
    * image is requested from Docker Hub and stored locally, so it becomes available in the Pyrsia network
-3. [Use the Pyrsia CLI to check node 1 status](#use-the-cli-to-check-the-node-status)
-4. [Docker pull on node 2](#use-pyrsia)
-   * The same docker image is pulled on node 2
+3. [Use the Pyrsia CLI to check `node1` status](#use-the-cli-to-check-the-node-status)
+4. [Docker pull on `node2`](#use-pyrsia)
+   * The same Docker image is pulled on `node2`
    * Node 2 requests the image from the Pyrsia network, in this specific case: node 1.
-5. [Use the Pyrsia CLI to check node 2 status](#use-the-cli-to-check-the-node-status)
-6. [Docker pull on node 2](#use-pyrsia)
-   * The same docker image is pulled again on Node2
-   * Node 2 doesn't have to download the image again
+5. [Use the Pyrsia CLI to check `node2` status](#use-the-cli-to-check-the-node-status)
+6. [Docker pull on `node2`](#use-pyrsia)
+   * The same Docker image is pulled again on `node2`
+   * `node2` doesn't have to download the image again
 
 These are the steps in more detail:
 
 ```mermaid
 sequenceDiagram
 participant User as User
-participant Docker1 as Docker Daemon on instance 1
-participant Node1 as Pyrsia Node on instance 1
+participant Docker1 as Docker Daemon on `node1`
+participant Node1 as Pyrsia Node on `node1`
 participant PNW as Pyrsia Network
-participant Docker2 as Docker Daemon on instance 2
-participant Node2 as Pyrsia Node on instance 2
+participant Docker2 as Docker Daemon on `node2`
+participant Node2 as Pyrsia Node on `node2`
 participant DockerHub as Docker Hub
 
 User ->> Node1: Installs Pyrsia
 activate User
 note left of User: Installation
-User ->> Node2: Installs Pyrsia and configures it to connect to Node1
+User ->> Node2: Installs Pyrsia and configures it to connect to `node1`
 
-Node2 ->> Node1: Connects to peer Node1 on port 44000<br>Node1 and Node2 now form the 'Pyrsia Network'
+Node2 ->> Node1: Connects to peer `node1` on port 44000<br>`node1` and `node2` now form the 'Pyrsia Network'
 
 deactivate User
 
@@ -77,7 +76,7 @@ activate User
 note left of User: Pull on node1
 Docker1 ->> Node1: request image through the Docker<br>Registry API running inside the Pyrsia node on port 7888
 Node1 ->> PNW: Node1 checks if the image is available<br>locally or on the Pyrsia network
-Node1 ->> DockerHub: The image is not available and Node1<br>requests the image from DockerHub
+Node1 ->> DockerHub: The image is not available and Node1<br>requests the image from Docker Hub
 Node1 ->> PNW: Node1 stores the image locally<br>and announces it availability on the Pyrsia Network
 Node1 ->> Docker1: The Pyrsia node responds with the requested image
 Docker1 ->> User: docker pull is completed successfully
@@ -90,7 +89,7 @@ note left of User: Check Pyrsia<br>node status
 
 User ->> Docker2: docker pull image
 activate User
-note left of User: Pull on node2
+note left of User: Pull on `node2`
 Docker2 ->> Node2: request image through the Docker Registry API<br>running inside the Pyrsia node on port 7888
 
 Node2 ->> PNW: Node2 checks if the image is available locally<br>or on the Pyrsia network<br>In this case, it is available on Node1
@@ -141,11 +140,11 @@ apt-get update
 apt-get install -y pyrsia
 ```
 
-### Edit configuration:
+### Edit configuration
 
 Both nodes will already be listening on port 44000 when it starts. Let's now edit the configuration on node2 to connect to node1 at startup.
 
-**On node2:**
+**On `node2`:**
 
 Edit `/etc/systemd/system/multi-user.target.wants/pyrsia.service` and add `--peer /ip4/public_ip_of_node1/tcp/44000` to the `ExecStart` line so it looks like this:
 
@@ -153,7 +152,7 @@ Edit `/etc/systemd/system/multi-user.target.wants/pyrsia.service` and add `--pee
 ExecStart=/usr/bin/pyrsia_node --host 0.0.0.0 -L /ip4/0.0.0.0/tcp/44000 --peer /ip4/public_ip_of_node1/tcp/44000
 ```
 
-This will make sure node2 connects to peer node1 when it starts.
+This will make sure `node2` connects to peer `node1` when it starts.
 
 Reload the daemon configuration:
 
@@ -185,7 +184,6 @@ You should see something very similar to:
      CGroup: /system.slice/pyrsia.service
              └─42619 /usr/bin/pyrsia_node -H 127.0.0.1 --peer /ip4/1.2.3.4/tcp/44000 -L /ip4/0.0.0.0/tcp/44000
 ```
-
 
 ### Use the CLI to check the node status:
 
