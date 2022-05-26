@@ -43,7 +43,7 @@ This demo consists of several steps: (scroll down for instructions)
 3. [Use the Pyrsia CLI to check `node1` status](#use-the-cli-to-check-the-node-status)
 4. [Docker pull on `node2`](#use-pyrsia)
    * The same Docker image is pulled on `node2`
-   * Node 2 requests the image from the Pyrsia network, in this specific case: node 1.
+   * `node2` requests the image from the Pyrsia network, in this specific case: `node1`.
 5. [Use the Pyrsia CLI to check `node2` status](#use-the-cli-to-check-the-node-status)
 6. [Docker pull on `node2`](#use-pyrsia)
    * The same Docker image is pulled again on `node2`
@@ -117,7 +117,7 @@ deactivate User
 
 ## Install and configure Pyrsia
 
-> IMPORTANT: run the installation phase as root
+> IMPORTANT: run the installation phase as `root`.
 
 **On both instances:**
 
@@ -185,7 +185,7 @@ You should see something very similar to:
              └─42619 /usr/bin/pyrsia_node -H 127.0.0.1 --peer /ip4/1.2.3.4/tcp/44000 -L /ip4/0.0.0.0/tcp/44000
 ```
 
-### Use the CLI to check the node status:
+### Use the CLI to check the node status
 
 Check the node status:
 
@@ -234,7 +234,7 @@ Mar 23 14:37:08 demo-pyrsia-node-2 pyrsia_node[42678]:  INFO  pyrsia::network::h
 
 ## Use Pyrsia
 
-Keep the log tail from the installation phase running and open a new terminal on both instances. (doesn’t have to be root)
+Keep the log tail from the installation phase running and open a new terminal on both instances. (doesn’t have to be `root`)
 
 First, on node 1, pull any Docker image:
 
