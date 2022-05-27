@@ -216,4 +216,4 @@ Success!!!
 
 You have just built yourself a working Pyrsia network. Enjoy using it and showcasing it to your teams and please share any feedback!
 
-Next you can, follow the instructions in [demo.md](https://pyrsia.io/tutorials/demo/) and setup a real Pyrsia network and use it with your CI system.
+Next you can, follow the [demo instructions](https://pyrsia.io/docs/tutorials/demo/) and setup a real Pyrsia network and use it with your CI system.
