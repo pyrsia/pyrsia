@@ -1,3 +1,7 @@
+---
+sidebar_position: 1
+---
+
 # Get Involved
 
 Looking to participate on the Pyrsia project? We are excited to have you!
