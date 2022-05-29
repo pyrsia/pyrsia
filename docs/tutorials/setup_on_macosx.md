@@ -1,7 +1,8 @@
 # How to run 2 Pyrsia nodes natively on 1 MacOS machine
 
-Download a fresh copy of the codebase by cloning the repo or updating to the HEAD of `main`.
-Let's call this folder `PYRSIA_HOME`. We will refer to this name in the following steps.
+Download a fresh copy of the codebase by cloning the repo or updating to the
+HEAD of `main`. Let's call this folder `PYRSIA_HOME`. We will refer to this
+name in the following steps.
 
 Build binaries for `pyrsia_node` by running:
 
@@ -12,7 +13,8 @@ cargo build --workspace
 
 ## Create 2 separate nodes "installations"
 
-This will create two copies of the same binary so that you can configure them as independent nodes. In `PYRSIA_HOME`,
+This will create two copies of the same binary so that you can configure them
+as independent nodes. In `PYRSIA_HOME`,
 
  - Create Node A
 
@@ -40,7 +42,8 @@ cd nodeA
 DEV_MODE=on RUST_LOG="pyrsia=debug,info"  ./pyrsia_node -H 0.0.0.0 -p 7888 -L /ip4/0.0.0.0/tcp/44001
 ```
 
-If everything goes well, you will see a line similar to the following in the logs on the terminal(The IP address could be different than in the sample below)
+If everything goes well, you will see a line similar to the following in the
+logs on the terminal (The IP address could be different than in the sample below):
 
 ```text
 # INFO  pyrsia::network::p2p > Local node is listening on "/ip4/192.168.0.110/tcp/44001/p2p/12D3KooWLKMbBzp4k1mcM2rYXs8VQgoCSNLxGUwnB1itouxYcnx3"
@@ -50,7 +53,8 @@ If you do not find this line right away try with `grep 44001`
 
 ### Start Node B
 
-In a new terminal start node B, http listen on 7889, p2p listen on 44002 and connect to peer node A on port 44001
+In a new terminal start node B, http listen on 7889, p2p listen on 44002 and
+connect to peer node A on port 44001:
 
 ```sh
 cd $PYRSIA_HOME
@@ -66,12 +70,15 @@ If everything goes well, you will see a line similar to the following in the log
 # DEBUG libp2p_swarm            > Connection established: PeerId("12D3KooWGPwQfKN3Qvt8LosFAUxEtUUPM2BLRUqQHhFefBbJRXzY") Listener { local_addr: "/ip4/127.0.0.1/tcp/44001", send_back_addr: "/ip4/127.0.0.1/tcp/62373" }; Total (peer): 1. Total non-banned (peer): 1
 ```
 
-Notice that node A and node B have now connected as peers and are able to communicate with each other. Verify that the PeerId you see here is the same as that for node A.
+Notice that node A and node B have now connected as peers and are able to
+communicate with each other. Verify that the PeerId you see here is the same
+as that for node A.
 
 ### Good news
 
-If you saw the above lines in your logs and did not see any failure/error messages your Pyrsia node network has now been setup.
-Also that means we did not break anything. 😜
+If you saw the above lines in your logs and did not see any failure/error
+messages your Pyrsia node network has now been setup. Also that means we did
+not break anything. 😜
 
 You should now be able to interact with the Pyrsia Node.
 
@@ -104,7 +111,8 @@ SUBCOMMANDS:
 
 ## Using the Pyrsia CLI
 
-We will now look at the configuration and also configure the `pyrsia_cli` to connect with Node B.
+We will now look at the configuration and also configure the `pyrsia_cli` to
+connect with Node B.
 
 ```sh
 cd $PYRSIA_HOME
@@ -115,7 +123,9 @@ port = '7888'
 disk_allocated = '10 GB'
 ```
 
-Your Pyrsia CLI is now connected to the Pyrsia node running on port 7888. If you  would like to connect the CLI to Node B change the configuration using the following commands
+Your Pyrsia CLI is now connected to the Pyrsia node running on port 7888.
+If you would like to connect the CLI to Node B change the configuration using
+the following commands:
 
 ```sh
 ./pyrsia config --add
@@ -154,16 +164,19 @@ Connected Peers:
 ["12D3KooWH1tJB9NMuzHcEd6TU9yG4mv2Lo4J2gaXaBLpyNCrqRR9"]
 ```
 
-Now that you have setup both the Pyrsia Node and Pyrsia CLI you are ready to start using Pyrsia.
+Now that you have setup both the Pyrsia Node and Pyrsia CLI you are ready to
+start using Pyrsia.
 
 # Using Pyrsia with Docker
 
-Once you have setup the Pyrsia nodes and the CLI you are ready to start using Pyrsia with Docker.
+Once you have setup the Pyrsia nodes and the CLI you are ready to start using
+Pyrsia with Docker.
 
 ## Configure Docker desktop to use node A as registry mirror
 
-In your Docker desktop installation -> Settings -> Docker Engine where Docker allows you to set registry-mirrors.
-Setup node A as a registry mirror by adding/editing the following in the configuration.
+In your Docker desktop installation -> Settings -> Docker Engine where Docker
+allows you to set registry-mirrors. Setup node A as a registry mirror by
+adding/editing the following in the configuration.
 
 ```jsonc
  "registry-mirrors": [
@@ -171,11 +184,12 @@ Setup node A as a registry mirror by adding/editing the following in the configu
  ]
 ```
 
-On Mac OS X using localhost does not work(because the request is made from the Docker Desktop VM), so you will need to specify the IP address of host machine
+On Mac OS X using localhost does not work(because the request is made from the
+Docker Desktop VM), so you will need to specify the IP address of host machine
 On Ubuntu (linuxy env) we were able to automate this and use localhost.
 
-You will need to restart Docker Desktop.
-Once restarted you should be able to pull docker images through Pyrsia
+You will need to restart Docker Desktop. Once restarted you should be able to
+pull Docker images through Pyrsia:
 
 ## Pull `alpine` docker image
 
@@ -186,7 +200,8 @@ docker rmi alpine # remove alpine from local docker cache
 docker pull alpine
 ```
 
-When you pull an image of Alpine from Docker Hub, Pyrsia node A should act as a pull-through cache and show a line similar to the following in its log
+When you pull an image of Alpine from Docker Hub, Pyrsia node A should act as
+a pull-through cache and show a line similar to the following in its log:
 
 ```sh
 # DEBUG pyrsia::docker::v2::handlers::blobs> Step 3: "sha256:3d243047344378e9b7136d552d48feb7ea8b6fe14ce0990e0cc011d5e369626a" successfully stored locally from docker.io
@@ -209,7 +224,9 @@ docker rmi alpine # remove alpine from local docker cache
 docker pull alpine
 ```
 
-Now node B is acting as the pull-through cache and should show a line similar to the following in its log, indicating `alpine` was retrieved from the Pyrsia network (in this case node A).
+Now node B is acting as the pull-through cache and should show a line similar
+to the following in its log, indicating `alpine` was retrieved from the
+Pyrsian etwork (in this case node A).
 
 ```sh
 # DEBUG pyrsia::docker::v2::handlers::blobs> Step 2: "sha256:3d243047344378e9b7136d552d48feb7ea8b6fe14ce0990e0cc011d5e369626a" successfully stored locally from Pyrsia network.
@@ -217,6 +234,8 @@ Now node B is acting as the pull-through cache and should show a line similar to
 
 Success!!!
 
-You have just built yourself a working Pyrsia network. Enjoy using it and showcasing it to your teams and please share any feedback!
+You have just built yourself a working Pyrsia network. Enjoy using it and
+showcasing it to your teams and please share any feedback!
 
-Next you can, follow the instructions in [demo.md](https://pyrsia.io/tutorials/demo/) and setup a real Pyrsia network and use it with your CI system.
+Next you can, follow the instructions in [demo.md](https://pyrsia.io/tutorials/demo/)
+and setup a real Pyrsia network and use it with your CI system.
