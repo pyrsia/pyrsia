@@ -1,6 +1,11 @@
 # Demo on two Ubuntu instances
 
-This demo tutorial is a first step in demonstrating Pyrsia's capabilities. You will setup two Pyrsia nodes on two separate Ubuntu instances, wire them together in a very small p2p network, and use the regular Docker client on Ubuntu to pull images off the Pyrsia network. The Pyrsia nodes use Docker Hub as a fallback mechanism in case the image is not yet available in the Pyrsia network.
+This demo tutorial is a first step in demonstrating Pyrsia's capabilities.
+You will setup two Pyrsia nodes on two separate Ubuntu instances, wire them
+together in a very small p2p network, and use the regular Docker client on
+Ubuntu to pull images off the Pyrsia network. The Pyrsia nodes use Docker Hub
+as a fallback mechanism in case the image is not yet available in the Pyrsia
+network.
 
 ```mermaid
 flowchart TB
@@ -17,7 +22,8 @@ flowchart TB
 
 ## Prerequisites
 
-- Two Ubuntu instances with public IPs that allow inbound TCP traffic on port 44000. We will refer to them as:
+- Two Ubuntu instances with public IPs that allow inbound TCP traffic on port 44000.
+We will refer to them as:
   - `node1`
   - `node2`
 
@@ -35,19 +41,20 @@ flowchart TB
 This demo consists of several steps: (scroll down for instructions)
 
 1. [Installation and configuration](#install-and-configure-pyrsia)
-   * Install and configure Pyrsia on `node1`
-   * Install and configure Pyrsia on `node2`, make it connect to `node1`
+    - Install and configure Pyrsia on `node1`
+    - Install and configure Pyrsia on `node2`, make it connect to `node1`
 2. [Docker pull on `node1`](#use-pyrsia)
-   * image is not available in the Pyrsia network
-   * image is requested from Docker Hub and stored locally, so it becomes available in the Pyrsia network
+    - image is not available in the Pyrsia network
+    - image is requested from Docker Hub and stored locally, so it becomes
+      available in the Pyrsia network
 3. [Use the Pyrsia CLI to check `node1` status](#use-the-cli-to-check-the-node-status)
 4. [Docker pull on `node2`](#use-pyrsia)
-   * The same Docker image is pulled on `node2`
-   * `node2` requests the image from the Pyrsia network, in this specific case: `node1`.
+    - The same Docker image is pulled on `node2`
+    - `node2` requests the image from the Pyrsia network, in this specific case: `node1`.
 5. [Use the Pyrsia CLI to check `node2` status](#use-the-cli-to-check-the-node-status)
 6. [Docker pull on `node2`](#use-pyrsia)
-   * The same Docker image is pulled again on `node2`
-   * `node2` doesn't have to download the image again
+    - The same Docker image is pulled again on `node2`
+    - `node2` doesn't have to download the image again
 
 These are the steps in more detail:
 
@@ -142,11 +149,14 @@ apt-get install -y pyrsia
 
 ### Edit configuration
 
-Both nodes will already be listening on port 44000 when it starts. Let's now edit the configuration on node2 to connect to node1 at startup.
+Both nodes will already be listening on port 44000 when it starts.
+Let's now edit the configuration on node2 to connect to node1 at startup.
 
 **On `node2`:**
 
-Edit `/etc/systemd/system/multi-user.target.wants/pyrsia.service` and add `--peer /ip4/public_ip_of_node1/tcp/44000` to the `ExecStart` line so it looks like this:
+Edit `/etc/systemd/system/multi-user.target.wants/pyrsia.service` and add
+`--peer /ip4/public_ip_of_node1/tcp/44000` to the `ExecStart` line so it looks
+like this:
 
 ```sh
 ExecStart=/usr/bin/pyrsia_node --host 0.0.0.0 -L /ip4/0.0.0.0/tcp/44000 --peer /ip4/public_ip_of_node1/tcp/44000
@@ -234,7 +244,8 @@ Mar 23 14:37:08 demo-pyrsia-node-2 pyrsia_node[42678]:  INFO  pyrsia::network::h
 
 ## Use Pyrsia
 
-Keep the log tail from the installation phase running and open a new terminal on both instances. (doesn’t have to be `root`)
+Keep the log tail from the installation phase running and open a new terminal
+on both instances. (doesn’t have to be `root`)
 
 First on `node1`, pull any Docker image:
 
@@ -242,7 +253,8 @@ First on `node1`, pull any Docker image:
 docker pull alpine
 ```
 
-(make sure to remove it from the local Docker cache if you already pulled it before: `docker rmi alpine`)
+(make sure to remove it from the local Docker cache if you already pulled it
+before: `docker rmi alpine`)
 
 Look at the syslog to show what happened. Alternatively grep the syslog for ‘Step’.
 
@@ -282,7 +294,8 @@ Inspect the syslog on `node2`, or grep for ‘Steps’:
 > Final Step: "sha256:3d243047344378e9b7136d552d48feb7ea8b6fe14ce0990e0cc011d5e369626a" successfully retrieved!
 ```
 
-This shows the image wasn't available locally, but it was available in the Pyrsia network, retrieved and stored locally.
+This shows the image wasn't available locally, but it was available in the
+Pyrsia network, retrieved and stored locally.
 
 Next, remove the image from the local docker cache, and retrieve it again:
 
@@ -299,8 +312,8 @@ Inspect the syslog on `node2` again:
 > Final Step: "sha256:e9adb5357e84d853cc3eb08cd4d3f9bd6cebdb8a67f0415cc884be7b0202416d" successfully retrieved!
 ```
 
-It will show the local Pyrsia node already had this Docker image and didn’t have to download it again.
-Inspect the Pyrsia node status again on both nodes:
+It will show the local Pyrsia node already had this Docker image and didn’t
+have to download it again. Inspect the Pyrsia node status again on both nodes:
 
 ```sh
 pyrsia -s
