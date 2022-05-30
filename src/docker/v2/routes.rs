@@ -20,8 +20,9 @@ use crate::transparency_log::log::TransparencyLog;
 
 use super::handlers::blobs::*;
 use super::handlers::manifests::*;
+use futures::lock::Mutex;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use warp::Filter;
 
 pub fn make_docker_routes(

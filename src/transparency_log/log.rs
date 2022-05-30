@@ -29,8 +29,8 @@ pub enum TransparencyLogError {
     DuplicateId { id: String },
     #[error("ID {id:?} not found in transparency log")]
     NotFound { id: String },
-    #[error("Hash Verification failed for ID {id:?}: {invalid_hash:?}")]
-    InvalidHash { id: String, invalid_hash: String },
+    #[error("Hash Verification failed for ID {id:?}: {invalid_hash:?} vs {actual_hash:?}")]
+    InvalidHash { id: String, invalid_hash: String, actual_hash: String },
 }
 
 #[derive(Debug, Clone, strum_macros::Display, Deserialize, Serialize)]
@@ -83,6 +83,7 @@ impl TransparencyLog {
                 Err(TransparencyLogError::InvalidHash {
                     id: String::from(id),
                     invalid_hash: String::from(hash),
+                    actual_hash: payload.hash.clone(),
                 })
             }
         } else {
@@ -286,7 +287,8 @@ mod tests {
             result,
             Err(TransparencyLogError::InvalidHash {
                 id: String::from("id"),
-                invalid_hash: String::from("invalid_hash")
+                invalid_hash: String::from("invalid_hash"),
+                actual_hash: String::from("hash"),
             })
         );
     }

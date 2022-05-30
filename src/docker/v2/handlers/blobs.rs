@@ -20,13 +20,16 @@ use crate::docker::docker_hub_util::get_docker_hub_auth_token;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::docker::v2::storage::*;
 use crate::network::client::{ArtifactType, Client};
+use crate::transparency_log::log::TransparencyLogError;
 use bytes::Bytes;
+use easy_hasher::easy_hasher::raw_sha256;
 use libp2p::PeerId;
 use log::{debug, info, trace};
 use reqwest::header;
 use std::collections::HashMap;
 use std::result::Result;
 use std::str;
+use std::sync::Arc;
 use uuid::Uuid;
 use warp::{http::StatusCode, Rejection, Reply};
 
@@ -43,7 +46,7 @@ pub async fn handle_get_blobs(
     match get_artifact(&decoded_hash, HashAlgorithm::SHA256) {
         Ok(blob) => {
             debug!("Step 1: YES, {:?} exist in the artifact manager.", hash);
-            blob_content = blob;
+            blob_content = Arc::new(blob);
         }
         Err(_) => {
             debug!(
@@ -52,13 +55,16 @@ pub async fn handle_get_blobs(
             );
 
             get_blob_from_network(p2p_client.clone(), &name, &hash).await?;
-            blob_content = get_artifact(&decoded_hash, HashAlgorithm::SHA256).map_err(|_| {
+            let blob = get_artifact(&decoded_hash, HashAlgorithm::SHA256).map_err(|_| {
                 warp::reject::custom(RegistryError {
                     code: RegistryErrorCode::BlobUnknown,
                 })
             })?;
+            blob_content = Arc::new(blob);
         }
     }
+
+    verify_blob_content(&blob_content, &hash).map_err(RegistryError::from)?;
 
     p2p_client
         .provide(ArtifactType::Artifact, hash.clone().into())
@@ -69,7 +75,7 @@ pub async fn handle_get_blobs(
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
         .status(StatusCode::OK)
-        .body(blob_content)
+        .body(blob_content.to_vec())
         .unwrap())
 }
 
@@ -143,6 +149,23 @@ pub async fn handle_put_blob(
         .unwrap())
 }
 
+fn verify_blob_content(
+    blob_content: &Arc<Vec<u8>>,
+    hash_to_verify: &str,
+) -> Result<(), TransparencyLogError> {
+    let hash = raw_sha256(blob_content.to_vec()).to_vec();
+    let encoded_hash = format!("sha256:{}", hex::encode(hash));
+    if encoded_hash == hash_to_verify {
+        Ok(())
+    } else {
+        Err(TransparencyLogError::InvalidHash {
+            id: String::from(hash_to_verify),
+            invalid_hash: String::from(hash_to_verify),
+            actual_hash: String::from(encoded_hash),
+        })
+    }
+}
+
 // Request the content of the artifact from the pyrsia network
 async fn get_blob_from_network(
     mut p2p_client: Client,
@@ -163,11 +186,12 @@ async fn get_blob_from_network(
                 "Step 2: YES, {:?} exists in the Pyrsia network, fetching from peer {:?}.",
                 hash, peer
             );
-            if get_blob_from_other_peer(p2p_client.clone(), &peer, name, hash)
-                .await
-                .is_err()
-            {
-                get_blob_from_docker_hub(name, hash).await?
+            match get_blob_from_other_peer(p2p_client.clone(), &peer, name, hash).await {
+                Err(e) => {
+                    println!("ERROR: {:?}", e);
+                    get_blob_from_docker_hub(name, hash).await?;
+                }
+                Ok(_) => {}
             }
         }
         None => {
@@ -262,4 +286,139 @@ async fn get_blob_from_docker_hub_with_token(
 
     blobs::create_upload_directory(name, &id.to_string()).map_err(RegistryError::from)?;
     blobs::store_blob_in_filesystem(name, &id.to_string(), hash, bytes).map_err(RegistryError::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::network::client::command::Command;
+    use crate::network::idle_metric_protocol::PeerMetrics;
+    use assay::assay;
+    use futures::channel::mpsc;
+    use futures::executor;
+    use futures::prelude::*;
+    use libp2p::identity::Keypair;
+    use std::collections::HashSet;
+    use std::env;
+    use std::fs;
+    use std::path::Path;
+
+    fn tear_down() {
+        if Path::new(&env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
+            fs::remove_dir_all(env::var("PYRSIA_ARTIFACT_PATH").unwrap()).expect(&format!(
+                "unable to remove test directory {}",
+                env::var("PYRSIA_ARTIFACT_PATH").unwrap()
+            ));
+        }
+    }
+
+    #[assay(
+        env = [
+            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+            ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+    )]
+    #[tokio::test]
+    async fn test_get_blob_from_network_with_valid_hash() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+
+        tokio::spawn(async move {
+            loop {
+                if let Some(command) = receiver.next().await {
+                    match command {
+                        Command::RequestIdleMetric { sender, .. } => {
+                            let mut providers = HashSet::new();
+                            providers.insert(local_peer_id.clone());
+                            let _ = sender.send(Ok(PeerMetrics {
+                                idle_metric: [0; 8]
+                            }));
+                        },
+                        Command::ListProviders { sender, .. } => {
+                            let mut providers = HashSet::new();
+                            providers.insert(local_peer_id.clone());
+                            let _ = sender.send(providers);
+                        },
+                        Command::Provide { sender, .. } => {
+                            let _ = sender.send(());
+                            // we can stop receiving now
+                            break;
+                        },
+                        Command::RequestArtifact { sender, .. } => {
+                            let _ = sender.send(Ok(vec![]));
+                        },
+                        _ => panic!("Command must match Command::Provide"),
+                    }
+                }
+            }
+        });
+
+        let name = "abcd";
+        let hash = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+        let p2p_client = Client {
+            sender,
+            local_peer_id
+        };
+
+        let result = executor::block_on(handle_get_blobs(p2p_client, name.to_string(), hash.to_string()));
+        assert!(result.is_ok());
+    }
+
+    #[assay(
+        env = [
+            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
+            ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+    )]
+    #[tokio::test]
+    async fn test_get_blob_from_network_with_invalid_hash() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+
+        tokio::spawn(async move {
+            loop {
+                if let Some(command) = receiver.next().await {
+                    match command {
+                        Command::RequestIdleMetric { sender, .. } => {
+                            let mut providers = HashSet::new();
+                            providers.insert(local_peer_id.clone());
+                            let _ = sender.send(Ok(PeerMetrics {
+                                idle_metric: [0; 8]
+                            }));
+                        },
+                        Command::ListProviders { sender, .. } => {
+                            let mut providers = HashSet::new();
+                            providers.insert(local_peer_id.clone());
+                            let _ = sender.send(providers);
+                        },
+                        Command::Provide { sender, .. } => {
+                            let _ = sender.send(());
+                            // we can stop receiving now
+                            break;
+                        },
+                        Command::RequestArtifact { sender, .. } => {
+                            let _ = sender.send(Ok(vec![1]));
+                        },
+                        _ => panic!("Command must match Command::Provide"),
+                    }
+                }
+            }
+        });
+
+        let name = "abcd";
+        let hash = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+        let p2p_client = Client {
+            sender,
+            local_peer_id
+        };
+
+        let result = executor::block_on(handle_get_blobs(p2p_client, name.to_string(), hash.to_string()));
+        assert!(result.is_err());
+    }
 }

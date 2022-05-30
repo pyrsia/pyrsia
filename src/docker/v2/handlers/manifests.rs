@@ -30,13 +30,14 @@ use anyhow::{anyhow, bail, Context};
 use bytes::Buf;
 use bytes::Bytes;
 use easy_hasher::easy_hasher::raw_sha512;
+use futures::lock::Mutex;
 use libp2p::core::PeerId;
 use log::{debug, error, info};
 use reqwest;
 use reqwest::header;
 use serde_json::{json, Map, Value};
 use std::fmt::Display;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use uuid::Uuid;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
@@ -69,12 +70,13 @@ pub async fn fetch_manifest(
                         "Step 1: YES, manifest for {} with tag {} exist in the metadata manager.",
                         name, tag
                     );
-                    manifest_content = get_artifact(artifact.hash(), HashAlgorithm::SHA512)
+                    let artifact_bytes = get_artifact(artifact.hash(), HashAlgorithm::SHA512)
                         .map_err(|_| {
                             warp::reject::custom(RegistryError {
                                 code: RegistryErrorCode::ManifestUnknown,
                             })
                         })?;
+                    manifest_content = Arc::new(artifact_bytes);
                 }
                 None => {
                     //TODO: neeed mechanism in metadata to delete the invalid metadata
@@ -89,12 +91,13 @@ pub async fn fetch_manifest(
                     )
                     .await?;
                     let decoded_hash = hex::decode(&hash).map_err(RegistryError::from)?;
-                    manifest_content =
-                        get_artifact(&decoded_hash, HashAlgorithm::SHA512).map_err(|_| {
+                    let artifact_bytes = get_artifact(&decoded_hash, HashAlgorithm::SHA512)
+                        .map_err(|_| {
                             warp::reject::custom(RegistryError {
                                 code: RegistryErrorCode::ManifestUnknown,
                             })
                         })?;
+                    manifest_content = Arc::new(artifact_bytes);
                 }
             }
         }
@@ -113,12 +116,13 @@ pub async fn fetch_manifest(
             )
             .await?;
             let decoded_hash = hex::decode(&hash).map_err(RegistryError::from)?;
-            manifest_content =
+            let artifact_bytes =
                 get_artifact(&decoded_hash, HashAlgorithm::SHA512).map_err(|_| {
                     warp::reject::custom(RegistryError {
                         code: RegistryErrorCode::ManifestUnknown,
                     })
                 })?;
+            manifest_content = Arc::new(artifact_bytes);
         }
 
         Err(error) => {
@@ -139,32 +143,28 @@ pub async fn fetch_manifest(
             )
             .await?;
             let decoded_hash = hex::decode(&hash).map_err(RegistryError::from)?;
-            manifest_content =
+            let artifact_bytes =
                 get_artifact(&decoded_hash, HashAlgorithm::SHA512).map_err(|_| {
                     warp::reject::custom(RegistryError {
                         code: RegistryErrorCode::ManifestUnknown,
                     })
                 })?;
+            manifest_content = Arc::new(artifact_bytes);
         }
     };
 
-    let hash = raw_sha512(manifest_content.clone()).to_vec();
-    let encoded_hash = format!("sha512:{}", hex::encode(hash));
-    let artifact_id = format!("{}/{}/{}", DOCKER_NAMESPACE_ID, name, tag);
-    transparency_log
-        .lock()
-        .unwrap()
-        .verify_artifact(&artifact_id, &encoded_hash)
-        .map_err(RegistryError::from)?;
+    verify_manifest_content(transparency_log, &manifest_content, &name, &tag).await?;
+
+    let len = manifest_content.len();
 
     Ok(warp::http::response::Builder::new()
         .header(
             "Content-Type",
             "application/vnd.docker.distribution.manifest.v2+json",
         )
-        .header("Content-Length", manifest_content.len())
+        .header("Content-Length", len)
         .status(StatusCode::OK)
-        .body(manifest_content)
+        .body(manifest_content.to_vec())
         .unwrap())
 }
 
@@ -221,6 +221,24 @@ fn internal_error_response(
         .body("Internal server error")
         .unwrap()
     // I couldn't find a way to return an internal server error that does not use unwrap or something else that can panic
+}
+
+async fn verify_manifest_content(
+    transparency_log: Arc<Mutex<TransparencyLog>>,
+    manifest_content: &Arc<Vec<u8>>,
+    name: &str,
+    tag: &str,
+) -> Result<(), Rejection> {
+    let hash = raw_sha512(manifest_content.to_vec()).to_vec();
+    let encoded_hash = format!("sha512:{}", hex::encode(hash));
+    let artifact_id = format!("{}/{}/{}", DOCKER_NAMESPACE_ID, name, tag);
+    transparency_log
+        .lock()
+        .await
+        .verify_artifact(&artifact_id, &encoded_hash)
+        .map_err(RegistryError::from)?;
+
+    Ok(())
 }
 
 async fn get_manifest_from_network(
@@ -336,7 +354,7 @@ async fn save_package_version(
             );
             transparency_log
                 .lock()
-                .unwrap()
+                .await
                 .add_artifact(&artifact_id.hash, &artifact_hash)?;
             p2p_client
                 .provide(ArtifactType::PackageVersion, package_version.into())
