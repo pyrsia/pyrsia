@@ -142,7 +142,7 @@ mod tests {
         teardown = tear_down()
     )]
     fn test_new_transparency_log_has_empty_payload() {
-        let mut log = TransparencyLog::new();
+        let log = TransparencyLog::new();
 
         assert_eq!(log.payloads.len(), 0);
     }
@@ -155,7 +155,7 @@ mod tests {
         teardown = tear_down()
     )]
     fn test_with_default() {
-        let mut log: TransparencyLog = Default::default();
+        let log: TransparencyLog = Default::default();
 
         assert_eq!(log.payloads.len(), 0);
     }
