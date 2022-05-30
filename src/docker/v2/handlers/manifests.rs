@@ -225,7 +225,8 @@ async fn get_manifest_from_network(
     );
     let providers = p2p_client
         .list_providers(ArtifactType::PackageVersion, (&package_version).into())
-        .await;
+        .await
+        .map_err(RegistryError::from)?;
     debug!(
         "Step 2: Does manifest for {} with tag {} exist in the pyrsia network? Providers: {:?}",
         name, tag, providers
@@ -308,7 +309,7 @@ async fn save_package_version(
     mut transparency_log: TransparencyLog,
     mut p2p_client: Client,
     package_version: PackageVersion,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
     let pv_json = serde_json::to_string(&package_version)
         .unwrap_or_else(|_| "*** missing JSON ***".to_string());
     match METADATA_MGR.create_package_version(&package_version)? {
@@ -321,7 +322,7 @@ async fn save_package_version(
             transparency_log.add_artifact(&artifact_id.hash, &artifact_hash)?;
             p2p_client
                 .provide(ArtifactType::PackageVersion, package_version.into())
-                .await;
+                .await?;
             info!("Saved package version from docker manifest: {}", pv_json)
         }
         MetadataCreationStatus::Duplicate { json } => info!(

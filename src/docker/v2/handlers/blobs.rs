@@ -62,7 +62,8 @@ pub async fn handle_get_blobs(
 
     p2p_client
         .provide(ArtifactType::Artifact, hash.clone().into())
-        .await;
+        .await
+        .map_err(RegistryError::from)?;
 
     debug!("Final Step: {:?} successfully retrieved!", hash);
     Ok(warp::http::response::Builder::new()
@@ -150,13 +151,13 @@ async fn get_blob_from_network(
 ) -> Result<(), RegistryError> {
     let providers = p2p_client
         .list_providers(ArtifactType::Artifact, hash.into())
-        .await;
+        .await?;
     debug!(
         "Step 2: Does {:?} exist in the Pyrsia network? Providers: {:?}",
         hash, providers
     );
 
-    match p2p_client.get_idle_peer(providers).await {
+    match p2p_client.get_idle_peer(providers).await? {
         Some(peer) => {
             debug!(
                 "Step 2: YES, {:?} exists in the Pyrsia network, fetching from peer {:?}.",
