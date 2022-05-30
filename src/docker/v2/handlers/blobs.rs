@@ -333,22 +333,22 @@ mod tests {
                             let mut providers = HashSet::new();
                             providers.insert(local_peer_id.clone());
                             let _ = sender.send(Ok(PeerMetrics {
-                                idle_metric: [0; 8]
+                                idle_metric: [0; 8],
                             }));
-                        },
+                        }
                         Command::ListProviders { sender, .. } => {
                             let mut providers = HashSet::new();
                             providers.insert(local_peer_id.clone());
                             let _ = sender.send(providers);
-                        },
+                        }
                         Command::Provide { sender, .. } => {
                             let _ = sender.send(());
                             // we can stop receiving now
                             break;
-                        },
+                        }
                         Command::RequestArtifact { sender, .. } => {
                             let _ = sender.send(Ok(vec![]));
-                        },
+                        }
                         _ => panic!("Command must match Command::Provide"),
                     }
                 }
@@ -360,10 +360,14 @@ mod tests {
 
         let p2p_client = Client {
             sender,
-            local_peer_id
+            local_peer_id,
         };
 
-        let result = executor::block_on(handle_get_blobs(p2p_client, name.to_string(), hash.to_string()));
+        let result = executor::block_on(handle_get_blobs(
+            p2p_client,
+            name.to_string(),
+            hash.to_string(),
+        ));
         assert!(result.is_ok());
     }
 
@@ -388,22 +392,22 @@ mod tests {
                             let mut providers = HashSet::new();
                             providers.insert(local_peer_id.clone());
                             let _ = sender.send(Ok(PeerMetrics {
-                                idle_metric: [0; 8]
+                                idle_metric: [0; 8],
                             }));
-                        },
+                        }
                         Command::ListProviders { sender, .. } => {
                             let mut providers = HashSet::new();
                             providers.insert(local_peer_id.clone());
                             let _ = sender.send(providers);
-                        },
+                        }
                         Command::Provide { sender, .. } => {
                             let _ = sender.send(());
                             // we can stop receiving now
                             break;
-                        },
+                        }
                         Command::RequestArtifact { sender, .. } => {
                             let _ = sender.send(Ok(vec![1]));
-                        },
+                        }
                         _ => panic!("Command must match Command::Provide"),
                     }
                 }
@@ -415,10 +419,14 @@ mod tests {
 
         let p2p_client = Client {
             sender,
-            local_peer_id
+            local_peer_id,
         };
 
-        let result = executor::block_on(handle_get_blobs(p2p_client, name.to_string(), hash.to_string()));
+        let result = executor::block_on(handle_get_blobs(
+            p2p_client,
+            name.to_string(),
+            hash.to_string(),
+        ));
         assert!(result.is_err());
     }
 }

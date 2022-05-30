@@ -30,7 +30,11 @@ pub enum TransparencyLogError {
     #[error("ID {id:?} not found in transparency log")]
     NotFound { id: String },
     #[error("Hash Verification failed for ID {id:?}: {invalid_hash:?} vs {actual_hash:?}")]
-    InvalidHash { id: String, invalid_hash: String, actual_hash: String },
+    InvalidHash {
+        id: String,
+        invalid_hash: String,
+        actual_hash: String,
+    },
 }
 
 #[derive(Debug, Clone, strum_macros::Display, Deserialize, Serialize)]
