@@ -95,7 +95,7 @@ pyrsia_cli 0.1.1 (ed7e87160df35676815fec073be8082a8f8e9789)
 Decentralized Package Network
 
 USAGE:
-    Pyrsia [SUBCOMMAND]
+    pyrsia [SUBCOMMAND]
 
 OPTIONS:
     -h, --help       Print help information
