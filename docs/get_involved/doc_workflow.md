@@ -20,11 +20,11 @@ placed in the [`blog`](https://github.com/pyrsia/pyrsia/blob/main/blog) folder.
 
 ### `docs`
 
-All subfolders should have a `readme.md` with a good title, as a level one header, and the
+All sub-folders should have a `readme.md` with a good title, as a level one header, and the
 [front matter for position](https://docusaurus.io/docs/api/plugins/@docusaurus/plugin-content-docs#sidebar_position)
 the folder on the website. Make sure to pay attention to the other folder numbers.
 
-All documents should have a `.md` file extention. If you need more customization you can use `.mdx`, see 
+All documents should have a `.md` file extension. If you need more customization you can use `.mdx`, see 
 [here](https://docusaurus.io/docs/markdown-features/react) for more information. All files need a level one heading to provide the
 
 page with a good title.
@@ -65,3 +65,4 @@ Currently it is only possible to preview your changes locally, you should be fol
 If you make changes to your fork of the `pyrsia/pyrsia` repository, you can restart the local server to update documentation.
 
 You can make changes locally and the local serve will automatically update; do not forget to change them to your fork afterwards.
+
