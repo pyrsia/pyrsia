@@ -8,14 +8,12 @@ for the GitHub Flavor [here](https://github.github.com/gfm/) or you can use this
 
 All the documentation is visible on GitHub and <https://pyrsia.io> website, so it's important to keep in mind
 there are some limitations and extra features that might be available. You might want to refer to the 
-
 [website's standard features](https://docusaurus.io/docs/markdown-features#standard-features) if you are unsure.
 
 ## Structure Guidelines
 
 All the documentation for Pyrsia should live in the [pyrsia/pyrsia](https://github.com/pyrsia/pyrsia) repository
 in the [`docs`](https://github.com/pyrsia/pyrsia/blob/main/docs) folder. Blogs belong in the same repository but should be
-
 placed in the [`blog`](https://github.com/pyrsia/pyrsia/blob/main/blog) folder.
 
 ### `docs`
@@ -26,7 +24,6 @@ the folder on the website. Make sure to pay attention to the other folder number
 
 All documents should have a `.md` file extension. If you need more customization you can use `.mdx`, see 
 [here](https://docusaurus.io/docs/markdown-features/react) for more information. All files need a level one heading to provide the
-
 page with a good title.
 
 ### `blog`
@@ -62,7 +59,5 @@ Currently it is only possible to preview your changes locally, you should be fol
    - You can [check this example](https://github.com/pyrsia/pyrsia.github.io/pull/66/commits/c317f9dab8f6bcde5f8588ca75858db72241930d)
 4. Follow instructions described [here](https://github.com/pyrsia/pyrsia.github.io#website) for "local development"
 
-If you make changes to your fork of the `pyrsia/pyrsia` repository, you can restart the local server to update documentation.
-
+If you make changes to your fork of the `pyrsia/pyrsia` repository, you can restart the local server to update the documentation.
 You can make changes locally and the local serve will automatically update; do not forget to change them to your fork afterwards.
-
