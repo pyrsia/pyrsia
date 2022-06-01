@@ -29,7 +29,7 @@ page with a good title.
 ### `blog`
 
 All blogs should be placed in the root of the `blog` folder. Each one should be named `yyyy-mm-dd-<slug>.md`, where slug should be a unique
-name for the blog (e.g. a short hand of the title); this is described [here](https://docusaurus.io/docs/api/plugins/@docusaurus/plugin-content-blog).\
+name for the blog (e.g. a short hand of the title); this is described [here](https://docusaurus.io/docs/api/plugins/@docusaurus/plugin-content-blog).
 
 Some front matter is required at the top of the Markdown:
 
@@ -49,15 +49,16 @@ All media assests should be external links since they will not be copied to the 
 
 ## Previewing Changes
 
-Currently it is only possible to preview your changes locally, you should be following the [contributing guidelines](https://pyrsia.io/docs/get_involved/contributing/#dev-flow) and have forked the repository. To preview the changes:
+Currently it is only possible to preview your changes locally, you should be following the
+[contributing guidelines](https://pyrsia.io/docs/get_involved/contributing/#dev-flow) and have forked the repository.
+To preview the changes:
 
 1. Fork the [website's repository](https://github.com/pyrsia/pyrsia.github.io) and clone your fork.
-
 2. Modify [this line](https://github.com/pyrsia/pyrsia.github.io/blob/main/package.json#L6)
    - Change `pyrsia/pyrsia` to your fork, (e.g `octocat/pyrsia`)
    - Optionally, you can change the branch by replacing `main` with `your-branch-name`
    - You can [check this example](https://github.com/pyrsia/pyrsia.github.io/pull/66/commits/c317f9dab8f6bcde5f8588ca75858db72241930d)
-4. Follow instructions described [here](https://github.com/pyrsia/pyrsia.github.io#website) for "local development"
+3. Follow instructions described [here](https://github.com/pyrsia/pyrsia.github.io#website) for "local development"
 
 If you make changes to your fork of the `pyrsia/pyrsia` repository, you can restart the local server to update the documentation.
 You can make changes locally and the local serve will automatically update; do not forget to change them to your fork afterwards.
