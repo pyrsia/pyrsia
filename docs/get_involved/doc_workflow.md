@@ -7,13 +7,15 @@ for the GitHub Flavor [here](https://github.github.com/gfm/) or you can use this
 [quick guide](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax).
 
 All the documentation is visible on GitHub and <https://pyrsia.io> website, so it's important to keep in mind
-there are some limitations and extra features that might be availble. You might want to refer to the 
+there are some limitations and extra features that might be available. You might want to refer to the 
+
 [website's standard features](https://docusaurus.io/docs/markdown-features#standard-features) if you are unsure.
 
 ## Structure Guidelines
 
 All the documentation for Pyrsia should live in the [pyrsia/pyrsia](https://github.com/pyrsia/pyrsia) repository
-in the [`docs`](https://github.com/pyrsia/pyrsia/blob/main/docs) folder. Blogs belog in the same repository but should be
+in the [`docs`](https://github.com/pyrsia/pyrsia/blob/main/docs) folder. Blogs belong in the same repository but should be
+
 placed in the [`blog`](https://github.com/pyrsia/pyrsia/blob/main/blog) folder.
 
 ### `docs`
@@ -23,7 +25,8 @@ All subfolders should have a `readme.md` with a good title, as a level one heade
 the folder on the website. Make sure to pay attention to the other folder numbers.
 
 All documents should have a `.md` file extention. If you need more customization you can use `.mdx`, see 
-[here](https://docusaurus.io/docs/markdown-features/react) for more imformation. All files need a level one heading to provide the
+[here](https://docusaurus.io/docs/markdown-features/react) for more information. All files need a level one heading to provide the
+
 page with a good title.
 
 ### `blog`
