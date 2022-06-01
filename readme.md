@@ -33,7 +33,7 @@ For more options and information, checkout our [online tutorial](https://pyrsia.
 
 ### Downloading Your First Artifact
 
-Let's exercise the [Docker](https://www.docker.com/) and [DockerHub](https://hub.docker.com/) integration.
+Let's exercise the [Docker](https://www.docker.com/) and [Docker Hub](https://hub.docker.com/) integration.
 
 ```sh
 docker pull ubuntu
