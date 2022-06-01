@@ -33,7 +33,7 @@ pub struct ErrorMessages {
     errors: Vec<ErrorMessage>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub enum RegistryErrorCode {
     BlobUnknown,
     BlobDoesNotExist(String),
@@ -53,13 +53,21 @@ impl fmt::Display for RegistryErrorCode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct RegistryError {
     pub code: RegistryErrorCode,
 }
 
 impl From<anyhow::Error> for RegistryError {
     fn from(err: anyhow::Error) -> RegistryError {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(err.to_string()),
+        }
+    }
+}
+
+impl From<hex::FromHexError> for RegistryError {
+    fn from(err: hex::FromHexError) -> RegistryError {
         RegistryError {
             code: RegistryErrorCode::Unknown(err.to_string()),
         }
@@ -139,4 +147,78 @@ pub async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
         status_code,
     )
     .into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io;
+    use std::str;
+
+    #[test]
+    fn from_io_error() {
+        let io_error_1 = io::Error::new(io::ErrorKind::Interrupted, "operation interrupted");
+        let io_error_2 = io::Error::new(io::ErrorKind::Interrupted, "operation interrupted");
+
+        let registry_error: RegistryError = io_error_1.into();
+        assert_eq!(
+            registry_error.code,
+            RegistryErrorCode::Unknown(io_error_2.to_string())
+        );
+    }
+
+    #[test]
+    fn from_from_hex_error() {
+        let from_hex_error = hex::FromHexError::OddLength;
+
+        let registry_error: RegistryError = from_hex_error.into();
+        assert_eq!(
+            registry_error.code,
+            RegistryErrorCode::Unknown(from_hex_error.to_string())
+        );
+    }
+
+    #[test]
+    fn from_anyhow_error() {
+        let from_hex_error_1 = hex::FromHexError::OddLength;
+        let anyhow_error_1: anyhow::Error = from_hex_error_1.into();
+
+        let from_hex_error_2 = hex::FromHexError::OddLength;
+        let anyhow_error_2: anyhow::Error = from_hex_error_2.into();
+
+        let registry_error: RegistryError = anyhow_error_1.into();
+        assert_eq!(
+            registry_error.code,
+            RegistryErrorCode::Unknown(anyhow_error_2.to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn recover_from_registry_error() {
+        let registry_error = RegistryError {
+            code: RegistryErrorCode::BlobUnknown,
+        };
+
+        let expected_body = serde_json::to_string(&ErrorMessages {
+            errors: vec![ErrorMessage {
+                code: RegistryErrorCode::BlobUnknown,
+                message: "".to_string(),
+            }],
+        })
+        .expect("Generating JSON body should not fail.");
+
+        let response = custom_recover(registry_error.into())
+            .await
+            .expect("Reply should be created.")
+            .into_response();
+        let status = response.status();
+        let actual_body_bytes = hyper::body::to_bytes(response.into_body())
+            .await
+            .expect("Response body to be converted to bytes");
+        let actual_body_str = str::from_utf8(&actual_body_bytes)
+            .map(str::to_owned)
+            .expect("Response body to be converted to string");
+        assert_eq!(status, 404);
+        assert_eq!(actual_body_str, expected_body);
+    }
 }
