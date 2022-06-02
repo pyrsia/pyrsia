@@ -177,7 +177,7 @@ Reload the daemon configuration:
 systemctl daemon-reload
 ```
 
-Restart the pyrsia node:
+Restart the Pyrsia node:
 
 ```sh
 service pyrsia restart
