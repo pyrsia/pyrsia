@@ -2,7 +2,7 @@ name: Rust
 
 on:
   pull_request:
-    path-ignored: # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint-skipped.yml#L8
+    path-ignored: # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust.yml#L8
       - .github/workflows/rust.yml
       - '**/*.rs'
       - '**/Cargo.toml'
