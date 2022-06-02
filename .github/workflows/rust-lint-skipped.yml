@@ -5,7 +5,7 @@
 name: Rust Linting 
 on:
   pull_request:
-    path-ignored: # This should match https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint.yml#L4
+    paths-ignore: # This should match https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint.yml#L4
       - .github/workflows/rust-lint.yml
       - '**/*.rs'
       - '**/Cargo.toml'
