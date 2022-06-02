@@ -26,9 +26,9 @@ use pyrsia::logging::*;
 use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
+use pyrsia::transparency_log::log::TransparencyLog;
 use pyrsia::util::keypair_util;
 use pyrsia_blockchain_network::blockchain::Blockchain;
-use pyrsia::transparency_log::log::TransparencyLog;
 
 use clap::Parser;
 use futures::lock::Mutex;
