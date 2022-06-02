@@ -161,7 +161,7 @@ fn verify_blob_content(
         Err(TransparencyLogError::InvalidHash {
             id: String::from(hash_to_verify),
             invalid_hash: String::from(hash_to_verify),
-            actual_hash: String::from(encoded_hash),
+            actual_hash: encoded_hash,
         })
     }
 }
@@ -186,12 +186,11 @@ async fn get_blob_from_network(
                 "Step 2: YES, {:?} exists in the Pyrsia network, fetching from peer {:?}.",
                 hash, peer
             );
-            match get_blob_from_other_peer(p2p_client.clone(), &peer, name, hash).await {
-                Err(e) => {
-                    println!("ERROR: {:?}", e);
-                    get_blob_from_docker_hub(name, hash).await?;
-                }
-                Ok(_) => {}
+            if get_blob_from_other_peer(p2p_client.clone(), &peer, name, hash)
+                .await
+                .is_err()
+            {
+                get_blob_from_docker_hub(name, hash).await?;
             }
         }
         None => {
