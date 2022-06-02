@@ -202,6 +202,22 @@ mod tests {
         );
     }
 
+    #[test]
+    fn from_transparency_log_error() {
+        let transparency_log_error_1 = TransparencyLogError::NotFound {
+            id: String::from("artifact_id"),
+        };
+        let transparency_log_error_2 = TransparencyLogError::NotFound {
+            id: String::from("artifact_id"),
+        };
+
+        let registry_error: RegistryError = transparency_log_error_1.into();
+        assert_eq!(
+            registry_error.code,
+            RegistryErrorCode::Unknown(transparency_log_error_2.to_string())
+        );
+    }
+
     #[tokio::test]
     async fn recover_from_registry_error() {
         let registry_error = RegistryError {
