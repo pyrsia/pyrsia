@@ -312,9 +312,11 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::node_manager::model::package_type::PackageTypeName;
     use libp2p::identity::Keypair;
     use rand::distributions::Alphanumeric;
     use rand::{thread_rng, Rng};
+    use serde_json::Map;
 
     #[tokio::test]
     async fn test_listen() {
@@ -515,5 +517,74 @@ mod tests {
                 _ => panic!("Command must match Command::RequestArtifact")
             }
         }
+    }
+
+    #[test]
+    fn test_artifact_from_str_ref() {
+        let str = "abcd";
+
+        let artifact = ArtifactHash::from(str);
+
+        assert_eq!(artifact.hash, str);
+    }
+
+    #[test]
+    fn test_artifact_from_string() {
+        let str = "abcd";
+
+        let artifact = ArtifactHash::from(str.to_string());
+
+        assert_eq!(artifact.hash, str);
+    }
+
+    #[test]
+    fn test_artifact_from_string_ref() {
+        let str = String::from("abcd");
+
+        let artifact = ArtifactHash::from(&str);
+
+        assert_eq!(artifact.hash, str);
+    }
+
+    #[test]
+    fn test_artifact_from_package_version() {
+        let id = "id".to_string();
+        let namespace = "namespace_id".to_string();
+        let name = "name".to_string();
+        let version = "1.5.4".to_string();
+        let package_version = PackageVersion::new(
+            id.clone(),
+            namespace.clone(),
+            name.clone(),
+            PackageTypeName::Docker,
+            Map::new(),
+            version.clone(),
+            vec![],
+        );
+
+        let artifact = ArtifactHash::from(package_version);
+
+        assert_eq!(artifact.hash, format!("{}/{}/{}", namespace, name, version));
+    }
+
+    #[test]
+    fn test_artifact_from_package_version_ref() {
+        let id = "id".to_string();
+        let namespace = "namespace_id".to_string();
+        let name = "name".to_string();
+        let version = "1.5.4".to_string();
+        let package_version = PackageVersion::new(
+            id.clone(),
+            namespace.clone(),
+            name.clone(),
+            PackageTypeName::Docker,
+            Map::new(),
+            version.clone(),
+            vec![],
+        );
+
+        let artifact = ArtifactHash::from(&package_version);
+
+        assert_eq!(artifact.hash, format!("{}/{}/{}", namespace, name, version));
     }
 }
