@@ -325,7 +325,7 @@ impl aleph_bft::Network<HashDigest, Block, Signature, MultiSignature> for Networ
         let msg = self.msg_from_manager_rx.next().await;
         msg.map(|m| {
             trace!(
-                "New event recieved of network data {}",
+                "New event received of network data {}",
                 hex::encode(m.encode())
             );
             m
