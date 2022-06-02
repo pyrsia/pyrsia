@@ -41,7 +41,7 @@ pub fn cli_parser() -> ArgMatches {
             Command::new("ping").about("Pings configured pyrsia node"),
             Command::new("status")
                 .short_flag('s')
-                .about("Shows node informationn"),
+                .about("Shows node information"),
         ])
         .version(version_string)
         .get_matches()

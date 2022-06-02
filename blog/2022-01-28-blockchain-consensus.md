@@ -11,9 +11,11 @@ Blockchain technologies are trending. There’s a lot of information about what 
 
 ## What is a Blockchain?
 
-IBM has one of my favorite definitions:
+IBM has one of my [favorite definitions](https://www.ibm.com/topics/what-is-blockchain):
 
-> Blockchain is a shared, immutable ledger that facilitates the process of recording transactions and tracking assets \[... on] a network. An asset can be tangible (a house, car, cash, land) or intangible (intellectual property, patents, copyrights, branding). Virtually anything of value can be tracked \[... ] on a blockchain network, reducing risk \[...] for all involved. [ref](https://www.ibm.com/topics/what-is-blockchain)
+> Blockchain is a shared, immutable ledger that facilitates the process of recording transactions and tracking assets \[... on] a network.
+> An asset can be tangible (a house, car, cash, land) or intangible (intellectual property, patents, copyrights, branding). Virtually 
+> anything of value can be tracked \[... ] on a blockchain network, reducing risk \[...] for all involved. 
 
 There’s a few key items to highlight from this definition are:
 
@@ -26,9 +28,11 @@ Unfortunately, it leaves out one major element. How do blockchain networks reduc
 
 ## Consensus
 
-In the world of blockchain, consensus is the agreement of which block is next. Collectively all the participants in the blockchain’s network should come to the same conclusion.
+In the world of blockchain, consensus is the agreement of which block is next. Collectively all the participants in the blockchain’s network 
+should come to the same conclusion.
 
-You’ve probably heard of “Proof of Work”, usually called mining, and “Proof of Stake”.
+You’ve probably heard of “Proof of Work”, usually called mining, and “Proof of Stake”, these two are the most popular in terms of market share
+in the crypto markets.
 
 These consensus algorithms were some of the first to be popularized by projects like Bitcoin and Ethereum. These are far from the only ones, Proof of Authority, Proof of Burn, Proof of Capacity and Proof of History are just from others mentioned on [Investopedia's Website](https://www.investopedia.com/terms/c/consensus-mechanism-cryptocurrency.asp).
 
@@ -48,46 +52,50 @@ With a small number of competitors it’s pretty straightforward but when tens o
 
 ### Proof of Stake 
 
-<https://www.peercoin.net/whitepapers/peercoin-paper.pdf> 
-
-Proof of Stake is an investment strategy where committing more capital means you’re more likely to get the reward. Peercoin, a very early PoS implementation, kept the mining of PoW but required less computational complexity the more _coinage_ was staked. If two participants offer the same investment in the next block, which one is rewarded?
+Proof of Stake is an investment strategy where committing more capital means you’re more likely to get the reward. [Peercoin](https://www.peercoin.net/whitepapers/peercoin-paper.pdf), a very early PoS implementation, kept the mining of PoW but required less computational complexity the more _coinage_ was staked. If two participants offer the same investment in the next block, which one is rewarded?
 
 If someone is able to offer more capital for their block to be accepted, are they able to always win? Yes, this is a special type of security exploit called a 51% attack. If the confirmation of the next block is tied to a resource, then an entity which holds a majority stake can take control of the blockchain. Proof of Work is also susceptible to this type of attack.
 
 ### Stale and Orphan Blocks
 
-<https://bitcoin.org/bitcoin.pdf> 
-
 Most blockchain’s are actually trees, not linked lists which is what probably comes to mind for young data scientists. This probably comes as a shock but it’s the secret ingredient to solving our racing condition when two participants propose the next block in PoW.
 
-“If two nodes broadcast different versions of the next block simultaneously, some
+> If two nodes broadcast different versions of the next block simultaneously, some 
+> nodes may receive one or the other first. In that case, they work on the first one they received,
+> but save the other branch in case it becomes longer.
+> The tie will be broken when the next proof-of-work is found and one branch becomes longer.
 
-nodes may receive one or the other first. In that case, they work on the first one they received, but save the other branch in case it becomes longer. The tie will be broken when the next proof-of-work is found and one branch becomes longer”
+[_Bitcoin: A Peer-to-Peer Electronic Cash System Section 5_](https://bitcoin.org/bitcoin.pdf)
 
-_Bitcoin: A Peer-to-Peer Electronic Cash System Section 5_
+Chains are made of links that connect to others. This data structure is referred to as a linked list, when a link
+points to both it’s parent and child is a doubly linked list. Three sequential blocks being published would make the following chain:
 
-Chains are made of links that connect to others. This data structure is referred to as a linked list, when a link points to both it’s parent and child is a doubly linked list. Three sequential blocks being published would make the following chain:
-
-1          &lt;- 2              &lt;- 3Parent &lt;- individual &lt;- child
+```mermaid
+stateDiagram-v2
+    [*] --> Block_1
+    Block_1 --> Block_2 : Parent
+    Block_2 --> Block_3 : Child
+    Block_3 --> [*]
+```
 
 If block 4 was published at the same time as our block 3 a node would have the following tree:
 
-  
+```mermaid
+stateDiagram-v2
+    [*] --> Block_1
+    Block_1 --> Block_2 : Parent
+    Block_2 --> Block_3 : Child
+    state Block_2 <<fork>>
+        Block_2 --> Block_4 : Nephew
+        Block_3 --> Block_5
+    Block_5 --> [*]
+```
 
-
-1          &lt;- 2              &lt;- 3Parent &lt;- individual &lt;- child
-
-                uncle        &lt;- 4
-
-                                 &lt;- nephew
-
-Since it’s extremely unlikely that a second pair of blocks would also be published at the same time, the tie is broken when the next sequential block is published.
-
+Since it’s extremely unlikely that a second pair of blocks would also be published at the same time, the tie is broken when the next sequential block is published. This is block 5 in the diagram above.
 
 #### Which branch should we follow?
 
 Well, intuitively the “strongest” branch of our tree is the one we should stick with. The strength comes from the amount of work that has gone into making the branch. More work means it’s less likely that someone has cheated or lied. 
-
 
 ### Dynamic Validator Sets
 
