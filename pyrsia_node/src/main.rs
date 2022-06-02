@@ -17,6 +17,7 @@
 pub mod args;
 pub mod network;
 
+use anyhow::{bail, Result};
 use args::parser::PyrsiaNodeArgs;
 use network::handlers;
 use pyrsia::docker::error_util::*;
@@ -26,12 +27,16 @@ use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
 use pyrsia::transparency_log::log::TransparencyLog;
+use pyrsia::util::keypair_util;
+use pyrsia_blockchain_network::blockchain::Blockchain;
 
 use clap::Parser;
+use futures::lock::Mutex;
 use futures::StreamExt;
 use log::{debug, info, warn};
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::sync::Arc;
 use warp::Filter;
 
 #[tokio::main]
@@ -46,6 +51,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     debug!("Create p2p components");
     let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm(args.max_provided_keys)?;
+
+    debug!("Create blockchain components");
+    let _blockchain = setup_blockchain()?;
 
     debug!("Start p2p event loop");
     tokio::spawn(event_loop.run());
@@ -145,5 +153,29 @@ async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
             "An error occured while providing local artifacts. Error: {:?}",
             error
         );
+    }
+}
+
+pub fn setup_blockchain() -> Result<Arc<Mutex<Blockchain>>> {
+    let local_keypair = keypair_util::load_or_generate_ed25519();
+
+    let ed25519_keypair = match local_keypair {
+        libp2p::identity::Keypair::Ed25519(v) => v,
+        _ => {
+            bail!("Keypair Format Error");
+        }
+    };
+
+    Ok(Arc::new(Mutex::new(Blockchain::new(&ed25519_keypair))))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::setup_blockchain;
+
+    #[test]
+    fn setup_blockchain_success() {
+        let blockchain = setup_blockchain();
+        assert!(blockchain.is_ok());
     }
 }
