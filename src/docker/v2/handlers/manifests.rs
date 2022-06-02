@@ -20,11 +20,12 @@ use crate::docker::constants::*;
 use crate::docker::docker_hub_util::get_docker_hub_auth_token;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::metadata_manager::metadata::MetadataCreationStatus;
-use crate::network::client::{ArtifactType, Client};
+use crate::network::client::{ArtifactHash, ArtifactType, Client};
 use crate::node_manager::handlers::METADATA_MGR;
 use crate::node_manager::model::artifact::{Artifact, ArtifactBuilder};
 use crate::node_manager::model::package_type::PackageTypeName;
 use crate::node_manager::model::package_version::PackageVersion;
+use crate::transparency_log::log::TransparencyLog;
 use anyhow::{anyhow, bail, Context};
 use bytes::Buf;
 use bytes::Bytes;
@@ -41,6 +42,7 @@ use warp::{Rejection, Reply};
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn fetch_manifest(
+    transparency_log: TransparencyLog,
     p2p_client: Client,
     name: String,
     tag: String,
@@ -78,14 +80,15 @@ pub async fn fetch_manifest(
                     error!("Bad metadata in local pyrsia, getting manifest from pyrsia network.");
                     debug!("Step 1: NO, manifest for {} with tag {} does not exist in the metadata manager.", name, tag);
 
-                    let hash = get_manifest_from_network(p2p_client, &name, &tag).await?;
+                    let hash = get_manifest_from_network(transparency_log, p2p_client, &name, &tag)
+                        .await?;
+                    let decoded_hash = hex::decode(&hash).map_err(RegistryError::from)?;
                     manifest_content =
-                        get_artifact(hex::decode(hash).unwrap().as_ref(), HashAlgorithm::SHA512)
-                            .map_err(|_| {
-                                warp::reject::custom(RegistryError {
-                                    code: RegistryErrorCode::ManifestUnknown,
-                                })
-                            })?;
+                        get_artifact(&decoded_hash, HashAlgorithm::SHA512).map_err(|_| {
+                            warp::reject::custom(RegistryError {
+                                code: RegistryErrorCode::ManifestUnknown,
+                            })
+                        })?;
                 }
             }
         }
@@ -96,15 +99,20 @@ pub async fn fetch_manifest(
                 name, tag
             );
 
-            let hash = get_manifest_from_network(p2p_client, &name, &tag).await?;
+            let hash = get_manifest_from_network(
+                transparency_log.clone(),
+                p2p_client.clone(),
+                &name,
+                &tag,
+            )
+            .await?;
+            let decoded_hash = hex::decode(&hash).map_err(RegistryError::from)?;
             manifest_content =
-                get_artifact(hex::decode(hash).unwrap().as_ref(), HashAlgorithm::SHA512).map_err(
-                    |_| {
-                        warp::reject::custom(RegistryError {
-                            code: RegistryErrorCode::ManifestUnknown,
-                        })
-                    },
-                )?;
+                get_artifact(&decoded_hash, HashAlgorithm::SHA512).map_err(|_| {
+                    warp::reject::custom(RegistryError {
+                        code: RegistryErrorCode::ManifestUnknown,
+                    })
+                })?;
         }
 
         Err(error) => {
@@ -117,15 +125,20 @@ pub async fn fetch_manifest(
                 name, tag
             );
 
-            let hash = get_manifest_from_network(p2p_client, &name, &tag).await?;
+            let hash = get_manifest_from_network(
+                transparency_log.clone(),
+                p2p_client.clone(),
+                &name,
+                &tag,
+            )
+            .await?;
+            let decoded_hash = hex::decode(&hash).map_err(RegistryError::from)?;
             manifest_content =
-                get_artifact(hex::decode(hash).unwrap().as_ref(), HashAlgorithm::SHA512).map_err(
-                    |_| {
-                        warp::reject::custom(RegistryError {
-                            code: RegistryErrorCode::ManifestUnknown,
-                        })
-                    },
-                )?;
+                get_artifact(&decoded_hash, HashAlgorithm::SHA512).map_err(|_| {
+                    warp::reject::custom(RegistryError {
+                        code: RegistryErrorCode::ManifestUnknown,
+                    })
+                })?;
         }
     };
 
@@ -144,6 +157,7 @@ const LOCATION: &str = "Location";
 
 // Handles PUT endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn put_manifest(
+    transparency_log: TransparencyLog,
     p2p_client: Client,
     name: String,
     reference: String,
@@ -152,7 +166,7 @@ pub async fn put_manifest(
     debug!("Storing pushed manifest in artifact manager.");
     let (hash, package_version) = store_manifest_in_artifact_manager(&name, &reference, &bytes)?;
 
-    save_package_version(p2p_client, package_version)
+    save_package_version(transparency_log, p2p_client, package_version)
         .await
         .map_err(RegistryError::from)?;
 
@@ -195,6 +209,7 @@ fn internal_error_response(
 }
 
 async fn get_manifest_from_network(
+    transparency_log: TransparencyLog,
     mut p2p_client: Client,
     name: &str,
     tag: &str,
@@ -210,7 +225,8 @@ async fn get_manifest_from_network(
     );
     let providers = p2p_client
         .list_providers(ArtifactType::PackageVersion, (&package_version).into())
-        .await;
+        .await
+        .map_err(RegistryError::from)?;
     debug!(
         "Step 2: Does manifest for {} with tag {} exist in the pyrsia network? Providers: {:?}",
         name, tag, providers
@@ -221,20 +237,27 @@ async fn get_manifest_from_network(
                 "Step 2: YES, manifest for {} with tag {} exists in the pyrsia network, fetching from peer {}.",
                 name, tag, peer
             );
-            get_manifest_from_other_peer(p2p_client.clone(), peer, package_version).await?
+            get_manifest_from_other_peer(
+                transparency_log,
+                p2p_client.clone(),
+                peer,
+                package_version,
+            )
+            .await?
         }
         None => {
             debug!(
                 "Step 2: NO, manifest for {} with tag {} does not exist in the pyrsia network, fetching from docker.io.",
                 name, tag
             );
-            get_manifest_from_docker_hub(p2p_client.clone(), name, tag).await?
+            get_manifest_from_docker_hub(transparency_log, p2p_client.clone(), name, tag).await?
         }
     })
 }
 
 // Request the content of the artifact from other peer
 async fn get_manifest_from_other_peer(
+    transparency_log: TransparencyLog,
     mut p2p_client: Client,
     peer_id: &PeerId,
     package_version: PackageVersion,
@@ -261,7 +284,7 @@ async fn get_manifest_from_other_peer(
                 &package_version.version,
                 &bytes::Bytes::from(manifest),
             )?;
-            save_package_version(p2p_client, package_version)
+            save_package_version(transparency_log, p2p_client, package_version)
                 .await
                 .map_err(RegistryError::from)?;
             Ok(hash)
@@ -272,6 +295,7 @@ async fn get_manifest_from_other_peer(
                 package_version.name, package_version.version, peer_id, err
             );
             get_manifest_from_docker_hub(
+                transparency_log,
                 p2p_client,
                 &package_version.name,
                 &package_version.version,
@@ -282,16 +306,23 @@ async fn get_manifest_from_other_peer(
 }
 
 async fn save_package_version(
+    mut transparency_log: TransparencyLog,
     mut p2p_client: Client,
     package_version: PackageVersion,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
     let pv_json = serde_json::to_string(&package_version)
         .unwrap_or_else(|_| "*** missing JSON ***".to_string());
     match METADATA_MGR.create_package_version(&package_version)? {
         MetadataCreationStatus::Created => {
+            let artifact_id = ArtifactHash::from(&package_version);
+            let artifact_hash = format!(
+                "sha512:{}",
+                hex::encode(package_version.artifacts[0].hash())
+            );
+            transparency_log.add_artifact(&artifact_id.hash, &artifact_hash)?;
             p2p_client
                 .provide(ArtifactType::PackageVersion, package_version.into())
-                .await;
+                .await?;
             info!("Saved package version from docker manifest: {}", pv_json)
         }
         MetadataCreationStatus::Duplicate { json } => info!(
@@ -303,6 +334,7 @@ async fn save_package_version(
 }
 
 async fn get_manifest_from_docker_hub(
+    transparency_log: TransparencyLog,
     p2p_client: Client,
     name: &str,
     tag: &str,
@@ -313,10 +345,11 @@ async fn get_manifest_from_docker_hub(
     );
     let token = get_docker_hub_auth_token(name).await?;
 
-    get_manifest_from_docker_hub_with_token(p2p_client, name, tag, token).await
+    get_manifest_from_docker_hub_with_token(transparency_log, p2p_client, name, tag, token).await
 }
 
 async fn get_manifest_from_docker_hub_with_token(
+    transparency_log: TransparencyLog,
     p2p_client: Client,
     name: &str,
     tag: &str,
@@ -347,7 +380,7 @@ async fn get_manifest_from_docker_hub_with_token(
     let bytes = response.bytes().await.map_err(RegistryError::from)?;
     let (hash, package_version) = store_manifest_in_artifact_manager(name, tag, &bytes)?;
 
-    save_package_version(p2p_client, package_version)
+    save_package_version(transparency_log, p2p_client, package_version)
         .await
         .map_err(RegistryError::from)?;
 
@@ -847,6 +880,8 @@ mod tests {
         let name = "hello-world";
         let reference = "v3.1";
 
+        let transparency_log = TransparencyLog::new();
+
         let (sender, mut receiver) = mpsc::channel(1);
 
         tokio::spawn(async move {
@@ -869,6 +904,7 @@ mod tests {
 
         let future = async {
             put_manifest(
+                transparency_log,
                 p2p_client,
                 name.to_string(),
                 reference.to_string(),
@@ -894,6 +930,8 @@ mod tests {
         let name = "hello-world";
         let reference = "v3.1";
 
+        let transparency_log = TransparencyLog::new();
+
         let (sender, mut receiver) = mpsc::channel(1);
         let p2p_client = Client {
             sender,
@@ -913,6 +951,7 @@ mod tests {
 
         let future = async {
             put_manifest(
+                transparency_log.clone(),
                 p2p_client.clone(),
                 name.to_string(),
                 reference.to_string(),
@@ -925,7 +964,13 @@ mod tests {
         check_package_version_metadata()?;
 
         let future = async {
-            fetch_manifest(p2p_client, "hello-world".to_string(), "v3.1".to_string()).await
+            fetch_manifest(
+                transparency_log,
+                p2p_client,
+                "hello-world".to_string(),
+                "v3.1".to_string(),
+            )
+            .await
         };
 
         let result = executor::block_on(future);
@@ -940,6 +985,8 @@ mod tests {
         let reference = "sha256:e7d88de73db3d3fd9b2d63aa7f447a10fd0220b7cbf39803c803f2af9ba256b3";
 
         assert!(check_manifest_is_stored_in_pyrsia("alpine_manifest.json").is_err());
+
+        let transparency_log = TransparencyLog::new();
 
         let (sender, mut receiver) = mpsc::channel(1);
 
@@ -960,6 +1007,7 @@ mod tests {
         };
 
         let result = test_async!(fetch_manifest(
+            transparency_log,
             p2p_client,
             name.to_string(),
             reference.to_string()

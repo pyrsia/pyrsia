@@ -60,7 +60,7 @@ pub async fn node_ping() {
     let result = ping().await;
     match result {
         Ok(_resp) => {
-            println!("Connection Successfull !!")
+            println!("Connection Successful !!")
         }
         Err(error) => {
             println!("Error: {}", error);

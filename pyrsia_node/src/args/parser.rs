@@ -19,6 +19,7 @@ use libp2p::Multiaddr;
 
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_LISTEN_ADDRESS: &str = "/ip4/0.0.0.0/tcp/0";
+const DEFAULT_MAX_PROVIDED_KEYS: &str = "32768";
 const DEFAULT_PORT: &str = "7888";
 
 /// Application to connect to and participate in the Pyrsia network
@@ -37,4 +38,7 @@ pub struct PyrsiaNodeArgs {
     /// An address to connect with another Pyrsia Node (eg /ip4/127.0.0.1/tcp/45153/p2p/12D3KooWKsHbKbcVgyiRRgeXGCK4bp3MngnSU7ioeKTfQzd18B2v)
     #[clap(long, short = 'P')]
     pub peer: Option<Multiaddr>,
+    /// The maximum number of keys that can be provided on the network by this Pyrsia Node.
+    #[clap(long, default_value = DEFAULT_MAX_PROVIDED_KEYS)]
+    pub max_provided_keys: usize,
 }

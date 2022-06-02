@@ -25,10 +25,11 @@ use pyrsia::logging::*;
 use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
+use pyrsia::transparency_log::log::TransparencyLog;
 
 use clap::Parser;
 use futures::StreamExt;
-use log::{debug, info};
+use log::{debug, info, warn};
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use warp::Filter;
@@ -40,14 +41,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     debug!("Parse CLI arguments");
     let args = PyrsiaNodeArgs::parse();
 
+    debug!("Create transparency log");
+    let transparancy_log = TransparencyLog::new();
+
     debug!("Create p2p components");
-    let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm()?;
+    let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm(args.max_provided_keys)?;
 
     debug!("Start p2p event loop");
     tokio::spawn(event_loop.run());
 
     debug!("Setup HTTP server");
-    setup_http(&args, p2p_client.clone());
+    setup_http(&args, transparancy_log, p2p_client.clone());
 
     debug!("Start p2p components");
     setup_p2p(p2p_client.clone(), args).await;
@@ -62,23 +66,36 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     artifact_hash,
                     channel,
                 } => {
-                    handlers::handle_request_artifact(
+                    if let Err(error) = handlers::handle_request_artifact(
                         p2p_client.clone(),
-                        artifact_type,
+                        &artifact_type,
                         &artifact_hash,
                         channel,
                     )
                     .await
+                    {
+                        warn!(
+                            "This node failed to provide artifact with type {} and hash {}. Error: {:?}",
+                            artifact_type, artifact_hash, error
+                        );
+                    }
                 }
                 pyrsia::network::event_loop::PyrsiaEvent::IdleMetricRequest { channel } => {
-                    handlers::handle_request_idle_metric(p2p_client.clone(), channel).await
+                    if let Err(error) =
+                        handlers::handle_request_idle_metric(p2p_client.clone(), channel).await
+                    {
+                        warn!(
+                            "This node failed to provide idle metrics. Error: {:?}",
+                            error
+                        );
+                    }
                 }
             }
         }
     }
 }
 
-fn setup_http(args: &PyrsiaNodeArgs, p2p_client: Client) {
+fn setup_http(args: &PyrsiaNodeArgs, transparency_log: TransparencyLog, p2p_client: Client) {
     // Get host and port from the settings. Defaults to DEFAULT_HOST and DEFAULT_PORT
     debug!(
         "Pyrsia Docker Node will bind to host = {}, port = {}",
@@ -91,7 +108,7 @@ fn setup_http(args: &PyrsiaNodeArgs, p2p_client: Client) {
     );
 
     debug!("Setup HTTP routing");
-    let docker_routes = make_docker_routes(p2p_client.clone());
+    let docker_routes = make_docker_routes(transparency_log, p2p_client.clone());
     let node_api_routes = make_node_routes(p2p_client);
     let all_routes = docker_routes.or(node_api_routes);
 
@@ -123,5 +140,10 @@ async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
         handlers::dial_other_peer(p2p_client.clone(), &to_dial).await;
     }
     debug!("Provide local artifacts");
-    handlers::provide_artifacts(p2p_client.clone()).await;
+    if let Err(error) = handlers::provide_artifacts(p2p_client.clone()).await {
+        warn!(
+            "An error occured while providing local artifacts. Error: {:?}",
+            error
+        );
+    }
 }

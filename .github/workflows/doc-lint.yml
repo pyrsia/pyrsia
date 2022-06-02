@@ -1,0 +1,35 @@
+name: Docs Linting 
+on:
+  pull_request:
+    paths:
+      - .github/workflows/doc-lint.yml
+      - '**/*.md'
+      - '**/*.mdx'
+      
+jobs:
+  markdown-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: sudo gem install mdl
+      - run: echo "::add-matcher::.github/workflows/md-docs-matchers.json"
+      - run: mdl docs
+
+  markdown-link-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: gaurav-nelson/github-action-markdown-link-check@v1 # Basic .md files
+      - uses: gaurav-nelson/github-action-markdown-link-check@v1 # Also check extended format
+        with:
+          file-extension: .mdx
+
+  inclusive-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: run woke
+        run: |
+            curl -sSfL https://git.io/getwoke | bash -s --
+            bin/woke --exit-1-on-failure
+        shell: bash

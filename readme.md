@@ -6,8 +6,11 @@
 
 _📢 We are looking for your feedback!_
 
-This project is currently in the "sandbox" 🏖️. We are actively exploring new concepts and tools.
-The code, workflows, and ideas are subject to breaking changes at any time in this early stage of development.
+This project is currently in "early alpha". We are actively building on our minimal viable product which will continue
+to evolve over time as we add new features and support more workflows.
+
+Have a use case or workflow you would like to see supported? Open an issue or share on [Slack](https://openssf.slack.com/archives/C02RC7Y5EUV).
+Check out our [Get Involved](https://pyrsia.io/docs/get_involved/) page for more ways to connect.
 
 ### Primary Focus
 
@@ -30,7 +33,7 @@ For more options and information, checkout our [online tutorial](https://pyrsia.
 
 ### Downloading Your First Artifact
 
-Let's exercies the [Docker](https://www.docker.com/) and [DockerHub](https://hub.docker.com/) integration.
+Let's exercise the [Docker](https://www.docker.com/) and [Docker Hub](https://hub.docker.com/) integration.
 
 ```sh
 docker pull ubuntu

@@ -1,0 +1,28 @@
+# This implements the workaround described in https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/defining-the-mergeability-of-pull-requests/troubleshooting-required-status-checks#handling-skipped-but-required-checks
+# The rust linting checks are required but due to path filtering
+# the jobs are not created at all so we need to manually recreate them
+
+name: Rust Linting 
+on:
+  pull_request:
+    paths-ignore: # This should match https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint.yml#L4
+      - .github/workflows/rust-lint.yml
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - Cargo.lock
+      
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No build required"
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No build required"
+
+  license-header:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No build required"

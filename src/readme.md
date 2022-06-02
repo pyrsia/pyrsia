@@ -12,7 +12,7 @@ Principal set of modules which make up the [Node](../pyrsia_node) and [CLI](../p
 ## Sub-Crates
 
 
-- **[blockchain](blockchain/)**: Encompases the network communication and consensus engine along with the datastructures that make a distrubte ledge possible
+- **[blockchain](blockchain/)**: Encompasses the network communication and consensus engine along with the data structures that make a distributed ledger possible
 
 ## Modules
 
