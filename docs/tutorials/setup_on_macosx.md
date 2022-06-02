@@ -226,7 +226,7 @@ docker pull alpine
 
 Now node B is acting as the pull-through cache and should show a line similar
 to the following in its log, indicating `alpine` was retrieved from the
-Pyrsian etwork (in this case node A).
+Pyrsia network (in this case node A).
 
 ```sh
 # DEBUG pyrsia::docker::v2::handlers::blobs> Step 2: "sha256:3d243047344378e9b7136d552d48feb7ea8b6fe14ce0990e0cc011d5e369626a" successfully stored locally from Pyrsia network.

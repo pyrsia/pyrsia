@@ -75,9 +75,8 @@ Build consensus and integrate feedback. Proposals that have broad support are mu
 
 ### Reviewing a Proposal
 
-Periodically, the team will attempt to review the active proposals. We try to dicuss proposals at the bi-weekly team
-["Architecture"](https://pyrsia.io/docs/get_involved/#attend-a-community-meeting) meeting, we schedule additional meetings as needed. Actions are recorded in the meeting minutes
-which are made accessible through the Google group's shared drive.
+Periodically, the team will attempt to review the active proposals. We try to discuss proposals at the bi-weekly team
+["Architecture"](https://pyrsia.io/docs/get_involved/#attend-a-community-meeting) meeting, we schedule additional meetings as need. Actions are recorded in the meeting minutes.
 
 ### Proposal resolution
 
@@ -100,7 +99,7 @@ The author of a proposal is not obligated to implement it. Of course, the propos
 
 ***
 
-#### Inspirations
+## Inspirations
 
 This has been derived from other community driven projects. But in the end the changes to this process can be proposed to the team and this process is open to being updated.
 
