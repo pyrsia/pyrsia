@@ -4,6 +4,11 @@ on:
   push:
     branches: [ main ]
   pull_request:
+    paths: # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint-skipped.yml#L8
+      - .github/workflows/rust.yml
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - Cargo.lock
   release: 
     types: [published]
 
