@@ -12,7 +12,6 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # OS/X  Build Job 
   build-osx:
     runs-on: macos-latest
     steps:
@@ -23,7 +22,6 @@ jobs:
     steps:
       - run: echo "No build required"
 
-  # Coverage wipes the cache in order to instrument the code.  No need to wait for other jobs to run it.
   coverage:
     runs-on: ubuntu-latest
     steps:
