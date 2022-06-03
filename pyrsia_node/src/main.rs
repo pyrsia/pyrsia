@@ -47,7 +47,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = PyrsiaNodeArgs::parse();
 
     debug!("Create transparency log");
-    let transparancy_log = TransparencyLog::new();
+    let transparency_log = TransparencyLog::new();
 
     debug!("Create p2p components");
     let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm(args.max_provided_keys)?;
@@ -59,7 +59,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tokio::spawn(event_loop.run());
 
     debug!("Setup HTTP server");
-    setup_http(&args, transparancy_log, p2p_client.clone());
+    setup_http(&args, transparency_log, p2p_client.clone());
 
     debug!("Start p2p components");
     setup_p2p(p2p_client.clone(), args).await;
@@ -150,7 +150,7 @@ async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
     debug!("Provide local artifacts");
     if let Err(error) = handlers::provide_artifacts(p2p_client.clone()).await {
         warn!(
-            "An error occured while providing local artifacts. Error: {:?}",
+            "An error occurred while providing local artifacts. Error: {:?}",
             error
         );
     }
