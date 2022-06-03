@@ -120,9 +120,10 @@ following steps:
 
     ```sh
     $ ./pyrsia -s
-    Connected Peers Count:   0
-    Artifacts Count:         12 # reflects the number of artifacts that the pyrsia_node has stored on the network
-    Total Disk Available:    10.5 GB
+    Connected Peers Count:       1
+    Artifacts Count:             3 {"manifests": 1, "blobs": 2}
+    Total Disk Space Allocated:  5.84 GB
+    Disk Space Used:             0.0002%
     ```
 
 If you see a status message similar to:
@@ -158,9 +159,10 @@ Re-running the status command, there should be an connect peer.
 
 ```sh 
 $ ./pyrsia -s
-Connected Peers Count:   1 # Shows the additional node that joined the list of peers
-Artifacts Count:         12
-Total Disk Available:    10.5 GB
+Connected Peers Count:       1
+Artifacts Count:             3 {"manifests": 1, "blobs": 2}
+Total Disk Space Allocated:  5.84 GB
+Disk Space Used:             0.0002%
 ```
 
 In a real life deployment these nodes will be spread over the network and will all run on their own 7888 port.

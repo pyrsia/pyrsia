@@ -16,6 +16,7 @@
 */
 
 use crate::network::client::Client;
+use crate::transparency_log::log::TransparencyLog;
 
 use super::handlers::blobs::*;
 use super::handlers::manifests::*;
@@ -23,6 +24,7 @@ use std::collections::HashMap;
 use warp::Filter;
 
 pub fn make_docker_routes(
+    transparency_log: TransparencyLog,
     p2p_client: Client,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let empty_json = "{}";
@@ -41,10 +43,18 @@ pub fn make_docker_routes(
 
     let p2p_client_get_manifests = p2p_client.clone();
     let p2p_client_put_manifests = p2p_client.clone();
+    let transparency_log_get_manifests = transparency_log.clone();
 
     let v2_manifests = warp::path!("v2" / "library" / String / "manifests" / String)
         .and(warp::get().or(warp::head()).unify())
-        .and_then(move |name, tag| fetch_manifest(p2p_client_get_manifests.clone(), name, tag));
+        .and_then(move |name, tag| {
+            fetch_manifest(
+                transparency_log_get_manifests.clone(),
+                p2p_client_get_manifests.clone(),
+                name,
+                tag,
+            )
+        });
     let v2_manifests_put_docker = warp::path!("v2" / "library" / String / "manifests" / String)
         .and(warp::put())
         .and(warp::header::exact(
@@ -53,7 +63,13 @@ pub fn make_docker_routes(
         ))
         .and(warp::body::bytes())
         .and_then(move |name, reference, bytes| {
-            put_manifest(p2p_client_put_manifests.clone(), name, reference, bytes)
+            put_manifest(
+                transparency_log.clone(),
+                p2p_client_put_manifests.clone(),
+                name,
+                reference,
+                bytes,
+            )
         });
 
     let v2_blobs = warp::path!("v2" / "library" / String / "blobs" / String)

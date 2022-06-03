@@ -25,6 +25,7 @@ use anyhow::{Context, Result};
 use byte_unit::Byte;
 use lazy_static::lazy_static;
 use log::{debug, error, info};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::panic::UnwindSafe;
@@ -50,8 +51,12 @@ lazy_static! {
         if dev_mode.to_lowercase() == "on" {
             log_static_initialization_failure(
                 "Pyrsia Artifact directory",
-                fs::create_dir_all(&pyrsia_artifact_path)
-                    .with_context(|| "Failed to create artifact manager directory in dev mode"),
+                fs::create_dir_all(&pyrsia_artifact_path).with_context(|| {
+                    format!(
+                        "Failed to create artifact manager directory {:?} in dev mode",
+                        pyrsia_artifact_path
+                    )
+                }),
             );
         }
         pyrsia_artifact_path
@@ -141,6 +146,12 @@ pub fn put_artifact(
 pub fn get_arts_count() -> Result<usize, anyhow::Error> {
     ART_MGR
         .artifacts_count()
+        .context("Error while getting artifacts count")
+}
+
+pub fn get_arts_summary() -> Result<HashMap<String, usize>, anyhow::Error> {
+    ART_MGR
+        .artifacts_count_bydir()
         .context("Error while getting artifacts count")
 }
 

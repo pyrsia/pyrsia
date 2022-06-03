@@ -7,11 +7,11 @@
 
 One paragraph explanation of the feature or change.
 
-# Motivation
+## Motivation
 
 Why are we doing this? What use cases does it support? What is the expected outcome?
 
-# Guide-level explanation
+## Guide-level explanation
 
 Explain the proposal as if it was already included in the language and you were teaching it to another Pyrsia member. That generally means:
 
@@ -21,9 +21,9 @@ Explain the proposal as if it was already included in the language and you were 
 - If applicable, provide sample error messages, deprecation warnings, or migration guidance.
 - If applicable, describe the differences between teaching this to existing Pyrsia users and new Pyrsia users.
 
-For implementation-oriented RFCs (e.g. for peer-to-peer networking technology stack), this section should focus on how code contributors should think about the change, and give examples of its concrete impact.
+For implementation-oriented RFCs (e.g. for peer-to-peer networking technology stack), this section should focus on how compiler contributors should think about the change, and give examples of its concrete impact.
 
-# Reference-level explanation
+## Reference-level explanation
 
 This is the technical portion of the RFC. Explain the design in sufficient detail that:
 
@@ -33,17 +33,17 @@ This is the technical portion of the RFC. Explain the design in sufficient detai
 
 The section should return to the examples given in the previous section, and explain more fully how the detailed proposal makes those examples work.
 
-# Drawbacks
+## Drawbacks
 
 Why should we *not* do this? What are the trade-offs? What negative side effects or limitation could be a consequence?
 
-# Rationale and alternatives
+## Rationale and alternatives
 
 - Why is this design the best in the space of possible designs?
 - What other designs have been considered and what is the rationale for not choosing them?
 - What is the impact of not doing this?
 
-# Prior art
+## Prior art
 
 Discuss prior art, both the good and the bad, in relation to this proposal.
 A few examples of what this can include are:
@@ -55,13 +55,13 @@ A few examples of what this can include are:
 
 This is an excellent place to share research notes, articles or proof of concepts that can support or educate the reviewers.
 
-# Unresolved questions
+## Unresolved questions
 
 - What parts of the design do you expect to resolve through the RFC process before this gets merged?
 - What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
 - What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
 
-# Future possibilities (optional)
+## Future possibilities (optional)
 
 Think about what the natural extension and evolution of your proposal would
 be and how it would affect the project as a whole in a holistic

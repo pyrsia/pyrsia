@@ -33,7 +33,6 @@ Make certain you've done the following.
 - [ ] I've read ["What is a Good PR?"](https://github.com/pyrsia/pyrsia/blob/main/docs/good_pr.md)
 - [ ] I've included a good title and brief description along with how to review them.
 - [ ] I've linked any associated an [issue](https://github.com/pyrsia/pyrsia/issues).
-- [ ] I've requested a review  from `pyrsia/collaborators`.
 
 ### Code Contributions
 

@@ -21,9 +21,11 @@ pub mod docker;
 pub mod document_store;
 pub mod metadata_manager;
 pub mod network;
+pub mod network_central;
 pub mod node_api;
 pub mod node_manager;
 pub use node_manager::model; // Expose nested module at the crate level
 pub mod cli_commands;
 pub mod logging;
+pub mod transparency_log;
 pub mod util;

@@ -32,7 +32,7 @@ pub async fn dial_other_peer(mut p2p_client: Client, to_dial: &Multiaddr) {
 }
 
 /// Provide all known artifacts on the p2p network
-pub async fn provide_artifacts(mut p2p_client: Client) {
+pub async fn provide_artifacts(mut p2p_client: Client) -> anyhow::Result<()> {
     if let Ok(package_versions) = node_manager::handlers::METADATA_MGR.list_package_versions() {
         debug!(
             "Start providing {} package versions",
@@ -41,7 +41,7 @@ pub async fn provide_artifacts(mut p2p_client: Client) {
         for package_version in package_versions.iter() {
             p2p_client
                 .provide(ArtifactType::PackageVersion, package_version.into())
-                .await;
+                .await?;
         }
     }
 
@@ -50,35 +50,43 @@ pub async fn provide_artifacts(mut p2p_client: Client) {
         for artifact_hash in artifact_hashes.iter() {
             p2p_client
                 .provide(ArtifactType::Artifact, artifact_hash.into())
-                .await;
+                .await?;
         }
     }
+
+    Ok(())
 }
 
 /// Respond to a RequestArtifact event by getting the artifact
 /// based on the provided artifact type and hash.
 pub async fn handle_request_artifact(
     mut p2p_client: Client,
-    artifact_type: ArtifactType,
+    artifact_type: &ArtifactType,
     artifact_hash: &str,
     channel: ResponseChannel<ArtifactResponse>,
-) {
+) -> anyhow::Result<()> {
     debug!(
         "Handling request artifact: {:?}={:?}",
         artifact_type, artifact_hash
     );
     let content = match artifact_type {
-        ArtifactType::Artifact => get_artifact(artifact_hash),
-        ArtifactType::PackageVersion => get_package_version(artifact_hash),
+        ArtifactType::Artifact => get_artifact(artifact_hash)?,
+        ArtifactType::PackageVersion => get_package_version(artifact_hash)?,
     };
 
-    match content {
-        Ok(content) => p2p_client.respond_artifact(content, channel).await,
-        Err(error) => info!(
-            "This node does not provide artifact with type {} and hash {}. Error: {:?}",
-            artifact_type, artifact_hash, error
-        ),
-    }
+    p2p_client.respond_artifact(content, channel).await
+}
+
+//Respond to the IdleMetricRequest event
+pub async fn handle_request_idle_metric(
+    mut p2p_client: Client,
+    channel: ResponseChannel<IdleMetricResponse>,
+) -> anyhow::Result<()> {
+    let metric = node_manager::handlers::get_quality_metric();
+    let peer_metrics: PeerMetrics = PeerMetrics {
+        idle_metric: metric.to_le_bytes(),
+    };
+    p2p_client.respond_idle_metric(peer_metrics, channel).await
 }
 
 //Respond to the IdleMetricRequest event
@@ -109,7 +117,7 @@ fn get_artifact(artifact_hash: &str) -> anyhow::Result<Vec<u8>> {
 ///  * version
 ///
 /// This is an example of an identifier: `4658011310974e1bb5c46fd4df7e78b9/alpine/3.15.4`
-fn get_package_version(package_version_identifier: &str) -> Result<Vec<u8>, anyhow::Error> {
+fn get_package_version(package_version_identifier: &str) -> anyhow::Result<Vec<u8>> {
     let decoded_hash: Vec<&str> = package_version_identifier.split('/').collect();
     if let Some(package_version) = node_manager::handlers::METADATA_MGR.get_package_version(
         decoded_hash[0],
