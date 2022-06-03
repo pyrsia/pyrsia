@@ -122,6 +122,20 @@ impl Client {
         receiver.await?
     }
 
+    /// Instruct the swarm to start listening on the relay address.
+    pub async fn listen_relay(&mut self, addr: &Multiaddr) -> anyhow::Result<()> {
+        debug!("p2p::Client::listen {:?}", addr);
+
+        let (sender, receiver) = oneshot::channel();
+        self.sender
+            .send(Command::ListenRelay {
+                addr: addr.clone(),
+                sender,
+            })
+            .await?;
+        receiver.await?
+    }
+
     /// Dial a peer with the specified address.
     pub async fn dial(&mut self, peer_addr: &Multiaddr) -> anyhow::Result<()> {
         debug!("p2p::Client::dial {:?}", peer_addr);
