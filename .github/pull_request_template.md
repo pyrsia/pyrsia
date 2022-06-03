@@ -7,8 +7,6 @@ Before submitting your Pull Request, please go over our check list.
 
 ## Description
 
-Fixes pyrsia/pyrsia#
-
 <!--
 
 Try to fill in the following to help the reviewers dive into the pull request.
@@ -16,21 +14,18 @@ Explain the context and what changed.
 
 -->
 
+Fixes pyrsia/pyrsia#
+
 This PR does... by accomplishing... and it can be reviewed by... you can also test the changes by running...
 
 ## Screenshots (optional)
 
-
 ## PR Checklist
 
-<!--
-
-Make certain you've done the following.
-
--->
+<!-- Make certain you've done the following. -->
 
 - [ ] I've read the [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md).
-- [ ] I've read ["What is a Good PR?"](https://github.com/pyrsia/pyrsia/blob/main/docs/good_pr.md)
+- [ ] I've read ["What is a Good PR?"](https://github.com/pyrsia/pyrsia/blob/main/docs/get_involved/good_pr.md)
 - [ ] I've included a good title and brief description along with how to review them.
 - [ ] I've linked any associated an [issue](https://github.com/pyrsia/pyrsia/issues).
 
@@ -41,7 +36,7 @@ Make certain you've done the following.
 This section applies to code modifications, you may remove it otherwise.
 
 Make sure your Pull Request will pass the CI/CD pipeline.
-For a complete list of steps, check out the [developer workflow](https://github.com/pyrsia/pyrsia/blob/main/docs/dev_workflow.md)!
+For a complete list of steps, check out the [developer workflow](https://github.com/pyrsia/pyrsia/blob/main/docs/get_involved/dev_workflow.md)!
 
 -->
 

@@ -39,6 +39,8 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use warp::Filter;
 
+use crate::args::parser::RelayMode;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     pretty_env_logger::init();
@@ -142,14 +144,32 @@ fn setup_http(args: &PyrsiaNodeArgs, transparency_log: TransparencyLog, p2p_clie
 }
 
 async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
-    p2p_client
-        .listen(&args.listen_address)
-        .await
-        .expect("Listening should not fail");
+    match &args.mode {
+        RelayMode::Dial => {
+            if let Some(relay_address) = args.relay_address {
+                handlers::dial_other_peer(p2p_client.clone(), &relay_address).await;
+            }
+        }
+        RelayMode::Listen => {
+            if let Some(relay_address) = args.relay_address {
+                p2p_client
+                    .listen_relay(&relay_address)
+                    .await
+                    .expect("Listening should not fail");
+            }
+        }
+        RelayMode::None => {
+            p2p_client
+                .listen(&args.listen_address)
+                .await
+                .expect("Listening should not fail");
 
-    if let Some(to_dial) = args.peer {
-        handlers::dial_other_peer(p2p_client.clone(), &to_dial).await;
+            if let Some(to_dial) = args.peer {
+                handlers::dial_other_peer(p2p_client.clone(), &to_dial).await;
+            }
+        }
     }
+
     debug!("Provide local artifacts");
     if let Err(error) = handlers::provide_artifacts(p2p_client.clone()).await {
         warn!(

@@ -26,5 +26,9 @@ items for the road map or pick up on existing ones.
 
 Ready to start working? Then check out some of our guides
 
-- [Things to Know](things-to-know)
-- [Getting Started](/docs/get_involved/local_dev_setup)
+<!-- markdown-link-check-disable -->
+
+- [Things to Know](things-to-know/)
+- [Getting Started](local_dev_setup/)
+
+<!-- markdown-link-check-enable -->

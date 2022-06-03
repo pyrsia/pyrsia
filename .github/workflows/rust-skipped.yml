@@ -1,0 +1,28 @@
+name: Rust
+
+on:
+  pull_request:
+    paths-ignore: # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust.yml#L8
+      - .github/workflows/rust.yml
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - Cargo.lock
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-osx:
+    runs-on: macos-latest
+    steps:
+      - run: echo "No build required"
+
+  build-push-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No build required"
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No build required"

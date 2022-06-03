@@ -19,7 +19,7 @@ To get off the ground the focus is strictly on the peer-to-peer distribution of 
 ## Looking to Contribute?
 
 Take a moment to review our [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md).
-You can join our community on [Slack](https://openssf.slack.com/archives/C02RC7Y5EUV) or participate in a [meeting](https://pyrsia.io/events/) to pick up an issue. We also have our [Local Setup Guide](docs/local_dev_setup.md) to help.
+You can join our community on [Slack](https://openssf.slack.com/archives/C02RC7Y5EUV) or participate in a [meeting](https://pyrsia.io/docs/social/#calendar) to pick up an issue. We also have our [Local Setup Guide](https://pyrsia.io/docs/get_involved/local_dev_setup/) to help.
 
 ## Install Pyrsia and Joining the Network
 
@@ -29,7 +29,7 @@ There's a web script that will set everything up.
 curl -sS https://pyrsia.io/install.sh | sh
 ```
 
-For more options and information, checkout our [online tutorial](https://pyrsia.io/guides/userguide/installation-and-support/ubuntu-installation/)
+For more options and information, checkout our [online tutorial](https://pyrsia.io/docs/tutorials/quick-installation/)
 
 ### Downloading Your First Artifact
 
