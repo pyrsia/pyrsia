@@ -89,18 +89,6 @@ pub async fn handle_request_idle_metric(
     p2p_client.respond_idle_metric(peer_metrics, channel).await
 }
 
-//Respond to the IdleMetricRequest event
-pub async fn handle_request_idle_metric(
-    mut p2p_client: Client,
-    channel: ResponseChannel<IdleMetricResponse>,
-) {
-    let metric = node_manager::handlers::get_quality_metric();
-    let peer_metrics: PeerMetrics = PeerMetrics {
-        idle_metric: metric.to_le_bytes(),
-    };
-    p2p_client.respond_idle_metric(peer_metrics, channel).await;
-}
-
 /// Get the artifact with the provided hash from the artifact manager.
 fn get_artifact(artifact_hash: &str) -> anyhow::Result<Vec<u8>> {
     let decoded_hash = hex::decode(&artifact_hash.get(7..).unwrap()).unwrap();
