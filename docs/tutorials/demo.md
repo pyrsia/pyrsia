@@ -130,7 +130,7 @@ deactivate User
 
 ### Install Pyrsia
 
-Follow the instructions below or have a look at the latest [Pyrsia documentation](https://pyrsia.io/guides/userguide/installation-and-support/ubuntu-installation/).
+Follow the instructions below or have a look at the latest [Pyrsia documentation](https://pyrsia.io/docs/tutorials/quick-installation/).
 
 ```sh
 curl -sS https://pyrsia.io/install.sh | sh

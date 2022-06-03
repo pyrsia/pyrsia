@@ -20,8 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: gaurav-nelson/github-action-markdown-link-check@v1 # Basic .md files
+        with:
+          config-file: .github/mlc_config.json
       - uses: gaurav-nelson/github-action-markdown-link-check@v1 # Also check extended format
         with:
+          config-file: .github/mlc_config.json
           file-extension: .mdx
 
   inclusive-lint:
