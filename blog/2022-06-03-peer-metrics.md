@@ -1,4 +1,12 @@
-# Peer Metrics in the Pyrsia Network
+---
+title:  Peer Metrics in the Pyrsia Network
+authors:
+- name: Mark Seaborn
+  title: Pyrsia Contributor
+  image_url: https://github.com/mseabornIBM.png
+tags: [p2p, peer-metrics]
+---
+
 Since the advent of peer-to-peer networks in the 1970s, we have seen them applied in a variety of use cases on the internet. From the first usages in the Usenet network, to the infamous Napster network, astute developers have created peer networks to enable sharing of information and data without the use of central servers. Over the past few years, we have seen a new increase in the use of peer to peer networks and formalization of algorithms to implement these networks. The Pyrsia network is an example of a new application of peer to peer networks. Pyrsia is a open-source project that is designed to build trust that an open-source distribution is free of malicious code via a consensus algorithm, then share that distribution amongst the peers. An important goal of this project is to create a peer network that is reliable and "fast". To do this the team added a unique feature to the peer network protocol that helps one peer in the network choose the best peer to download software distributions.
 
 Herein I present the mechanism the Pyrsia team has created to help improve the selection process for downloading software distributions from peers. The idea is to improve upon the kademila peer selection process and make "smarter" choices from Pyrsia peers based on a "peer metric". The mechanism is layered atop the kademila peer selection process, which in Pyrisa returns a list of peers known to be in possession of an open-source distribution of interest. The peer metric is a real time assessment of the work-load of any given machine in the network, both related and unrelated to any current software transfers within the Pyrsia network. 
