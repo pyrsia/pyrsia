@@ -16,7 +16,6 @@
 
 use clap::Parser;
 use libp2p::Multiaddr;
-use std::str::FromStr;
 
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_LISTEN_ADDRESS: &str = "/ip4/0.0.0.0/tcp/0";
@@ -36,35 +35,10 @@ pub struct PyrsiaNodeArgs {
     /// the port to listen to for the Docker API
     #[clap(long, short, default_value = DEFAULT_PORT)]
     pub port: String,
-    /// The maximum number of keys that can be provided on the network by this Pyrsia Node.
-    #[clap(long, default_value = DEFAULT_MAX_PROVIDED_KEYS)]
-    pub max_provided_keys: usize,
     /// An address to connect with another Pyrsia Node (eg /ip4/127.0.0.1/tcp/45153/p2p/12D3KooWKsHbKbcVgyiRRgeXGCK4bp3MngnSU7ioeKTfQzd18B2v)
     #[clap(long, short = 'P')]
     pub peer: Option<Multiaddr>,
-    /// The mode (client-listen, client-dial) for dcutr or NoRelay
-    #[clap(long)]
-    pub mode: RelayMode,
-    /// The address of the relay server. (local address for `Listen` or remote address for `Dial`
-    #[clap(long)]
-    pub relay_address: Option<Multiaddr>,
-}
-
-#[derive(Debug, Parser, PartialEq)]
-pub enum RelayMode {
-    Dial,
-    Listen,
-    None,
-}
-
-impl FromStr for RelayMode {
-    type Err = String;
-    fn from_str(mode: &str) -> Result<Self, Self::Err> {
-        match mode {
-            "dial" => Ok(RelayMode::Dial),
-            "listen" => Ok(RelayMode::Listen),
-            "none" => Ok(RelayMode::None),
-            _ => Err("Expected either 'dial' or 'listen' or 'none'".to_string()),
-        }
-    }
+    /// The maximum number of keys that can be provided on the network by this Pyrsia Node.
+    #[clap(long, default_value = DEFAULT_MAX_PROVIDED_KEYS)]
+    pub max_provided_keys: usize,
 }
