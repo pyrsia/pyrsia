@@ -143,7 +143,7 @@ async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
     debug!("Provide local artifacts");
     if let Err(error) = handlers::provide_artifacts(p2p_client.clone()).await {
         warn!(
-            "An error occured while providing local artifacts. Error: {:?}",
+            "An error occurred while providing local artifacts. Error: {:?}",
             error
         );
     }
