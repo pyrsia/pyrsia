@@ -1,3 +1,5 @@
+# Welcome to Pyrsia
+
 ![logo](https://raw.githubusercontent.com/pyrsia/.github/main/images/logo-color.svg)
 
 > Decentralized Package Network
@@ -16,7 +18,7 @@ Check out our [Get Involved](https://pyrsia.io/docs/get_involved/) page for more
 
 To get off the ground the focus is strictly on the peer-to-peer distribution of Docker images backed by a blockchain of identifiers.
 
-## Looking to Contribute?
+## Looking to Contribute
 
 Take a moment to review our [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md).
 You can join our community on [Slack](https://openssf.slack.com/archives/C02RC7Y5EUV) or participate in a [meeting](https://pyrsia.io/docs/social/#calendar) to pick up an issue. We also have our [Local Setup Guide](https://pyrsia.io/docs/get_involved/local_dev_setup/) to help.
@@ -43,8 +45,8 @@ docker pull ubuntu
 
 There are two components of this project
 
--   **[CLI](pyrsia_cli/)**: A basic interface which communicates with a node.
--   **[Node](pyrsia_node/)**: An instance of the Pyrsia daemon which can participate in the network with other nodes.
+- **[CLI](pyrsia_cli/)**: A basic interface which communicates with a node.
+- **[Node](pyrsia_node/)**: An instance of the Pyrsia daemon which can participate in the network with other nodes.
 
 ### Connecting with other Nodes
 

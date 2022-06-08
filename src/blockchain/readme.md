@@ -13,6 +13,6 @@ This can be built from the project root since it's apart of the workspace.
 
 ### Running the example Node
 
-```
+```sh
 cargo build --examples
 ```

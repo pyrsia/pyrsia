@@ -3,11 +3,11 @@
 To contribute to the documentation (including blogs), you can follow the following guidelines for making documentation contributions.
 
 All documents relevant to the project are written in the Markdown format. You can see the documentation
-for the GitHub Flavor [here](https://github.github.com/gfm/) or you can use this 
+for the GitHub Flavor [here](https://github.github.com/gfm/) or you can use this
 [quick guide](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax).
 
 All the documentation is visible on GitHub and <https://pyrsia.io> website, so it's important to keep in mind
-there are some limitations and extra features that might be available. You might want to refer to the 
+there are some limitations and extra features that might be available. You might want to refer to the
 [website's standard features](https://docusaurus.io/docs/markdown-features#standard-features) if you are unsure.
 
 ## Structure Guidelines
@@ -22,7 +22,7 @@ All sub-folders should have a `readme.md` with a good title, as a level one head
 [front matter for position](https://docusaurus.io/docs/api/plugins/@docusaurus/plugin-content-docs#sidebar_position)
 the folder on the website. Make sure to pay attention to the other folder numbers.
 
-All documents should have a `.md` file extension. If you need more customization you can use `.mdx`, see 
+All documents should have a `.md` file extension. If you need more customization you can use `.mdx`, see
 [here](https://docusaurus.io/docs/markdown-features/react) for more information. All files need a level one heading to provide the
 page with a good title.
 
