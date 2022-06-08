@@ -3479,7 +3479,7 @@ dependencies = [
  "stringreader",
  "strum",
  "strum_macros",
- "sysinfo",
+ "sysinfo 0.24.2",
  "tempfile",
  "test-log",
  "thiserror",
@@ -4352,6 +4352,20 @@ dependencies = [
  "libc",
  "ntapi",
  "once_cell",
+ "winapi",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.24.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a2809487b962344ca55d9aea565f9ffbcb6929780802217acc82561f6746770"
+dependencies = [
+ "cfg-if 1.0.0",
+ "core-foundation-sys",
+ "libc",
+ "ntapi",
+ "once_cell",
  "rayon",
  "winapi",
 ]
@@ -4832,7 +4846,7 @@ dependencies = [
  "git2",
  "rustc_version",
  "rustversion",
- "sysinfo",
+ "sysinfo 0.23.13",
  "thiserror",
  "time",
 ]
