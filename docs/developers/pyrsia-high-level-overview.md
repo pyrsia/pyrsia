@@ -147,5 +147,3 @@ distributed across all peers.
 Interface: add_transaction(payload, callback_listener),
 add_block_listener(listener) \
 Pyrsia Dependencies: p2p
-
-

@@ -13,24 +13,27 @@ if you are looking to make code changes.
 ### Integrating and Building with Docker
 
 - Install [Docker](https://www.docker.com/get-started)
-    * macOS and Windows: Compose is included in Docker Desktop
-    * Linux: [Downloaded Compose](https://github.com/docker/compose#linux)
-    
+  - macOS and Windows: Compose is included in Docker Desktop
+  - Linux: [Downloaded Compose](https://github.com/docker/compose#linux)
+
 ### Installing System Dependencies
 
 - Install Clang and OpenSSL
-  * macOS: use [homebrew](https://brew.sh/) to install OpenSSL
+  - macOS: use [homebrew](https://brew.sh/) to install OpenSSL
+
     ```sh
     brew install openssl@1.1
     ```
-  * Linux (ubuntu): use `apt` to install Clang and OpenSSL
+
+  - Linux (ubuntu): use `apt` to install Clang and OpenSSL
+
     ```sh
     apt install clang libssl-dev
     ```
 
 ## Obtain the Source Code
 
-- Clone this repo 
+- Clone this repo
 
 ```sh
 git clone https://github.com/pyrsia/pyrsia.git
@@ -45,15 +48,15 @@ Follow these steps to run a Pyrsia node and use it as the registry for all Docke
    - Rust: `DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run`
    - Docker Compose: `docker-compose up --build`
 
-*Note*: Do not to stop this process, a running node is required for the 
-following steps:
+   *Note*: ⚠️ Do not to stop this process, a running node is required for the
+   following steps:
 
 3. **configure Docker** to use Pyrsia, which is running at `http://localhost:7888`,
     open your Docker daemon settings and add this entry in the root JSON object:
 
     **On Linux platforms**:
 
-    ```
+    ```json
       "registry-mirrors": ["http://localhost:7888"]
     ```
 
@@ -65,20 +68,22 @@ following steps:
 
     If you're running Pyrsia inside Docker, the `registry-mirrors` settings can be set to `http://localhost:7888` as well. However if you're not running inside Docker, you cannot use `localhost` because localhost will point to the Docker Desktop enviroment. Instead you have to use the hostname of your host machine. If you don't know/have that, you can add this to `/etc/hosts` (on Mac) or `c:\windows\system32\drivers\etc\hosts` (on Windows):
 
-    ```
+    ```text
     127.0.0.1       my-pyrsia-host
     ```
 
     And then use that name in the Docker configuration file like this:
-    ```
+
+    ```json
     "registry-mirrors": ["http://my-pyrsia-host:7888"]
     ```
 
-7. using another terminal, use `docker` to pull an image from Pyrsia:
+4. using another terminal, use `docker` to pull an image from Pyrsia:
 
-    ```
+    ```sh
     docker pull ubuntu
     ```
+
    (or pull any other Docker image of your choice)
 
     Optionally, you can inspect the Pyrsia node logs to check where the image came from. This can be either:
@@ -89,17 +94,17 @@ following steps:
 
 ## Using the CLI
 
-7. Build the CLI tool
+1. Build the CLI tool
 
-   ```
+   ```sh
    cd ../pyrsia_cli
    cargo build
    cd ../target/debug
    ```
 
-8. Configure the CLI tool for your node using interactive subcommand "config" 
+2. Configure the CLI tool for your node using interactive subcommand "config"
 
-   ```
+   ```sh
     ./pyrsia config --add
     ```
 
@@ -109,9 +114,7 @@ following steps:
    Linux: $HOME/.config/rs.pyrsia-cli/pyrsia-cli.toml or $XDG_CONFIG_HOME/rs.pyrsia-cli/pyrsia-cli.toml
    Windows: %APPDATA%\\Roaming\\pyrsia-cli\\config\\pyrsia-cli.toml
 
-    
-
-9. Ping the Pyrsia node and list the status
+3. Ping the Pyrsia node and list the status
 
     ```sh
     $ ./pyrsia ping
@@ -128,7 +131,7 @@ following steps:
 
 If you see a status message similar to:
 
-```
+```text
 Error: error sending request for url (http://localhost:7888/v2): error trying to connect: tcp connect error: Connection refused (os error 111)
 ```
 
@@ -138,10 +141,9 @@ then your node is likely not running. Go back to step 3 to make sure the Pyrsia 
 
 Multiple Pyrsia Nodes can be started on the same computer by changing the ports they use as follows
 
-
 - Node 1:
 
-   ```
+   ```sh
    DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 7888
 
    # RUST_LOG=debug DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 7888 # Use this environment variable if you would like to see debug logs
@@ -149,7 +151,7 @@ Multiple Pyrsia Nodes can be started on the same computer by changing the ports 
 
 - Node 2:
 
-   ```
+   ```sh
    DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 8181
 
    # RUST_LOG=debug DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 8181 # Use this environment variable if you would like to see debug logs
@@ -157,7 +159,7 @@ Multiple Pyrsia Nodes can be started on the same computer by changing the ports 
 
 Re-running the status command, there should be an connect peer.
 
-```sh 
+```sh
 $ ./pyrsia -s
 Connected Peers Count:       1
 Artifacts Count:             3 {"manifests": 1, "blobs": 2}
