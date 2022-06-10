@@ -16,7 +16,7 @@ cargo build --workspace
 This will create two copies of the same binary so that you can configure them
 as independent nodes. In `PYRSIA_HOME`,
 
- - Create Node A
+- Create Node A
 
   ```sh
   mkdir nodeA
@@ -167,7 +167,7 @@ Connected Peers:
 Now that you have setup both the Pyrsia Node and Pyrsia CLI you are ready to
 start using Pyrsia.
 
-# Using Pyrsia with Docker
+## Using Pyrsia with Docker
 
 Once you have setup the Pyrsia nodes and the CLI you are ready to start using
 Pyrsia with Docker.

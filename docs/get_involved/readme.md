@@ -8,7 +8,7 @@ Looking to participate on the Pyrsia project? We are excited to have you!
 
 ## Join us on Google Groups and Slack
 
-Read the community meeting notes, watch meeting recordings and join the Pyrsia Slack channel on OpenSSF Slack. This is 
+Read the community meeting notes, watch meeting recordings and join the Pyrsia Slack channel on OpenSSF Slack. This is
 the best way to get caught up and start a conversation with the team.
 
 - [Google Groups](https://groups.google.com/g/pyrsia)
@@ -16,7 +16,7 @@ the best way to get caught up and start a conversation with the team.
 
 ## Attend a Community Meeting
 
-There's are the best way to share you thoughts and give valuable input. Meet the rest of the community and suggest new 
+There's are the best way to share you thoughts and give valuable input. Meet the rest of the community and suggest new
 items for the road map or pick up on existing ones.
 
 - [General Community Meeting](https://www.google.com/calendar/event?eid=NnQ2YmVzMjY2cmNtNmprMW1hOWxnZXAxcWNfMjAyMjA1MDRUMTcwMDAwWiBweXJzaWFvcGVuc291cmNlQG0)
