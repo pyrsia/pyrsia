@@ -64,14 +64,6 @@ network.
 
 ![Pyrsia component diagram](pyrsia-network2.png)
 
-In order to participate in a distributed peer-to-peer network, nodes need to be
-reachable by other nodes. This can be a challenge when a node is run behind a NAT
-router. This is where another type of node comes into play: NAT traversal nodes.
-This last diagram shows the same network as before, but a couple of regular nodes
-now assist other regular nodes with NAT traversal. (There are multiple ways of NAT
-traversal. This diagram does not include that detail level.)
-
-![Pyrsia component diagram](pyrsia-network3.png)
 
 ## Pyrsia node architecture
 
@@ -160,6 +152,14 @@ will then invoke a build using a suitable pipeline.
 - As a Pyrsia node, I provide my locally stored artifacts in the Pyrsia network at boot.
 
 - As a user behind a NAT router, my node can participate in het Pyrsia network
+
+  In order to participate in a distributed peer-to-peer network, nodes need to be
+  reachable by other nodes. This can be a challenge when a node is run behind a NAT
+  router. There are multiple ways of NAT traversal like TCP hole punching that Pyrsia
+  will try to accomplish. However, Pyrsia nodes will not relay traffic if none of
+  the other traversal methods worked. In that case, the Pyrsia node can simply
+  download artifacts from one or more of the authorized nodes, which will by definition
+  always contain all the data.
 
 - As a user I can use the Pyrsia CLI to show the transparency log.
 
