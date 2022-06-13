@@ -41,20 +41,20 @@ We will refer to them as:
 This demo consists of several steps: (scroll down for instructions)
 
 1. [Installation and configuration](#install-and-configure-pyrsia)
-    - Install and configure Pyrsia on `node1`
-    - Install and configure Pyrsia on `node2`, make it connect to `node1`
+   - Install and configure Pyrsia on `node1`
+   - Install and configure Pyrsia on `node2`, make it connect to `node1`
 2. [Docker pull on `node1`](#use-pyrsia)
-    - image is not available in the Pyrsia network
-    - image is requested from Docker Hub and stored locally, so it becomes
+   - image is not available in the Pyrsia network
+   - image is requested from Docker Hub and stored locally, so it becomes
       available in the Pyrsia network
 3. [Use the Pyrsia CLI to check `node1` status](#use-the-cli-to-check-the-node-status)
 4. [Docker pull on `node2`](#use-pyrsia)
-    - The same Docker image is pulled on `node2`
-    - `node2` requests the image from the Pyrsia network, in this specific case: `node1`.
+   - The same Docker image is pulled on `node2`
+   - `node2` requests the image from the Pyrsia network, in this specific case: `node1`.
 5. [Use the Pyrsia CLI to check `node2` status](#use-the-cli-to-check-the-node-status)
 6. [Docker pull on `node2`](#use-pyrsia)
-    - The same Docker image is pulled again on `node2`
-    - `node2` doesn't have to download the image again
+   - The same Docker image is pulled again on `node2`
+   - `node2` doesn't have to download the image again
 
 These are the steps in more detail:
 

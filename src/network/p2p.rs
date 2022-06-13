@@ -24,7 +24,6 @@ use crate::util::keypair_util;
 use futures::channel::mpsc;
 use futures::prelude::*;
 use libp2p::core;
-use libp2p::dcutr;
 use libp2p::dns;
 use libp2p::identify;
 use libp2p::identity;
@@ -32,7 +31,6 @@ use libp2p::kad;
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
 use libp2p::mplex;
 use libp2p::noise;
-use libp2p::relay::v2::client::Client as RelayClient;
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
 use libp2p::swarm::{Swarm, SwarmBuilder};
 use libp2p::tcp;
@@ -157,7 +155,6 @@ fn create_swarm(
     let identify_config =
         identify::IdentifyConfig::new(String::from("ipfs/1.0.0"), keypair.public());
 
-    let (_relay_transport, client) = RelayClient::new_transport_and_behaviour(peer_id);
     let memory_store_config = MemoryStoreConfig {
         max_provided_keys,
         ..Default::default()
@@ -167,7 +164,6 @@ fn create_swarm(
         SwarmBuilder::new(
             create_transport(keypair)?,
             PyrsiaNetworkBehaviour {
-                relay_client: client,
                 identify: identify::Identify::new(identify_config),
                 kademlia: kad::Kademlia::new(
                     peer_id,
@@ -178,7 +174,6 @@ fn create_swarm(
                     iter::once((ArtifactExchangeProtocol(), ProtocolSupport::Full)),
                     Default::default(),
                 ),
-                dcutr: dcutr::behaviour::Behaviour::new(),
                 idle_metric_request_response: RequestResponse::new(
                     IdleMetricExchangeCodec(),
                     iter::once((IdleMetricExchangeProtocol(), ProtocolSupport::Full)),

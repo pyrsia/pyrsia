@@ -30,7 +30,7 @@ cargo build --all-targets --release
 
 > ⚠️ _Make sure to follow the install instructions [here](#install-linters) on your first time_
 
-We have dedicated ourselves to the community and following the standard practices such as https://github.com/rust-dev-tools/fmt-rfcs.
+We have dedicated ourselves to the community and following the standard practices such as <https://github.com/rust-dev-tools/fmt-rfcs.>
 
 ❗ We are strict about letting warnings into our code base. This is partially enforced by our Action jobs.
 
@@ -41,8 +41,8 @@ cargo clippy
 
 ### Install Linters
 
-- Rustfmt: https://github.com/rust-lang/rustfmt#quick-start
-- Clippy: https://github.com/rust-lang/rust-clippy#step-2-install-clippy
+- Rustfmt: <https://github.com/rust-lang/rustfmt#quick-start>
+- Clippy: <https://github.com/rust-lang/rust-clippy#step-2-install-clippy>
 
 ## Security Audit
 
@@ -58,7 +58,7 @@ cargo audit
 
 ### Install Audit
 
-- RustSec's Audit: https://github.com/rustsec/rustsec/tree/main/cargo-audit#installation
+- RustSec's Audit: <https://github.com/rustsec/rustsec/tree/main/cargo-audit#installation>
 
 ## End-to-End testing
 

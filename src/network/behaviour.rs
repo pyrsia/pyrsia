@@ -19,11 +19,9 @@ use crate::network::idle_metric_protocol::{
     IdleMetricExchangeCodec, IdleMetricRequest, IdleMetricResponse,
 };
 
-use libp2p::dcutr;
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::kad::{Kademlia, KademliaEvent};
-use libp2p::relay::v2::client::{self, Client};
 use libp2p::request_response::{RequestResponse, RequestResponseEvent};
 use libp2p::NetworkBehaviour;
 
@@ -34,8 +32,6 @@ use libp2p::NetworkBehaviour;
 /// * [`Identify`]
 /// * [`Kademlia`]
 /// * [`RequestResponse`] for exchanging artifacts
-/// * [`relay_client`]
-/// * [`dcutr`] for direct connecrion upgrade through relay (hole punching)
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "PyrsiaNetworkEvent")]
 pub struct PyrsiaNetworkBehaviour {
@@ -43,8 +39,6 @@ pub struct PyrsiaNetworkBehaviour {
     pub kademlia: Kademlia<MemoryStore>,
     pub request_response: RequestResponse<ArtifactExchangeCodec>,
     pub idle_metric_request_response: RequestResponse<IdleMetricExchangeCodec>,
-    pub relay_client: Client,
-    pub dcutr: dcutr::behaviour::Behaviour,
 }
 
 /// Each event in the `PyrsiaNetworkBehaviour` is wrapped in a
@@ -55,8 +49,6 @@ pub enum PyrsiaNetworkEvent {
     Kademlia(KademliaEvent),
     RequestResponse(RequestResponseEvent<ArtifactRequest, ArtifactResponse>),
     IdleMetricRequestResponse(RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>),
-    Relay(client::Event),
-    Dcutr(dcutr::behaviour::Event),
 }
 
 impl From<IdentifyEvent> for PyrsiaNetworkEvent {
@@ -80,17 +72,5 @@ impl From<RequestResponseEvent<ArtifactRequest, ArtifactResponse>> for PyrsiaNet
 impl From<RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>> for PyrsiaNetworkEvent {
     fn from(event: RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>) -> Self {
         PyrsiaNetworkEvent::IdleMetricRequestResponse(event)
-    }
-}
-
-impl From<client::Event> for PyrsiaNetworkEvent {
-    fn from(e: client::Event) -> Self {
-        PyrsiaNetworkEvent::Relay(e)
-    }
-}
-
-impl From<dcutr::behaviour::Event> for PyrsiaNetworkEvent {
-    fn from(e: dcutr::behaviour::Event) -> Self {
-        PyrsiaNetworkEvent::Dcutr(e)
     }
 }
