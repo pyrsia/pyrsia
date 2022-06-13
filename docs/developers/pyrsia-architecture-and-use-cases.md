@@ -28,10 +28,8 @@
 - As a user I can use the Pyrsia CLI to show the transparency log. (including search
   on author/dependencies/...)
 - New authorized nodes can be added to the Pyrsia network.
-- As an authorized node admin I can request the addition of an official Docker Hub
-  image to the Pyrsia network.
-- As a user I can request a build from source of a specific artifact, so it is added
-  to the Pyrsia network.
+- As a user I can request a build from source (or retrieval from an trusted build
+  source) of a specific artifact, so it is added to the Pyrsia network.
 
 
 ## Pyrsia network overview
@@ -129,15 +127,22 @@ will then invoke a build using a suitable pipeline.
 
 ## Technical stories and details
 
-- As a user I can use Docker client to pull an official Docker image from the Pyrsia network.
+- As a user I can use Docker client to pull an official Docker image from the Pyrsia
+  network.
 
-  - a Pyrsia node handles incoming requests from a Docker client
+  - a Pyrsia node handles incoming requests from a Docker client **[DOCKER_REGISTRY]**
+
+    This is the implementation of the Docker Registry API so a Docker client can
+    seamlessly integrate with the Pyrsia node.
 
 - As a user I can use a Java build tool like Maven to download Maven artifacts from the Pyrsia network.
 
-  - a Pyrsia node handles incoming requests from a maven client
+  - a Pyrsia node handles incoming requests from a maven client **[JAVA_REPOSITORY]**
 
-- When an artifact is requested, the node verifies the existence in the Pyrsia network, and downloads it if necessary.
+    This is the implementation of the Maven Repository API so several Java build
+    tools can seamlessly integrate with the Pyrsia node.
+
+- When an artifact is requested, the node verifies the existence in the Pyrsia network, and downloads it if necessary. **[ARTIFACT_SERVICE]**
 
   When an artifact is requested, the Artifact Service  will query the transparency
   log component. If the artifact exists (so if a log exists) the transparency log
@@ -145,13 +150,13 @@ will then invoke a build using a suitable pipeline.
   The artifact service will then lookup this file in its local storage, or download
   it from the p2p network.
 
-- Any Pyrsia node that downloaded an artifact provides that artifact on the network for other nodes to download.
+- Any Pyrsia node that downloaded an artifact provides that artifact on the network for other nodes to download. **[ARTIFACT_SERVICE]**
 
-- As a user I can configure my Pyrsia node to limit the network bandwidth usage or even disable downloads from other nodes.
+- As a user I can configure my Pyrsia node to limit the network bandwidth usage or even disable downloads from other nodes. **[ARTIFACT_SERVICE]**
 
-- As a Pyrsia node, I provide my locally stored artifacts in the Pyrsia network at boot.
+- As a Pyrsia node, I provide my locally stored artifacts in the Pyrsia network at boot. **[ARTIFACT_SERVICE]**
 
-- As a user behind a NAT router, my node can participate in het Pyrsia network
+- As a user behind a NAT router, my node can participate in het Pyrsia network **[P2P]**
 
   In order to participate in a distributed peer-to-peer network, nodes need to be
   reachable by other nodes. This can be a challenge when a node is run behind a NAT
@@ -161,43 +166,49 @@ will then invoke a build using a suitable pipeline.
   download artifacts from one or more of the authorized nodes, which will by definition
   always contain all the data.
 
-- As a user I can use the Pyrsia CLI to show the transparency log.
+- As a user I can use the Pyrsia CLI to show the transparency log. **[CLI]**
 
   including search on author/dependencies/...
 
-- New authorized nodes can be added to the Pyrsia network.
+- New authorized nodes can be added to the Pyrsia network. **[CLI]** **[BLOCKCHAIN]**
 
-  - As an authorized node admin I can add a candidate authorized node
+  - As an authorized node admin I can add a candidate authorized node **[CLI]**
 
-  - The authorized node adds the 'AddNode transaction in the blockchain and waits for consensus
+  - The authorized node adds the 'AddNode transaction in the blockchain and waits for consensus **[BLOCKCHAIN]**
 
-  - Authorized nodes consent to 'AddNode' transactions if the respective node was previously marked as authorized
+  - Authorized nodes consent to 'AddNode' transactions if the respective node was previously marked as authorized **[BLOCKCHAIN]**
 
-- As an authorized node admin I can request the addition of an official Docker Hub image to the Pyrsia network.
+- As a user I can request the addition of an official Docker Hub image to the Pyrsia network. **[CLI]** **[ARTIFACT_MANAGER]**
 
     - The Pyrsia node accepts "Docker image add requests" and as a result starts build pipeline and adds a Transaction request.
 
-- As a user I can request a build from source of a specific artifact, so it is added to the Pyrsia network
+- As a user I can request a build from source of a specific artifact, so it is added to the Pyrsia network **[CLI]** **[ARTIFACT_MANAGER]**
 
     - The Pyrsia node accepts " Build from source requests" and as a result starts build pipeline and adds a Transaction request.
 
-- When a Transaction request is received all authorized nodes participate in the consensus mechanism
+- When a Transaction request is received all authorized nodes participate in the consensus mechanism **[BLOCKCHAIN]** **[BUILD_SERVICE]**
 
-  Other authorized nodes validate transactions by downloading the artifact from Docker Hub and checking the calculated hash with the hash in the transaction
+  Other authorized nodes validate transactions by starting a build using the Build Service
+  and verifying the result. In its simplest form, this check is comparing the hash
+  of the build artifact with the hash in the transaction.
+  More complicated verification will also be necessary for not fully-reproducible
+  builds.
 
-- When consensus is reached, the transaction is committed to the blockchain.
+- TODO Story about semantic verification for non-reproducible builds **[BUILD_SERVICE]**
+
+- When consensus is reached, the transaction is committed to the blockchain. **[BLOCKCHAIN]**
 
   All nodes must receive new transactions. The authorized nodes store the artifact locally and provide it in the p2p network.
 
-- On any Pyrsia node, when a new transaction is received, it is added to the transparency log so it can be used in verification scenarios
+- On any Pyrsia node, when a new transaction is received, it is added to the transparency log so it can be used in verification scenarios **[TRANSPARENCY_LOG]**
 
-- As a Pyrsia node, I make sure the transparency log is up-to-date when I boot.
+- As a Pyrsia node, I make sure the transparency log is up-to-date when I boot. **[TRANSPARENCY_LOG]**
 
-- As a Pyrsia node, I make sure the transparency log is kept up-to-date while running.
+- As a Pyrsia node, I make sure the transparency log is kept up-to-date while running. **[TRANSPARENCY_LOG]**
 
-- As a Pyrsia node, I can download an artifact from multiple other nodes simultaneously.
+- As a Pyrsia node, I can download an artifact from multiple other nodes simultaneously. **[P2P]**
 
-- As a user I can measure the download via Pyrsia is faster than from a central repository. (benchmark)
+- As a user I can measure the download via Pyrsia is faster than from a central repository. (benchmark) **[P2P]**
 
-- As a user I can use Docker Desktop to install Pyrsia (Docker Desktop Pyrsia)
+- As a user I can use Docker Desktop to install Pyrsia (Docker Desktop Pyrsia) **[INSTALLATION]**
 
