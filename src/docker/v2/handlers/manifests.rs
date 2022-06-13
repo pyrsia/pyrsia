@@ -76,7 +76,7 @@ pub async fn fetch_manifest(
                         })?;
                 }
                 None => {
-                    //TODO: neeed mechanism in metadata to delete the invalid metadata
+                    //TODO: need mechanism in metadata to delete the invalid metadata
                     error!("Bad metadata in local pyrsia, getting manifest from pyrsia network.");
                     debug!("Step 1: NO, manifest for {} with tag {} does not exist in the metadata manager.", name, tag);
 

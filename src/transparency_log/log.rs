@@ -29,17 +29,29 @@ enum TransparencyLogError {
     DuplicateId { id: String },
 }
 
-#[derive(Debug, strum_macros::Display, Deserialize, Serialize)]
+#[derive(Debug, strum_macros::Display, Deserialize, Serialize, Clone)]
 enum Operation {
     AddArtifact,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct Payload {
     id: String,
     hash: String,
     timestamp: u64,
     operation: Operation,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SignatureEnvelope {
+    /// The data that is integrity protected
+    payload: Payload,
+    /// The time at which the signature was generated. This is a part of signed attributes
+    signing_timestamp: u64,
+    /// The digital signatres computed on payload and signed attributes
+    signature: Vec<u8>,
+    /// the public key of the signer
+    sign_identifier: [u8; 32], //this is identity::ed25519::PublicKey(a byte array in compressed form
 }
 
 #[derive(Clone)]
