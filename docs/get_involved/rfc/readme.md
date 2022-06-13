@@ -6,7 +6,7 @@ normal GitHub pull request workflow.
 Some changes though are "substantial", and we ask that these be put through a bit of a design process and produce
 a consensus among the Pyrsia community. See [when to follow this process](#when-you-need-to-follow-this-process) below.
 
-#### Summary
+## Summary
 
 The process can be broken down as follows:
 
@@ -17,7 +17,7 @@ The process can be broken down as follows:
 
 Lastly, [Proposal resolution](#proposal-resolution) may take several different forms.
 
-## Why are RFCs needed?
+## Why are RFCs needed
 
 An RFCs is a design document providing information to the Pyrsia community. The RFC should provide a concise technical specification of
 the feature and a rationale for the feature. Strong RFCs included detailed research on the idea and may be accompanied by a proof of concept
