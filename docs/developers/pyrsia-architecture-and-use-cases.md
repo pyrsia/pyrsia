@@ -146,6 +146,7 @@ will then invoke a build using a suitable pipeline.
   - a Pyrsia node handles incoming requests from a maven client
 
 - When an artifact is requested, the node verifies the existence in the Pyrsia network, and downloads it if necessary.
+
   When an artifact is requested, the Artifact Service  will query the transparency
   log component. If the artifact exists (so if a log exists) the transparency log
   will contain a reference to the required p2p file.
@@ -161,6 +162,7 @@ will then invoke a build using a suitable pipeline.
 - As a user behind a NAT router, my node can participate in het Pyrsia network
 
 - As a user I can use the Pyrsia CLI to show the transparency log.
+
   including search on author/dependencies/...
 
 - New authorized nodes can be added to the Pyrsia network.
@@ -180,9 +182,11 @@ will then invoke a build using a suitable pipeline.
     - The Pyrsia node accepts " Build from source requests" and as a result starts build pipeline and adds a Transaction request.
 
 - When a Transaction request is received all authorized nodes participate in the consensus mechanism
+
   Other authorized nodes validate transactions by downloading the artifact from Docker Hub and checking the calculated hash with the hash in the transaction
 
 - When consensus is reached, the transaction is committed to the blockchain.
+
   All nodes must receive new transactions. The authorized nodes store the artifact locally and provide it in the p2p network.
 
 - On any Pyrsia node, when a new transaction is received, it is added to the transparency log so it can be used in verification scenarios
@@ -193,7 +197,7 @@ will then invoke a build using a suitable pipeline.
 
 - As a Pyrsia node, I can download an artifact from multiple other nodes simultaneously.
 
-- As a user I can measure the download via Pyrsia is faster than from a central repository. (TODO Benchmark)
+- As a user I can measure the download via Pyrsia is faster than from a central repository. (benchmark)
 
 - As a user I can use Docker Desktop to install Pyrsia (Docker Desktop Pyrsia)
 
