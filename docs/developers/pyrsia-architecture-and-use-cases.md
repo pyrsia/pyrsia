@@ -19,7 +19,6 @@
   not necessarily coincide with package specific artifacts.
 - Authorized node admin: the person who can administer an authorized node
 
-
 ## High level user stories
 
 - As a user I can use Docker client to pull an official Docker image from the Pyrsia
@@ -31,7 +30,6 @@
 - New authorized nodes can be added to the Pyrsia network.
 - As a user I can request a build from source (or retrieval from an trusted build
   source) of a specific artifact, so it is added to the Pyrsia network.
-
 
 ## Pyrsia network overview
 
@@ -62,7 +60,6 @@ and transparency logs and they play a crucial role in the performance of the Pyr
 network.
 
 ![Pyrsia component diagram](pyrsia-network2.png)
-
 
 ## Pyrsia node architecture
 
@@ -122,19 +119,17 @@ using a fault-tolerant consensus algorithm, because:
 - A small number of faulty (authorized) nodes must not be able to slow down the
   system or make it stop working
 
-
 ### Build service
 
 The build service is a component only used by authorized nodes. It is the entry
 point to the authorized node's build pipeline infrastructure and takes a Transaction
 as input, including:
+
 - the package type
 - the source repo url
 
 Based on the package type and the build spec of the artifact, the build service
 will then invoke a build using a suitable pipeline.
-
-
 
 ## Technical stories and details
 
@@ -201,14 +196,14 @@ will then invoke a build using a suitable pipeline.
 - As a user I can request the addition of an official Docker Hub image to the
   Pyrsia network. **[CLI]** **[ARTIFACT_MANAGER]**
 
-    - The Pyrsia node accepts "Docker image add requests" and as a result starts
-      build pipeline and adds a Transaction request.
+  - The Pyrsia node accepts "Docker image add requests" and as a result starts
+    build pipeline and adds a Transaction request.
 
 - As a user I can request a build from source of a specific artifact, so it is
   added to the Pyrsia network **[CLI]** **[ARTIFACT_MANAGER]**
 
-    - The Pyrsia node accepts " Build from source requests" and as a result
-      starts build pipeline and adds a Transaction request.
+  - The Pyrsia node accepts " Build from source requests" and as a result
+    starts build pipeline and adds a Transaction request.
 
 - When a Transaction request is received all authorized nodes participate in the
   consensus mechanism **[BLOCKCHAIN]**
@@ -216,12 +211,12 @@ will then invoke a build using a suitable pipeline.
   Other authorized nodes validate transactions based on the transaction's operation
   type. Examples of transaction operations:
 
-    - `AddNode`: to add a new authorized node. see 'AddNode transaction requests
-       are handled'
-    - `RemoveNode`: to add a new authorized node. see 'RemoveNode transaction
-       requests are handled'
-    - `AddArtifact`: to add a new artifact. see 'AddArtifact transaction
-       requests are handled'
+  - `AddNode`: to add a new authorized node. see 'AddNode transaction requests
+     are handled'
+  - `RemoveNode`: to add a new authorized node. see 'RemoveNode transaction
+     requests are handled'
+  - `AddArtifact`: to add a new artifact. see 'AddArtifact transaction
+     requests are handled'
 
 - AddNode transaction requests are handled **[BLOCKCHAIN]**
   an `AddNode` transaction requests follows this procedure:
@@ -231,8 +226,8 @@ will then invoke a build using a suitable pipeline.
 
 - RemoveNode transaction requests are handled **[BLOCKCHAIN]**
 
-    - was the node previously marked as an authorized node candidate for removal?
-    - if yes, the authorized node answers positively in the consensus algorithm
+  - was the node previously marked as an authorized node candidate for removal?
+  - if yes, the authorized node answers positively in the consensus algorithm
 
 - AddArtifact transaction requests are handled **[BLOCKCHAIN]**
   The AddArtifact transaction request triggers a build verification using the
