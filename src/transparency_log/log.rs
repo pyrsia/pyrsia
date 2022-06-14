@@ -70,6 +70,10 @@ impl TransparencyLog {
 
         Ok(())
     }
+
+    pub fn get_artifact(&mut self, namespace_specific_id: &str) -> anyhow::Result<Option<&String>> {
+        Ok(self.payloads.get(namespace_specific_id))
+    }
 }
 
 fn write_payload(payload: &Payload) -> anyhow::Result<String> {

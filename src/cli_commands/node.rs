@@ -15,7 +15,7 @@
 */
 
 use super::config::get_config;
-use crate::model::cli::Status;
+use crate::node_api::model::cli::Status;
 
 pub async fn ping() -> Result<String, reqwest::Error> {
     //TODO: implement ping api in Node
