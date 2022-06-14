@@ -4,8 +4,8 @@ This will be a collection of terms and their meanings that have been widely used
 
 ## Terms
 
-- Block: A collection of crypographically verifiable transactions, that have all been agreed upon by
-    the blockchain network
+- Block: A collection of cryptographically verifiable transactions and a header providing provenance
+  - Finalized Block: Blocks which have been agreed upon by the Network
 - Node: a computer participating in the blockchain
 - Authoritative node: A node possessing and signing transactions using a trusted key - where
     "trusted key" is defined as being a key that is stored on the block chain and authorised.
