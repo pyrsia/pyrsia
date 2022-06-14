@@ -109,8 +109,18 @@ transaction information for easy access.
 
 ### Blockchain
 
-This component offers an interface to store and retrieve immutable logs,
-and distribute them across all peers.
+This component offers an interface to store and retrieve immutable transaction
+logs, and distribute them across all peers.
+
+Before transactions can be added to the blockchain, consensus needs to be reached
+using a fault-tolerant consensus algorithm, because:
+
+- A majority of (authorized) nodes must be able to agree to the same result
+- A small number of faulty (authorized) nodes must not be able to influence the
+  result
+- A small number of faulty (authorized) nodes must not be able to slow down the
+  system or make it stop working
+
 
 ### Build service
 
@@ -170,13 +180,14 @@ will then invoke a build using a suitable pipeline.
 
   including search on author/dependencies/...
 
-- New authorized nodes can be added to the Pyrsia network. **[CLI]** **[BLOCKCHAIN]**
+- New authorized nodes can be added to the Pyrsia network. **[CLI]** **[TRANSPARENCY_LOG]** **[BLOCKCHAIN]**
 
-  - As an authorized node admin I can add a candidate authorized node **[CLI]**
+  - As an authorized node admin I can add a candidate authorized node
 
-  - The authorized node adds the 'AddNode transaction in the blockchain and waits for consensus **[BLOCKCHAIN]**
-
-  - Authorized nodes consent to 'AddNode' transactions if the respective node was previously marked as authorized **[BLOCKCHAIN]**
+    The authorized marks the new node id as an authorized node 'candidate' and
+    creates an `AddNode` transaction request and waits for consensus.
+    Consensus might not be reached yet, but the authorized node keeps the candidate
+    so a future transaction request from another authorized node might reach consensus.
 
 - As a user I can request the addition of an official Docker Hub image to the Pyrsia network. **[CLI]** **[ARTIFACT_MANAGER]**
 
@@ -186,29 +197,61 @@ will then invoke a build using a suitable pipeline.
 
     - The Pyrsia node accepts " Build from source requests" and as a result starts build pipeline and adds a Transaction request.
 
-- When a Transaction request is received all authorized nodes participate in the consensus mechanism **[BLOCKCHAIN]** **[BUILD_SERVICE]**
+- When a Transaction request is received all authorized nodes participate in the consensus mechanism **[BLOCKCHAIN]**
 
-  Other authorized nodes validate transactions by starting a build using the Build Service
-  and verifying the result. In its simplest form, this check is comparing the hash
-  of the build artifact with the hash in the transaction.
-  More complicated verification will also be necessary for not fully-reproducible
-  builds.
+  Other authorized nodes validate transactions based on the transaction's operation
+  type. Examples of transaction operations:
 
-- TODO Story about semantic verification for non-reproducible builds **[BUILD_SERVICE]**
+    - `AddNode`: to add a new authorized node. see 'AddNode transaction requests are handled'
+    - `RemoveNode`: to add a new authorized node. see 'RemoveNode transaction requests are handled'
+    - `AddArtifact`: to add a new artifact. see 'AddArtifact transaction requests are handled'
+
+  As a result, all nodes must receive new transactions. The authorized nodes store
+  the artifact locally and provide it in the p2p network.
+
+- AddNode transaction requests are handled **[BLOCKCHAIN]**
+  an `AddNode` transaction requests follows this procedure:
+
+  - was the node previously marked as an authorized node candidate?
+  - if yes, the authorized node answers positively in the consensus algorithm
+
+- RemoveNode transaction requests are handled **[BLOCKCHAIN]**
+
+    - was the node previously marked as an authorized node candidate for removal?
+    - if yes, the authorized node answers positively in the consensus algorithm
+
+- AddArtifact transaction requests are handled **[BLOCKCHAIN]**
+  The AddArtifact transaction request triggers a build verification using the
+  Build Service. The response of the Build Service defines the authorized
+  node's answer in the consensus algorithm.
 
 - When consensus is reached, the transaction is committed to the blockchain. **[BLOCKCHAIN]**
 
-  All nodes must receive new transactions. The authorized nodes store the artifact locally and provide it in the p2p network.
+- When a build is started, the Build Service finds a corresponding build pipeline
+  suitable to run the build. **[BUILD_SERVICE]**
 
-- On any Pyrsia node, when a new transaction is received, it is added to the transparency log so it can be used in verification scenarios **[TRANSPARENCY_LOG]**
+- When a build result is returned from a pipeline, the build service verifies
+  the generated build (part 1: for reproducible builds) **[BUILD_SERVICE]**
 
-- As a Pyrsia node, I make sure the transparency log is up-to-date when I boot. **[TRANSPARENCY_LOG]**
+- When a build result is returned from a pipeline, the build service verifies
+  the generated build by doing a semantic analysis (part 2: for non-reproducible
+  builds) **[BUILD_SERVICE]**
 
-- As a Pyrsia node, I make sure the transparency log is kept up-to-date while running. **[TRANSPARENCY_LOG]**
+- On any Pyrsia node, when a new transaction is received, it is added to the
+  transparency log so it can be used in verification scenarios **[TRANSPARENCY_LOG]**
 
-- As a Pyrsia node, I can download an artifact from multiple other nodes simultaneously. **[P2P]**
+- As a Pyrsia node, I make sure the transparency log is up-to-date when I
+  boot. **[TRANSPARENCY_LOG]**
 
-- As a user I can measure the download via Pyrsia is faster than from a central repository. (benchmark) **[P2P]**
+- As a Pyrsia node, I make sure the transparency log is kept up-to-date while
+  running. **[TRANSPARENCY_LOG]**
 
-- As a user I can use Docker Desktop to install Pyrsia (Docker Desktop Pyrsia) **[INSTALLATION]**
+- As a Pyrsia node, I can download an artifact from multiple other nodes
+  simultaneously. **[P2P]**
+
+- As a user I can measure the download via Pyrsia is faster than from a central
+  repository. (benchmark) **[P2P]**
+
+- As a user I can use Docker Desktop to install Pyrsia (Docker Desktop Pyrsia)
+  **[INSTALLATION]**
 
