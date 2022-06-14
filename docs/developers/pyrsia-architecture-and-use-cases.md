@@ -184,7 +184,7 @@ will then invoke a build using a suitable pipeline.
 
   - As an authorized node admin I can add a candidate authorized node
 
-    The authorized marks the new node id as an authorized node 'candidate' and
+    The authorized node marks the new node id as an authorized node 'candidate' and
     creates an `AddNode` transaction request and waits for consensus.
     Consensus might not be reached yet, but the authorized node keeps the candidate
     so a future transaction request from another authorized node might reach consensus.
@@ -206,9 +206,6 @@ will then invoke a build using a suitable pipeline.
     - `RemoveNode`: to add a new authorized node. see 'RemoveNode transaction requests are handled'
     - `AddArtifact`: to add a new artifact. see 'AddArtifact transaction requests are handled'
 
-  As a result, all nodes must receive new transactions. The authorized nodes store
-  the artifact locally and provide it in the p2p network.
-
 - AddNode transaction requests are handled **[BLOCKCHAIN]**
   an `AddNode` transaction requests follows this procedure:
 
@@ -226,6 +223,8 @@ will then invoke a build using a suitable pipeline.
   node's answer in the consensus algorithm.
 
 - When consensus is reached, the transaction is committed to the blockchain. **[BLOCKCHAIN]**
+  As a result, all nodes must receive new transactions. The authorized nodes store
+  the artifact locally and provide it in the p2p network.
 
 - When a build is started, the Build Service finds a corresponding build pipeline
   suitable to run the build. **[BUILD_SERVICE]**
