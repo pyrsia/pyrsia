@@ -187,7 +187,7 @@ jobs:
         tags: pyrsiaoss/pyrsia-node:latest
 
     - name: Only build if CodeCoverage.Dockerfile changed
-      uses: tj-actions/changed-files@v22.2
+      uses: tj-actions/changed-files@v23
       id: changed-files
 
     - name: Build and Push Code Coverage Base Image
