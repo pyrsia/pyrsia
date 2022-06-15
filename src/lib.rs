@@ -21,7 +21,6 @@ pub mod cli_commands;
 pub mod docker;
 pub mod logging;
 pub mod network;
-pub mod network_central;
 pub mod node_api;
 pub mod transparency_log;
 pub mod util;
