@@ -1,0 +1,37 @@
+# Q&A Summary
+
+Here are some of the most frequently asked questions with snipets of answers from presentations, Slack, and more.
+
+## Is Pyrsia a new package manager?
+
+Pyrsia connects to many package managers and delivers the packages where they are used. Package repositories do a good job of storing packages and performing best effort delivery of those packages. Centralize package repositories are susceptible to single points of failures or single point attacks which could render them unusable for a period of time until they are revived  (https://status.npmjs.org/uptime?page=7 shows that NPM had major outages that lasted for hours together thus stalling any dependent software delivery efforts). Pyrsia is intended to fix these central failure issues and provide more resilience by relying on the P2P mechanism to store and deliver packages.
+
+Along with all this Pyrsia will also connect the git-sha with the binary output and provide an independent infrastructure to build binaries. Building the binaries on independent infrastructure is expected to build trust that the package was in fact not affected by attacks (B-H from the SLSA diagram)
+
+In the broad sense Pyrsia may be referred to by users as the package manager, because that is what they interact with, but Pyrsia aims to solve the problem of delivery packages reliably instead of just being a repository.
+
+## What is missing in existing Package Managers - why do we need Pyrsia?
+
+Existing Community Package managers have the issues we talked about in the presentation. Single points of failure, owned by central authorities with no control to the general community.
+Pyrsia eliminates single points of failure, distributes control to the community and aims to empower under the guidance of OpenSSF.
+
+## For fetching images, how will that work for CLIs such as docker, podman etc?
+
+We know from experience that it is hard to change all the CI pipelines that already use `docker pull`. So we have integrated docker in a way where Pyrsia can be used in the background to provide features like - reliability, distribution network based on p2p to speed up downloads, and provides a provenance chain(transparency log) that can be used to produce SBOMs.
+
+For docker you still continue to use docker commands and pyrsia nodes act as a conduit. So nothing changes on your CI system (since there is a large installed base) but get the benefits of P2P and also network fault tolerance (so if npm is down your CD system can still work).
+
+## Why not use sigstore/rekor for an immutable ledger?
+
+Signing will be part of how the ledger is recorded (and will include support for sigstore/rekor and Notary V2) But more importantly other than signing the ledger will provide a transparency log - for provenance.
+
+## I heard that Pyrsia uses a blockchain? Aren't blockchains used for CryptoCurrencies and take a lot of time and energy for consensus?
+
+This is certainly an area of concern, 
+[The NY Times has a great article](https://www.nytimes.com/interactive/2021/09/03/climate/bitcoin-carbon-footprint-electricity.html)
+for some background. You can also take a look at
+[Cambridge Bitcoin Electricity Consumption Index's Visualization](https://ccaf.io/cbeci/mining_map)
+
+This is currently going through the design phase. But remote verification is the key requirement. The scale of the network as well as the security promise are currently being balanced and we are working on a Proof of Concept to prove out a simple Proof of Authority mechanism and evolve it as we scale.
+
+Unlike Proof of Work (which is used in the most popular cryptocurrencies), Proof of Authority does not rely on expensive computation to determine a magic number. Since nodes are granted authority to participate in the it's considerably faster and energy efficient to attest in the consesnsus.
