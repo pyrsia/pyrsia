@@ -11,27 +11,15 @@
 - Authorized node: a Node authorized to participate in the consensus algorithm to
   verify transactions
 - Regular node: a Node using the network to download and validate software packages
-- Transaction: an operation in the transparency log. e.g. AddArtifact,
-  AddAuthorizedNode, ...
+- Transaction: an operation in the transparency log. e.g. `add_artifact`,
+  `add_node`, ...
 - Consensus: consensus establihes the agreement between authorized nodes that a
   transaction is valid.
 - Artifact: a single file that can be retrieved from the Pyrsia network. It does
   not necessarily coincide with package specific artifacts.
 - Authorized node admin: the person who can administer an authorized node
 
-## High level user stories
-
-- As a user I can use Docker client to pull an official Docker image from the Pyrsia
-  network.
-- As a user I can use a Java build tool like Maven to download Maven artifacts from
-  the Pyrsia network.
-- As a user I can use the Pyrsia CLI to show the transparency log. (including search
-  on author/dependencies/...)
-- New authorized nodes can be added to the Pyrsia network.
-- As a user I can request a build from source (or retrieval from an trusted build
-  source) of a specific artifact, so it is added to the Pyrsia network.
-
-## Pyrsia network overview
+## Introduction
 
 The Pyrsia network's first aim is to distribute software packages without central
 authority. Instead, it relies on a set of designated authorized nodes that reach
@@ -47,17 +35,30 @@ official Docker images.
 The Pyrsia network also distributes transparency logs so every node in the network
 can verify a downloaded artifact.
 
+## High level user stories
+
+- As a user I can use Docker client to pull an official Docker image from the Pyrsia
+  network.
+- As a user I can use a Java build tool like Maven to download Maven artifacts from
+  the Pyrsia network.
+- As a user I can use the Pyrsia CLI to show the transparency log based on search
+  parameters.
+- New authorized nodes can be added to the Pyrsia network.
+- As a user I can request a build from source of a specific artifact, so it is
+  added to the Pyrsia network.
+
+## Pyrsia network overview
+
 The following diagram shows three authorized nodes, each with their own build pipelines.
-Three is the very minimum number of authorized nodes that need to exist. In the
-real network, we expect tens or even hundreds of authorized nodes.
+In a real network, we expect tens or even hundreds of authorized nodes.
 
 ![Pyrsia component diagram](pyrsia-network1.png)
 
-The next diagram show the same authorized nodes. But next to those, a number of
-regular nodes have now joined the network as well. While regular nodes don't participate
-in the consensus mechanism, they do participate in the distribution of artifacts
-and transparency logs and they play a crucial role in the performance of the Pyrsia
-network.
+The next diagram show the same authorized nodes. But next to those, a larger number
+of regular nodes have now joined the network as well. While regular nodes don't
+participate in the consensus mechanism, they do participate in the distribution
+of artifacts and transparency logs. They play a crucial role in the performance
+of the Pyrsia network.
 
 ![Pyrsia component diagram](pyrsia-network2.png)
 
@@ -65,12 +66,13 @@ network.
 
 ![Pyrsia component diagram](pyrsia-node-high-level-components.png)
 
-### Package type repository services
+### Package type ecosystems
 
-The package type repository services allow the existing tooling of a specific
-package type to seamlessly integrate with Pyrsia. e.g. the Docker repository service
-implements a subset of the Docker Registry API, the Java repository service a subset
-of the Maven repository API.
+A Pyrsia node contains several connectors to specific package type ecosystems
+like Docker or Maven. The ecosystem connectors allow the existing tooling of a
+specific package type to seamlessly integrate with Pyrsia. e.g. the Docker
+repository service implements a subset of the Docker Registry API or the Java
+repository service implements a subset of the Maven repository API.
 
 The end goal of a such a service is always a frictionless integration of Pyrsia
 in the developer's workflow.
@@ -78,23 +80,32 @@ in the developer's workflow.
 ### Pyrsia CLI API
 
 The Pyrsia CLI API is the entry point into the Pyrsia node for the Pyrsia
-command line tool. It supports requesting status information about the local
-artifact storage, information about the peers in the p2p network and
-transparency log information.
+command line tool. It supports all kinds of management operations (requesting
+status information about the local artifact storage, information about the peers
+in the p2p network) and inspecting transparency logs.
 
 ### Artifact Service
 
-The artifact service is the component that can store, retrieve and verify Pyrsia artifacts.
+The artifact service is the component that can store, retrieve and verify Pyrsia
+artifacts.
 
-The component is responsible to drive build triggers (requests to add a build to
-the Pyrsia network) and for the storage of artifacts and its provisioning in the
-p2p network.
+In the artifact consumption use cases, this component offers an abstract way of
+dealing with Pyrsia artifacts for the specific ecosystem connectors. It will
+handle get_artifact requests and perform all necessary steps to find, retrieve
+and validate artifacts either locally or using the p2p network.
+
+In the publication use cases (on authorized nodes) this component is responsible
+to drive build triggers: it will request a build from source at the Build Service,
+use the Transparency Log Service to add an `add_artifact` transaction, and when
+consensus is reached, it will store the artifact and make it available in the p2p
+network.
 
 ### p2p
 
-The p2p component heavily relies on libp2p and bundles everything that is
-required to set up and maintain a p2p network between Pyrsia nodes, allowing
-them to exchange files. (artifacts and logs)
+The p2p component offers an interface to the peer-to-peer network. This component
+heavily relies on libp2p and bundles everything that is required to set up and
+maintain a p2p network between Pyrsia nodes, allowing them to exchange messages,
+artifacts and transparency logs.
 
 ### Transparency Log Service
 
