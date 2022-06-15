@@ -117,12 +117,6 @@ pub fn put_artifact(
         .context("Error from put_artifact")
 }
 
-pub fn get_arts_count(artifact_storage: &ArtifactStorage) -> Result<usize, anyhow::Error> {
-    artifact_storage
-        .artifacts_count()
-        .context("Error while getting artifacts count")
-}
-
 pub fn get_arts_summary(
     artifact_storage: &ArtifactStorage,
 ) -> Result<HashMap<String, usize>, anyhow::Error> {
@@ -208,9 +202,7 @@ fn get_disk_stress() -> f64 {
 }
 
 #[cfg(test)]
-
 mod tests {
-    use super::HashAlgorithm;
     use super::*;
     use anyhow::Context;
     use assay::assay;
@@ -247,7 +239,7 @@ mod tests {
           ("DEV_MODE", "on")
         ],
         teardown = tear_down()
-        )]
+    )]
     fn test_put_and_get_artifact() {
         let artifact_storage = ArtifactStorage::new()?;
 
@@ -290,7 +282,9 @@ mod tests {
         env = [
           ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
           ("DEV_MODE", "on")
-        ]  )]
+        ],
+        teardown = tear_down()
+    )]
     fn test_disk_usage() {
         let artifact_storage = ArtifactStorage::new()?;
 
@@ -300,6 +294,30 @@ mod tests {
 
         let usage_pct_after = disk_usage(&artifact_storage).context("Error from disk_usage")?;
         assert!(usage_pct_before < usage_pct_after);
+    }
+
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
+          ("DEV_MODE", "on")
+        ],
+        teardown = tear_down()
+    )]
+    fn test_get_space_available() {
+        let artifact_storage = ArtifactStorage::new()?;
+
+        let space_available_before =
+            get_space_available(&artifact_storage).context("Error from get_space_available")?;
+
+        create_artifact(&artifact_storage).context("Error creating artifact")?;
+
+        let space_available_after =
+            get_space_available(&artifact_storage).context("Error from get_space_available")?;
+        debug!(
+            "Before: {}; After: {}",
+            space_available_before, space_available_after
+        );
+        assert!(space_available_after < space_available_before);
     }
 
     fn get_file_reader() -> Result<File, anyhow::Error> {
