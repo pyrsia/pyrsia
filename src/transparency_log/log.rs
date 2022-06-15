@@ -48,7 +48,7 @@ pub struct SignatureEnvelope {
     payload: Payload,
     /// The time at which the signature was generated. This is a part of signed attributes
     signing_timestamp: u64,
-    /// The digital signatres computed on payload and signed attributes
+    /// The digital signature computed on payload and signed attributes
     signature: Vec<u8>,
     /// the public key of the signer
     sign_identifier: [u8; 32], //this is identity::ed25519::PublicKey(a byte array in compressed form
