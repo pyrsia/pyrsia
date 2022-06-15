@@ -97,12 +97,13 @@ impl Client {
     }
 
     /// Dial a peer with the specified address.
-    pub async fn dial(&mut self, peer_addr: &Multiaddr) -> anyhow::Result<()> {
+    pub async fn dial(&mut self, peer_id: &PeerId, peer_addr: &Multiaddr) -> anyhow::Result<()> {
         debug!("p2p::Client::dial {:?}", peer_addr);
 
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::Dial {
+                peer_id: *peer_id,
                 peer_addr: peer_addr.clone(),
                 sender,
             })
@@ -318,18 +319,20 @@ mod tests {
     async fn test_dial() {
         let (sender, mut receiver) = mpsc::channel(1);
 
+        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
         let mut client = Client {
             sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+            local_peer_id,
         };
 
         let address: Multiaddr = "/ip4/127.0.0.1".parse().unwrap();
         let cloned_address = address.clone();
-        tokio::spawn(async move { client.dial(&address).await });
+        tokio::spawn(async move { client.dial(&local_peer_id, &address).await });
 
         futures::select! {
             command = receiver.next() => match command {
-                Some(Command::Dial { peer_addr, sender }) => {
+                Some(Command::Dial { peer_id, peer_addr, sender }) => {
+                    assert_eq!(peer_id, local_peer_id);
                     assert_eq!(peer_addr, cloned_address);
                     let _ = sender.send(Ok(()));
                 },
