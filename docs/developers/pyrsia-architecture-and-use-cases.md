@@ -13,7 +13,7 @@
 - Regular node: a Node using the network to download and validate software packages
 - Transaction: an operation in the transparency log. e.g. `add_artifact`,
   `add_node`, ...
-- Consensus: consensus establihes the agreement between authorized nodes that a
+- Consensus: consensus establishes the agreement between authorized nodes that a
   transaction is valid.
 - Artifact: a single file that can be retrieved from the Pyrsia network. It does
   not necessarily coincide with package specific artifacts.
