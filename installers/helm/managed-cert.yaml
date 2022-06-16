@@ -1,0 +1,16 @@
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: managed-cert
+spec:
+  domains:
+    - repo2.pyrsia.io
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: managed-cert-repo
+spec:
+  domains:
+    - repo.pyrsia.io
