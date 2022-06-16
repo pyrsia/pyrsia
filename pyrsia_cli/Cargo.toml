@@ -26,4 +26,4 @@ assay = "0.1.1"
 
 [build-dependencies]
 anyhow = "1.0"
-vergen = "7.2.0"
+vergen = "7.2.1"
