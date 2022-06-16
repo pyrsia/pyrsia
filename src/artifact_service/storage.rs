@@ -138,11 +138,9 @@ impl<'a> WriteHashDecorator<'a> {
 // Decorator logic is supplied only for the methods that we expect to be called by io::copy
 impl<'a> Write for WriteHashDecorator<'a> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let result = self.writer.write(buf);
-        if let Ok(bytes_written) = result {
-            self.digester.update_hash(&buf[..bytes_written])
-        };
-        result
+        let bytes_written = self.writer.write(buf)?;
+        self.digester.update_hash(&buf[..bytes_written]);
+        Ok(bytes_written)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
@@ -190,24 +188,15 @@ impl ArtifactStorage {
         {
             let path = file.path().display().to_string();
 
-            let result_1 = path.rfind('/');
-            let mut dir_1 = "";
-
-            match result_1 {
-                Some(x) => {
-                    dir_1 = &path[0..x];
-                }
-                None => (),
-            }
+            let dir_1 = match path.rfind('/') {
+                Some(x) => &path[0..x],
+                None => "",
+            };
 
             if !dir_1.is_empty() {
                 let len = dir_1.len();
-                let result = dir_1.rfind('/');
-                match result {
-                    Some(x) => {
-                        *dirs_map.entry(dir_1[x + 1..len].to_string()).or_insert(0) += 1;
-                    }
-                    None => (),
+                if let Some(x) = dir_1.rfind('/') {
+                    *dirs_map.entry(dir_1[x + 1..len].to_string()).or_insert(0) += 1;
                 }
             }
         }
@@ -411,26 +400,18 @@ fn copy_from_reader_to_writer(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::test_util;
     use assay::assay;
-    use std::env;
-    use std::path::{Path, PathBuf};
+    use sha2::{Digest, Sha256};
+    use std::path::PathBuf;
     use stringreader::StringReader;
-
-    fn tear_down() {
-        if Path::new(&env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
-            std::fs::remove_dir_all(env::var("PYRSIA_ARTIFACT_PATH").unwrap()).expect(&format!(
-                "unable to remove test directory {}",
-                env::var("PYRSIA_ARTIFACT_PATH").unwrap()
-            ));
-        }
-    }
 
     #[assay(
         env = [
           ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
           ("DEV_MODE", "on")
         ],
-        teardown = tear_down()
+        teardown = test_util::tear_down()
     )]
     pub fn new_artifact_storage_with_valid_directory() {
         ArtifactStorage::new().expect("ArtifactStorage should be created.");
@@ -470,7 +451,7 @@ mod tests {
           ("PYRSIA_ARTIFACT_PATH", "pyrsia-bogus-path"),
           ("DEV_MODE", "off")
         ],
-        teardown = tear_down()
+        teardown = test_util::tear_down()
     )]
     pub fn new_artifact_storage_with_bad_directory() {
         if let Ok(_) = ArtifactStorage::new() {
@@ -483,7 +464,7 @@ mod tests {
           ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
           ("DEV_MODE", "on")
         ],
-        teardown = tear_down()
+        teardown = test_util::tear_down()
     )]
     pub fn push_artifact_then_pull_it() {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
@@ -543,7 +524,7 @@ mod tests {
           ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
           ("DEV_MODE", "on")
         ],
-        teardown = tear_down()
+        teardown = test_util::tear_down()
     )]
     pub fn push_wrong_hash_test() {
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
@@ -559,7 +540,7 @@ mod tests {
           ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
           ("DEV_MODE", "on")
         ],
-        teardown = tear_down()
+        teardown = test_util::tear_down()
     )]
     pub fn pull_nonexistent_test() {
         let hash = Hash::new(HashAlgorithm::SHA256, &WRONG_ARTIFACT_HASH)?;
@@ -567,5 +548,24 @@ mod tests {
         artifact_storage
             .pull_artifact(&hash)
             .expect_err("pull_artifact should have failed with nonexistent hash");
+    }
+
+    #[test]
+    pub fn test_write_hash_decorator() -> anyhow::Result<()> {
+        let mut writer = Vec::new();
+        let mut digester = HashAlgorithm::SHA256.digest_factory();
+        let mut decorator = WriteHashDecorator::new(&mut writer, &mut digester);
+
+        let data = b"sample_string";
+        decorator.write(data)?;
+
+        let mut hash_bytes = [0; 32];
+        let mut hasher = Sha256::new();
+        hasher.update(&data);
+
+        digester.finalize_hash(&mut hash_bytes);
+        assert_eq!(hasher.finalize()[..], hash_bytes);
+
+        Ok(())
     }
 }

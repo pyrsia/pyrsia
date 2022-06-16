@@ -18,7 +18,6 @@ use libp2p::request_response::ResponseChannel;
 use libp2p::Multiaddr;
 use log::{debug, info};
 use pyrsia::artifact_service;
-use pyrsia::artifact_service::service::HashAlgorithm;
 use pyrsia::artifact_service::storage::ArtifactStorage;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
 use pyrsia::network::client::{ArtifactType, Client};
@@ -36,16 +35,16 @@ pub async fn handle_request_artifact(
     mut p2p_client: Client,
     artifact_storage: ArtifactStorage,
     artifact_type: &ArtifactType,
-    artifact_hash: &str,
+    artifact_id: &str,
     channel: ResponseChannel<ArtifactResponse>,
 ) -> anyhow::Result<()> {
     debug!(
         "Handling request artifact: {:?}={:?}",
-        artifact_type, artifact_hash
+        artifact_type, artifact_id
     );
     let content = match artifact_type {
         ArtifactType::Artifact => {
-            get_artifact(p2p_client.clone(), artifact_storage, artifact_hash).await?
+            get_artifact(artifact_storage, artifact_id)?
         }
     };
 
@@ -65,17 +64,12 @@ pub async fn handle_request_idle_metric(
 }
 
 /// Get the artifact with the provided hash from the artifact manager.
-async fn get_artifact(
-    p2p_client: Client,
+fn get_artifact(
     artifact_storage: ArtifactStorage,
-    artifact_hash: &str,
+    artifact_id: &str,
 ) -> anyhow::Result<Vec<u8>> {
-    let decoded_hash = hex::decode(&artifact_hash.get(7..).unwrap()).unwrap();
-    artifact_service::handlers::get_artifact(
-        p2p_client,
+    artifact_service::handlers::get_artifact_locally(
         &artifact_storage,
-        &decoded_hash,
-        HashAlgorithm::SHA256,
+        artifact_id
     )
-    .await
 }
