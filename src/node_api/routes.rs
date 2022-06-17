@@ -15,11 +15,13 @@
 */
 
 use super::handlers::swarm::*;
+use crate::artifact_service::storage::ArtifactStorage;
 use crate::network::client::Client;
 use warp::Filter;
 
 pub fn make_node_routes(
     p2p_client: Client,
+    artifact_storage: ArtifactStorage,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let p2p_client_peers = p2p_client.clone();
 
@@ -31,7 +33,7 @@ pub fn make_node_routes(
     let status = warp::path!("status")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(move || handle_get_status(p2p_client.clone()));
+        .and_then(move || handle_get_status(p2p_client.clone(), artifact_storage.clone()));
 
     warp::any().and(peers.or(status))
 }

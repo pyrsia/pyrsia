@@ -29,7 +29,7 @@ enum TransparencyLogError {
     DuplicateId { id: String },
 }
 
-#[derive(Debug, strum_macros::Display, Deserialize, Serialize, Clone)]
+#[derive(Debug, strum_macros::Display, Deserialize, Serialize, Clone, PartialEq)]
 enum Operation {
     AddArtifact,
 }
@@ -82,6 +82,15 @@ impl TransparencyLog {
 
         Ok(())
     }
+
+    pub fn get_artifact(&mut self, namespace_specific_id: &str) -> anyhow::Result<String> {
+        if let Some(payload) = self.payloads.get(namespace_specific_id) {
+            let transaction: Payload = serde_json::from_str(payload)?;
+            return Ok(transaction.hash);
+        }
+
+        anyhow::bail!("No payload found with specified ID");
+    }
 }
 
 fn write_payload(payload: &Payload) -> anyhow::Result<String> {
@@ -133,17 +142,26 @@ impl Default for TransparencyLog {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::test_util;
     use assay::assay;
-    use std::env;
-    use std::path::Path;
 
-    fn tear_down() {
-        if Path::new(&env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
-            fs::remove_dir_all(env::var("PYRSIA_ARTIFACT_PATH").unwrap()).expect(&format!(
-                "unable to remove test directory {}",
-                env::var("PYRSIA_ARTIFACT_PATH").unwrap()
-            ));
-        }
+    #[test]
+    fn create_payload() {
+        let id = "id";
+        let hash = "hash";
+        let timestamp = 1234567890;
+        let operation = Operation::AddArtifact;
+        let payload = Payload {
+            id: id.to_string(),
+            hash: hash.to_string(),
+            timestamp,
+            operation: Operation::AddArtifact,
+        };
+
+        assert_eq!(payload.id, id);
+        assert_eq!(payload.hash, hash);
+        assert_eq!(payload.timestamp, timestamp);
+        assert_eq!(payload.operation, operation);
     }
 
     #[assay(
@@ -151,7 +169,7 @@ mod tests {
             ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
             ("DEV_MODE", "on")
         ],
-        teardown = tear_down()
+        teardown = test_util::tear_down()
     )]
     fn test_new_transparency_log_has_empty_payload() {
         let log = TransparencyLog::new();
@@ -164,7 +182,7 @@ mod tests {
             ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
             ("DEV_MODE", "on")
         ],
-        teardown = tear_down()
+        teardown = test_util::tear_down()
     )]
     fn test_with_default() {
         let log: TransparencyLog = Default::default();
@@ -177,7 +195,7 @@ mod tests {
             ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
             ("DEV_MODE", "on")
         ],
-        teardown = tear_down()
+        teardown = test_util::tear_down()
     )]
     fn test_add_artifact() {
         let mut log = TransparencyLog::new();
@@ -193,7 +211,7 @@ mod tests {
             ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
             ("DEV_MODE", "on")
         ],
-        teardown = tear_down()
+        teardown = test_util::tear_down()
     )]
     fn test_add_artifact_with_id_containing_forward_slash() {
         let mut log = TransparencyLog::new();
@@ -209,7 +227,7 @@ mod tests {
             ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
             ("DEV_MODE", "on")
         ],
-        teardown = tear_down()
+        teardown = test_util::tear_down()
     )]
     fn test_add_duplicate_artifact() {
         let mut log = TransparencyLog::new();
