@@ -52,9 +52,7 @@ pub async fn get_artifact(
 
     match get_artifact_locally(artifact_storage, &artifact_id) {
         Ok(blob_content) => Ok(blob_content),
-        Err(_) => {
-            get_artifact_from_peers(p2p_client, artifact_storage, &artifact_id).await
-        }
+        Err(_) => get_artifact_from_peers(p2p_client, artifact_storage, &artifact_id).await,
     }
 }
 
@@ -81,7 +79,9 @@ async fn get_artifact_from_peers(
         .await?;
 
     match p2p_client.get_idle_peer(providers).await? {
-        Some(peer) => get_artifact_from_peer(p2p_client, artifact_storage, &peer, artifact_id).await,
+        Some(peer) => {
+            get_artifact_from_peer(p2p_client, artifact_storage, &peer, artifact_id).await
+        }
         None => bail!(
             "Artifact with id {} is not available on the p2p network.",
             artifact_id
@@ -261,7 +261,7 @@ mod tests {
                 transparency_log,
                 p2p_client,
                 &artifact_storage,
-                &artifact_id
+                &artifact_id,
             )
             .await
             .context("Error from get_artifact")

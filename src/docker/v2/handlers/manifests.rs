@@ -86,7 +86,10 @@ mod tests {
         let name = "name";
         let tag = "tag";
 
-        assert_eq!(get_namespace_specific_id(name, tag), format!("DOCKER::MANIFEST::{}::{}", name, tag));
+        assert_eq!(
+            get_namespace_specific_id(name, tag),
+            format!("DOCKER::MANIFEST::{}::{}", name, tag)
+        );
     }
 
     #[assay(
@@ -173,8 +176,16 @@ mod tests {
 
         let response = result.unwrap().into_response();
         assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(response.headers().get("Content-Length"), Some(&HeaderValue::from_static("4903")));
-        assert_eq!(response.headers().get("Content-Type"), Some(&HeaderValue::from_static("application/vnd.docker.distribution.manifest.v2+json")));
+        assert_eq!(
+            response.headers().get("Content-Length"),
+            Some(&HeaderValue::from_static("4903"))
+        );
+        assert_eq!(
+            response.headers().get("Content-Type"),
+            Some(&HeaderValue::from_static(
+                "application/vnd.docker.distribution.manifest.v2+json"
+            ))
+        );
     }
 
     fn get_file_reader() -> Result<File, anyhow::Error> {

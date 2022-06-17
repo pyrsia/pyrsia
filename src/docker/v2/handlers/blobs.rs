@@ -79,7 +79,10 @@ mod tests {
     fn test_get_namespace_specific_id() {
         let hash = "hash";
 
-        assert_eq!(get_namespace_specific_id(hash), format!("DOCKER::BLOB::{}", hash));
+        assert_eq!(
+            get_namespace_specific_id(hash),
+            format!("DOCKER::BLOB::{}", hash)
+        );
     }
 
     #[assay(
@@ -160,7 +163,10 @@ mod tests {
 
         let response = result.unwrap().into_response();
         assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(response.headers().get("Content-Type"), Some(&HeaderValue::from_static("application/octet-stream")));
+        assert_eq!(
+            response.headers().get("Content-Type"),
+            Some(&HeaderValue::from_static("application/octet-stream"))
+        );
     }
 
     fn get_file_reader() -> Result<File, anyhow::Error> {

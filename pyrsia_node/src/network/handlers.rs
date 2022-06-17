@@ -43,9 +43,7 @@ pub async fn handle_request_artifact(
         artifact_type, artifact_id
     );
     let content = match artifact_type {
-        ArtifactType::Artifact => {
-            get_artifact(artifact_storage, artifact_id)?
-        }
+        ArtifactType::Artifact => get_artifact(artifact_storage, artifact_id)?,
     };
 
     p2p_client.respond_artifact(content, channel).await
@@ -64,12 +62,6 @@ pub async fn handle_request_idle_metric(
 }
 
 /// Get the artifact with the provided hash from the artifact manager.
-fn get_artifact(
-    artifact_storage: ArtifactStorage,
-    artifact_id: &str,
-) -> anyhow::Result<Vec<u8>> {
-    artifact_service::handlers::get_artifact_locally(
-        &artifact_storage,
-        artifact_id
-    )
+fn get_artifact(artifact_storage: ArtifactStorage, artifact_id: &str) -> anyhow::Result<Vec<u8>> {
+    artifact_service::handlers::get_artifact_locally(&artifact_storage, artifact_id)
 }

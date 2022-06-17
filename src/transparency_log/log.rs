@@ -140,7 +140,10 @@ mod tests {
         let timestamp = 1234567890;
         let operation = Operation::AddArtifact;
         let payload = Payload {
-            id: id.to_string(), hash: hash.to_string(), timestamp, operation: Operation::AddArtifact
+            id: id.to_string(),
+            hash: hash.to_string(),
+            timestamp,
+            operation: Operation::AddArtifact,
         };
 
         assert_eq!(payload.id, id);
