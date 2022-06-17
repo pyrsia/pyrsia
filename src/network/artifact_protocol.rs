@@ -67,7 +67,6 @@ impl RequestResponseCodec for ArtifactExchangeCodec {
 
         let artifact_type = match type_vec[0] {
             1 => ArtifactType::Artifact,
-            2 => ArtifactType::PackageVersion,
             _ => return Err(io::ErrorKind::InvalidData.into()),
         };
 
@@ -113,7 +112,6 @@ impl RequestResponseCodec for ArtifactExchangeCodec {
 
         let artifact_data_type: Vec<u8> = match artifact_type {
             ArtifactType::Artifact => vec![1],
-            ArtifactType::PackageVersion => vec![2],
         };
 
         write_length_prefixed(io, artifact_data_type).await?;

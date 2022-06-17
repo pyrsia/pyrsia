@@ -13,16 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use signed::signed::{JwsSignatureAlgorithms, Signed};
-use signed_struct::signed_struct;
 
-#[signed_struct]
-struct Identity {
-    public_key: Vec<u8>,
-    identity_algorithm: JwsSignatureAlgorithms,
-    name: String,
-    description: Option<String>,
-    email: Option<String>,
-    web_url: Option<String>,
-    phone_number: Option<String>,
-}
+pub mod handlers;
+pub mod service;
+pub mod storage;
