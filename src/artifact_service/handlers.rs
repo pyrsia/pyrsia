@@ -173,8 +173,8 @@ pub fn get_quality_metric() -> f64 {
 // This function gets the current CPU load on the system.
 fn get_cpu_stress() -> f64 {
     let sys = System::new_all();
-    let loadav = sys.load_average();
-    loadav.one //using the average over the last 1 minute
+    let load_avg = sys.load_average();
+    load_avg.one //using the average over the last 1 minute
 }
 
 //This function gets the current network load on the system
