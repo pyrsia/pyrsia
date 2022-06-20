@@ -65,7 +65,7 @@ sysinfo = "0.24.2"
 tempfile = "3.2.0"
 test-log = "0.2.8"
 thiserror = "1.0.31"
-tokio = { version = "1.18.2", features = [ "macros", "rt-multi-thread", "io-std" ] }
+tokio = { version = "1.19.2", features = [ "macros", "rt-multi-thread", "io-std" ] }
 toml = "0.5.9"
 url = "2.2.2"
 uuid = { version = "1.1.2", features = [ "v4" ] }
