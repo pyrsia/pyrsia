@@ -32,9 +32,9 @@ pub async fn handle_get_maven_artifact(
 ) -> Result<impl Reply, Rejection> {
     debug!("Requesting maven artifact: {}", full_path);
     let namespace_specific_id = get_namespace_specific_id(&full_path).map_err(|_| {
-        return warp::reject::custom(RegistryError {
+        warp::reject::custom(RegistryError {
             code: RegistryErrorCode::BlobUnknown,
-        });
+        })
     })?;
 
     // request artifact
@@ -65,7 +65,7 @@ fn get_namespace_specific_id(full_path: &str) -> Result<String, anyhow::Error> {
     // like: "GET /maven2/com/company/test/1.0/test-1.0.jar"
 
     // split, and remove first two strings: "" and "maven2":
-    let mut pieces: Vec<&str> = full_path.split("/").skip(2).collect();
+    let mut pieces: Vec<&str> = full_path.split('/').skip(2).collect();
     if pieces.len() < 4 {
         return Err(anyhow!(format!("Error, invalid full path: {}", full_path)));
     }
