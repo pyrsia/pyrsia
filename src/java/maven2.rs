@@ -14,5 +14,5 @@
    limitations under the License.
 */
 
-pub mod routes;
 pub mod handlers;
+pub mod routes;

@@ -14,29 +14,28 @@
    limitations under the License.
 */
 
-use anyhow::anyhow;
+use crate::artifact_service::handlers::get_artifact;
+use crate::artifact_service::storage::ArtifactStorage;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::network::client::Client;
-use crate::artifact_service::storage::ArtifactStorage;
 use crate::transparency_log::log::TransparencyLog;
-use crate::artifact_service::handlers::get_artifact;
+use anyhow::anyhow;
 
-use warp::{http::StatusCode, Rejection, Reply};
 use log::debug;
+use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_maven_artifact(
     transparency_log: TransparencyLog,
     p2p_client: Client,
     artifact_storage: ArtifactStorage,
-    full_path: String
+    full_path: String,
 ) -> Result<impl Reply, Rejection> {
     debug!("Requesting maven artifact: {}", full_path);
-    let namespace_specific_id = get_namespace_specific_id(&full_path)
-        .map_err(|_| {
-            return warp::reject::custom(RegistryError {
-                code: RegistryErrorCode::BlobUnknown,
-            });
-        })?;
+    let namespace_specific_id = get_namespace_specific_id(&full_path).map_err(|_| {
+        return warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::BlobUnknown,
+        });
+    })?;
 
     // request artifact
     debug!("Requesting artifact for id {}", &namespace_specific_id);
@@ -61,7 +60,7 @@ pub async fn handle_get_maven_artifact(
         .unwrap())
 }
 
-fn get_namespace_specific_id(full_path:&str) -> Result<String, anyhow::Error> {
+fn get_namespace_specific_id(full_path: &str) -> Result<String, anyhow::Error> {
     // maven coordinates like "com.company:test:1.0" will produce a request
     // like: "GET /maven2/com/company/test/1.0/test-1.0.jar"
 
@@ -75,7 +74,10 @@ fn get_namespace_specific_id(full_path:&str) -> Result<String, anyhow::Error> {
     let artifact_id = pieces.pop().unwrap();
     let group_id = pieces.join(".");
 
-    Ok(format!("MAVEN2/FILE/{}/{}/{}/{}", group_id, artifact_id, version, file_name))
+    Ok(format!(
+        "MAVEN2/FILE/{}/{}/{}/{}",
+        group_id, artifact_id, version, file_name
+    ))
 }
 
 #[cfg(test)]
@@ -86,12 +88,13 @@ mod tests {
     use anyhow::Context;
     use assay::assay;
     use futures::channel::mpsc;
-    use libp2p::identity::Keypair;
     use hyper::header::HeaderValue;
+    use libp2p::identity::Keypair;
     use std::fs::File;
     use std::path::PathBuf;
 
-    const VALID_ARTIFACT_HASH: &str = "e11c16ff163ccc1efe01d2696c626891560fa82123601a5ff196d97b6ab156da";
+    const VALID_ARTIFACT_HASH: &str =
+        "e11c16ff163ccc1efe01d2696c626891560fa82123601a5ff196d97b6ab156da";
     const VALID_FULL_PATH: &str = "/maven2/test/test/1.0/test-1.0.jar";
     const VALID_MAVEN_ID: &str = "MAVEN2/FILE/test/test/1.0/test-1.0.jar";
 
@@ -129,7 +132,8 @@ mod tests {
             p2p_client.clone(),
             artifact_storage.clone(),
             VALID_FULL_PATH.to_string(),
-        ).await;
+        )
+        .await;
 
         assert!(result.is_ok());
 
@@ -139,7 +143,6 @@ mod tests {
             response.headers().get("Content-Type"),
             Some(&HeaderValue::from_static("application/octet-stream"))
         );
-
     }
 
     fn get_file_reader() -> Result<File, anyhow::Error> {
@@ -159,5 +162,4 @@ mod tests {
             .push_artifact(&mut get_file_reader()?, &hash)
             .context("Error while pushing artifact")
     }
-
 }

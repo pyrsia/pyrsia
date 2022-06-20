@@ -14,10 +14,10 @@
    limitations under the License.
 */
 
+use super::handlers::maven_artifacts::*;
+use crate::artifact_service::storage::ArtifactStorage;
 use crate::network::client::Client;
 use crate::transparency_log::log::TransparencyLog;
-use crate::artifact_service::storage::ArtifactStorage;
-use super::handlers::maven_artifacts::*;
 
 use log::debug;
 use warp::Filter;
