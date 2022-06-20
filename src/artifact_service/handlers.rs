@@ -18,6 +18,7 @@ use crate::artifact_service::service::{Hash, HashAlgorithm};
 use crate::artifact_service::storage::ArtifactStorage;
 use crate::cli_commands::config::get_config;
 use crate::network::client::{ArtifactType, Client};
+use crate::transparency_log::log::TransparencyLog;
 use anyhow::{bail, Context, Result};
 use byte_unit::Byte;
 use libp2p::PeerId;
@@ -42,24 +43,26 @@ const DISK_STRESS_WEIGHT: f64 = 0.001_f64;
 //get_artifact: given artifact_hash(artifactName) pulls artifact for  artifact_manager and
 //              returns read object to read the bytes of artifact
 pub async fn get_artifact(
+    mut transparency_log: TransparencyLog,
     p2p_client: Client,
     artifact_storage: &ArtifactStorage,
-    art_hash: &[u8],
-    algorithm: HashAlgorithm,
+    namespace_specific_id: &str,
 ) -> Result<Vec<u8>, anyhow::Error> {
-    let hash = Hash::new(algorithm, art_hash)?;
+    let artifact_id = transparency_log.get_artifact(namespace_specific_id)?;
 
-    match get_artifact_locally(artifact_storage, &hash) {
+    match get_artifact_locally(artifact_storage, &artifact_id) {
         Ok(blob_content) => Ok(blob_content),
-        Err(_) => get_artifact_from_peers(p2p_client, artifact_storage, &hash).await,
+        Err(_) => get_artifact_from_peers(p2p_client, artifact_storage, &artifact_id).await,
     }
 }
 
-fn get_artifact_locally(
+pub fn get_artifact_locally(
     artifact_storage: &ArtifactStorage,
-    hash: &Hash,
+    artifact_id: &str,
 ) -> Result<Vec<u8>, anyhow::Error> {
-    let result = artifact_storage.pull_artifact(hash)?;
+    let decoded_hash = hex::decode(artifact_id)?;
+    let hash: Hash = Hash::new(HashAlgorithm::SHA256, &decoded_hash)?;
+    let result = artifact_storage.pull_artifact(&hash)?;
     let mut buf_reader: BufReader<File> = BufReader::new(result);
     let mut blob_content = Vec::new();
     buf_reader.read_to_end(&mut blob_content)?;
@@ -69,19 +72,19 @@ fn get_artifact_locally(
 async fn get_artifact_from_peers(
     mut p2p_client: Client,
     artifact_storage: &ArtifactStorage,
-    hash: &Hash,
+    artifact_id: &str,
 ) -> Result<Vec<u8>, anyhow::Error> {
-    let artifact_hash = hex::encode(&hash.bytes);
-
     let providers = p2p_client
-        .list_providers(ArtifactType::Artifact, (&artifact_hash).into())
+        .list_providers(ArtifactType::Artifact, artifact_id.into())
         .await?;
 
     match p2p_client.get_idle_peer(providers).await? {
-        Some(peer) => get_artifact_from_peer(p2p_client, artifact_storage, &peer, hash).await,
+        Some(peer) => {
+            get_artifact_from_peer(p2p_client, artifact_storage, &peer, artifact_id).await
+        }
         None => bail!(
-            "Artifact with hash {} is not available on the p2p network.",
-            artifact_hash
+            "Artifact with id {} is not available on the p2p network.",
+            artifact_id
         ),
     }
 }
@@ -90,17 +93,17 @@ async fn get_artifact_from_peer(
     mut p2p_client: Client,
     artifact_storage: &ArtifactStorage,
     peer_id: &PeerId,
-    hash: &Hash,
+    artifact_id: &str,
 ) -> Result<Vec<u8>, anyhow::Error> {
-    let artifact_hash = hex::encode(&hash.bytes);
-
     let artifact = p2p_client
-        .request_artifact(peer_id, ArtifactType::Artifact, artifact_hash.into())
+        .request_artifact(peer_id, ArtifactType::Artifact, artifact_id.into())
         .await?;
 
+    let decoded_hash = hex::decode(artifact_id)?;
+    let hash: Hash = Hash::new(HashAlgorithm::SHA256, &decoded_hash)?;
     let cursor = Box::new(std::io::Cursor::new(artifact));
-    put_artifact(artifact_storage, hash, cursor)?;
-    get_artifact_locally(artifact_storage, hash)
+    put_artifact(artifact_storage, &hash, cursor)?;
+    get_artifact_locally(artifact_storage, artifact_id)
 }
 
 //put_artifact: given artifact_hash(artifactName) & artifact_path push artifact to artifact_manager
@@ -115,12 +118,6 @@ pub fn put_artifact(
     artifact_storage
         .push_artifact(&mut buf_reader, artifact_hash)
         .context("Error from put_artifact")
-}
-
-pub fn get_arts_count(artifact_storage: &ArtifactStorage) -> Result<usize, anyhow::Error> {
-    artifact_storage
-        .artifacts_count()
-        .context("Error while getting artifacts count")
 }
 
 pub fn get_arts_summary(
@@ -176,8 +173,8 @@ pub fn get_quality_metric() -> f64 {
 // This function gets the current CPU load on the system.
 fn get_cpu_stress() -> f64 {
     let sys = System::new_all();
-    let loadav = sys.load_average();
-    loadav.one //using the average over the last 1 minute
+    let load_avg = sys.load_average();
+    load_avg.one //using the average over the last 1 minute
 }
 
 //This function gets the current network load on the system
@@ -208,21 +205,22 @@ fn get_disk_stress() -> f64 {
 }
 
 #[cfg(test)]
-
 mod tests {
-    use super::HashAlgorithm;
     use super::*;
+    use crate::network::client::command::Command;
+    use crate::network::idle_metric_protocol::PeerMetrics;
+    use crate::util::test_util;
     use anyhow::Context;
     use assay::assay;
     use futures::channel::mpsc;
     use futures::executor;
+    use futures::prelude::*;
     use libp2p::identity::Keypair;
+    use sha2::{Digest, Sha256};
+    use std::collections::HashSet;
     use std::env;
     use std::fs::File;
-    use std::path::Path;
     use std::path::PathBuf;
-
-    use super::Hash;
 
     const VALID_ARTIFACT_HASH: [u8; 32] = [
         0x86, 0x5c, 0x8d, 0x98, 0x8b, 0xe4, 0x66, 0x9f, 0x3e, 0x48, 0xf7, 0x3b, 0x98, 0xf9, 0xbc,
@@ -232,23 +230,15 @@ mod tests {
     const CPU_THREADS: usize = 200;
     const NETWORK_THREADS: usize = 10;
 
-    fn tear_down() {
-        if Path::new(&env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
-            std::fs::remove_dir_all(env::var("PYRSIA_ARTIFACT_PATH").unwrap()).expect(&format!(
-                "unable to remove test directory {}",
-                env::var("PYRSIA_ARTIFACT_PATH").unwrap()
-            ));
-        }
-    }
-
     #[assay(
         env = [
           ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
           ("DEV_MODE", "on")
         ],
-        teardown = tear_down()
-        )]
+        teardown = test_util::tear_down()
+    )]
     fn test_put_and_get_artifact() {
+        let mut transparency_log = TransparencyLog::new();
         let artifact_storage = ArtifactStorage::new()?;
 
         let (sender, _) = mpsc::channel(1);
@@ -256,6 +246,9 @@ mod tests {
             sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
+
+        let artifact_id = "an_artifact_id";
+        transparency_log.add_artifact(artifact_id, &hex::encode(VALID_ARTIFACT_HASH))?;
 
         let hash = Hash::new(HashAlgorithm::SHA256, &VALID_ARTIFACT_HASH)?;
         //put the artifact
@@ -265,10 +258,10 @@ mod tests {
         // pull artifact
         let future = async {
             get_artifact(
+                transparency_log,
                 p2p_client,
                 &artifact_storage,
-                &VALID_ARTIFACT_HASH,
-                HashAlgorithm::SHA256,
+                &artifact_id,
             )
             .await
             .context("Error from get_artifact")
@@ -288,9 +281,105 @@ mod tests {
 
     #[assay(
         env = [
+            ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
+            ("DEV_MODE", "on")
+        ],
+        teardown = test_util::tear_down()
+    )]
+    #[tokio::test]
+    async fn test_get_from_peers() {
+        let artifact_storage = ArtifactStorage::new()?;
+
+        let peer_id = Keypair::generate_ed25519().public().to_peer_id();
+
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        tokio::spawn(async move {
+            loop {
+                match receiver.next().await {
+                    Some(Command::ListProviders { artifact_type: _artifact_type, artifact_hash: _artifact_hash, sender }) => {
+                        let mut set = HashSet::new();
+                        set.insert(peer_id);
+                        let _ = sender.send(set);
+                    },
+                    Some(Command::RequestIdleMetric { peer: _peer, sender }) => {
+                        let _ = sender.send(Ok(PeerMetrics {
+                            idle_metric: (0.1_f64).to_le_bytes()
+                        }));
+                    },
+                    Some(Command::RequestArtifact { artifact_type: _artifact_type, artifact_hash: _artifact_hash, peer: _peer, sender }) => {
+                        let _ = sender.send(Ok(b"RANDOM".to_vec()));
+                    },
+                    _ => panic!("Command must match Command::ListProviders, Command::RequestIdleMetric, Command::RequestArtifact"),
+                }
+            }
+        });
+
+        let p2p_client = Client {
+            sender,
+            local_peer_id: peer_id,
+        };
+
+        let mut hasher = Sha256::new();
+        hasher.update(b"RANDOM");
+        let hash_bytes = hasher.finalize();
+        let artifact_id = hex::encode(hash_bytes);
+
+        let result = executor::block_on(async {
+            get_artifact_from_peers(p2p_client, &artifact_storage, &artifact_id).await
+        });
+        assert!(result.is_ok());
+    }
+
+    #[assay(
+        env = [
+            ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
+            ("DEV_MODE", "on")
+        ],
+        teardown = test_util::tear_down()
+    )]
+    #[tokio::test]
+    async fn test_get_from_peers_with_no_providers() {
+        let artifact_storage = ArtifactStorage::new()?;
+
+        let peer_id = Keypair::generate_ed25519().public().to_peer_id();
+
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        tokio::spawn(async move {
+            futures::select! {
+                command = receiver.next() => match command {
+                    Some(Command::ListProviders { artifact_type: _artifact_type, artifact_hash: _artifact_hash, sender }) => {
+                        let _ = sender.send(Default::default());
+                    },
+                    _ => panic!("Command must match Command::ListProviders"),
+                }
+            }
+        });
+
+        let p2p_client = Client {
+            sender,
+            local_peer_id: peer_id,
+        };
+
+        let mut hasher = Sha256::new();
+        hasher.update(b"RANDOM");
+        let hash_bytes = hasher.finalize();
+        let artifact_id = hex::encode(hash_bytes);
+
+        let result = executor::block_on(async {
+            get_artifact_from_peers(p2p_client, &artifact_storage, &artifact_id).await
+        });
+        assert!(result.is_err());
+    }
+
+    #[assay(
+        env = [
           ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
           ("DEV_MODE", "on")
-        ]  )]
+        ],
+        teardown = test_util::tear_down()
+    )]
     fn test_disk_usage() {
         let artifact_storage = ArtifactStorage::new()?;
 
@@ -300,6 +389,30 @@ mod tests {
 
         let usage_pct_after = disk_usage(&artifact_storage).context("Error from disk_usage")?;
         assert!(usage_pct_before < usage_pct_after);
+    }
+
+    #[assay(
+        env = [
+          ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
+          ("DEV_MODE", "on")
+        ],
+        teardown = test_util::tear_down()
+    )]
+    fn test_get_space_available() {
+        let artifact_storage = ArtifactStorage::new()?;
+
+        let space_available_before =
+            get_space_available(&artifact_storage).context("Error from get_space_available")?;
+
+        create_artifact(&artifact_storage).context("Error creating artifact")?;
+
+        let space_available_after =
+            get_space_available(&artifact_storage).context("Error from get_space_available")?;
+        debug!(
+            "Before: {}; After: {}",
+            space_available_before, space_available_after
+        );
+        assert!(space_available_after < space_available_before);
     }
 
     fn get_file_reader() -> Result<File, anyhow::Error> {

@@ -14,6 +14,12 @@
    limitations under the License.
 */
 
-pub mod env_util;
-pub mod keypair_util;
-pub mod test_util;
+#[cfg(test)]
+pub fn tear_down() {
+    if std::path::Path::new(&std::env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
+        std::fs::remove_dir_all(std::env::var("PYRSIA_ARTIFACT_PATH").unwrap()).expect(&format!(
+            "unable to remove test directory {}",
+            std::env::var("PYRSIA_ARTIFACT_PATH").unwrap()
+        ));
+    }
+}
