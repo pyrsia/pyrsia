@@ -1,5 +1,5 @@
 /*
-   Copyright 2021, 2022, JFrog Ltd
+   Copyright 2022 JFrog Ltd
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -14,14 +14,5 @@
    limitations under the License.
 */
 
-#![allow(mixed_script_confusables)] // This is to allow structs created by a derive macro to have private fields that begin with the grek letter π
-
-pub mod artifact_service;
-pub mod cli_commands;
-pub mod docker;
-pub mod java;
-pub mod logging;
-pub mod network;
-pub mod node_api;
-pub mod transparency_log;
-pub mod util;
+pub mod routes;
+pub mod handlers;
