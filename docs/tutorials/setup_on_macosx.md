@@ -16,7 +16,7 @@ cargo build --workspace
 This will create two copies of the same binary so that you can configure them
 as independent nodes. In `PYRSIA_HOME`,
 
- - Create Node A
+- Create Node A
 
   ```sh
   mkdir nodeA
@@ -167,7 +167,7 @@ Connected Peers:
 Now that you have setup both the Pyrsia Node and Pyrsia CLI you are ready to
 start using Pyrsia.
 
-# Using Pyrsia with Docker
+## Using Pyrsia with Docker
 
 Once you have setup the Pyrsia nodes and the CLI you are ready to start using
 Pyrsia with Docker.
@@ -226,7 +226,7 @@ docker pull alpine
 
 Now node B is acting as the pull-through cache and should show a line similar
 to the following in its log, indicating `alpine` was retrieved from the
-Pyrsian etwork (in this case node A).
+Pyrsia network (in this case node A).
 
 ```sh
 # DEBUG pyrsia::docker::v2::handlers::blobs> Step 2: "sha256:3d243047344378e9b7136d552d48feb7ea8b6fe14ce0990e0cc011d5e369626a" successfully stored locally from Pyrsia network.
@@ -237,5 +237,5 @@ Success!!!
 You have just built yourself a working Pyrsia network. Enjoy using it and
 showcasing it to your teams and please share any feedback!
 
-Next you can, follow the instructions in [demo.md](https://pyrsia.io/tutorials/demo/)
+Next you can follow the [demo instructions](https://pyrsia.io/docs/tutorials/demo/)
 and setup a real Pyrsia network and use it with your CI system.

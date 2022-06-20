@@ -15,8 +15,10 @@
 */
 
 use super::{get_config, RegistryError, RegistryErrorCode};
+use crate::artifact_service::handlers::*;
+use crate::artifact_service::storage::ArtifactStorage;
 use crate::network::client::Client;
-use crate::node_manager::{handlers::*, model::cli::*};
+use crate::node_api::model::cli::{ArtifactsSummary, Status};
 
 use log::debug;
 use std::collections::HashMap;
@@ -36,17 +38,20 @@ pub async fn handle_get_peers(mut p2p_client: Client) -> Result<impl Reply, Reje
         .unwrap())
 }
 
-pub async fn handle_get_status(mut p2p_client: Client) -> Result<impl Reply, Rejection> {
+pub async fn handle_get_status(
+    mut p2p_client: Client,
+    artifact_storage: ArtifactStorage,
+) -> Result<impl Reply, Rejection> {
     let peers = p2p_client.list_peers().await.map_err(RegistryError::from)?;
 
-    let art_count_result = get_arts_summary();
+    let art_count_result = get_arts_summary(&artifact_storage);
     if art_count_result.is_err() {
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(art_count_result.err().unwrap().to_string()),
         }));
     }
 
-    let disk_space_result = disk_usage();
+    let disk_space_result = disk_usage(&artifact_storage);
     if disk_space_result.is_err() {
         return Err(warp::reject::custom(RegistryError {
             code: RegistryErrorCode::Unknown(disk_space_result.err().unwrap().to_string()),

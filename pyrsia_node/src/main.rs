@@ -17,8 +17,10 @@
 pub mod args;
 pub mod network;
 
+use anyhow::{bail, Result};
 use args::parser::PyrsiaNodeArgs;
 use network::handlers;
+use pyrsia::artifact_service::storage::ArtifactStorage;
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::make_docker_routes;
 use pyrsia::logging::*;
@@ -26,12 +28,16 @@ use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
 use pyrsia::transparency_log::log::TransparencyLog;
+use pyrsia::util::keypair_util;
+use pyrsia_blockchain_network::blockchain::Blockchain;
 
 use clap::Parser;
+use futures::lock::Mutex;
 use futures::StreamExt;
 use log::{debug, info, warn};
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::sync::Arc;
 use warp::Filter;
 
 #[tokio::main]
@@ -42,16 +48,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = PyrsiaNodeArgs::parse();
 
     debug!("Create transparency log");
-    let transparancy_log = TransparencyLog::new();
+    let transparency_log = TransparencyLog::new();
 
     debug!("Create p2p components");
     let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm(args.max_provided_keys)?;
+
+    debug!("Create artifact storage");
+    let artifact_storage = ArtifactStorage::new()?;
+
+    debug!("Create blockchain components");
+    let _blockchain = setup_blockchain()?;
 
     debug!("Start p2p event loop");
     tokio::spawn(event_loop.run());
 
     debug!("Setup HTTP server");
-    setup_http(&args, transparancy_log, p2p_client.clone());
+    setup_http(
+        &args,
+        transparency_log,
+        p2p_client.clone(),
+        artifact_storage.clone(),
+    );
 
     debug!("Start p2p components");
     setup_p2p(p2p_client.clone(), args).await;
@@ -68,6 +85,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 } => {
                     if let Err(error) = handlers::handle_request_artifact(
                         p2p_client.clone(),
+                        artifact_storage.clone(),
                         &artifact_type,
                         &artifact_hash,
                         channel,
@@ -95,7 +113,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn setup_http(args: &PyrsiaNodeArgs, transparency_log: TransparencyLog, p2p_client: Client) {
+fn setup_http(
+    args: &PyrsiaNodeArgs,
+    transparency_log: TransparencyLog,
+    p2p_client: Client,
+    artifact_storage: ArtifactStorage,
+) {
     // Get host and port from the settings. Defaults to DEFAULT_HOST and DEFAULT_PORT
     debug!(
         "Pyrsia Docker Node will bind to host = {}, port = {}",
@@ -108,8 +131,12 @@ fn setup_http(args: &PyrsiaNodeArgs, transparency_log: TransparencyLog, p2p_clie
     );
 
     debug!("Setup HTTP routing");
-    let docker_routes = make_docker_routes(transparency_log, p2p_client.clone());
-    let node_api_routes = make_node_routes(p2p_client);
+    let docker_routes = make_docker_routes(
+        transparency_log,
+        p2p_client.clone(),
+        artifact_storage.clone(),
+    );
+    let node_api_routes = make_node_routes(p2p_client, artifact_storage);
     let all_routes = docker_routes.or(node_api_routes);
 
     debug!("Setup HTTP server");
@@ -139,11 +166,28 @@ async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
     if let Some(to_dial) = args.peer {
         handlers::dial_other_peer(p2p_client.clone(), &to_dial).await;
     }
-    debug!("Provide local artifacts");
-    if let Err(error) = handlers::provide_artifacts(p2p_client.clone()).await {
-        warn!(
-            "An error occured while providing local artifacts. Error: {:?}",
-            error
-        );
+}
+
+pub fn setup_blockchain() -> Result<Arc<Mutex<Blockchain>>> {
+    let local_keypair = keypair_util::load_or_generate_ed25519();
+
+    let ed25519_keypair = match local_keypair {
+        libp2p::identity::Keypair::Ed25519(v) => v,
+        _ => {
+            bail!("Keypair Format Error");
+        }
+    };
+
+    Ok(Arc::new(Mutex::new(Blockchain::new(&ed25519_keypair))))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::setup_blockchain;
+
+    #[test]
+    fn setup_blockchain_success() {
+        let blockchain = setup_blockchain();
+        assert!(blockchain.is_ok());
     }
 }

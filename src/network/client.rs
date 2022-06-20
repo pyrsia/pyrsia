@@ -19,7 +19,6 @@ pub mod command;
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
-use crate::node_manager::model::package_version::PackageVersion;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
@@ -41,7 +40,6 @@ use strum_macros::Display;
 /// within the libp2p swarm.
 #[derive(Clone, Debug, Display, PartialEq, Eq)]
 pub enum ArtifactType {
-    PackageVersion,
     Artifact,
 }
 
@@ -72,30 +70,6 @@ impl From<&str> for ArtifactHash {
     fn from(hash: &str) -> Self {
         ArtifactHash {
             hash: String::from(hash),
-        }
-    }
-}
-
-/// Construct an ArtifactHash from `PackageVersion`
-impl From<PackageVersion> for ArtifactHash {
-    fn from(package_version: PackageVersion) -> Self {
-        ArtifactHash {
-            hash: format!(
-                "{}/{}/{}",
-                package_version.namespace_id, package_version.name, package_version.version
-            ),
-        }
-    }
-}
-
-/// Construct an ArtifactHash from `&PackageVersion`
-impl From<&PackageVersion> for ArtifactHash {
-    fn from(package_version: &PackageVersion) -> Self {
-        ArtifactHash {
-            hash: format!(
-                "{}/{}/{}",
-                package_version.namespace_id, package_version.name, package_version.version
-            ),
         }
     }
 }
@@ -312,11 +286,9 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::node_manager::model::package_type::PackageTypeName;
     use libp2p::identity::Keypair;
     use rand::distributions::Alphanumeric;
     use rand::{thread_rng, Rng};
-    use serde_json::Map;
 
     #[tokio::test]
     async fn test_listen() {
@@ -544,47 +516,5 @@ mod tests {
         let artifact = ArtifactHash::from(&str);
 
         assert_eq!(artifact.hash, str);
-    }
-
-    #[test]
-    fn test_artifact_from_package_version() {
-        let id = "id".to_string();
-        let namespace = "namespace_id".to_string();
-        let name = "name".to_string();
-        let version = "1.5.4".to_string();
-        let package_version = PackageVersion::new(
-            id.clone(),
-            namespace.clone(),
-            name.clone(),
-            PackageTypeName::Docker,
-            Map::new(),
-            version.clone(),
-            vec![],
-        );
-
-        let artifact = ArtifactHash::from(package_version);
-
-        assert_eq!(artifact.hash, format!("{}/{}/{}", namespace, name, version));
-    }
-
-    #[test]
-    fn test_artifact_from_package_version_ref() {
-        let id = "id".to_string();
-        let namespace = "namespace_id".to_string();
-        let name = "name".to_string();
-        let version = "1.5.4".to_string();
-        let package_version = PackageVersion::new(
-            id.clone(),
-            namespace.clone(),
-            name.clone(),
-            PackageTypeName::Docker,
-            Map::new(),
-            version.clone(),
-            vec![],
-        );
-
-        let artifact = ArtifactHash::from(&package_version);
-
-        assert_eq!(artifact.hash, format!("{}/{}/{}", namespace, name, version));
     }
 }

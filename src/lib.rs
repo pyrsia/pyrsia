@@ -16,16 +16,11 @@
 
 #![allow(mixed_script_confusables)] // This is to allow structs created by a derive macro to have private fields that begin with the grek letter π
 
-pub mod artifacts_repository;
-pub mod docker;
-pub mod document_store;
-pub mod metadata_manager;
-pub mod network;
-pub mod network_central;
-pub mod node_api;
-pub mod node_manager;
-pub use node_manager::model; // Expose nested module at the crate level
+pub mod artifact_service;
 pub mod cli_commands;
+pub mod docker;
 pub mod logging;
+pub mod network;
+pub mod node_api;
 pub mod transparency_log;
 pub mod util;

@@ -10,7 +10,7 @@ pyrsia = {path=".."}
 anyhow = "1.0"
 clap = { version = "3.1.18", features= ["cargo"] }
 confy = "0.4.0"
-const_format = "0.2.24"
+const_format = "0.2.25"
 futures = { version = "0.3.*"}
 reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -26,4 +26,4 @@ assay = "0.1.1"
 
 [build-dependencies]
 anyhow = "1.0"
-vergen = "7.1.0"
+vergen = "7.2.1"

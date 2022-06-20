@@ -6,7 +6,7 @@ normal GitHub pull request workflow.
 Some changes though are "substantial", and we ask that these be put through a bit of a design process and produce
 a consensus among the Pyrsia community. See [when to follow this process](#when-you-need-to-follow-this-process) below.
 
-#### Summary
+## Summary
 
 The process can be broken down as follows:
 
@@ -17,7 +17,7 @@ The process can be broken down as follows:
 
 Lastly, [Proposal resolution](#proposal-resolution) may take several different forms.
 
-## Why are RFCs needed?
+## Why are RFCs needed
 
 An RFCs is a design document providing information to the Pyrsia community. The RFC should provide a concise technical specification of
 the feature and a rationale for the feature. Strong RFCs included detailed research on the idea and may be accompanied by a proof of concept
@@ -75,8 +75,8 @@ Build consensus and integrate feedback. Proposals that have broad support are mu
 
 ### Reviewing a Proposal
 
-Periodically, the team will attempt to review the active proposals. We try to dicuss proposals at the bi-weekly team
-["Architecture"](https://pyrsia.io/events/) meeting, we schedule additional meetings as need. Actions are recorded in the meeting minutes.
+Periodically, the team will attempt to review the active proposals. We try to discuss proposals at the bi-weekly team
+["Architecture"](https://pyrsia.io/docs/get_involved/#attend-a-community-meeting) meeting, we schedule additional meetings as need. Actions are recorded in the meeting minutes.
 
 ### Proposal resolution
 
@@ -99,7 +99,7 @@ The author of a proposal is not obligated to implement it. Of course, the propos
 
 ***
 
-#### Inspirations
+## Inspirations
 
 This has been derived from other community driven projects. But in the end the changes to this process can be proposed to the team and this process is open to being updated.
 

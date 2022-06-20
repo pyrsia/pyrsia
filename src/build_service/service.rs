@@ -14,9 +14,4 @@
    limitations under the License.
 */
 
-pub mod artifact;
-pub mod cli;
-pub mod namespace;
-pub mod package;
-pub mod package_type;
-pub mod package_version;
+pub struct BuildService {}

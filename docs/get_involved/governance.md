@@ -83,7 +83,7 @@ The committee MUST define a contribution process that:
 The code of conduct MUST set expectations for contributors on expected behavior, as well as explaining the consequences of violating the terms of the code.
 The [Contributor Covenant](https://www.contributor-covenant.org) has become the de facto standard for this language.
 
-Members of the governance committee will be responsible for handling [Pyrsia code of conduct](code-of-conduct)
+Members of the governance committee will be responsible for handling [Pyrsia's code of conduct](https://github.com/pyrsia/.github/blob/main/code-of-conduct.md)
 violations via [conduct@openssf.org](mailto:conduct@openssf.org).
 
 ## Project Communication Channels

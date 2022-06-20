@@ -4,10 +4,10 @@ on:
   issues:
     types: [opened, reopened, labeled]
   pull_request_target:
-    types: [opened, closed, reopened, labeled, converted_to_draft, ready_for_review, review_requested]
+    types: [opened, closed, reopened, labeled, ready_for_review, review_requested]
 
 jobs:
-  triage-new-issues:
+  new-issues:
     runs-on: ubuntu-latest
     if: |
       github.repository_owner == 'pyrsia' &&
@@ -24,35 +24,12 @@ jobs:
           column: MVP
           repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
 
-  in-progress-new-prs:
+  new-prs:
     runs-on: ubuntu-latest
     if: |
       github.repository_owner == 'pyrsia' &&
       github.event_name == 'pull_request_target' &&
       (github.event.action == 'opened' || github.event.action == 'reopened')
-    steps:
-      - uses: alex-page/github-project-automation-plus@v0.8.1
-        with:
-          project: Pyrsia Development
-          column: In Progress
-          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
-      - if: github.event.pull_request.user.login == 'dependabot[bot]'
-        uses: actions/github-script@v6.1.0
-        with:
-          github-token: ${{ secrets.ORG_ACCESS_TOKEN }}
-          script: |
-            github.rest.pulls.requestReviewers({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.number,
-              team_reviewers: ["collaborators"],
-            });
-    
-  drafting-pr:
-    runs-on: ubuntu-latest
-    if: |
-      github.repository_owner == 'pyrsia' &&
-      github.event_name == 'pull_request_target' && github.event.action == 'converted_to_draft'
     steps:
       - uses: alex-page/github-project-automation-plus@v0.8.1
         with:
