@@ -129,7 +129,7 @@ When a checkpoint is finalized all the blocks in it’s epoch are implicitly fin
 
 <https://ethereum.org/en/developers/docs/consensus-mechanisms/pos/>
 
-<https://eth.wiki/concepts/proof-of-stake-faqs>
+<https://vitalik.ca/general/2017/12/31/pos_faq.html>
 
 <https://medium.com/unitychain/intro-to-casper-ffg-9ed944d98b2d>
 
