@@ -111,7 +111,7 @@ impl TransparencyLog {
 
     pub fn get_artifact(&mut self, namespace_specific_id: &str) -> anyhow::Result<String> {
         if let Some(payload) = self.payloads.get(namespace_specific_id) {
-            return Ok(payload.hash);
+            return Ok(String::from(&payload.hash));
         }
 
         anyhow::bail!("No payload found with specified ID");

@@ -21,8 +21,8 @@ use crate::network::client::Client;
 use crate::transparency_log::log::TransparencyLog;
 use futures::lock::Mutex;
 use log::debug;
-use std::sync::Arc;
 use std::result::Result;
+use std::sync::Arc;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_blobs(
@@ -99,8 +99,11 @@ mod tests {
         let hash = "7300a197d7deb39371d4683d60f60f2fbbfd7541837ceb2278c12014e94e657b";
         let namespace_specific_id = format!("DOCKER::BLOB::{}", hash);
 
-        let mut transparency_log = TransparencyLog::new();
-        transparency_log.add_artifact(&namespace_specific_id, hash)?;
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(&namespace_specific_id, hash)?;
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
@@ -141,8 +144,11 @@ mod tests {
         let hash = "865c8d988be4669f3e48f73b98f9bc2507be0246ea35e0098cf6054d3644c14f";
         let namespace_specific_id = format!("DOCKER::BLOB::{}", hash);
 
-        let mut transparency_log = TransparencyLog::new();
-        transparency_log.add_artifact(&namespace_specific_id, hash)?;
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(&namespace_specific_id, hash)?;
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
@@ -186,148 +192,5 @@ mod tests {
         artifact_storage
             .push_artifact(&mut get_file_reader()?, &hash)
             .context("Error while pushing artifact")
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::network::client::command::Command;
-    use crate::network::idle_metric_protocol::PeerMetrics;
-    use assay::assay;
-    use futures::channel::mpsc;
-    use futures::executor;
-    use futures::prelude::*;
-    use libp2p::identity::Keypair;
-    use std::collections::HashSet;
-    use std::env;
-    use std::fs;
-    use std::path::Path;
-
-    fn tear_down() {
-        if Path::new(&env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
-            fs::remove_dir_all(env::var("PYRSIA_ARTIFACT_PATH").unwrap()).expect(&format!(
-                "unable to remove test directory {}",
-                env::var("PYRSIA_ARTIFACT_PATH").unwrap()
-            ));
-        }
-    }
-
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = tear_down()
-    )]
-    #[tokio::test]
-    async fn test_get_blob_from_network_with_valid_hash() {
-        let (sender, mut receiver) = mpsc::channel(1);
-
-        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
-
-        tokio::spawn(async move {
-            loop {
-                if let Some(command) = receiver.next().await {
-                    match command {
-                        Command::RequestIdleMetric { sender, .. } => {
-                            let mut providers = HashSet::new();
-                            providers.insert(local_peer_id.clone());
-                            let _ = sender.send(Ok(PeerMetrics {
-                                idle_metric: [0; 8],
-                            }));
-                        }
-                        Command::ListProviders { sender, .. } => {
-                            let mut providers = HashSet::new();
-                            providers.insert(local_peer_id.clone());
-                            let _ = sender.send(providers);
-                        }
-                        Command::Provide { sender, .. } => {
-                            let _ = sender.send(());
-                            // we can stop receiving now
-                            break;
-                        }
-                        Command::RequestArtifact { sender, .. } => {
-                            let _ = sender.send(Ok(vec![]));
-                        }
-                        _ => panic!("Command must match Command::Provide"),
-                    }
-                }
-            }
-        });
-
-        let name = "abcd";
-        let hash = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-
-        let p2p_client = Client {
-            sender,
-            local_peer_id,
-        };
-
-        let result = executor::block_on(handle_get_blobs(
-            p2p_client,
-            name.to_string(),
-            hash.to_string(),
-        ));
-        assert!(result.is_ok());
-    }
-
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = tear_down()
-    )]
-    #[tokio::test]
-    async fn test_get_blob_from_network_with_invalid_hash() {
-        let (sender, mut receiver) = mpsc::channel(1);
-
-        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
-
-        tokio::spawn(async move {
-            loop {
-                if let Some(command) = receiver.next().await {
-                    match command {
-                        Command::RequestIdleMetric { sender, .. } => {
-                            let mut providers = HashSet::new();
-                            providers.insert(local_peer_id.clone());
-                            let _ = sender.send(Ok(PeerMetrics {
-                                idle_metric: [0; 8],
-                            }));
-                        }
-                        Command::ListProviders { sender, .. } => {
-                            let mut providers = HashSet::new();
-                            providers.insert(local_peer_id.clone());
-                            let _ = sender.send(providers);
-                        }
-                        Command::Provide { sender, .. } => {
-                            let _ = sender.send(());
-                            // we can stop receiving now
-                            break;
-                        }
-                        Command::RequestArtifact { sender, .. } => {
-                            let _ = sender.send(Ok(vec![1]));
-                        }
-                        _ => panic!("Command must match Command::Provide"),
-                    }
-                }
-            }
-        });
-
-        let name = "abcd";
-        let hash = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-
-        let p2p_client = Client {
-            sender,
-            local_peer_id,
-        };
-
-        let result = executor::block_on(handle_get_blobs(
-            p2p_client,
-            name.to_string(),
-            hash.to_string(),
-        ));
-        assert!(result.is_err());
     }
 }

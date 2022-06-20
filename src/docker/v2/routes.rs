@@ -42,7 +42,8 @@ pub fn make_docker_routes(
             "application/json",
         ));
 
-    let transparency_log = Arc::new(Mutex::new(transparency_log));
+    let transparency_log_fetch_manifest = Arc::new(Mutex::new(transparency_log));
+    let transparency_log_get_blobs = transparency_log_fetch_manifest.clone();
     let p2p_client_fetch_manifest = p2p_client.clone();
     let artifact_storage_fetch_manifest = artifact_storage.clone();
 
@@ -50,7 +51,7 @@ pub fn make_docker_routes(
         .and(warp::get().or(warp::head()).unify())
         .and_then(move |name, tag| {
             fetch_manifest(
-                transparency_log.clone(),
+                transparency_log_fetch_manifest.clone(),
                 p2p_client_fetch_manifest.clone(),
                 artifact_storage_fetch_manifest.clone(),
                 name,
@@ -63,7 +64,7 @@ pub fn make_docker_routes(
         .and(warp::path::end())
         .and_then(move |_name, hash| {
             handle_get_blobs(
-                transparency_log.clone(),
+                transparency_log_get_blobs.clone(),
                 p2p_client.clone(),
                 artifact_storage.clone(),
                 hash,

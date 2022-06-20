@@ -48,8 +48,6 @@ pub async fn fetch_manifest(
         })
     })?;
 
-    verify_manifest_content(transparency_log, &manifest_content, &name, &tag).await?;
-
     let len = manifest_content.len();
 
     Ok(warp::http::response::Builder::new()
@@ -112,8 +110,11 @@ mod tests {
         let hash = "7300a197d7deb39371d4683d60f60f2fbbfd7541837ceb2278c12014e94e657b";
         let namespace_specific_id = format!("DOCKER::MANIFEST::{}::{}", name, tag);
 
-        let mut transparency_log = TransparencyLog::new();
-        transparency_log.add_artifact(&namespace_specific_id, hash)?;
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(&namespace_specific_id, hash)?;
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
@@ -157,8 +158,11 @@ mod tests {
         let hash = "865c8d988be4669f3e48f73b98f9bc2507be0246ea35e0098cf6054d3644c14f";
         let namespace_specific_id = format!("DOCKER::MANIFEST::{}::{}", name, tag);
 
-        let mut transparency_log = TransparencyLog::new();
-        transparency_log.add_artifact(&namespace_specific_id, hash)?;
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(&namespace_specific_id, hash)?;
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {

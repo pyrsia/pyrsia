@@ -19,14 +19,17 @@ use crate::artifact_service::storage::ArtifactStorage;
 use crate::cli_commands::config::get_config;
 use crate::network::client::{ArtifactType, Client};
 use crate::transparency_log::log::TransparencyLog;
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context};
 use byte_unit::Byte;
+use futures::lock::Mutex;
 use libp2p::PeerId;
 use log::{debug, info};
+use multihash::Hasher;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::str;
+use std::sync::Arc;
 use sysinfo::{NetworkExt, ProcessExt, System, SystemExt};
 
 //TODO: read from CLI config file
@@ -43,17 +46,30 @@ const DISK_STRESS_WEIGHT: f64 = 0.001_f64;
 //get_artifact: given artifact_hash(artifactName) pulls artifact for  artifact_manager and
 //              returns read object to read the bytes of artifact
 pub async fn get_artifact(
-    mut transparency_log: TransparencyLog,
+    transparency_log: Arc<Mutex<TransparencyLog>>,
     p2p_client: Client,
     artifact_storage: &ArtifactStorage,
     namespace_specific_id: &str,
-) -> Result<Vec<u8>, anyhow::Error> {
-    let artifact_id = transparency_log.get_artifact(namespace_specific_id)?;
+) -> anyhow::Result<Vec<u8>> {
+    let artifact_id = transparency_log
+        .lock()
+        .await
+        .get_artifact(namespace_specific_id)?;
 
-    match get_artifact_locally(artifact_storage, &artifact_id) {
+    let blob_content = match get_artifact_locally(artifact_storage, &artifact_id) {
         Ok(blob_content) => Ok(blob_content),
         Err(_) => get_artifact_from_peers(p2p_client, artifact_storage, &artifact_id).await,
-    }
+    }?;
+
+    let mut sha256 = multihash::Sha2_256::default();
+    sha256.update(&blob_content);
+    let calculated_hash = hex::encode(sha256.finalize());
+    transparency_log
+        .lock()
+        .await
+        .verify_artifact(namespace_specific_id, &calculated_hash)?;
+
+    Ok(blob_content)
 }
 
 pub fn get_artifact_locally(
@@ -237,8 +253,9 @@ mod tests {
         ],
         teardown = test_util::tear_down()
     )]
-    fn test_put_and_get_artifact() {
-        let mut transparency_log = TransparencyLog::new();
+    #[tokio::test]
+    async fn test_put_and_get_artifact() {
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
         let artifact_storage = ArtifactStorage::new()?;
 
         let (sender, _) = mpsc::channel(1);
@@ -248,7 +265,10 @@ mod tests {
         };
 
         let artifact_id = "an_artifact_id";
-        transparency_log.add_artifact(artifact_id, &hex::encode(VALID_ARTIFACT_HASH))?;
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(artifact_id, &hex::encode(VALID_ARTIFACT_HASH))?;
 
         let hash = Hash::new(HashAlgorithm::SHA256, &VALID_ARTIFACT_HASH)?;
         //put the artifact
