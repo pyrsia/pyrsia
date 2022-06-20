@@ -420,12 +420,8 @@ mod tests {
             .await
             .add_artifact(namespace_specific_id, &random_hash)?;
 
-        let result = verify_artifact(
-            transparency_log,
-            &namespace_specific_id,
-            b"SAMPLE_DATA",
-        )
-        .await;
+        let result =
+            verify_artifact(transparency_log, &namespace_specific_id, b"SAMPLE_DATA").await;
         assert!(result.is_ok());
     }
 
