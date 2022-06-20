@@ -25,7 +25,7 @@ use warp::{Rejection, Reply};
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn fetch_manifest(
-    mut transparency_log: TransparencyLog,
+    transparency_log: TransparencyLog,
     p2p_client: Client,
     artifact_storage: ArtifactStorage,
     name: String,
