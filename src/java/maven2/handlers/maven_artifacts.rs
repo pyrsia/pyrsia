@@ -19,7 +19,7 @@ use crate::artifact_service::storage::ArtifactStorage;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::network::client::Client;
 use crate::transparency_log::log::TransparencyLog;
-use anyhow::anyhow;
+use anyhow::bail;
 
 use log::debug;
 use warp::{http::StatusCode, Rejection, Reply};
@@ -31,9 +31,10 @@ pub async fn handle_get_maven_artifact(
     full_path: String,
 ) -> Result<impl Reply, Rejection> {
     debug!("Requesting maven artifact: {}", full_path);
-    let namespace_specific_id = get_namespace_specific_id(&full_path).map_err(|_| {
+    let namespace_specific_id = get_namespace_specific_id(&full_path).map_err(|err| {
+        debug!("Error getting namespace id for artifact: {:?}", err);
         warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobUnknown,
+            code: RegistryErrorCode::Unknown(err.to_string()),
         })
     })?;
 
@@ -49,7 +50,7 @@ pub async fn handle_get_maven_artifact(
     .map_err(|err| {
         debug!("Error retrieving artifact: {:?}", err);
         warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobUnknown,
+            code: RegistryErrorCode::Unknown(err.to_string()),
         })
     })?;
 
@@ -67,7 +68,7 @@ fn get_namespace_specific_id(full_path: &str) -> Result<String, anyhow::Error> {
     // split, and remove first two strings: "" and "maven2":
     let mut pieces: Vec<&str> = full_path.split('/').skip(2).collect();
     if pieces.len() < 4 {
-        return Err(anyhow!(format!("Error, invalid full path: {}", full_path)));
+        bail!(format!("Error, invalid full path: {}", full_path));
     }
     let file_name = pieces.pop().unwrap();
     let version = pieces.pop().unwrap();
@@ -96,6 +97,7 @@ mod tests {
     const VALID_ARTIFACT_HASH: &str =
         "e11c16ff163ccc1efe01d2696c626891560fa82123601a5ff196d97b6ab156da";
     const VALID_FULL_PATH: &str = "/maven2/test/test/1.0/test-1.0.jar";
+    const INVALID_FULL_PATH: &str = "/maven2/test/1.0/test-1.0.jar";
     const VALID_MAVEN_ID: &str = "MAVEN2/FILE/test/test/1.0/test-1.0.jar";
 
     #[test]
@@ -106,6 +108,11 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_get_namespace_specific_id_with_invalid_path() {
+        assert!(get_namespace_specific_id(INVALID_FULL_PATH).is_err());
+    }
+
     #[assay(
     env = [
     ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
@@ -114,6 +121,7 @@ mod tests {
     teardown = test_util::tear_down()
     )]
     #[tokio::test]
+    #[cfg(not(tarpaulin_include))]
     async fn test_handle_test_maven_artifact() {
         let mut transparency_log = TransparencyLog::new();
         transparency_log.add_artifact(VALID_MAVEN_ID, VALID_ARTIFACT_HASH)?;
@@ -145,6 +153,7 @@ mod tests {
         );
     }
 
+    #[cfg(not(tarpaulin_include))]
     fn get_file_reader() -> Result<File, anyhow::Error> {
         // test artifact file in resources/test dir
         let mut curr_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -155,6 +164,7 @@ mod tests {
         Ok(reader)
     }
 
+    #[cfg(not(tarpaulin_include))]
     fn create_artifact(artifact_storage: &ArtifactStorage) -> Result<(), anyhow::Error> {
         let artifact_hash = hex::decode(VALID_ARTIFACT_HASH)?;
         let hash = Hash::new(HashAlgorithm::SHA256, &artifact_hash)?;

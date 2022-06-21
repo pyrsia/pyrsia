@@ -27,25 +27,11 @@ pub fn make_maven_routes(
     p2p_client: Client,
     artifact_storage: ArtifactStorage,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    let empty_json = "{}";
-    let maven2_base = warp::path("maven2")
-        .and(warp::get())
-        .and(warp::path::end())
-        .map(move || empty_json)
-        .with(warp::reply::with::header(
-            "Content-Length",
-            empty_json.len(),
-        ))
-        .with(warp::reply::with::header(
-            "Content-Type",
-            "application/json",
-        ));
-
     let maven2_root = warp::path("maven2")
         .and(warp::path::full())
         .map(|path: warp::path::FullPath| {
             let full_path: String = path.as_str().to_string();
-            debug!("got full path : {}", full_path);
+            debug!("route full path: {}", full_path);
             full_path
         })
         .and_then(move |full_path| {
@@ -57,5 +43,5 @@ pub fn make_maven_routes(
             )
         });
 
-    warp::any().and(maven2_base.or(maven2_root))
+    warp::any().and(maven2_root)
 }
