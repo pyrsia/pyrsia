@@ -40,7 +40,7 @@ pub async fn handle_get_maven_artifact(
 
     // request artifact
     debug!("Requesting artifact for id {}", &namespace_specific_id);
-    let blob_content = get_artifact(
+    let artifact_content = get_artifact(
         transparency_log,
         p2p_client,
         &artifact_storage,
@@ -57,7 +57,7 @@ pub async fn handle_get_maven_artifact(
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
         .status(StatusCode::OK)
-        .body(blob_content)
+        .body(artifact_content)
         .unwrap())
 }
 
@@ -101,7 +101,7 @@ mod tests {
     const VALID_MAVEN_ID: &str = "MAVEN2/FILE/test/test/1.0/test-1.0.jar";
 
     #[test]
-    fn test_get_namespace_specific_id() {
+    fn get_namespace_specific_id_test() {
         assert_eq!(
             get_namespace_specific_id(VALID_FULL_PATH).unwrap(),
             VALID_MAVEN_ID
@@ -109,7 +109,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_namespace_specific_id_with_invalid_path() {
+    fn get_namespace_specific_id_with_invalid_path_test() {
         assert!(get_namespace_specific_id(INVALID_FULL_PATH).is_err());
     }
 
@@ -122,7 +122,7 @@ mod tests {
     )]
     #[tokio::test]
     #[cfg(not(tarpaulin_include))]
-    async fn test_handle_test_maven_artifact() {
+    async fn handle_get_maven_artifact_test() {
         let mut transparency_log = TransparencyLog::new();
         transparency_log.add_artifact(VALID_MAVEN_ID, VALID_ARTIFACT_HASH)?;
 
