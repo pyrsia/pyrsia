@@ -14,17 +14,4 @@
    limitations under the License.
 */
 
-use serde::{Deserialize, Serialize};
-use strum_macros::Display;
-
-#[derive(PartialEq, Debug, Deserialize, Serialize)]
-pub struct PackageType {
-    pub id: String,
-    pub name: PackageTypeName,
-    pub description: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Display, PartialEq, Clone)]
-pub enum PackageTypeName {
-    Docker,
-}
+pub mod service;
