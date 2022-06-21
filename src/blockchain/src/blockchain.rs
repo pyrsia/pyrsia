@@ -128,7 +128,7 @@ mod tests {
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
-            TransactionType::Create,
+            TransactionType::AddTransparencyLog,
             local_id,
             data.as_bytes().to_vec(),
             &keypair,
@@ -152,7 +152,7 @@ mod tests {
         let mut chain = Blockchain::new(&keypair);
 
         let transaction = Transaction::new(
-            TransactionType::Create,
+            TransactionType::AddTransparencyLog,
             local_id,
             "some transaction".as_bytes().to_vec(),
             &keypair,

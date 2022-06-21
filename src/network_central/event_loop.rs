@@ -15,6 +15,7 @@
 */
 
 use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse};
+use crate::network::blockchain_protocol::BlockchainRequest;
 use crate::network::client::command::Command;
 use crate::network::client::ArtifactType;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
@@ -425,6 +426,26 @@ impl PyrsiaEventLoop {
                     .behaviour_mut()
                     .idle_metric_request_response
                     .send_response(channel, IdleMetricResponse(metric))
+                    .expect("Connection to peer to be still open.");
+            }
+            Command::RequestBlockchain {
+                transaction_operation,
+                payload,
+                peer,
+                sender,
+            } => {
+                let request_id = self
+                    .swarm
+                    .behaviour_mut()
+                    .blockchain_request_response
+                    .send_request(&peer, BlockchainRequest(artifact_type, artifact_hash.hash));
+                self.pending_request_artifact.insert(request_id, sender);
+            }
+            Command::RespondArtifact { artifact, channel } => {
+                self.swarm
+                    .behaviour_mut()
+                    .request_response
+                    .send_response(channel, ArtifactResponse(artifact))
                     .expect("Connection to peer to be still open.");
             }
         }

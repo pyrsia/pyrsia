@@ -26,9 +26,8 @@ use crate::signature::Signature;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy, Decode, Encode)]
 pub enum TransactionType {
-    Create,
     AddAuthority,
-    RevokeAuthority,
+    AddTransparencyLog,
 }
 
 // Temporary structure to be able to calculate the hash of a transaction
@@ -129,7 +128,7 @@ mod tests {
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
 
         let transaction = Transaction::new(
-            TransactionType::Create,
+            TransactionType::AddTransparencyLog,
             local_id,
             b"Hello First Transaction".to_vec(),
             &keypair,
