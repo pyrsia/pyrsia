@@ -17,6 +17,7 @@
   transaction is valid.
 - Artifact: a single file that can be retrieved from the Pyrsia network. It does
   not necessarily coincide with package specific artifacts.
+- PAD: a package type specific artifact ID.
 - Authorized node admin: the person who can administer an authorized node
 
 ## Introduction
@@ -66,7 +67,7 @@ of the Pyrsia network.
 
 ![Pyrsia component diagram](pyrsia-node-high-level-components.png)
 
-### Package type ecosystems
+### Package type ecosystem connectors
 
 A Pyrsia node contains several connectors to specific package type ecosystems
 like Docker or Maven. The ecosystem connectors allow the existing tooling of a
@@ -77,28 +78,71 @@ repository service implements a subset of the Maven repository API.
 The end goal of a such a service is always a frictionless integration of Pyrsia
 in the developer's workflow.
 
+Different package type connector deal with package specific details in a different
+way. But all must follow the some logic:
+
+- Handle incoming requests from the package type specific clients (e.g. Docker
+  client, Maven client, ...)
+- Use the `Artifact Service` to retrieve the artifact. The artifact service
+  contains all the logic to retrieve (locally or from the p2p network) and validate
+  the artifact.
+
 ### Pyrsia CLI API
 
 The Pyrsia CLI API is the entry point into the Pyrsia node for the Pyrsia
-command line tool. It supports all kinds of management operations (requesting
-status information about the local artifact storage, information about the peers
-in the p2p network) and inspecting transparency logs.
+command line tool. It supports all kinds of management operations and inspecting
+transparency logs.
+
+The Pyrsia CLI API has functions to:
+
+- retrieve and change node configuration
+- request status information about the local artifact storage
+- request status information about the p2p connection status
+- request the addition of a new authorized node (_Authorized nodes only_)
 
 ### Artifact Service
 
-The artifact service is the component that can store, retrieve and verify Pyrsia
-artifacts.
+The artifact service is the component that handles everything related to Pyrsia
+artifacts. It allows artifacts to be retrieved and it allows artifacts to be
+added, by triggering a build from source.
 
-In the artifact consumption use cases, this component offers an abstract way of
-dealing with Pyrsia artifacts for the specific ecosystem connectors. It will
-handle get_artifact requests and perform all necessary steps to find, retrieve
-and validate artifacts either locally or using the p2p network.
+The artifact service supports these functions:
 
-In the publication use cases (on authorized nodes) this component is responsible
-to drive build triggers: it will request a build from source at the Build Service,
-use the Transparency Log Service to add an `add_artifact` transaction, and when
-consensus is reached, it will store the artifact and make it available in the p2p
-network.
+- request an artifact based on the package type and a  package type specific
+  artifact ID (PAD). \
+  the artifact service implements this as follows:
+    - query the `Transparency Log` to retrieve the latest `add_artifact` transaction
+      (if any)
+    - the `transaction` contains the (Pyrsia) `artifact_id` which is used to retrieve
+      the actual artifact file
+    - if the file is available locally, it is used
+    - if the file isn't available locally, it is retrieve using the `p2p` component.
+    - the file is then checked by calculating its hash and comparing it to the
+      `artifact_hash` stored in the `transaction`.
+    - if the hashes match the bytes of the file are returned to the caller of
+      the artifact service.
+
+- request a build from source for a specific package type and a package type
+  specific artifact ID (PAD). \
+  the artifact service implements this as follows:
+  - start a build using the `Build and verifaction service` and wait for its result.
+  - when the build finishes, temporary hold the build result and create a `add_artifact`
+    transaction, including
+    - operator: add_artifact
+    - package type: from the caller of this function
+    - package type specific artifact ID (PAD): from the caller of this function
+    - timestamp: now
+    - artifact_hash (provided by the build service)
+    - source_bash (provided by the build service)
+    - artifact_id: the (Pyrsia) artifact ID (uniquely generated)
+    - source_id: the (Pyrsia) artifact source ID (uniquely generated)
+  - call `add_artifact` on the `Transparency log` component with the newly created
+    `transaction` and wait for it to be confirmed (which happens only after
+    consensus is reached)
+  - when the `add_artifact` succeeds, store the artifact locally in a file named
+    `artifact_id` and the source in a file named `source_id`.
+  - provide both files on the p2p network using the `p2p` component.
+
 
 ### p2p
 
@@ -116,6 +160,33 @@ It uses the Blockchain component to retrieve transactions and to reach consensus
 on the publication of new transactions. It uses a local database to store and index
 transaction information for easy access.
 
+The transparency log service supports these functions:
+
+- adding a transaction to add an artifact
+  - the transaction is added as the payload of a block and `add_block` is called
+    on the blockchain component. the service now waits for the blockchain component
+    to reach consensus with the other authorized nodes.
+  - when consensus is reached, the transparency log service will be notified by
+    the blockchain component, which will:
+    - store the transaction in the transaction log database
+    - notify the caller of `add_artifact`
+
+- retrieving the latest `add_artifact` transaction
+  - this function takes the package type and PAD as input
+  - it uses those fields to search the transaction log database
+  - it will search for the latest `add_artifact` or `remove_artifact` transaction
+  - if the latest transaction is `remove_artifact` an error is returned
+  - otherwise the latest `add_transaction` is returned
+
+- searching transactions (for inspection)
+  - TODO: details
+
+- adding a transaction to add another authorized node
+  - TODO: details
+
+- adding a transaction to remove an artifact
+  - TODO: details
+
 ### Blockchain
 
 This component offers an interface to store and retrieve immutable transaction
@@ -130,17 +201,52 @@ using a fault-tolerant consensus algorithm, because:
 - A small number of faulty (authorized) nodes must not be able to slow down the
   system or make it stop working
 
+The blockchain component supports these functions:
+
+- add_block: to request the addition of a new transaction
+- add_block_listener: to register a listener for new blocks that reached consensus
+
+TODO:
+- describe how an authorized node will try to reach consensus with other nodes
+- describe how this component distributes block across all nodes
+
 ### Build service
 
 The build service is a component only used by authorized nodes. It is the entry
-point to the authorized node's build pipeline infrastructure and takes a Transaction
-as input, including:
+point to the authorized node's build pipeline infrastructure.
 
-- the package type
-- the source repo url
+The builds service supports these function:
 
-Based on the package type and the build spec of the artifact, the build service
-will then invoke a build using a suitable pipeline.
+- start a build based on the package type and the PAD \
+  this function is typically called from the CLI component when a build from
+  source was requested by a user.
+  - based on the package type it will:
+    - map the PAD to a source repo (if necessary)
+    - find a suitable build pipeline and trigger a build
+    - wait for the build result
+    - when the build finishes, hash the binary artifact and the source artifact
+      - one build might produce multiple (Pyrsia) artifacts
+      - for non-reproducible builds simple hashing will not be sufficient
+    - return the build result (could be multple: one per artifact) to the caller
+      of the `start_build` (this will need to be an async callback) \
+      the build result contains:
+      - the binary artifact
+      - the source artifact
+      - the hash of the binary artifact
+      - the hash of the source artifact
+
+- verify a build based on a `transaction`
+  this function is typically called from the blockchain component to reach
+  consensus about a transaction added by another authorized node.
+  - based on the package type (from the `transaction`)
+    - map the PAD (from the `transaction`) to a source repo (if necessary)
+    - find a suitable build pipeline and trigger a build
+    - wait for the build result
+    - when the build finishes, hash the binary and source artifacts and compare
+      them to the hashes in the `transaction`
+      - simple hashing might not be sufficient for non-reproducible builds
+    - if the hashes match, return success to the caller of this function
+    - TDB: how do we make sure all authorized nodes will store the build result?
 
 ## Technical stories and details
 
