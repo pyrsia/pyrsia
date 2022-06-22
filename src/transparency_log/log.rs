@@ -16,18 +16,18 @@
 
 use crate::util::env_util::read_var;
 use log::debug;
+use rusqlite::{Connection, Error};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::io::{self, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Error, PartialEq)]
 pub enum TransparencyLogError {
-    #[error("Duplicate ID {id:?} in transparency log")]
+    #[error("Duplicate ID {id:?} in transparency log database")]
     DuplicateId { id: String },
-    #[error("ID {id:?} not found in transparency log")]
+    #[error("ID {id:?} not found in transparency log database")]
     NotFound { id: String },
     #[error("Hash Verification failed for ID {id:?}: {invalid_hash:?} vs {actual_hash:?}")]
     InvalidHash {
@@ -118,39 +118,69 @@ impl TransparencyLog {
     }
 }
 
-fn write_payload(payload: &Payload) -> anyhow::Result<()> {
-    let payload_storage_path = get_payload_storage_path();
+fn open_db() -> anyhow::Result<Connection> {
+    let payload_storage_path = get_payload_database_path();
     fs::create_dir_all(&payload_storage_path)?;
-    let payload_filename = format!(
-        "{}/{}.log",
-        payload_storage_path,
-        str::replace(&payload.id, "/", "_")
-    );
-    debug!(
-        "Storing transparency log payload at: {:?}",
-        payload_filename
-    );
-    match fs::File::options()
-        .write(true)
-        .create_new(true)
-        .open(&payload_filename)
-    {
-        Ok(mut payload_file) => {
-            let json_payload = serde_json::to_string(payload)?;
-            payload_file.write_all(json_payload.as_bytes())?;
-            Ok(())
+    let mut database_path = payload_storage_path;
+    database_path.push_str("/payload.db3");
+    let conn = Connection::open(database_path)?;
+    match conn.execute(
+        "CREATE TABLE IF NOT EXISTS payload (
+            id TEXT PRIMARY KEY,
+            hash TEXT NOT NULL,
+            timestamp INTEGER,
+            operation TEXT NOT NULL
+        )",
+        [],
+    ) {
+        Ok(_) => Ok(conn),
+        Err(err) => {
+            debug!("Error creating transparency log database table: {:?}", err);
+            Err(err.into())
         }
-        Err(e) => match e.kind() {
-            io::ErrorKind::AlreadyExists => Err(TransparencyLogError::DuplicateId {
-                id: payload.id.clone(),
-            }
-            .into()),
-            _ => Err(e.into()),
-        },
     }
 }
 
-fn get_payload_storage_path() -> String {
+fn write_payload(payload: &Payload) -> anyhow::Result<()> {
+    let conn = open_db()?;
+
+    let payload_to_db = payload.clone();
+    match conn.execute(
+        "INSERT INTO payload (id, hash, timestamp, operation) values (?1, ?2, ?3, ?4)",
+        [
+            payload_to_db.id,
+            payload_to_db.hash,
+            payload_to_db.timestamp.to_string(),
+            payload_to_db.operation.to_string(),
+        ],
+    ) {
+        Ok(_) => {
+            debug!(
+                "Payload inserted into transparency log with id: {}",
+                payload.id
+            );
+            Ok(())
+        }
+        Err(err) => {
+            debug!("Transparency payload insert error: {:?}", err);
+            match err {
+                Error::SqliteFailure(sqlite_error, ref _sqlite_options) => {
+                    if sqlite_error.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_PRIMARYKEY {
+                        Err(TransparencyLogError::DuplicateId {
+                            id: payload.id.clone(),
+                        }
+                        .into())
+                    } else {
+                        Err(err.into())
+                    }
+                }
+                _ => Err(err.into()),
+            }
+        }
+    }
+}
+
+fn get_payload_database_path() -> String {
     format!(
         "{}/{}",
         read_var("PYRSIA_ARTIFACT_PATH", "pyrsia"),
@@ -169,6 +199,7 @@ mod tests {
     use super::*;
     use crate::util::test_util;
     use assay::assay;
+    use std::path::Path;
 
     #[test]
     fn create_payload() {
@@ -213,6 +244,71 @@ mod tests {
         let log: TransparencyLog = Default::default();
 
         assert_eq!(log.payloads.len(), 0);
+    }
+
+    #[assay(
+    env = [
+    ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
+    ("DEV_MODE", "on")
+    ],
+    teardown = test_util::tear_down()
+    )]
+    fn test_open_db() {
+        let result = open_db();
+        assert!(result.is_ok());
+
+        let conn = result.unwrap();
+        assert_eq!(
+            conn.path().unwrap(),
+            Path::new("pyrsia-test-transparency-log/transparency_log/payload.db3")
+        );
+    }
+
+    #[assay(
+    env = [
+    ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
+    ("DEV_MODE", "on")
+    ],
+    teardown = test_util::tear_down()
+    )]
+    fn test_write_payload() {
+        let payload = Payload {
+            id: String::from("id"),
+            hash: String::from("hash"),
+            timestamp: 1234567890,
+            operation: Operation::AddArtifact,
+        };
+
+        let result = write_payload(&payload);
+        assert!(result.is_ok());
+    }
+
+    #[assay(
+    env = [
+    ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
+    ("DEV_MODE", "on")
+    ],
+    teardown = test_util::tear_down()
+    )]
+    fn test_write_twice_payload_error() {
+        let payload = Payload {
+            id: String::from("id"),
+            hash: String::from("hash"),
+            timestamp: 1234567890,
+            operation: Operation::AddArtifact,
+        };
+
+        let mut result = write_payload(&payload);
+        assert!(result.is_ok());
+        result = write_payload(&payload);
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            TransparencyLogError::DuplicateId {
+                id: String::from("id")
+            }
+            .to_string()
+        );
     }
 
     #[assay(
