@@ -17,6 +17,7 @@
 pub mod command;
 
 use crate::network::artifact_protocol::ArtifactResponse;
+use crate::network::blockchain_protocol::BlockchainResponse;
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use futures::channel::{mpsc, oneshot};
@@ -24,6 +25,7 @@ use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
 use log::debug;
+use pyrsia_blockchain_network::structures::transaction::TransactionType;
 use std::collections::HashSet;
 
 /* peer metrics support */
@@ -36,6 +38,7 @@ struct IdleMetric {
 /* peer metric support */
 
 use strum_macros::Display;
+
 /// Defines the different types of artifacts that can be transferred
 /// within the libp2p swarm.
 #[derive(Clone, Debug, Display, PartialEq, Eq)]
@@ -281,12 +284,55 @@ impl Client {
 
         Ok(())
     }
+
+    pub async fn request_blockchain(
+        &mut self,
+        peer: &PeerId,
+        transaction_operation: TransactionType,
+        payload: Vec<u8>,
+    ) -> anyhow::Result<Option<u64>> {
+        debug!(
+            "p2p::Client::request_blockchain {:?}: {:?}={:?}",
+            peer,
+            transaction_operation,
+            payload.clone(),
+        );
+
+        let (sender, receiver) = oneshot::channel();
+        self.sender
+            .send(Command::RequestBlockchain {
+                transaction_operation,
+                payload,
+                peer: *peer,
+                sender,
+            })
+            .await?;
+        receiver.await?
+    }
+
+    pub async fn respond_blockchain(
+        &mut self,
+        block_ordinal: Option<u64>,
+        channel: ResponseChannel<BlockchainResponse>,
+    ) -> anyhow::Result<()> {
+        debug!("p2p::Client::respond_blockchain ordinal{:?}", block_ordinal);
+
+        self.sender
+            .send(Command::RespondBlockchain {
+                block_ordinal,
+                channel,
+            })
+            .await?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use libp2p::identity::Keypair;
+    use pyrsia_blockchain_network::structures::transaction::TransactionType;
     use rand::distributions::Alphanumeric;
     use rand::{thread_rng, Rng};
 
@@ -487,6 +533,37 @@ mod tests {
                     let _ = sender.send(Ok(vec![]));
                 },
                 _ => panic!("Command must match Command::RequestArtifact")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_request_blockchain() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let mut client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+
+        let payload = vec![0, 1, 2, 3, 4];
+        tokio::spawn(async move {
+            client
+                .request_blockchain(&other_peer_id, TransactionType::AddAuthority, payload)
+                .await
+        });
+
+        futures::select! {
+            command = receiver.next() => match command {
+                Some(Command::RequestBlockchain { peer, transaction_operation, payload, sender }) => {
+                    assert_eq!(peer, other_peer_id);
+                    assert_eq!(transaction_operation, TransactionType::AddAuthority);
+                    assert_eq!(payload, vec![0, 1, 2, 3, 4]);
+                    let _ = sender.send(Ok(Some(1u64)));
+                },
+                _ => panic!("Command must match Command::RequestBlockchain")
             }
         }
     }

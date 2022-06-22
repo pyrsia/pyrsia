@@ -22,7 +22,6 @@ use libp2p::core::upgrade::{
 use libp2p::request_response::RequestResponseCodec;
 use log::debug;
 use pyrsia_blockchain_network::structures::transaction::TransactionType;
-use serde::{Deserialize, Serialize};
 use std::io;
 
 #[derive(Debug, Clone)]
@@ -91,23 +90,22 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
         T: AsyncRead + Unpin + Send,
     {
         let mut buff: [u8; 8] = [0; 8];
-        let mut blockchain_ordinal = None;
         let mut size = read_varint(io).await?;
         if size != 8 {
-            blockchain_ordinal = None;
+            return Ok(BlockchainResponse(None));
         }
 
         size = io.read(&mut buff).await?;
         if size != 8 {
-            blockchain_ordinal = None;
+            return Ok(BlockchainResponse(None));
         }
 
-        blockchain_ordinal = Some(u64::from_be_bytes(buff));
+        let block_ordinal = Some(u64::from_be_bytes(buff));
         debug!(
-            "prysia::blobkchain_protocol::read_response Reading response to blockchain request with value ={:?}",
-            blockchain_ordinal
+            "prysia::blockchain_protocol::read_response Reading response to blockchain request with value ={:?}",
+            block_ordinal
         );
-        Ok(BlockchainResponse(blockchain_ordinal))
+        Ok(BlockchainResponse(block_ordinal))
     }
 
     //this method send blockchain request from the peer

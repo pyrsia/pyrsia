@@ -57,7 +57,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let artifact_storage = ArtifactStorage::new()?;
 
     debug!("Create blockchain components");
-    let _blockchain = setup_blockchain()?;
+    let blockchain = setup_blockchain()?;
 
     debug!("Start p2p event loop");
     tokio::spawn(event_loop.run());
@@ -105,6 +105,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         warn!(
                             "This node failed to provide idle metrics. Error: {:?}",
                             error
+                        );
+                    }
+                }
+                pyrsia::network::event_loop::PyrsiaEvent::BlockchainRequest {
+                    transaction_operation,
+                    payload,
+                    channel,
+                } => {
+                    if let Err(error) = handlers::handle_request_blockchain(
+                        p2p_client.clone(),
+                        blockchain.clone(),
+                        transaction_operation,
+                        payload.clone(),
+                        channel,
+                    )
+                    .await
+                    {
+                        warn!(
+                            "This node failed to provide artifact with type {:?} and hash {:?}. Error: {:?}",
+                            transaction_operation, payload, error
                         );
                     }
                 }
