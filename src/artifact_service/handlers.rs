@@ -233,7 +233,6 @@ mod tests {
     use crate::transparency_log::log::TransparencyLogError;
     use crate::util::test_util;
     use anyhow::Context;
-    use assay::assay;
     use futures::channel::mpsc;
     use futures::executor;
     use futures::prelude::*;
@@ -252,17 +251,12 @@ mod tests {
     const CPU_THREADS: usize = 200;
     const NETWORK_THREADS: usize = 10;
 
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-          ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
     #[tokio::test]
     async fn test_put_and_get_artifact() {
-        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
-        let artifact_storage = ArtifactStorage::new()?;
+        let tmp_dir = test_util::tests::setup();
+
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new(&tmp_dir).unwrap()));
+        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
@@ -274,47 +268,45 @@ mod tests {
         transparency_log
             .lock()
             .await
-            .add_artifact(artifact_id, &hex::encode(VALID_ARTIFACT_HASH))?;
+            .add_artifact(artifact_id, &hex::encode(VALID_ARTIFACT_HASH))
+            .unwrap();
 
-        let hash = Hash::new(HashAlgorithm::SHA256, &VALID_ARTIFACT_HASH)?;
+        let hash = Hash::new(HashAlgorithm::SHA256, &VALID_ARTIFACT_HASH).unwrap();
         //put the artifact
-        put_artifact(&artifact_storage, &hash, Box::new(get_file_reader()?))
-            .context("Error from put_artifact")?;
+        put_artifact(
+            &artifact_storage,
+            &hash,
+            Box::new(get_file_reader().unwrap()),
+        )
+        .context("Error from put_artifact")
+        .unwrap();
 
         // pull artifact
         let future = async {
-            get_artifact(
-                transparency_log,
-                p2p_client,
-                &artifact_storage,
-                &artifact_id,
-            )
-            .await
-            .context("Error from get_artifact")
+            get_artifact(transparency_log, p2p_client, &artifact_storage, artifact_id)
+                .await
+                .context("Error from get_artifact")
         };
-        let file = executor::block_on(future)?;
+        let file = executor::block_on(future).unwrap();
 
         //validate pulled artifact with the actual data
         let mut s = String::new();
-        get_file_reader()?.read_to_string(&mut s)?;
+        get_file_reader().unwrap().read_to_string(&mut s).unwrap();
 
         let s1 = match str::from_utf8(file.as_slice()) {
             Ok(v) => v,
             Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
         };
         assert_eq!(s, s1);
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_get_from_peers() {
-        let artifact_storage = ArtifactStorage::new()?;
+        let tmp_dir = test_util::tests::setup();
+
+        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
 
         let peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
@@ -355,18 +347,15 @@ mod tests {
             get_artifact_from_peers(p2p_client, &artifact_storage, &artifact_id).await
         });
         assert!(result.is_ok());
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_get_from_peers_with_no_providers() {
-        let artifact_storage = ArtifactStorage::new()?;
+        let tmp_dir = test_util::tests::setup();
+
+        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
 
         let peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
@@ -397,43 +386,37 @@ mod tests {
             get_artifact_from_peers(p2p_client, &artifact_storage, &artifact_id).await
         });
         assert!(result.is_err());
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
     #[tokio::test]
     async fn test_verify_artifact_succeeds_when_hashes_same() {
+        let tmp_dir = test_util::tests::setup();
+
         let mut hasher1 = Sha256::new();
         hasher1.update(b"SAMPLE_DATA");
         let random_hash = hex::encode(hasher1.finalize());
 
-        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new(&tmp_dir).unwrap()));
 
         let namespace_specific_id = "namespace_specific_id";
         transparency_log
             .lock()
             .await
-            .add_artifact(namespace_specific_id, &random_hash)?;
+            .add_artifact(namespace_specific_id, &random_hash)
+            .unwrap();
 
-        let result =
-            verify_artifact(transparency_log, &namespace_specific_id, b"SAMPLE_DATA").await;
+        let result = verify_artifact(transparency_log, namespace_specific_id, b"SAMPLE_DATA").await;
         assert!(result.is_ok());
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
     #[tokio::test]
     async fn test_verify_artifact_fails_when_hashes_differ() {
+        let tmp_dir = test_util::tests::setup();
+
         let mut hasher1 = Sha256::new();
         hasher1.update(b"SAMPLE_DATA");
         let random_hash = hex::encode(hasher1.finalize());
@@ -442,17 +425,18 @@ mod tests {
         hasher2.update(b"OTHER_SAMPLE_DATA");
         let random_other_hash = hex::encode(hasher2.finalize());
 
-        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new(&tmp_dir).unwrap()));
 
         let namespace_specific_id = "namespace_specific_id";
         transparency_log
             .lock()
             .await
-            .add_artifact(namespace_specific_id, &random_hash)?;
+            .add_artifact(namespace_specific_id, &random_hash)
+            .unwrap();
 
         let result = verify_artifact(
             transparency_log,
-            &namespace_specific_id,
+            namespace_specific_id,
             b"OTHER_SAMPLE_DATA",
         )
         .await;
@@ -465,43 +449,49 @@ mod tests {
                 actual_hash: random_hash
             }
         );
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
-          ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     fn test_disk_usage() {
-        let artifact_storage = ArtifactStorage::new()?;
+        let tmp_dir = test_util::tests::setup();
 
-        let usage_pct_before = disk_usage(&artifact_storage).context("Error from disk_usage")?;
+        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
 
-        create_artifact(&artifact_storage).context("Error creating artifact")?;
+        let usage_pct_before = disk_usage(&artifact_storage)
+            .context("Error from disk_usage")
+            .unwrap();
 
-        let usage_pct_after = disk_usage(&artifact_storage).context("Error from disk_usage")?;
+        create_artifact(&artifact_storage)
+            .context("Error creating artifact")
+            .unwrap();
+
+        let usage_pct_after = disk_usage(&artifact_storage)
+            .context("Error from disk_usage")
+            .unwrap();
         assert!(usage_pct_before < usage_pct_after);
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
-          ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     fn test_get_space_available() {
-        let artifact_storage = ArtifactStorage::new()?;
+        let tmp_dir = test_util::tests::setup();
 
-        let space_available_before =
-            get_space_available(&artifact_storage).context("Error from get_space_available")?;
+        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
 
-        create_artifact(&artifact_storage).context("Error creating artifact")?;
+        let space_available_before = get_space_available(&artifact_storage)
+            .context("Error from get_space_available")
+            .unwrap();
 
-        let space_available_after =
-            get_space_available(&artifact_storage).context("Error from get_space_available")?;
+        create_artifact(&artifact_storage)
+            .context("Error creating artifact")
+            .unwrap();
+
+        let space_available_after = get_space_available(&artifact_storage)
+            .context("Error from get_space_available")
+            .unwrap();
         debug!(
             "Before: {}; After: {}",
             space_available_before, space_available_after
@@ -626,7 +616,7 @@ mod tests {
         // write some data
         let write_thread = thread::spawn({
             let file_data = "Some test data for the file!\n";
-            let except_str = format!("Unable to open file {}", test_file).to_string();
+            let except_str = format!("Unable to open file {}", test_file);
             let mut f = OpenOptions::new()
                 .append(true)
                 .create(true)
@@ -649,7 +639,7 @@ mod tests {
         loading.store(false, Ordering::Relaxed); //kill thread
         write_thread.join().unwrap();
         fs::remove_file(test_file).unwrap_or_else(|why| {
-            assert!(false, "{:?}", why.kind());
+            panic!("{:?}", why.kind());
         });
         assert!(qm2 > qm);
 

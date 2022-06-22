@@ -72,53 +72,33 @@ pub fn get_config() -> Result<CliConfig> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assay::assay;
-    use directories::ProjectDirs;
-    use std::path::PathBuf;
 
-    fn tear_down() {
-        let config_dir_str = get_configuration_directory();
-
-        let path: PathBuf = [
-            config_dir_str.to_owned(),
-            format!("{}.toml", CONF_FILE.to_owned()),
-        ]
-        .iter()
-        .collect();
-
-        if path.exists() {
-            std::fs::remove_dir_all(path.parent().unwrap()).expect("Failed to remove directory");
-        }
-    }
-
-    #[assay(teardown = tear_down())]
+    #[test]
     fn test_config_file_update() {
-        let cfg: CliConfig = get_config().expect("could not get conf file");
-        let cfg2: CliConfig = CliConfig {
+        let env_home_original = std::env::var("HOME").unwrap();
+        let tmp_dir = tempfile::tempdir()
+            .expect("could not create temporary directory")
+            .into_path();
+        std::env::set_var("HOME", tmp_dir.to_str().unwrap());
+
+        let cli_config_1 = CliConfig {
             port: "7888".to_string(),
-            ..cfg.clone()
+            ..Default::default()
         };
-        let cfg3: CliConfig = CliConfig {
+        let cli_config_2 = CliConfig {
             port: "7878".to_string(),
-            ..cfg.clone()
+            ..Default::default()
         };
 
-        add_config(cfg2.clone()).expect("could not update conf file");
-        assert_eq!(cfg2.port, "7888".to_string());
-        add_config(cfg3).expect("could not update conf file");
-        let new_cfg: CliConfig = get_config().expect("could not get conf file");
-        assert_eq!(new_cfg.port, "7878".to_string());
-    }
+        add_config(cli_config_1.clone()).expect("add_config failed");
+        let current_cli_config = get_config().expect("get_config failed");
+        assert_eq!(current_cli_config.port, cli_config_1.port);
 
-    fn get_configuration_directory() -> String {
-        let project = ProjectDirs::from("rs", "", CONF_FILE).expect("bad config dir");
+        add_config(cli_config_2.clone()).expect("add_config failed");
+        let current_cli_config = get_config().expect("get_config failed");
+        assert_eq!(current_cli_config.port, cli_config_2.port);
 
-        let config_dir_option = project.config_dir().to_str();
-
-        if let Some(x) = config_dir_option {
-            return x.to_string();
-        } else {
-            return "".to_string();
-        }
+        std::env::set_var("HOME", env_home_original);
+        std::fs::remove_dir_all(tmp_dir).expect("failed to clean up temporary directory");
     }
 }

@@ -15,11 +15,29 @@
 */
 
 #[cfg(test)]
-pub fn tear_down() {
-    if std::path::Path::new(&std::env::var("PYRSIA_ARTIFACT_PATH").unwrap()).exists() {
-        std::fs::remove_dir_all(std::env::var("PYRSIA_ARTIFACT_PATH").unwrap()).expect(&format!(
-            "unable to remove test directory {}",
-            std::env::var("PYRSIA_ARTIFACT_PATH").unwrap()
-        ));
+pub mod tests {
+    use std::env;
+    use std::fs;
+    use std::path;
+
+    pub fn setup() -> path::PathBuf {
+        let tmp_dir = tempfile::tempdir()
+            .expect("could not create temporary directory")
+            .into_path();
+
+        env::set_var("PYRSIA_ARTIFACT_PATH", tmp_dir.to_str().unwrap());
+        env::set_var("DEV_MODE", "on");
+
+        tmp_dir
+    }
+
+    pub fn teardown(tmp_dir: path::PathBuf) {
+        if tmp_dir.exists() {
+            fs::remove_dir_all(&tmp_dir)
+                .unwrap_or_else(|_| panic!("unable to remove test directory {:?}", tmp_dir));
+        }
+
+        env::remove_var("PYRSIA_ARTIFACT_PATH");
+        env::remove_var("DEV_MODE");
     }
 }

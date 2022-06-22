@@ -14,12 +14,12 @@
    limitations under the License.
 */
 
-use crate::util::env_util::read_var;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
@@ -64,14 +64,18 @@ pub struct SignatureEnvelope {
 
 #[derive(Clone)]
 pub struct TransparencyLog {
+    storage_path: PathBuf,
     payloads: HashMap<String, Payload>,
 }
 
 impl TransparencyLog {
-    pub fn new() -> Self {
-        TransparencyLog {
+    pub fn new<P: AsRef<Path>>(repository_path: P) -> Result<Self, anyhow::Error> {
+        let mut absolute_path = repository_path.as_ref().to_path_buf().canonicalize()?;
+        absolute_path.push("transparency_log");
+        Ok(TransparencyLog {
+            storage_path: absolute_path,
             payloads: HashMap::new(),
-        }
+        })
     }
 
     pub fn add_artifact(&mut self, id: &str, hash: &str) -> anyhow::Result<()> {
@@ -85,7 +89,7 @@ impl TransparencyLog {
             operation: Operation::AddArtifact,
         };
 
-        write_payload(&payload)?;
+        self.write_payload(&payload)?;
         self.payloads.insert(id.into(), payload);
 
         Ok(())
@@ -116,51 +120,36 @@ impl TransparencyLog {
 
         anyhow::bail!("No payload found with specified ID");
     }
-}
 
-fn write_payload(payload: &Payload) -> anyhow::Result<()> {
-    let payload_storage_path = get_payload_storage_path();
-    fs::create_dir_all(&payload_storage_path)?;
-    let payload_filename = format!(
-        "{}/{}.log",
-        payload_storage_path,
-        str::replace(&payload.id, "/", "_")
-    );
-    debug!(
-        "Storing transparency log payload at: {:?}",
-        payload_filename
-    );
-    match fs::File::options()
-        .write(true)
-        .create_new(true)
-        .open(&payload_filename)
-    {
-        Ok(mut payload_file) => {
-            let json_payload = serde_json::to_string(payload)?;
-            payload_file.write_all(json_payload.as_bytes())?;
-            Ok(())
-        }
-        Err(e) => match e.kind() {
-            io::ErrorKind::AlreadyExists => Err(TransparencyLogError::DuplicateId {
-                id: payload.id.clone(),
+    fn write_payload(&self, payload: &Payload) -> anyhow::Result<()> {
+        fs::create_dir_all(&self.storage_path)?;
+        let payload_filename = format!(
+            "{}/{}.log",
+            self.storage_path.to_str().unwrap(),
+            str::replace(&payload.id, "/", "_")
+        );
+        debug!(
+            "Storing transparency log payload at: {:?}",
+            payload_filename
+        );
+        match fs::File::options()
+            .write(true)
+            .create_new(true)
+            .open(&payload_filename)
+        {
+            Ok(mut payload_file) => {
+                let json_payload = serde_json::to_string(payload)?;
+                payload_file.write_all(json_payload.as_bytes())?;
+                Ok(())
             }
-            .into()),
-            _ => Err(e.into()),
-        },
-    }
-}
-
-fn get_payload_storage_path() -> String {
-    format!(
-        "{}/{}",
-        read_var("PYRSIA_ARTIFACT_PATH", "pyrsia"),
-        "transparency_log"
-    )
-}
-
-impl Default for TransparencyLog {
-    fn default() -> Self {
-        Self::new()
+            Err(e) => match e.kind() {
+                io::ErrorKind::AlreadyExists => Err(TransparencyLogError::DuplicateId {
+                    id: payload.id.clone(),
+                }
+                .into()),
+                _ => Err(e.into()),
+            },
+        }
     }
 }
 
@@ -168,7 +157,6 @@ impl Default for TransparencyLog {
 mod tests {
     use super::*;
     use crate::util::test_util;
-    use assay::assay;
 
     #[test]
     fn create_payload() {
@@ -189,107 +177,80 @@ mod tests {
         assert_eq!(payload.operation, operation);
     }
 
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     fn test_new_transparency_log_has_empty_payload() {
-        let log = TransparencyLog::new();
+        let tmp_dir = test_util::tests::setup();
+
+        let log = TransparencyLog::new(&tmp_dir).unwrap();
 
         assert_eq!(log.payloads.len(), 0);
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
-    fn test_with_default() {
-        let log: TransparencyLog = Default::default();
-
-        assert_eq!(log.payloads.len(), 0);
-    }
-
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     fn test_add_artifact() {
-        let mut log = TransparencyLog::new();
+        let tmp_dir = test_util::tests::setup();
+
+        let mut log = TransparencyLog::new(&tmp_dir).unwrap();
 
         let result = log.add_artifact("id", "hash");
         assert!(result.is_ok());
 
         assert!(log.payloads.contains_key("id"));
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     fn test_add_artifact_with_id_containing_forward_slash() {
-        let mut log = TransparencyLog::new();
+        let tmp_dir = test_util::tests::setup();
+
+        let mut log = TransparencyLog::new(&tmp_dir).unwrap();
 
         let result = log.add_artifact("id/with/slash", "hash");
         assert!(result.is_ok());
 
         assert!(log.payloads.contains_key("id/with/slash"));
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     fn test_add_duplicate_artifact() {
-        let mut log = TransparencyLog::new();
+        let tmp_dir = test_util::tests::setup();
+
+        let mut log = TransparencyLog::new(&tmp_dir).unwrap();
 
         let result = log.add_artifact("id", "hash");
         assert!(result.is_ok());
 
         let result = log.add_artifact("id", "hash2");
         assert!(result.is_err());
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     fn test_verify_artifact() {
-        let mut log = TransparencyLog::new();
+        let tmp_dir = test_util::tests::setup();
+
+        let mut log = TransparencyLog::new(&tmp_dir).unwrap();
 
         log.add_artifact("id", "hash")
             .expect("Adding artifact failed.");
 
         let result = log.verify_artifact("id", "hash");
         assert!(result.is_ok());
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     fn test_verify_unknown_artifact() {
-        let mut log = TransparencyLog::new();
+        let tmp_dir = test_util::tests::setup();
+
+        let mut log = TransparencyLog::new(&tmp_dir).unwrap();
 
         let result = log.verify_artifact("id", "hash");
         assert!(result.is_err());
@@ -299,17 +260,15 @@ mod tests {
                 id: String::from("id")
             })
         );
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-            ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-transparency-log"),
-            ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     fn test_verify_artifact_with_invalid_hash() {
-        let mut log = TransparencyLog::new();
+        let tmp_dir = test_util::tests::setup();
+
+        let mut log = TransparencyLog::new(&tmp_dir).unwrap();
 
         log.add_artifact("id", "hash")
             .expect("Adding artifact failed.");
@@ -324,5 +283,7 @@ mod tests {
                 actual_hash: String::from("hash"),
             })
         );
+
+        test_util::tests::teardown(tmp_dir);
     }
 }
