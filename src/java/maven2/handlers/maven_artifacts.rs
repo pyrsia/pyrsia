@@ -121,7 +121,6 @@ mod tests {
     teardown = test_util::tear_down()
     )]
     #[tokio::test]
-    #[cfg(not(tarpaulin_include))]
     async fn handle_get_maven_artifact_test() {
         let mut transparency_log = TransparencyLog::new();
         transparency_log.add_artifact(VALID_MAVEN_ID, VALID_ARTIFACT_HASH)?;
@@ -153,7 +152,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(tarpaulin_include))]
     fn get_file_reader() -> Result<File, anyhow::Error> {
         // test artifact file in resources/test dir
         let mut curr_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -164,7 +162,6 @@ mod tests {
         Ok(reader)
     }
 
-    #[cfg(not(tarpaulin_include))]
     fn create_artifact(artifact_storage: &ArtifactStorage) -> Result<(), anyhow::Error> {
         let artifact_hash = hex::decode(VALID_ARTIFACT_HASH)?;
         let hash = Hash::new(HashAlgorithm::SHA256, &artifact_hash)?;
