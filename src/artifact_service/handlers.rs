@@ -18,15 +18,18 @@ use crate::artifact_service::service::{Hash, HashAlgorithm};
 use crate::artifact_service::storage::ArtifactStorage;
 use crate::cli_commands::config::get_config;
 use crate::network::client::{ArtifactType, Client};
-use crate::transparency_log::log::TransparencyLog;
-use anyhow::{bail, Context, Result};
+use crate::transparency_log::log::{TransparencyLog, TransparencyLogError};
+use anyhow::{bail, Context};
 use byte_unit::Byte;
+use futures::lock::Mutex;
 use libp2p::PeerId;
 use log::{debug, info};
+use multihash::Hasher;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::str;
+use std::sync::Arc;
 use sysinfo::{NetworkExt, ProcessExt, System, SystemExt};
 
 //TODO: read from CLI config file
@@ -37,23 +40,27 @@ const CPU_STRESS_WEIGHT: f64 = 2_f64;
 const NETWORK_STRESS_WEIGHT: f64 = 0.001_f64;
 const DISK_STRESS_WEIGHT: f64 = 0.001_f64;
 
-//This structure is used as the entries to the quality metrics vector
-//#[derive(Debug, Clone, Copy)]
-
 //get_artifact: given artifact_hash(artifactName) pulls artifact for  artifact_manager and
 //              returns read object to read the bytes of artifact
 pub async fn get_artifact(
-    mut transparency_log: TransparencyLog,
+    transparency_log: Arc<Mutex<TransparencyLog>>,
     p2p_client: Client,
     artifact_storage: &ArtifactStorage,
     namespace_specific_id: &str,
-) -> Result<Vec<u8>, anyhow::Error> {
-    let artifact_id = transparency_log.get_artifact(namespace_specific_id)?;
+) -> anyhow::Result<Vec<u8>> {
+    let artifact_id = transparency_log
+        .lock()
+        .await
+        .get_artifact(namespace_specific_id)?;
 
-    match get_artifact_locally(artifact_storage, &artifact_id) {
+    let blob_content = match get_artifact_locally(artifact_storage, &artifact_id) {
         Ok(blob_content) => Ok(blob_content),
         Err(_) => get_artifact_from_peers(p2p_client, artifact_storage, &artifact_id).await,
-    }
+    }?;
+
+    verify_artifact(transparency_log, namespace_specific_id, &blob_content).await?;
+
+    Ok(blob_content)
 }
 
 pub fn get_artifact_locally(
@@ -104,6 +111,20 @@ async fn get_artifact_from_peer(
     let cursor = Box::new(std::io::Cursor::new(artifact));
     put_artifact(artifact_storage, &hash, cursor)?;
     get_artifact_locally(artifact_storage, artifact_id)
+}
+
+async fn verify_artifact(
+    transparency_log: Arc<Mutex<TransparencyLog>>,
+    namespace_specific_id: &str,
+    blob_content: &[u8],
+) -> Result<(), TransparencyLogError> {
+    let mut sha256 = multihash::Sha2_256::default();
+    sha256.update(blob_content);
+    let calculated_hash = hex::encode(sha256.finalize());
+    transparency_log
+        .lock()
+        .await
+        .verify_artifact(namespace_specific_id, &calculated_hash)
 }
 
 //put_artifact: given artifact_hash(artifactName) & artifact_path push artifact to artifact_manager
@@ -209,6 +230,7 @@ mod tests {
     use super::*;
     use crate::network::client::command::Command;
     use crate::network::idle_metric_protocol::PeerMetrics;
+    use crate::transparency_log::log::TransparencyLogError;
     use crate::util::test_util;
     use anyhow::Context;
     use assay::assay;
@@ -237,8 +259,9 @@ mod tests {
         ],
         teardown = test_util::tear_down()
     )]
-    fn test_put_and_get_artifact() {
-        let mut transparency_log = TransparencyLog::new();
+    #[tokio::test]
+    async fn test_put_and_get_artifact() {
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
         let artifact_storage = ArtifactStorage::new()?;
 
         let (sender, _) = mpsc::channel(1);
@@ -248,7 +271,10 @@ mod tests {
         };
 
         let artifact_id = "an_artifact_id";
-        transparency_log.add_artifact(artifact_id, &hex::encode(VALID_ARTIFACT_HASH))?;
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(artifact_id, &hex::encode(VALID_ARTIFACT_HASH))?;
 
         let hash = Hash::new(HashAlgorithm::SHA256, &VALID_ARTIFACT_HASH)?;
         //put the artifact
@@ -308,7 +334,7 @@ mod tests {
                         }));
                     },
                     Some(Command::RequestArtifact { artifact_type: _artifact_type, artifact_hash: _artifact_hash, peer: _peer, sender }) => {
-                        let _ = sender.send(Ok(b"RANDOM".to_vec()));
+                        let _ = sender.send(Ok(b"SAMPLE_DATA".to_vec()));
                     },
                     _ => panic!("Command must match Command::ListProviders, Command::RequestIdleMetric, Command::RequestArtifact"),
                 }
@@ -321,7 +347,7 @@ mod tests {
         };
 
         let mut hasher = Sha256::new();
-        hasher.update(b"RANDOM");
+        hasher.update(b"SAMPLE_DATA");
         let hash_bytes = hasher.finalize();
         let artifact_id = hex::encode(hash_bytes);
 
@@ -363,7 +389,7 @@ mod tests {
         };
 
         let mut hasher = Sha256::new();
-        hasher.update(b"RANDOM");
+        hasher.update(b"SAMPLE_DATA");
         let hash_bytes = hasher.finalize();
         let artifact_id = hex::encode(hash_bytes);
 
@@ -371,6 +397,74 @@ mod tests {
             get_artifact_from_peers(p2p_client, &artifact_storage, &artifact_id).await
         });
         assert!(result.is_err());
+    }
+
+    #[assay(
+        env = [
+            ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
+            ("DEV_MODE", "on")
+        ],
+        teardown = test_util::tear_down()
+    )]
+    #[tokio::test]
+    async fn test_verify_artifact_succeeds_when_hashes_same() {
+        let mut hasher1 = Sha256::new();
+        hasher1.update(b"SAMPLE_DATA");
+        let random_hash = hex::encode(hasher1.finalize());
+
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
+
+        let namespace_specific_id = "namespace_specific_id";
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(namespace_specific_id, &random_hash)?;
+
+        let result =
+            verify_artifact(transparency_log, &namespace_specific_id, b"SAMPLE_DATA").await;
+        assert!(result.is_ok());
+    }
+
+    #[assay(
+        env = [
+            ("PYRSIA_ARTIFACT_PATH", "PyrsiaTest"),
+            ("DEV_MODE", "on")
+        ],
+        teardown = test_util::tear_down()
+    )]
+    #[tokio::test]
+    async fn test_verify_artifact_fails_when_hashes_differ() {
+        let mut hasher1 = Sha256::new();
+        hasher1.update(b"SAMPLE_DATA");
+        let random_hash = hex::encode(hasher1.finalize());
+
+        let mut hasher2 = Sha256::new();
+        hasher2.update(b"OTHER_SAMPLE_DATA");
+        let random_other_hash = hex::encode(hasher2.finalize());
+
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
+
+        let namespace_specific_id = "namespace_specific_id";
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(namespace_specific_id, &random_hash)?;
+
+        let result = verify_artifact(
+            transparency_log,
+            &namespace_specific_id,
+            b"OTHER_SAMPLE_DATA",
+        )
+        .await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            TransparencyLogError::InvalidHash {
+                id: namespace_specific_id.to_string(),
+                invalid_hash: random_other_hash,
+                actual_hash: random_hash
+            }
+        );
     }
 
     #[assay(

@@ -19,13 +19,15 @@ use crate::artifact_service::storage::ArtifactStorage;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::network::client::Client;
 use crate::transparency_log::log::TransparencyLog;
+use futures::lock::Mutex;
 use log::debug;
+use std::sync::Arc;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn fetch_manifest(
-    transparency_log: TransparencyLog,
+    transparency_log: Arc<Mutex<TransparencyLog>>,
     p2p_client: Client,
     artifact_storage: ArtifactStorage,
     name: String,
@@ -46,14 +48,16 @@ pub async fn fetch_manifest(
         })
     })?;
 
+    let len = manifest_content.len();
+
     Ok(warp::http::response::Builder::new()
         .header(
             "Content-Type",
             "application/vnd.docker.distribution.manifest.v2+json",
         )
-        .header("Content-Length", manifest_content.len())
+        .header("Content-Length", len)
         .status(StatusCode::OK)
-        .body(manifest_content)
+        .body(manifest_content.to_vec())
         .unwrap())
 }
 
@@ -106,8 +110,11 @@ mod tests {
         let hash = "7300a197d7deb39371d4683d60f60f2fbbfd7541837ceb2278c12014e94e657b";
         let namespace_specific_id = format!("DOCKER::MANIFEST::{}::{}", name, tag);
 
-        let mut transparency_log = TransparencyLog::new();
-        transparency_log.add_artifact(&namespace_specific_id, hash)?;
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(&namespace_specific_id, hash)?;
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
@@ -151,8 +158,11 @@ mod tests {
         let hash = "865c8d988be4669f3e48f73b98f9bc2507be0246ea35e0098cf6054d3644c14f";
         let namespace_specific_id = format!("DOCKER::MANIFEST::{}::{}", name, tag);
 
-        let mut transparency_log = TransparencyLog::new();
-        transparency_log.add_artifact(&namespace_specific_id, hash)?;
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new()));
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(&namespace_specific_id, hash)?;
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
