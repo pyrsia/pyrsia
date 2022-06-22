@@ -20,12 +20,13 @@ use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::network::client::Client;
 use crate::transparency_log::log::TransparencyLog;
 use anyhow::bail;
-
+use futures::lock::Mutex;
 use log::debug;
+use std::sync::Arc;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_maven_artifact(
-    transparency_log: TransparencyLog,
+    transparency_log: Arc<Mutex<TransparencyLog>>,
     p2p_client: Client,
     artifact_storage: ArtifactStorage,
     full_path: String,
@@ -87,7 +88,6 @@ mod tests {
     use crate::artifact_service::service::{Hash, HashAlgorithm};
     use crate::util::test_util;
     use anyhow::Context;
-    use assay::assay;
     use futures::channel::mpsc;
     use hyper::header::HeaderValue;
     use libp2p::identity::Keypair;
@@ -113,17 +113,16 @@ mod tests {
         assert!(get_namespace_specific_id(INVALID_FULL_PATH).is_err());
     }
 
-    #[assay(
-    env = [
-    ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-    ("DEV_MODE", "on")
-    ],
-    teardown = test_util::tear_down()
-    )]
     #[tokio::test]
     async fn handle_get_maven_artifact_test() {
-        let mut transparency_log = TransparencyLog::new();
-        transparency_log.add_artifact(VALID_MAVEN_ID, VALID_ARTIFACT_HASH)?;
+        let tmp_dir = test_util::tests::setup();
+
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new(&tmp_dir).unwrap()));
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(VALID_MAVEN_ID, VALID_ARTIFACT_HASH)
+            .unwrap();
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
@@ -131,13 +130,13 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_storage = ArtifactStorage::new()?;
-        create_artifact(&artifact_storage)?;
+        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
+        create_artifact(&artifact_storage).unwrap();
 
         let result = handle_get_maven_artifact(
-            transparency_log.clone(),
-            p2p_client.clone(),
-            artifact_storage.clone(),
+            transparency_log,
+            p2p_client,
+            artifact_storage,
             VALID_FULL_PATH.to_string(),
         )
         .await;
@@ -150,6 +149,8 @@ mod tests {
             response.headers().get("Content-Type"),
             Some(&HeaderValue::from_static("application/octet-stream"))
         );
+
+        test_util::tests::teardown(tmp_dir);
     }
 
     fn get_file_reader() -> Result<File, anyhow::Error> {

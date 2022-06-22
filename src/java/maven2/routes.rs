@@ -18,8 +18,9 @@ use super::handlers::maven_artifacts::*;
 use crate::artifact_service::storage::ArtifactStorage;
 use crate::network::client::Client;
 use crate::transparency_log::log::TransparencyLog;
-
+use futures::lock::Mutex;
 use log::debug;
+use std::sync::Arc;
 use warp::Filter;
 
 pub fn make_maven_routes(
@@ -27,6 +28,7 @@ pub fn make_maven_routes(
     p2p_client: Client,
     artifact_storage: ArtifactStorage,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    let transparency_log_maven_artifact = Arc::new(Mutex::new(transparency_log));
     let maven2_root = warp::path("maven2")
         .and(warp::path::full())
         .map(|path: warp::path::FullPath| {
@@ -36,7 +38,7 @@ pub fn make_maven_routes(
         })
         .and_then(move |full_path| {
             handle_get_maven_artifact(
-                transparency_log.clone(),
+                transparency_log_maven_artifact.clone(),
                 p2p_client.clone(),
                 artifact_storage.clone(),
                 full_path,
