@@ -96,7 +96,7 @@ mod tests {
     #[test]
     fn load_existing_keypair_with_wrong_size_fails() {
         let tmp_file = tempfile::Builder::new().tempfile().unwrap();
-        tmp_file.as_file().write_all(&vec![1; 32]).unwrap();
+        tmp_file.as_file().write_all(&[1; 32]).unwrap();
 
         let keypair = load_ed25519(tmp_file.path().to_str().unwrap());
         assert!(keypair.is_err());
@@ -105,7 +105,7 @@ mod tests {
     #[test]
     fn load_existing_keypair_succeeds() {
         let tmp_file = tempfile::Builder::new().tempfile().unwrap();
-        tmp_file.as_file().write_all(&vec![1; 64]).unwrap();
+        tmp_file.as_file().write_all(&[1; 64]).unwrap();
 
         let keypair = load_ed25519(tmp_file.path().to_str().unwrap());
         assert!(keypair.is_ok());

@@ -60,10 +60,9 @@ serde_json = "1.0.81"
 serial_test = "0.7.0"
 sha2 = { version = "0.10.2" }
 stringreader = "0.1.1"
-strum = "0.24.0"
+strum = "0.24.1"
 strum_macros = "0.24.0"
 sysinfo = "0.24.2"
-tempfile = "3.2.0"
 test-log = "0.2.8"
 thiserror = "1.0.31"
 tokio = { version = "1.19.2", features = [ "macros", "rt-multi-thread", "io-std" ] }
@@ -79,11 +78,10 @@ default-features = false
 features = []
 
 [dev-dependencies]
-assay = "0.1.1"
 string_manipulation = {path="tests/string_manipulation"}
+tempfile = "3.2.0"
 time = { version = "0.3.10", features = ["formatting", "parsing"] }
 tokio-test = "0.4.2"
-directories = "^4.0"
 
 [workspace]
 members = [
