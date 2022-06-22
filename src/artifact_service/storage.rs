@@ -156,15 +156,19 @@ impl<'a> Write for WriteHashDecorator<'a> {
 }
 
 #[derive(Clone)]
-pub struct ArtifactStorage {}
+pub struct ArtifactStorage {
+    repository_path: PathBuf,
+}
 
 impl ArtifactStorage {
-    pub fn new() -> Result<ArtifactStorage, anyhow::Error> {
-        let absolute_path = get_repository_path()?;
+    pub fn new<P: AsRef<Path>>(repository_path: P) -> Result<ArtifactStorage, anyhow::Error> {
+        let absolute_path = repository_path.as_ref().to_path_buf().canonicalize()?;
         if is_accessible_directory(&absolute_path) {
             ensure_directories_for_hash_algorithms_exist(&absolute_path)?;
 
-            Ok(ArtifactStorage {})
+            Ok(ArtifactStorage {
+                repository_path: absolute_path,
+            })
         } else {
             error!(
                 "Unable to create ArtifactManager with inaccessible directory: {}",
@@ -180,8 +184,7 @@ impl ArtifactStorage {
     pub fn artifacts_count_bydir(&self) -> Result<HashMap<String, usize>, Error> {
         let mut dirs_map: HashMap<String, usize> = HashMap::new();
 
-        let repository_path = get_repository_path()?;
-        for file in WalkDir::new(repository_path)
+        for file in WalkDir::new(&self.repository_path)
             .into_iter()
             .filter_entry(is_directory_or_artifact_file)
             .filter_map(|file| file.ok())
@@ -206,14 +209,12 @@ impl ArtifactStorage {
     /// Calculate the repository size by recursively adding size of each directory inside it.
     /// Returns the size
     pub fn space_used(&self) -> Result<u64, Error> {
-        let repository_path = get_repository_path()?;
-        fs_extra::dir::get_size(repository_path.as_os_str())
+        fs_extra::dir::get_size(self.repository_path.as_os_str())
             .context("Error while calculating the size of artifact manager")
     }
 
     fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> std::io::Result<PathBuf> {
-        let repository_path = get_repository_path()?;
-        let mut base_path: PathBuf = base_file_path(expected_hash, &repository_path);
+        let mut base_path: PathBuf = base_file_path(expected_hash, &self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension(FILE_EXTENSION);
         Ok(base_path)
@@ -256,18 +257,13 @@ impl ArtifactStorage {
             "An artifact is being pulled from the artifact manager {}",
             hash
         );
-        let repository_path = get_repository_path()?;
-        let mut base_path: PathBuf = base_file_path(hash, &repository_path);
+        let mut base_path: PathBuf = base_file_path(hash, &self.repository_path);
         // for now all artifacts are unstructured
         base_path.set_extension(FILE_EXTENSION);
         debug!("Pulling artifact from {}", base_path.display());
         File::open(base_path.as_path())
             .with_context(|| format!("{} not found.", base_path.display()))
     }
-}
-
-fn get_repository_path() -> std::io::Result<PathBuf> {
-    PathBuf::from(ARTIFACTS_DIR.as_str()).canonicalize()
 }
 
 // return true if the given repository path leads to an accessible directory.
@@ -401,37 +397,29 @@ fn copy_from_reader_to_writer(
 mod tests {
     use super::*;
     use crate::util::test_util;
-    use assay::assay;
     use sha2::{Digest, Sha256};
     use std::path::PathBuf;
     use stringreader::StringReader;
 
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-          ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     pub fn new_artifact_storage_with_valid_directory() {
-        ArtifactStorage::new().expect("ArtifactStorage should be created.");
+        let tmp_dir = test_util::tests::setup();
 
-        let repository_path = get_repository_path()?;
-        let mut sha256_path = repository_path.clone();
+        ArtifactStorage::new(&tmp_dir).expect("ArtifactStorage should be created.");
+
+        let mut sha256_path = tmp_dir.clone();
         sha256_path.push(HashAlgorithm::SHA256.hash_algorithm_to_str());
         let meta256 = std::fs::metadata(sha256_path.as_path())
-            .expect(format!("unable to get metadata for {}", sha256_path.display()).as_str());
+            .unwrap_or_else(|_| panic!("unable to get metadata for {}", sha256_path.display()));
         assert!(meta256.is_dir());
 
-        let mut sha512_path = repository_path.clone();
+        let mut sha512_path = tmp_dir.clone();
         sha512_path.push(HashAlgorithm::SHA512.hash_algorithm_to_str());
         let meta512 = std::fs::metadata(sha512_path.as_path())
-            .expect(format!("unable to get metadata for {}", sha512_path.display()).as_str());
+            .unwrap_or_else(|_| panic!("unable to get metadata for {}", sha512_path.display()));
         assert!(meta512.is_dir());
-        std::fs::remove_dir_all(repository_path.as_path()).expect(&format!(
-            "unable to remove temp directory {}",
-            repository_path.display()
-        ));
+
+        test_util::tests::teardown(tmp_dir);
     }
 
     const TEST_ARTIFACT_DATA: &str = "Incumbent nonsense text, sesquipedalian and obfuscatory. Exhortations to the mother lode. Dendrites for all.";
@@ -446,59 +434,55 @@ mod tests {
         0x71, 0xbb,
     ];
 
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "pyrsia-bogus-path"),
-          ("DEV_MODE", "off")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     pub fn new_artifact_storage_with_bad_directory() {
-        if let Ok(_) = ArtifactStorage::new() {
+        if ArtifactStorage::new(PathBuf::from("bogus")).is_ok() {
             panic!("new should have returned an error because of an invalid directory");
         }
     }
 
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-          ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     pub fn push_artifact_then_pull_it() {
+        let tmp_dir = test_util::tests::setup();
+
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
-        let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH)?;
-        let artifact_storage = ArtifactStorage::new().expect("Error creating ArtifactManager");
+        let hash = Hash::new(HashAlgorithm::SHA256, &TEST_ARTIFACT_HASH).unwrap();
+        let artifact_storage =
+            ArtifactStorage::new(&tmp_dir).expect("Error creating ArtifactManager");
 
         // Check the space before pushing artifact
         let space_before = artifact_storage
             .space_used()
-            .context("Error getting space used by ArtifactManager")?;
+            .context("Error getting space used by ArtifactManager")
+            .unwrap();
         assert_eq!(0, space_before);
 
         artifact_storage
             .push_artifact(&mut string_reader, &hash)
-            .context("Error from push_artifact")?;
+            .context("Error from push_artifact")
+            .unwrap();
 
-        let mut repository_path = get_repository_path()?;
-        check_artifact_is_written_correctly(&mut repository_path)?;
+        check_artifact_is_written_correctly(&tmp_dir).unwrap();
 
         // Currently the space_used method does not include the size of directories in the directory tree, so this is how we obtain an independent result to check it.
-        let size_of_files_in_directory_tree = fs_extra::dir::get_size(&repository_path)?;
+        let size_of_files_in_directory_tree = fs_extra::dir::get_size(&tmp_dir).unwrap();
         // Check the space used after pushing artifact
         let space_after = artifact_storage
             .space_used()
-            .context("Error getting space used by ArtifactManager")?;
+            .context("Error getting space used by ArtifactManager")
+            .unwrap();
         assert_eq!(
             size_of_files_in_directory_tree, space_after,
             "expect correct result from space_used"
         );
 
-        check_able_to_pull_artifact(&hash, &artifact_storage)?;
+        check_able_to_pull_artifact(&hash, &artifact_storage).unwrap();
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    fn check_artifact_is_written_correctly(dir_name: &mut PathBuf) -> Result<()> {
+    fn check_artifact_is_written_correctly(dir_name: &Path) -> Result<()> {
+        let mut dir_name = dir_name.to_path_buf();
         dir_name.push("SHA256");
         dir_name.push(encode_bytes_as_file_name(&TEST_ARTIFACT_HASH));
         dir_name.set_extension(FILE_EXTENSION);
@@ -510,7 +494,7 @@ mod tests {
 
     fn check_able_to_pull_artifact(hash: &Hash, artifact_storage: &ArtifactStorage) -> Result<()> {
         let mut reader = artifact_storage
-            .pull_artifact(&hash)
+            .pull_artifact(hash)
             .context("Error from pull_artifact")?;
         let mut read_buffer = String::new();
         reader.read_to_string(&mut read_buffer)?;
@@ -519,35 +503,33 @@ mod tests {
         Ok(())
     }
 
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-          ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     pub fn push_wrong_hash_test() {
+        let tmp_dir = test_util::tests::setup();
+
         let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
-        let hash = Hash::new(HashAlgorithm::SHA256, &WRONG_ARTIFACT_HASH)?;
-        let artifact_storage = ArtifactStorage::new().expect("Error creating ArtifactManager");
+        let hash = Hash::new(HashAlgorithm::SHA256, &WRONG_ARTIFACT_HASH).unwrap();
+        let artifact_storage =
+            ArtifactStorage::new(&tmp_dir).expect("Error creating ArtifactManager");
         artifact_storage
             .push_artifact(&mut string_reader, &hash)
             .expect_err("push_artifact should have returned an error because of the wrong hash");
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-          ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
+    #[test]
     pub fn pull_nonexistent_test() {
-        let hash = Hash::new(HashAlgorithm::SHA256, &WRONG_ARTIFACT_HASH)?;
-        let artifact_storage = ArtifactStorage::new().expect("Error creating ArtifactManager");
+        let tmp_dir = test_util::tests::setup();
+
+        let hash = Hash::new(HashAlgorithm::SHA256, &WRONG_ARTIFACT_HASH).unwrap();
+        let artifact_storage =
+            ArtifactStorage::new(&tmp_dir).expect("Error creating ArtifactManager");
         artifact_storage
             .pull_artifact(&hash)
             .expect_err("pull_artifact should have failed with nonexistent hash");
+
+        test_util::tests::teardown(tmp_dir);
     }
 
     #[test]
@@ -557,7 +539,7 @@ mod tests {
         let mut decorator = WriteHashDecorator::new(&mut writer, &mut digester);
 
         let data = b"sample_string";
-        decorator.write(data)?;
+        decorator.write_all(data)?;
 
         let mut hash_bytes = [0; 32];
         let mut hasher = Sha256::new();

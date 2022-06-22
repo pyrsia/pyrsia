@@ -11,7 +11,6 @@ edition = "2021"
 pyrsia = { path = ".." }
 pyrsia_blockchain_network = { path = "../src/blockchain" }
 
-
 anyhow = "1.0.57"
 clap = { version = "3.1.18", features= [ "cargo", "derive" ] }
 futures = "0.3.19"

@@ -19,12 +19,14 @@ use crate::artifact_service::storage::ArtifactStorage;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::network::client::Client;
 use crate::transparency_log::log::TransparencyLog;
+use futures::lock::Mutex;
 use log::debug;
 use std::result::Result;
+use std::sync::Arc;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_blobs(
-    transparency_log: TransparencyLog,
+    transparency_log: Arc<Mutex<TransparencyLog>>,
     p2p_client: Client,
     artifact_storage: ArtifactStorage,
     hash: String,
@@ -47,7 +49,7 @@ pub async fn handle_get_blobs(
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
         .status(StatusCode::OK)
-        .body(blob_content)
+        .body(blob_content.to_vec())
         .unwrap())
 }
 
@@ -61,7 +63,6 @@ mod tests {
     use crate::artifact_service::service::{Hash, HashAlgorithm};
     use crate::util::test_util;
     use anyhow::Context;
-    use assay::assay;
     use futures::channel::mpsc;
     use hyper::header::HeaderValue;
     use libp2p::identity::Keypair;
@@ -85,20 +86,19 @@ mod tests {
         );
     }
 
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-          ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
     #[tokio::test]
     async fn test_handle_get_blobs_unknown_in_artifact_service() {
+        let tmp_dir = test_util::tests::setup();
+
         let hash = "7300a197d7deb39371d4683d60f60f2fbbfd7541837ceb2278c12014e94e657b";
         let namespace_specific_id = format!("DOCKER::BLOB::{}", hash);
 
-        let mut transparency_log = TransparencyLog::new();
-        transparency_log.add_artifact(&namespace_specific_id, hash)?;
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new(&tmp_dir).unwrap()));
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(&namespace_specific_id, hash)
+            .unwrap();
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
@@ -106,7 +106,7 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_storage = ArtifactStorage::new()?;
+        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
 
         let result = handle_get_blobs(
             transparency_log,
@@ -125,22 +125,23 @@ mod tests {
                 code: RegistryErrorCode::BlobUnknown,
             }
         );
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-          ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
     #[tokio::test]
     async fn test_handle_get_blobs() {
+        let tmp_dir = test_util::tests::setup();
+
         let hash = "865c8d988be4669f3e48f73b98f9bc2507be0246ea35e0098cf6054d3644c14f";
         let namespace_specific_id = format!("DOCKER::BLOB::{}", hash);
 
-        let mut transparency_log = TransparencyLog::new();
-        transparency_log.add_artifact(&namespace_specific_id, hash)?;
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new(&tmp_dir).unwrap()));
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(&namespace_specific_id, hash)
+            .unwrap();
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
@@ -148,8 +149,8 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_storage = ArtifactStorage::new()?;
-        create_artifact(&artifact_storage)?;
+        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
+        create_artifact(&artifact_storage).unwrap();
 
         let result = handle_get_blobs(
             transparency_log,
@@ -167,6 +168,8 @@ mod tests {
             response.headers().get("Content-Type"),
             Some(&HeaderValue::from_static("application/octet-stream"))
         );
+
+        test_util::tests::teardown(tmp_dir);
     }
 
     fn get_file_reader() -> Result<File, anyhow::Error> {

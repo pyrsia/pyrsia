@@ -20,7 +20,7 @@ pub mod network;
 use anyhow::{bail, Result};
 use args::parser::PyrsiaNodeArgs;
 use network::handlers;
-use pyrsia::artifact_service::storage::ArtifactStorage;
+use pyrsia::artifact_service::storage::{ArtifactStorage, ARTIFACTS_DIR};
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::make_docker_routes;
 use pyrsia::java::maven2::routes::make_maven_routes;
@@ -38,6 +38,7 @@ use futures::StreamExt;
 use log::{debug, info, warn};
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::path::PathBuf;
 use std::sync::Arc;
 use warp::Filter;
 
@@ -49,13 +50,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = PyrsiaNodeArgs::parse();
 
     debug!("Create transparency log");
-    let transparency_log = TransparencyLog::new();
+    let transparency_log = TransparencyLog::new(PathBuf::from(ARTIFACTS_DIR.as_str()))?;
 
     debug!("Create p2p components");
     let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm(args.max_provided_keys)?;
 
     debug!("Create artifact storage");
-    let artifact_storage = ArtifactStorage::new()?;
+    let artifact_storage = ArtifactStorage::new(PathBuf::from(ARTIFACTS_DIR.as_str()))?;
 
     debug!("Create blockchain components");
     let _blockchain = setup_blockchain()?;
