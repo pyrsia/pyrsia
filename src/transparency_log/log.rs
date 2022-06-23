@@ -128,7 +128,7 @@ impl TransparencyLog {
     fn open_db(&self) -> anyhow::Result<Connection> {
         fs::create_dir_all(&self.storage_path)?;
         let payload_storage_path = self.storage_path.to_str().unwrap();
-        let conn = Connection::open(payload_storage_path.to_owned() + "/payload.db3")?;
+        let conn = Connection::open(payload_storage_path.to_owned() + "/transparency_log.db")?;
         match conn.execute(
             "CREATE TABLE IF NOT EXISTS payload (
                 id TEXT PRIMARY KEY,
@@ -166,23 +166,15 @@ impl TransparencyLog {
                 );
                 Ok(())
             }
-            Err(err) => {
-                debug!("Transparency payload insert error: {:?}", err);
-                match err {
-                    Error::SqliteFailure(sqlite_error, ref _sqlite_options) => {
-                        if sqlite_error.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_PRIMARYKEY
-                        {
-                            Err(TransparencyLogError::DuplicateId {
-                                id: payload.id.clone(),
-                            }
-                            .into())
-                        } else {
-                            Err(err.into())
-                        }
-                    }
-                    _ => Err(err.into()),
+            Err(Error::SqliteFailure(sqlite_error, ref _sqlite_options))
+                if sqlite_error.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_PRIMARYKEY =>
+            {
+                Err(TransparencyLogError::DuplicateId {
+                    id: payload.id.clone(),
                 }
+                .into())
             }
+            Err(err) => Err(err.into()),
         }
     }
 
@@ -202,14 +194,10 @@ impl TransparencyLog {
             })
         })?;
 
-        if let Some(record) = payload_records.next() {
-            return Ok(record.unwrap());
+        match payload_records.next() {
+            Some(Ok(record)) => Ok(record),
+            _ => Err(TransparencyLogError::NotFound { id: id.to_string() }.into()),
         }
-
-        Err(TransparencyLogError::NotFound {
-            id: String::from(id),
-        }
-        .into())
     }
 }
 
@@ -248,7 +236,7 @@ mod tests {
 
         let conn = result.unwrap();
         let mut path = log.storage_path;
-        path.push("payload.db3");
+        path.push("transparency_log.db");
         assert_eq!(conn.path().unwrap(), path.as_path());
 
         test_util::tests::teardown(tmp_dir);
