@@ -15,3 +15,19 @@
 */
 
 pub struct BuildService {}
+
+use anyhow::Result;
+
+use crate::transparency_log::log::Transaction;
+
+pub struct BuildResult {}
+
+impl BuildService {
+    pub fn start_build() -> Result<Vec<BuildResult>> {
+        Ok(vec![])
+    }
+
+    pub fn verify_build(_add_build_transaction: Transaction) -> Result<()> {
+        Ok(())
+    }
+}

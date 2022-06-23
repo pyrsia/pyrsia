@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use crate::artifact_service::service::{Digester, Hash, HashAlgorithm};
+use crate::artifact_service::hashing::{Digester, Hash, HashAlgorithm};
 use crate::util::env_util::read_var;
 use anyhow::{anyhow, bail, Context, Error, Result};
 use lazy_static::lazy_static;
@@ -486,7 +486,9 @@ mod tests {
         dir_name.push("SHA256");
         dir_name.push(encode_bytes_as_file_name(&TEST_ARTIFACT_HASH));
         dir_name.set_extension(FILE_EXTENSION);
-        let content_vec = std::fs::read(dir_name.as_path()).context("reading pushed file")?;
+        let content_vec = std::fs::read(dir_name.as_path())
+            .context("reading pushed file")
+            .unwrap();
         assert_eq!(content_vec.as_slice(), TEST_ARTIFACT_DATA.as_bytes());
 
         Ok(())
@@ -497,7 +499,7 @@ mod tests {
             .pull_artifact(hash)
             .context("Error from pull_artifact")?;
         let mut read_buffer = String::new();
-        reader.read_to_string(&mut read_buffer)?;
+        reader.read_to_string(&mut read_buffer).unwrap();
         assert_eq!(TEST_ARTIFACT_DATA, read_buffer);
 
         Ok(())

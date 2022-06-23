@@ -161,6 +161,7 @@ pub async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::artifact_service::service::PackageType;
     use std::io;
     use std::str;
     use warp::reply::Response;
@@ -206,10 +207,12 @@ mod tests {
     #[test]
     fn from_transparency_log_error() {
         let transparency_log_error_1 = TransparencyLogError::NotFound {
-            id: String::from("artifact_id"),
+            package_type: PackageType::Docker,
+            package_type_id: String::from("package_type_id"),
         };
         let transparency_log_error_2 = TransparencyLogError::NotFound {
-            id: String::from("artifact_id"),
+            package_type: PackageType::Docker,
+            package_type_id: String::from("package_type_id"),
         };
 
         let registry_error: RegistryError = transparency_log_error_1.into();

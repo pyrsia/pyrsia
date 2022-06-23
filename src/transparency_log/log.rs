@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use crate::artifact_service::service::PackageType;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -25,16 +26,32 @@ use thiserror::Error;
 
 #[derive(Debug, Clone, Error, PartialEq)]
 pub enum TransparencyLogError {
-    #[error("Duplicate ID {id:?} in transparency log")]
-    DuplicateId { id: String },
-    #[error("ID {id:?} not found in transparency log")]
-    NotFound { id: String },
+    #[error("Duplicate ID {package_type_id:?} for type {package_type:?} in transparency log")]
+    DuplicateId {
+        package_type: PackageType,
+        package_type_id: String,
+    },
+    #[error("ID {package_type_id:?} for type {package_type:?} not found in transparency log")]
+    NotFound {
+        package_type: PackageType,
+        package_type_id: String,
+    },
     #[error("Hash Verification failed for ID {id:?}: {invalid_hash:?} vs {actual_hash:?}")]
     InvalidHash {
         id: String,
         invalid_hash: String,
         actual_hash: String,
     },
+    #[error("Invalid JSON Payload: {json_error}")]
+    InvalidPayload { json_error: String },
+}
+
+impl From<serde_json::Error> for TransparencyLogError {
+    fn from(err: serde_json::Error) -> TransparencyLogError {
+        TransparencyLogError::InvalidPayload {
+            json_error: err.to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, strum_macros::Display, Deserialize, Serialize, PartialEq)]
@@ -42,10 +59,11 @@ pub enum Operation {
     AddArtifact,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Payload {
-    id: String,
-    hash: String,
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct Transaction {
+    package_type: PackageType,
+    package_type_id: String,
+    pub hash: String,
     timestamp: u64,
     operation: Operation,
 }
@@ -53,10 +71,10 @@ pub struct Payload {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SignatureEnvelope {
     /// The data that is integrity protected
-    payload: Payload,
+    transaction: Transaction,
     /// The time at which the signature was generated. This is a part of signed attributes
     signing_timestamp: u64,
-    /// The digital signature computed on payload and signed attributes
+    /// The digital signature computed on transaction and signed attributes
     signature: Vec<u8>,
     /// the public key of the signer
     sign_identifier: [u8; 32], //this is identity::ed25519::PublicKey(a byte array in compressed form
@@ -65,7 +83,7 @@ pub struct SignatureEnvelope {
 #[derive(Clone)]
 pub struct TransparencyLog {
     storage_path: PathBuf,
-    payloads: HashMap<String, Payload>,
+    transactions: HashMap<String, String>,
 }
 
 impl TransparencyLog {
@@ -74,13 +92,19 @@ impl TransparencyLog {
         absolute_path.push("transparency_log");
         Ok(TransparencyLog {
             storage_path: absolute_path,
-            payloads: HashMap::new(),
+            transactions: HashMap::new(),
         })
     }
 
-    pub fn add_artifact(&mut self, id: &str, hash: &str) -> anyhow::Result<()> {
-        let payload = Payload {
-            id: id.to_string(),
+    pub fn add_artifact(
+        &mut self,
+        package_type: &PackageType,
+        package_type_id: &str,
+        hash: &str,
+    ) -> anyhow::Result<()> {
+        let transaction = Transaction {
+            package_type: package_type.clone(),
+            package_type_id: package_type_id.to_string(),
             hash: hash.to_string(),
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -89,62 +113,60 @@ impl TransparencyLog {
             operation: Operation::AddArtifact,
         };
 
-        self.write_payload(&payload)?;
-        self.payloads.insert(id.into(), payload);
+        let json_transaction = self.write_transaction(&transaction)?;
+        self.transactions.insert(
+            format!("{}::{}", package_type, package_type_id),
+            json_transaction,
+        );
 
         Ok(())
     }
 
-    pub fn verify_artifact(&mut self, id: &str, hash: &str) -> Result<(), TransparencyLogError> {
-        if let Some(payload) = self.payloads.get(id) {
-            if payload.hash == hash {
-                Ok(())
-            } else {
-                Err(TransparencyLogError::InvalidHash {
-                    id: String::from(id),
-                    invalid_hash: String::from(hash),
-                    actual_hash: payload.hash.clone(),
-                })
-            }
+    pub fn get_artifact(
+        &mut self,
+        package_type: &PackageType,
+        package_type_id: &str,
+    ) -> Result<Transaction, TransparencyLogError> {
+        if let Some(json_transaction) = self
+            .transactions
+            .get(&format!("{}::{}", package_type, package_type_id))
+        {
+            let transaction: Transaction = serde_json::from_str(json_transaction)?;
+            Ok(transaction)
         } else {
             Err(TransparencyLogError::NotFound {
-                id: String::from(id),
+                package_type: package_type.clone(),
+                package_type_id: package_type_id.to_string(),
             })
         }
     }
 
-    pub fn get_artifact(&mut self, namespace_specific_id: &str) -> anyhow::Result<String> {
-        if let Some(payload) = self.payloads.get(namespace_specific_id) {
-            return Ok(String::from(&payload.hash));
-        }
-
-        anyhow::bail!("No payload found with specified ID");
+    pub fn search_transactions() -> anyhow::Result<Vec<Transaction>> {
+        Ok(vec![])
     }
 
-    fn write_payload(&self, payload: &Payload) -> anyhow::Result<()> {
+    fn write_transaction(&self, transaction: &Transaction) -> anyhow::Result<String> {
         fs::create_dir_all(&self.storage_path)?;
-        let payload_filename = format!(
+        let transaction_filename = format!(
             "{}/{}.log",
             self.storage_path.to_str().unwrap(),
-            str::replace(&payload.id, "/", "_")
+            str::replace(&transaction.package_type_id, "/", "_")
         );
-        debug!(
-            "Storing transparency log payload at: {:?}",
-            payload_filename
-        );
+        debug!("Storing transaction at: {:?}", transaction_filename);
         match fs::File::options()
             .write(true)
             .create_new(true)
-            .open(&payload_filename)
+            .open(&transaction_filename)
         {
-            Ok(mut payload_file) => {
-                let json_payload = serde_json::to_string(payload)?;
-                payload_file.write_all(json_payload.as_bytes())?;
-                Ok(())
+            Ok(mut transaction_file) => {
+                let json_transaction = serde_json::to_string(transaction)?;
+                transaction_file.write_all(json_transaction.as_bytes())?;
+                Ok(json_transaction)
             }
             Err(e) => match e.kind() {
                 io::ErrorKind::AlreadyExists => Err(TransparencyLogError::DuplicateId {
-                    id: payload.id.clone(),
+                    package_type: transaction.package_type.clone(),
+                    package_type_id: transaction.package_type_id.clone(),
                 }
                 .into()),
                 _ => Err(e.into()),
@@ -159,31 +181,34 @@ mod tests {
     use crate::util::test_util;
 
     #[test]
-    fn create_payload() {
-        let id = "id";
+    fn create_transaction_log() {
+        let package_type = PackageType::Docker;
+        let package_type_id = "package_type_id";
         let hash = "hash";
         let timestamp = 1234567890;
         let operation = Operation::AddArtifact;
-        let payload = Payload {
-            id: id.to_string(),
+        let transaction = Transaction {
+            package_type: package_type.clone(),
+            package_type_id: package_type_id.to_string(),
             hash: hash.to_string(),
             timestamp,
             operation: Operation::AddArtifact,
         };
 
-        assert_eq!(payload.id, id);
-        assert_eq!(payload.hash, hash);
-        assert_eq!(payload.timestamp, timestamp);
-        assert_eq!(payload.operation, operation);
+        assert_eq!(transaction.package_type, package_type);
+        assert_eq!(transaction.package_type_id, package_type_id);
+        assert_eq!(transaction.hash, hash);
+        assert_eq!(transaction.timestamp, timestamp);
+        assert_eq!(transaction.operation, operation);
     }
 
     #[test]
-    fn test_new_transparency_log_has_empty_payload() {
+    fn test_new_transparency_log_has_empty_logs() {
         let tmp_dir = test_util::tests::setup();
 
         let log = TransparencyLog::new(&tmp_dir).unwrap();
 
-        assert_eq!(log.payloads.len(), 0);
+        assert_eq!(log.transactions.len(), 0);
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -194,10 +219,10 @@ mod tests {
 
         let mut log = TransparencyLog::new(&tmp_dir).unwrap();
 
-        let result = log.add_artifact("id", "hash");
+        let result = log.add_artifact(&PackageType::Docker, "id", "hash");
         assert!(result.is_ok());
 
-        assert!(log.payloads.contains_key("id"));
+        assert!(log.transactions.contains_key("Docker::id"));
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -208,10 +233,10 @@ mod tests {
 
         let mut log = TransparencyLog::new(&tmp_dir).unwrap();
 
-        let result = log.add_artifact("id/with/slash", "hash");
+        let result = log.add_artifact(&PackageType::Docker, "id/with/slash", "hash");
         assert!(result.is_ok());
 
-        assert!(log.payloads.contains_key("id/with/slash"));
+        assert!(log.transactions.contains_key("Docker::id/with/slash"));
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -222,67 +247,11 @@ mod tests {
 
         let mut log = TransparencyLog::new(&tmp_dir).unwrap();
 
-        let result = log.add_artifact("id", "hash");
+        let result = log.add_artifact(&PackageType::Docker, "id", "hash");
         assert!(result.is_ok());
 
-        let result = log.add_artifact("id", "hash2");
+        let result = log.add_artifact(&PackageType::Docker, "id", "hash2");
         assert!(result.is_err());
-
-        test_util::tests::teardown(tmp_dir);
-    }
-
-    #[test]
-    fn test_verify_artifact() {
-        let tmp_dir = test_util::tests::setup();
-
-        let mut log = TransparencyLog::new(&tmp_dir).unwrap();
-
-        log.add_artifact("id", "hash")
-            .expect("Adding artifact failed.");
-
-        let result = log.verify_artifact("id", "hash");
-        assert!(result.is_ok());
-
-        test_util::tests::teardown(tmp_dir);
-    }
-
-    #[test]
-    fn test_verify_unknown_artifact() {
-        let tmp_dir = test_util::tests::setup();
-
-        let mut log = TransparencyLog::new(&tmp_dir).unwrap();
-
-        let result = log.verify_artifact("id", "hash");
-        assert!(result.is_err());
-        assert_eq!(
-            result,
-            Err(TransparencyLogError::NotFound {
-                id: String::from("id")
-            })
-        );
-
-        test_util::tests::teardown(tmp_dir);
-    }
-
-    #[test]
-    fn test_verify_artifact_with_invalid_hash() {
-        let tmp_dir = test_util::tests::setup();
-
-        let mut log = TransparencyLog::new(&tmp_dir).unwrap();
-
-        log.add_artifact("id", "hash")
-            .expect("Adding artifact failed.");
-
-        let result = log.verify_artifact("id", "invalid_hash");
-        assert!(result.is_err());
-        assert_eq!(
-            result,
-            Err(TransparencyLogError::InvalidHash {
-                id: String::from("id"),
-                invalid_hash: String::from("invalid_hash"),
-                actual_hash: String::from("hash"),
-            })
-        );
 
         test_util::tests::teardown(tmp_dir);
     }

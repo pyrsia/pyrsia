@@ -14,11 +14,8 @@
    limitations under the License.
 */
 
-use crate::artifact_service::handlers::get_artifact;
-use crate::artifact_service::storage::ArtifactStorage;
+use crate::artifact_service::service::{ArtifactService, PackageType};
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
-use crate::network::client::Client;
-use crate::transparency_log::log::TransparencyLog;
 use futures::lock::Mutex;
 use log::debug;
 use std::sync::Arc;
@@ -27,26 +24,22 @@ use warp::{Rejection, Reply};
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn fetch_manifest(
-    transparency_log: Arc<Mutex<TransparencyLog>>,
-    p2p_client: Client,
-    artifact_storage: ArtifactStorage,
+    artifact_service: Arc<Mutex<ArtifactService>>,
     name: String,
     tag: String,
 ) -> Result<impl Reply, Rejection> {
     debug!("Fetching manifest for {} with tag: {}", name, tag);
 
-    let manifest_content = get_artifact(
-        transparency_log,
-        p2p_client,
-        &artifact_storage,
-        &get_namespace_specific_id(&name, &tag),
-    )
-    .await
-    .map_err(|_| {
-        warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::ManifestUnknown,
-        })
-    })?;
+    let manifest_content = artifact_service
+        .lock()
+        .await
+        .get_artifact(PackageType::Docker, &get_package_type_id(&name, &tag))
+        .await
+        .map_err(|_| {
+            warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::ManifestUnknown,
+            })
+        })?;
 
     let len = manifest_content.len();
 
@@ -61,14 +54,16 @@ pub async fn fetch_manifest(
         .unwrap())
 }
 
-fn get_namespace_specific_id(name: &str, tag: &str) -> String {
-    format!("DOCKER::MANIFEST::{}::{}", name, tag)
+fn get_package_type_id(name: &str, tag: &str) -> String {
+    format!("{}::{}", name, tag)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artifact_service::service::{Hash, HashAlgorithm};
+    use crate::artifact_service::hashing::{Hash, HashAlgorithm};
+    use crate::artifact_service::storage::ArtifactStorage;
+    use crate::network::client::Client;
     use crate::util::test_util;
     use anyhow::Context;
     use futures::channel::mpsc;
@@ -85,31 +80,22 @@ mod tests {
     ];
 
     #[test]
-    fn test_get_namespace_specific_id() {
-        let name = "name";
-        let tag = "tag";
+    fn test_get_package_type_id() {
+        let name = "name_manifests";
+        let tag = "tag_package_type_id";
 
-        assert_eq!(
-            get_namespace_specific_id(name, tag),
-            format!("DOCKER::MANIFEST::{}::{}", name, tag)
-        );
+        assert_eq!(get_package_type_id(name, tag), format!("{}::{}", name, tag));
     }
 
     #[tokio::test]
     async fn test_fetch_manifest_unknown_in_artifact_service() {
         let tmp_dir = test_util::tests::setup();
 
-        let name = "name";
-        let tag = "tag";
+        let name = "name_manifests";
+        let tag = "tag_fetch_manifest_unknown_in_artifact_service";
         let hash = "7300a197d7deb39371d4683d60f60f2fbbfd7541837ceb2278c12014e94e657b";
-        let namespace_specific_id = format!("DOCKER::MANIFEST::{}::{}", name, tag);
-
-        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new(&tmp_dir).unwrap()));
-        transparency_log
-            .lock()
-            .await
-            .add_artifact(&namespace_specific_id, hash)
-            .unwrap();
+        let package_type = PackageType::Docker;
+        let package_type_id = get_package_type_id(name, tag);
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
@@ -117,12 +103,16 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+
+        artifact_service
+            .transparency_log
+            .add_artifact(&package_type, &package_type_id, hash)
+            .unwrap();
 
         let result = fetch_manifest(
-            transparency_log,
-            p2p_client,
-            artifact_storage,
+            Arc::new(Mutex::new(artifact_service)),
             name.to_string(),
             tag.to_string(),
         )
@@ -145,17 +135,11 @@ mod tests {
     async fn test_fetch_manifest() {
         let tmp_dir = test_util::tests::setup();
 
-        let name = "name";
-        let tag = "tag";
+        let name = "name_manifests";
+        let tag = "tag_fetch_manifest";
         let hash = "865c8d988be4669f3e48f73b98f9bc2507be0246ea35e0098cf6054d3644c14f";
-        let namespace_specific_id = format!("DOCKER::MANIFEST::{}::{}", name, tag);
-
-        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new(&tmp_dir).unwrap()));
-        transparency_log
-            .lock()
-            .await
-            .add_artifact(&namespace_specific_id, hash)
-            .unwrap();
+        let package_type = PackageType::Docker;
+        let package_type_id = get_package_type_id(name, tag);
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
@@ -163,13 +147,17 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
-        create_artifact(&artifact_storage).unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+
+        artifact_service
+            .transparency_log
+            .add_artifact(&package_type, &package_type_id, hash)
+            .unwrap();
+        create_artifact(&artifact_service.artifact_storage).unwrap();
 
         let result = fetch_manifest(
-            transparency_log,
-            p2p_client,
-            artifact_storage,
+            Arc::new(Mutex::new(artifact_service)),
             name.to_string(),
             tag.to_string(),
         )
