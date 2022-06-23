@@ -23,6 +23,7 @@ use network::handlers;
 use pyrsia::artifact_service::storage::{ArtifactStorage, ARTIFACTS_DIR};
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::make_docker_routes;
+use pyrsia::java::maven2::routes::make_maven_routes;
 use pyrsia::logging::*;
 use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
@@ -133,12 +134,17 @@ fn setup_http(
 
     debug!("Setup HTTP routing");
     let docker_routes = make_docker_routes(
+        transparency_log.clone(),
+        p2p_client.clone(),
+        artifact_storage.clone(),
+    );
+    let maven_routes = make_maven_routes(
         transparency_log,
         p2p_client.clone(),
         artifact_storage.clone(),
     );
     let node_api_routes = make_node_routes(p2p_client, artifact_storage);
-    let all_routes = docker_routes.or(node_api_routes);
+    let all_routes = docker_routes.or(maven_routes).or(node_api_routes);
 
     debug!("Setup HTTP server");
     let (addr, server) = warp::serve(
