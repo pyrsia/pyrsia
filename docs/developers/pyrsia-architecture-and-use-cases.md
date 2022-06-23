@@ -17,7 +17,7 @@
   transaction is valid.
 - Artifact: a single file that can be retrieved from the Pyrsia network. It does
   not necessarily coincide with package specific artifacts.
-- PAD: a package type specific artifact ID.
+- PSID: a package type specific artifact ID.
 - Authorized node admin: the person who can administer an authorized node
 
 ## Introduction
@@ -109,7 +109,7 @@ added, by triggering a build from source.
 The artifact service supports these functions:
 
 - request an artifact based on the package type and a  package type specific
-  artifact ID (PAD). \
+  artifact ID (PSID). \
   the artifact service implements this as follows:
     - query the `Transparency Log` to retrieve the latest `add_artifact` transaction
       (if any)
@@ -123,14 +123,14 @@ The artifact service supports these functions:
       the artifact service.
 
 - request a build from source for a specific package type and a package type
-  specific artifact ID (PAD). \
+  specific artifact ID (PSID). \
   the artifact service implements this as follows:
   - start a build using the `Build and verifaction service` and wait for its result.
   - when the build finishes, temporary hold the build result and create a `add_artifact`
     transaction, including
     - operator: add_artifact
     - package type: from the caller of this function
-    - package type specific artifact ID (PAD): from the caller of this function
+    - package type specific artifact ID (PSID): from the caller of this function
     - timestamp: now
     - artifact_hash (provided by the build service)
     - source_bash (provided by the build service)
@@ -172,16 +172,20 @@ The transparency log service supports these functions:
     - notify the caller of `add_artifact`
 
 - retrieving the latest `add_artifact` transaction
-  - this function takes the package type and PAD as input
+  - this function takes the package type and PSID as input
   - it uses those fields to search the transaction log database
   - it will search for the latest `add_artifact` or `remove_artifact` transaction
-  - if the latest transaction is `remove_artifact` an error is returned
+  - if the latest transaction is `remove_artifact` or no transaction is found,
+    an error is returned
   - otherwise the latest `add_transaction` is returned
 
 - searching transactions (for inspection)
   - TODO: details
 
 - adding a transaction to add another authorized node
+  - TODO: details
+
+- adding a transaction to remove an authorized node
   - TODO: details
 
 - adding a transaction to remove an artifact
@@ -217,11 +221,11 @@ point to the authorized node's build pipeline infrastructure.
 
 The builds service supports these function:
 
-- start a build based on the package type and the PAD \
+- start a build based on the package type and the PSID \
   this function is typically called from the CLI component when a build from
   source was requested by a user.
   - based on the package type it will:
-    - map the PAD to a source repo (if necessary)
+    - map the PSID to a source repo (if necessary)
     - find a suitable build pipeline and trigger a build
     - wait for the build result
     - when the build finishes, hash the binary artifact and the source artifact
@@ -239,7 +243,7 @@ The builds service supports these function:
   this function is typically called from the blockchain component to reach
   consensus about a transaction added by another authorized node.
   - based on the package type (from the `transaction`)
-    - map the PAD (from the `transaction`) to a source repo (if necessary)
+    - map the PSID (from the `transaction`) to a source repo (if necessary)
     - find a suitable build pipeline and trigger a build
     - wait for the build result
     - when the build finishes, hash the binary and source artifacts and compare
