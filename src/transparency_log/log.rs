@@ -17,17 +17,17 @@
 use log::debug;
 use rusqlite::{Connection, Error};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Error, PartialEq)]
 pub enum TransparencyLogError {
-    #[error("Duplicate ID {id:?} in transparency log database")]
+    #[error("Duplicate ID {id:?} in transparency log")]
     DuplicateId { id: String },
-    #[error("ID {id:?} not found in transparency log database")]
+    #[error("ID {id:?} not found in transparency log")]
     NotFound { id: String },
     #[error("Hash Verification failed for ID {id:?}: {invalid_hash:?} vs {actual_hash:?}")]
     InvalidHash {
@@ -37,7 +37,9 @@ pub enum TransparencyLogError {
     },
 }
 
-#[derive(Debug, Clone, strum_macros::Display, Deserialize, Serialize, PartialEq)]
+#[derive(
+    Debug, Clone, strum_macros::Display, strum_macros::EnumString, Deserialize, Serialize, PartialEq,
+)]
 pub enum Operation {
     AddArtifact,
 }
@@ -65,7 +67,6 @@ pub struct SignatureEnvelope {
 #[derive(Clone)]
 pub struct TransparencyLog {
     storage_path: PathBuf,
-    payloads: HashMap<String, Payload>,
 }
 
 impl TransparencyLog {
@@ -74,7 +75,6 @@ impl TransparencyLog {
         absolute_path.push("transparency_log");
         Ok(TransparencyLog {
             storage_path: absolute_path,
-            payloads: HashMap::new(),
         })
     }
 
@@ -90,35 +90,39 @@ impl TransparencyLog {
         };
 
         self.write_payload(&payload)?;
-        self.payloads.insert(id.into(), payload);
 
         Ok(())
     }
 
     pub fn verify_artifact(&mut self, id: &str, hash: &str) -> Result<(), TransparencyLogError> {
-        if let Some(payload) = self.payloads.get(id) {
-            if payload.hash == hash {
-                Ok(())
-            } else {
-                Err(TransparencyLogError::InvalidHash {
+        match self.read_payload_db(id) {
+            Ok(payload) => {
+                if payload.hash == hash {
+                    Ok(())
+                } else {
+                    Err(TransparencyLogError::InvalidHash {
+                        id: String::from(id),
+                        invalid_hash: String::from(hash),
+                        actual_hash: payload.hash,
+                    })
+                }
+            }
+            Err(err) => {
+                debug!("Error verifying artifact {:?}", err);
+                Err(TransparencyLogError::NotFound {
                     id: String::from(id),
-                    invalid_hash: String::from(hash),
-                    actual_hash: payload.hash.clone(),
                 })
             }
-        } else {
-            Err(TransparencyLogError::NotFound {
-                id: String::from(id),
-            })
         }
     }
 
     pub fn get_artifact(&mut self, namespace_specific_id: &str) -> anyhow::Result<String> {
-        if let Some(payload) = self.payloads.get(namespace_specific_id) {
-            return Ok(String::from(&payload.hash));
+        match self.read_payload_db(namespace_specific_id) {
+            Ok(payload) => Ok(String::from(&payload.hash)),
+            Err(_) => {
+                anyhow::bail!("No payload found with specified ID")
+            }
         }
-
-        anyhow::bail!("No payload found with specified ID");
     }
 
     fn open_db(&self) -> anyhow::Result<Connection> {
@@ -166,7 +170,8 @@ impl TransparencyLog {
                 debug!("Transparency payload insert error: {:?}", err);
                 match err {
                     Error::SqliteFailure(sqlite_error, ref _sqlite_options) => {
-                        if sqlite_error.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_PRIMARYKEY {
+                        if sqlite_error.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_PRIMARYKEY
+                        {
                             Err(TransparencyLogError::DuplicateId {
                                 id: payload.id.clone(),
                             }
@@ -180,8 +185,33 @@ impl TransparencyLog {
             }
         }
     }
-}
 
+    fn read_payload_db(&self, id: &str) -> anyhow::Result<Payload> {
+        let conn = self.open_db()?;
+
+        let mut stmt = conn.prepare("SELECT * FROM payload WHERE id=:id;")?;
+        let mut payload_records = stmt.query_map(&[(":id", id)], |row| {
+            Ok(Payload {
+                id: row.get(0)?,
+                hash: row.get(1)?,
+                timestamp: row.get(2)?,
+                operation: {
+                    let op: String = row.get(3)?;
+                    Operation::from_str(&op).unwrap()
+                },
+            })
+        })?;
+
+        if let Some(record) = payload_records.next() {
+            return Ok(record.unwrap());
+        }
+
+        Err(TransparencyLogError::NotFound {
+            id: String::from(id),
+        }
+        .into())
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -208,17 +238,6 @@ mod tests {
     }
 
     #[test]
-    fn test_new_transparency_log_has_empty_payload() {
-        let tmp_dir = test_util::tests::setup();
-
-        let log = TransparencyLog::new(&tmp_dir).unwrap();
-
-        assert_eq!(log.payloads.len(), 0);
-
-        test_util::tests::teardown(tmp_dir);
-    }
-
-    #[test]
     fn test_open_db() {
         let tmp_dir = test_util::tests::setup();
 
@@ -230,10 +249,7 @@ mod tests {
         let conn = result.unwrap();
         let mut path = log.storage_path;
         path.push("payload.db3");
-        assert_eq!(
-            conn.path().unwrap(),
-            path.as_path()
-        );
+        assert_eq!(conn.path().unwrap(), path.as_path());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -286,6 +302,57 @@ mod tests {
     }
 
     #[test]
+    fn test_read_payload() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = TransparencyLog::new(&tmp_dir).unwrap();
+
+        let payload = Payload {
+            id: String::from("id"),
+            hash: String::from("hash"),
+            timestamp: 1234567890,
+            operation: Operation::AddArtifact,
+        };
+
+        let result_write = log.write_payload(&payload);
+        assert!(result_write.is_ok());
+
+        let result_read = log.read_payload_db("id");
+        assert!(result_read.is_ok());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_read_payload_invalid_id() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = TransparencyLog::new(&tmp_dir).unwrap();
+
+        let payload = Payload {
+            id: String::from("id"),
+            hash: String::from("hash"),
+            timestamp: 1234567890,
+            operation: Operation::AddArtifact,
+        };
+
+        let result_write = log.write_payload(&payload);
+        assert!(result_write.is_ok());
+
+        let result_read = log.read_payload_db("invalid_id");
+        assert!(result_read.is_err());
+        assert_eq!(
+            result_read.err().unwrap().to_string(),
+            TransparencyLogError::NotFound {
+                id: String::from("invalid_id")
+            }
+            .to_string()
+        );
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
     fn test_add_artifact() {
         let tmp_dir = test_util::tests::setup();
 
@@ -293,8 +360,6 @@ mod tests {
 
         let result = log.add_artifact("id", "hash");
         assert!(result.is_ok());
-
-        assert!(log.payloads.contains_key("id"));
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -307,8 +372,6 @@ mod tests {
 
         let result = log.add_artifact("id/with/slash", "hash");
         assert!(result.is_ok());
-
-        assert!(log.payloads.contains_key("id/with/slash"));
 
         test_util::tests::teardown(tmp_dir);
     }
