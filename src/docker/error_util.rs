@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use crate::transparency_log::log::TransparencyLogError;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
@@ -60,6 +61,14 @@ pub struct RegistryError {
 
 impl From<anyhow::Error> for RegistryError {
     fn from(err: anyhow::Error) -> RegistryError {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(err.to_string()),
+        }
+    }
+}
+
+impl From<TransparencyLogError> for RegistryError {
+    fn from(err: TransparencyLogError) -> RegistryError {
         RegistryError {
             code: RegistryErrorCode::Unknown(err.to_string()),
         }
@@ -191,6 +200,22 @@ mod tests {
         assert_eq!(
             registry_error.code,
             RegistryErrorCode::Unknown(anyhow_error_2.to_string())
+        );
+    }
+
+    #[test]
+    fn from_transparency_log_error() {
+        let transparency_log_error_1 = TransparencyLogError::NotFound {
+            id: String::from("artifact_id"),
+        };
+        let transparency_log_error_2 = TransparencyLogError::NotFound {
+            id: String::from("artifact_id"),
+        };
+
+        let registry_error: RegistryError = transparency_log_error_1.into();
+        assert_eq!(
+            registry_error.code,
+            RegistryErrorCode::Unknown(transparency_log_error_2.to_string())
         );
     }
 
