@@ -473,7 +473,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_listen_and_dial() {
+    async fn test_dial_address_with_listener() {
         let (mut p2p_client_1, event_loop_1) = create_test_swarm();
         let (mut p2p_client_2, event_loop_2) = create_test_swarm();
 
@@ -496,5 +496,31 @@ mod tests {
             )
             .await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_dial_address_without_listener() {
+        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
+        let (mut p2p_client_2, event_loop_2) = create_test_swarm();
+
+        tokio::spawn(event_loop_1.run());
+        tokio::spawn(event_loop_2.run());
+
+        p2p_client_1
+            .listen(&"/ip4/127.0.0.1/tcp/44125".parse().unwrap())
+            .await
+            .unwrap();
+        p2p_client_1
+            .listen(&"/ip4/127.0.0.1/tcp/44126".parse().unwrap())
+            .await
+            .unwrap();
+
+        let result = p2p_client_2
+            .dial(
+                &p2p_client_1.local_peer_id,
+                &"/ip4/127.0.0.1/tcp/44127".parse().unwrap(),
+            )
+            .await;
+        assert!(result.is_err());
     }
 }
