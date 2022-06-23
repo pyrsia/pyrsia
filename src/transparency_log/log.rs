@@ -96,6 +96,22 @@ impl TransparencyLog {
         })
     }
 
+    pub fn add_authorized_node(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    pub fn remove_authorized_node(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    pub fn request_build(
+        &self,
+        _package_type: &PackageType,
+        _package_type_id: &str,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     pub fn add_artifact(
         &mut self,
         package_type: &PackageType,
@@ -122,6 +138,14 @@ impl TransparencyLog {
         Ok(())
     }
 
+    pub fn remove_artifact(
+        &mut self,
+        _package_type: &PackageType,
+        _package_type_id: &str,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     pub fn get_artifact(
         &mut self,
         package_type: &PackageType,
@@ -141,7 +165,7 @@ impl TransparencyLog {
         }
     }
 
-    pub fn search_transactions() -> anyhow::Result<Vec<Transaction>> {
+    pub fn search_transactions(&self) -> anyhow::Result<Vec<Transaction>> {
         Ok(vec![])
     }
 
