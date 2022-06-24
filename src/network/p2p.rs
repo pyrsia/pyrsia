@@ -25,7 +25,6 @@ use futures::channel::mpsc;
 use futures::prelude::*;
 use libp2p::core;
 use libp2p::dns;
-use libp2p::identify;
 use libp2p::identity;
 use libp2p::kad;
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
@@ -152,9 +151,6 @@ fn create_swarm(
 ) -> Result<(Swarm<PyrsiaNetworkBehaviour>, core::PeerId), Box<dyn Error>> {
     let peer_id = keypair.public().to_peer_id();
 
-    let identify_config =
-        identify::IdentifyConfig::new(String::from("ipfs/1.0.0"), keypair.public());
-
     let memory_store_config = MemoryStoreConfig {
         max_provided_keys,
         ..Default::default()
@@ -164,7 +160,6 @@ fn create_swarm(
         SwarmBuilder::new(
             create_transport(keypair)?,
             PyrsiaNetworkBehaviour {
-                identify: identify::Identify::new(identify_config),
                 kademlia: kad::Kademlia::new(
                     peer_id,
                     MemoryStore::with_config(peer_id, memory_store_config),

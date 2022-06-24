@@ -14,9 +14,10 @@
    limitations under the License.
 */
 
+use libp2p::multiaddr::Protocol;
 use libp2p::request_response::ResponseChannel;
-use libp2p::Multiaddr;
-use log::{debug, info};
+use libp2p::{Multiaddr, PeerId};
+use log::debug;
 use pyrsia::artifact_service;
 use pyrsia::artifact_service::storage::ArtifactStorage;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
@@ -24,9 +25,14 @@ use pyrsia::network::client::{ArtifactType, Client};
 use pyrsia::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 
 /// Reach out to another node with the specified address
-pub async fn dial_other_peer(mut p2p_client: Client, to_dial: &Multiaddr) {
-    p2p_client.dial(to_dial).await.expect("Dial to succeed.");
-    info!("Dialed {:?}", to_dial);
+pub async fn dial_other_peer(mut p2p_client: Client, to_dial: &Multiaddr) -> anyhow::Result<()> {
+    match to_dial.iter().last() {
+        Some(Protocol::P2p(hash)) => match PeerId::from_multihash(hash) {
+            Ok(peer_id) => p2p_client.dial(&peer_id, to_dial).await,
+            Err(_) => anyhow::bail!("Invalid hash provided for Peer ID."),
+        },
+        _ => anyhow::bail!("Expect peer address to contain Peer ID."),
+    }
 }
 
 /// Respond to a RequestArtifact event by getting the artifact

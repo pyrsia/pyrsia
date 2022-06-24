@@ -21,8 +21,7 @@ use crate::network::client::ArtifactType;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
-use libp2p::core::{Multiaddr, PeerId};
-use libp2p::identify::IdentifyEvent;
+use libp2p::core::PeerId;
 use libp2p::kad::{GetClosestPeersOk, GetProvidersOk, KademliaEvent, QueryId, QueryResult};
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{
@@ -31,11 +30,10 @@ use libp2p::request_response::{
 use libp2p::swarm::SwarmEvent;
 use libp2p::Swarm;
 use log::{debug, info, trace, warn};
-use std::collections::hash_map::Entry::Vacant;
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::error::Error;
 
-type PendingDialMap = HashMap<Multiaddr, oneshot::Sender<anyhow::Result<()>>>;
+type PendingDialMap = HashMap<PeerId, oneshot::Sender<anyhow::Result<()>>>;
 type PendingListPeersMap = HashMap<QueryId, oneshot::Sender<HashSet<PeerId>>>;
 type PendingStartProvidingMap = HashMap<QueryId, oneshot::Sender<()>>;
 type PendingRequestArtifactMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<Vec<u8>>>>;
@@ -82,7 +80,6 @@ impl PyrsiaEventLoop {
         loop {
             futures::select! {
                 event = self.swarm.next() => match event.expect("Swarm stream to be infinite.") {
-                    SwarmEvent::Behaviour(PyrsiaNetworkEvent::Identify(identify_event)) => self.handle_identify_event(identify_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Kademlia(kademlia_event)) => self.handle_kademlia_event(kademlia_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::RequestResponse(request_response_event)) => self.handle_request_response_event(request_response_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::IdleMetricRequestResponse(request_response_event)) => self.handle_idle_metric_request_response_event(request_response_event).await,
@@ -96,34 +93,6 @@ impl PyrsiaEventLoop {
                     None => { warn!("Got empty command"); return },
                 },
             }
-        }
-    }
-
-    // Handles events from the `Identify` network behaviour.
-    async fn handle_identify_event(&mut self, event: IdentifyEvent) {
-        trace!("Handle IdentifyEvent: {:?}", event);
-        match event {
-            IdentifyEvent::Pushed { .. } => {}
-            IdentifyEvent::Received { peer_id, info } => {
-                println!("Identify::Received: {}; {:?}", peer_id, info);
-                if let Some(addr) = info.listen_addrs.get(0) {
-                    if let Some(sender) = self.pending_dial.remove(addr) {
-                        let _ = sender.send(Ok(()));
-                    }
-
-                    debug!(
-                        "Identify::Received: adding address {:?} for peer {}",
-                        addr.clone(),
-                        peer_id
-                    );
-                    self.swarm
-                        .behaviour_mut()
-                        .kademlia
-                        .add_address(&peer_id, addr.clone());
-                }
-            }
-            IdentifyEvent::Sent { .. } => {}
-            IdentifyEvent::Error { .. } => {}
         }
     }
 
@@ -213,7 +182,7 @@ impl PyrsiaEventLoop {
                     .pending_request_artifact
                     .remove(&request_id)
                     .expect("Request to still be pending.")
-                    .send(Err(From::from(error)));
+                    .send(Err(error.into()));
             }
             RequestResponseEvent::ResponseSent { .. } => {}
         }
@@ -253,7 +222,7 @@ impl PyrsiaEventLoop {
                     .pending_idle_metric_requests
                     .remove(&request_id)
                     .expect("Request to still be pending.")
-                    .send(Err(From::from(error)));
+                    .send(Err(error.into()));
             }
             RequestResponseEvent::ResponseSent { .. } => {}
         }
@@ -272,9 +241,23 @@ impl PyrsiaEventLoop {
                     address.with(Protocol::P2p(local_peer_id.into()))
                 );
             }
-            SwarmEvent::ConnectionEstablished { .. } => {}
+            SwarmEvent::ConnectionEstablished {
+                peer_id, endpoint, ..
+            } => {
+                if endpoint.is_dialer() {
+                    if let Some(sender) = self.pending_dial.remove(&peer_id) {
+                        let _ = sender.send(Ok(()));
+                    }
+                }
+            }
             SwarmEvent::ConnectionClosed { .. } => {}
-            SwarmEvent::OutgoingConnectionError { .. } => {}
+            SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                if let Some(peer_id) = peer_id {
+                    if let Some(sender) = self.pending_dial.remove(&peer_id) {
+                        let _ = sender.send(Err(error.into()));
+                    }
+                }
+            }
             SwarmEvent::BannedPeer { .. } => {}
             SwarmEvent::Dialing(peer_id) => {
                 debug!(
@@ -298,17 +281,29 @@ impl PyrsiaEventLoop {
             Command::Listen { addr, sender } => {
                 let _ = match self.swarm.listen_on(addr) {
                     Ok(_) => sender.send(Ok(())),
-                    Err(e) => sender.send(Err(From::from(e))),
+                    Err(e) => sender.send(Err(e.into())),
                 };
             }
-            Command::Dial { peer_addr, sender } => {
-                if let Vacant(_) = self.pending_dial.entry(peer_addr.clone()) {
-                    match self.swarm.dial(peer_addr.clone()) {
+            Command::Dial {
+                peer_id,
+                peer_addr,
+                sender,
+            } => {
+                if let Entry::Vacant(_) = self.pending_dial.entry(peer_id) {
+                    self.swarm
+                        .behaviour_mut()
+                        .kademlia
+                        .add_address(&peer_id, peer_addr.clone());
+
+                    match self
+                        .swarm
+                        .dial(peer_addr.with(Protocol::P2p(peer_id.into())))
+                    {
                         Ok(()) => {
-                            self.pending_dial.insert(peer_addr, sender);
+                            self.pending_dial.insert(peer_id, sender);
                         }
                         Err(e) => {
-                            let _ = sender.send(Err(From::from(e)));
+                            let _ = sender.send(Err(e.into()));
                         }
                     }
                 }
@@ -397,4 +392,135 @@ pub enum PyrsiaEvent {
     IdleMetricRequest {
         channel: ResponseChannel<IdleMetricResponse>,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactExchangeProtocol};
+    use crate::network::client::Client;
+    use crate::network::idle_metric_protocol::{
+        IdleMetricExchangeCodec, IdleMetricExchangeProtocol,
+    };
+    use futures::channel::mpsc;
+    use libp2p::core::upgrade;
+    use libp2p::core::Transport;
+    use libp2p::dns;
+    use libp2p::identity::Keypair;
+    use libp2p::kad;
+    use libp2p::noise;
+    use libp2p::request_response;
+    use libp2p::swarm::SwarmBuilder;
+    use libp2p::tcp;
+    use libp2p::yamux::YamuxConfig;
+    use std::iter;
+
+    fn create_test_swarm() -> (Client, PyrsiaEventLoop) {
+        let id_keys = Keypair::generate_ed25519();
+        let local_public_key = id_keys.public();
+        let peer_id = local_public_key.to_peer_id();
+
+        let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
+            .into_authentic(&id_keys)
+            .expect("Signing libp2p-noise static DH keypair failed.");
+
+        let tcp = tcp::TokioTcpConfig::new().nodelay(true);
+        let dns = dns::TokioDnsConfig::system(tcp).unwrap();
+
+        let mem_transport = dns
+            .upgrade(upgrade::Version::V1)
+            .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
+            .multiplex(YamuxConfig::default())
+            .timeout(std::time::Duration::from_secs(20))
+            .boxed();
+
+        let behaviour = PyrsiaNetworkBehaviour {
+            kademlia: kad::Kademlia::new(peer_id, kad::record::store::MemoryStore::new(peer_id)),
+            request_response: request_response::RequestResponse::new(
+                ArtifactExchangeCodec(),
+                iter::once((
+                    ArtifactExchangeProtocol(),
+                    request_response::ProtocolSupport::Full,
+                )),
+                Default::default(),
+            ),
+            idle_metric_request_response: request_response::RequestResponse::new(
+                IdleMetricExchangeCodec(),
+                iter::once((
+                    IdleMetricExchangeProtocol(),
+                    request_response::ProtocolSupport::Full,
+                )),
+                Default::default(),
+            ),
+        };
+
+        let swarm = SwarmBuilder::new(mem_transport, behaviour, local_public_key.to_peer_id())
+            .executor(Box::new(|fut| {
+                tokio::spawn(fut);
+            }))
+            .build();
+
+        let (command_sender, command_receiver) = mpsc::channel(1);
+        let (event_sender, _) = mpsc::channel(1);
+
+        let p2p_client = Client {
+            sender: command_sender,
+            local_peer_id: peer_id,
+        };
+        let event_loop = PyrsiaEventLoop::new(swarm, command_receiver, event_sender);
+
+        (p2p_client, event_loop)
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_dial_address_with_listener() {
+        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
+        let (mut p2p_client_2, event_loop_2) = create_test_swarm();
+
+        tokio::spawn(event_loop_1.run());
+        tokio::spawn(event_loop_2.run());
+
+        p2p_client_1
+            .listen(&"/ip4/127.0.0.1/tcp/44120".parse().unwrap())
+            .await
+            .unwrap();
+        p2p_client_1
+            .listen(&"/ip4/127.0.0.1/tcp/44121".parse().unwrap())
+            .await
+            .unwrap();
+
+        let result = p2p_client_2
+            .dial(
+                &p2p_client_1.local_peer_id,
+                &"/ip4/127.0.0.1/tcp/44121".parse().unwrap(),
+            )
+            .await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_dial_address_without_listener() {
+        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
+        let (mut p2p_client_2, event_loop_2) = create_test_swarm();
+
+        tokio::spawn(event_loop_1.run());
+        tokio::spawn(event_loop_2.run());
+
+        p2p_client_1
+            .listen(&"/ip4/127.0.0.1/tcp/44125".parse().unwrap())
+            .await
+            .unwrap();
+        p2p_client_1
+            .listen(&"/ip4/127.0.0.1/tcp/44126".parse().unwrap())
+            .await
+            .unwrap();
+
+        let result = p2p_client_2
+            .dial(
+                &p2p_client_1.local_peer_id,
+                &"/ip4/127.0.0.1/tcp/44127".parse().unwrap(),
+            )
+            .await;
+        assert!(result.is_err());
+    }
 }
