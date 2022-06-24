@@ -17,9 +17,9 @@
 use crate::artifact_service::service::{ArtifactService, PackageType};
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use anyhow::bail;
-use futures::lock::Mutex;
 use log::debug;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_maven_artifact(
@@ -81,13 +81,14 @@ mod tests {
     use crate::artifact_service::hashing::{Hash, HashAlgorithm};
     use crate::artifact_service::storage::ArtifactStorage;
     use crate::network::client::Client;
+    use crate::transparency_log::log::AddArtifactRequest;
     use crate::util::test_util;
     use anyhow::Context;
-    use futures::channel::mpsc;
     use hyper::header::HeaderValue;
     use libp2p::identity::Keypair;
     use std::fs::File;
     use std::path::PathBuf;
+    use tokio::sync::{mpsc, oneshot};
 
     const VALID_ARTIFACT_HASH: &str =
         "e11c16ff163ccc1efe01d2696c626891560fa82123601a5ff196d97b6ab156da";
@@ -112,6 +113,7 @@ mod tests {
     async fn handle_get_maven_artifact_test() {
         let tmp_dir = test_util::tests::setup();
 
+        let (add_artifact_sender, _) = oneshot::channel();
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
             sender,
@@ -123,7 +125,15 @@ mod tests {
 
         artifact_service
             .transparency_log
-            .add_artifact(&PackageType::Maven2, VALID_MAVEN_ID, VALID_ARTIFACT_HASH)
+            .add_artifact(
+                AddArtifactRequest {
+                    package_type: PackageType::Maven2,
+                    package_type_id: VALID_MAVEN_ID.to_string(),
+                    hash: VALID_ARTIFACT_HASH.to_string(),
+                },
+                add_artifact_sender,
+            )
+            .await
             .unwrap();
         create_artifact(&artifact_service.artifact_storage).unwrap();
 

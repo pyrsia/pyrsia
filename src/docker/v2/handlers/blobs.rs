@@ -16,10 +16,10 @@
 
 use crate::artifact_service::service::{ArtifactService, PackageType};
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
-use futures::lock::Mutex;
 use log::debug;
 use std::result::Result;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_blobs(
@@ -52,14 +52,15 @@ mod tests {
     use crate::artifact_service::hashing::{Hash, HashAlgorithm};
     use crate::artifact_service::storage::ArtifactStorage;
     use crate::network::client::Client;
+    use crate::transparency_log::log::AddArtifactRequest;
     use crate::util::test_util;
     use anyhow::Context;
-    use futures::channel::mpsc;
     use hyper::header::HeaderValue;
     use libp2p::identity::Keypair;
     use std::borrow::Borrow;
     use std::fs::File;
     use std::path::PathBuf;
+    use tokio::sync::{mpsc, oneshot};
 
     const VALID_ARTIFACT_HASH: [u8; 32] = [
         0x86, 0x5c, 0x8d, 0x98, 0x8b, 0xe4, 0x66, 0x9f, 0x3e, 0x48, 0xf7, 0x3b, 0x98, 0xf9, 0xbc,
@@ -75,6 +76,7 @@ mod tests {
         let package_type = PackageType::Docker;
         let package_type_id = hash;
 
+        let (add_artifact_sender, _) = oneshot::channel();
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
             sender,
@@ -86,7 +88,15 @@ mod tests {
 
         artifact_service
             .transparency_log
-            .add_artifact(&package_type, &package_type_id, hash)
+            .add_artifact(
+                AddArtifactRequest {
+                    package_type,
+                    package_type_id: package_type_id.to_string(),
+                    hash: hash.to_string(),
+                },
+                add_artifact_sender,
+            )
+            .await
             .unwrap();
 
         let result =
@@ -113,6 +123,7 @@ mod tests {
         let package_type = PackageType::Docker;
         let package_type_id = hash;
 
+        let (add_artifact_sender, _) = oneshot::channel();
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
             sender,
@@ -123,7 +134,15 @@ mod tests {
             ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
         artifact_service
             .transparency_log
-            .add_artifact(&package_type, &package_type_id, hash)
+            .add_artifact(
+                AddArtifactRequest {
+                    package_type,
+                    package_type_id: package_type_id.to_string(),
+                    hash: hash.to_string(),
+                },
+                add_artifact_sender,
+            )
+            .await
             .unwrap();
         create_artifact(&artifact_service.artifact_storage).unwrap();
 

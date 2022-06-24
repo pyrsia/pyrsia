@@ -28,7 +28,7 @@ use std::io::{BufReader, Read};
 use std::path::Path;
 use std::str;
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, strum_macros::Display)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, strum_macros::Display)]
 pub enum PackageType {
     Docker,
     Maven2,
@@ -164,18 +164,17 @@ mod tests {
     use super::*;
     use crate::network::client::command::Command;
     use crate::network::idle_metric_protocol::PeerMetrics;
-    use crate::transparency_log::log::TransparencyLogError;
+    use crate::transparency_log::log::{AddArtifactRequest, TransparencyLogError};
     use crate::util::test_util;
     use anyhow::Context;
-    use futures::channel::mpsc;
-    use futures::executor;
-    use futures::prelude::*;
     use libp2p::identity::Keypair;
     use sha2::{Digest, Sha256};
     use std::collections::HashSet;
     use std::env;
     use std::fs::File;
     use std::path::PathBuf;
+    use tokio::sync::{mpsc, oneshot};
+    use tokio::task;
 
     const VALID_ARTIFACT_HASH: [u8; 32] = [
         0x86, 0x5c, 0x8d, 0x98, 0x8b, 0xe4, 0x66, 0x9f, 0x3e, 0x48, 0xf7, 0x3b, 0x98, 0xf9, 0xbc,
@@ -187,6 +186,7 @@ mod tests {
     async fn test_put_and_get_artifact() {
         let tmp_dir = test_util::tests::setup();
 
+        let (add_artifact_sender, _receiver) = oneshot::channel();
         let (sender, _receiver) = mpsc::channel(1);
         let p2p_client = Client {
             sender,
@@ -200,10 +200,14 @@ mod tests {
         artifact_service
             .transparency_log
             .add_artifact(
-                &package_type,
-                artifact_id,
-                &hex::encode(VALID_ARTIFACT_HASH),
+                AddArtifactRequest {
+                    package_type,
+                    package_type_id: artifact_id.to_string(),
+                    hash: hex::encode(VALID_ARTIFACT_HASH),
+                },
+                add_artifact_sender,
             )
+            .await
             .unwrap();
 
         let hash = Hash::new(HashAlgorithm::SHA256, &VALID_ARTIFACT_HASH).unwrap();
@@ -214,13 +218,13 @@ mod tests {
             .unwrap();
 
         // pull artifact
-        let future = async {
+        let future = {
             artifact_service
                 .get_artifact(package_type, artifact_id)
                 .await
                 .context("Error from get_artifact")
         };
-        let file = executor::block_on(future).unwrap();
+        let file = task::spawn_blocking(|| future).await.unwrap().unwrap();
 
         //validate pulled artifact with the actual data
         let mut s = String::new();
@@ -250,7 +254,7 @@ mod tests {
 
         tokio::spawn(async move {
             loop {
-                match receiver.next().await {
+                match receiver.recv().await {
                     Some(Command::ListProviders { artifact_type: _artifact_type, artifact_hash: _artifact_hash, sender }) => {
                         let mut set = HashSet::new();
                         set.insert(local_peer_id);
@@ -274,9 +278,8 @@ mod tests {
         let hash_bytes = hasher.finalize();
         let artifact_id = hex::encode(hash_bytes);
 
-        let result = executor::block_on(async {
-            artifact_service.get_artifact_from_peers(&artifact_id).await
-        });
+        let future = { artifact_service.get_artifact_from_peers(&artifact_id).await };
+        let result = task::spawn_blocking(|| future).await.unwrap();
         assert!(result.is_ok());
 
         test_util::tests::teardown(tmp_dir);
@@ -296,8 +299,8 @@ mod tests {
         let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client).unwrap();
 
         tokio::spawn(async move {
-            futures::select! {
-                command = receiver.next() => {
+            tokio::select! {
+                command = receiver.recv() => {
                     match command {
                         Some(Command::ListProviders { artifact_type: _artifact_type, artifact_hash: _artifact_hash, sender }) => {
                             let _ = sender.send(Default::default());
@@ -313,9 +316,8 @@ mod tests {
         let hash_bytes = hasher.finalize();
         let artifact_id = hex::encode(hash_bytes);
 
-        let result = executor::block_on(async {
-            artifact_service.get_artifact_from_peers(&artifact_id).await
-        });
+        let future = { artifact_service.get_artifact_from_peers(&artifact_id).await };
+        let result = task::spawn_blocking(|| future).await.unwrap();
         assert!(result.is_err());
 
         test_util::tests::teardown(tmp_dir);
@@ -325,6 +327,7 @@ mod tests {
     async fn test_verify_artifact_succeeds_when_hashes_same() {
         let tmp_dir = test_util::tests::setup();
 
+        let (add_artifact_sender, _receiver) = oneshot::channel();
         let (sender, _receiver) = mpsc::channel(1);
         let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
         let p2p_client = Client {
@@ -342,7 +345,15 @@ mod tests {
         let package_type_id = "package_type_id";
         artifact_service
             .transparency_log
-            .add_artifact(&package_type, package_type_id, &random_hash)
+            .add_artifact(
+                AddArtifactRequest {
+                    package_type,
+                    package_type_id: package_type_id.to_string(),
+                    hash: random_hash,
+                },
+                add_artifact_sender,
+            )
+            .await
             .unwrap();
 
         let result = artifact_service
@@ -357,6 +368,7 @@ mod tests {
     async fn test_verify_artifact_fails_when_hashes_differ() {
         let tmp_dir = test_util::tests::setup();
 
+        let (add_artifact_sender, _receiver) = oneshot::channel();
         let (sender, _receiver) = mpsc::channel(1);
         let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
         let p2p_client = Client {
@@ -378,7 +390,15 @@ mod tests {
         let package_type_id = "package_type_id";
         artifact_service
             .transparency_log
-            .add_artifact(&package_type, package_type_id, &random_hash)
+            .add_artifact(
+                AddArtifactRequest {
+                    package_type,
+                    package_type_id: package_type_id.to_string(),
+                    hash: random_hash.clone(),
+                },
+                add_artifact_sender,
+            )
+            .await
             .unwrap();
 
         let result = artifact_service

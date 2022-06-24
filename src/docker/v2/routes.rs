@@ -19,8 +19,8 @@ use crate::artifact_service::service::ArtifactService;
 
 use super::handlers::blobs::*;
 use super::handlers::manifests::*;
-use futures::lock::Mutex;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use warp::Filter;
 
 pub fn make_docker_routes(

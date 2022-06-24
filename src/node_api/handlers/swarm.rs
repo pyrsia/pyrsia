@@ -18,9 +18,9 @@ use super::{get_config, RegistryError, RegistryErrorCode};
 use crate::artifact_service::service::ArtifactService;
 use crate::node_api::model::cli::Status;
 
-use futures::lock::Mutex;
 use log::debug;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_peers(
@@ -48,9 +48,8 @@ pub async fn handle_get_peers(
 pub async fn handle_get_status(
     artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> Result<impl Reply, Rejection> {
+    let mut artifact_service = artifact_service.lock().await;
     let peers = artifact_service
-        .lock()
-        .await
         .p2p_client
         .list_peers()
         .await
@@ -65,12 +64,7 @@ pub async fn handle_get_status(
 
     let status = Status {
         peers_count: peers.len(),
-        peer_id: artifact_service
-            .lock()
-            .await
-            .p2p_client
-            .local_peer_id
-            .to_string(),
+        peer_id: artifact_service.p2p_client.local_peer_id.to_string(),
     };
 
     let status_as_json = serde_json::to_string(&status).unwrap();

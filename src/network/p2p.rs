@@ -21,8 +21,6 @@ use crate::network::event_loop::{PyrsiaEvent, PyrsiaEventLoop};
 use crate::network::idle_metric_protocol::{IdleMetricExchangeCodec, IdleMetricExchangeProtocol};
 use crate::util::keypair_util;
 
-use futures::channel::mpsc;
-use futures::prelude::*;
 use libp2p::core;
 use libp2p::dns;
 use libp2p::identify;
@@ -38,6 +36,9 @@ use libp2p::yamux;
 use libp2p::Transport;
 use std::error::Error;
 use std::iter;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::Stream;
 
 /// Sets up the libp2p [`Swarm`] with the necessary components, doing the following things:
 ///
@@ -118,7 +119,7 @@ pub fn setup_libp2p_swarm(
             sender: command_sender,
             local_peer_id,
         },
-        event_receiver,
+        ReceiverStream::new(event_receiver),
         PyrsiaEventLoop::new(swarm, command_receiver, event_sender),
     ))
 }

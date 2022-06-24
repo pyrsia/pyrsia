@@ -33,13 +33,13 @@ use pyrsia::util::keypair_util;
 use pyrsia_blockchain_network::blockchain::Blockchain;
 
 use clap::Parser;
-use futures::lock::Mutex;
-use futures::StreamExt;
 use log::{debug, info, warn};
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::sync::Mutex;
+use tokio_stream::StreamExt;
 use warp::Filter;
 
 #[tokio::main]

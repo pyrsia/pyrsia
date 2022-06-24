@@ -16,18 +16,29 @@
 
 pub struct BuildService {}
 
-use anyhow::Result;
+use thiserror::Error;
+use tokio::sync::oneshot;
 
 use crate::transparency_log::log::Transaction;
+
+#[derive(Debug, Error)]
+pub enum BuildError {}
 
 pub struct BuildResult {}
 
 impl BuildService {
-    pub fn start_build(&self) -> Result<Vec<BuildResult>> {
-        Ok(vec![])
+    pub async fn start_build(
+        &self,
+        _sender: oneshot::Sender<Result<Vec<BuildResult>, BuildError>>,
+    ) -> Result<(), BuildError> {
+        Ok(())
     }
 
-    pub fn verify_build(&self, _add_build_transaction: Transaction) -> Result<()> {
+    pub async fn verify_build(
+        &self,
+        _add_build_transaction: Transaction,
+        _sender: oneshot::Sender<Result<(), BuildError>>,
+    ) -> Result<(), BuildError> {
         Ok(())
     }
 }

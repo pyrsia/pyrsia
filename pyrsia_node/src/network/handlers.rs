@@ -14,7 +14,6 @@
    limitations under the License.
 */
 
-use futures::lock::Mutex;
 use libp2p::request_response::ResponseChannel;
 use libp2p::Multiaddr;
 use log::{debug, info};
@@ -24,6 +23,7 @@ use pyrsia::network::client::{ArtifactType, Client};
 use pyrsia::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use pyrsia::peer_metrics;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// Reach out to another node with the specified address
 pub async fn dial_other_peer(mut p2p_client: Client, to_dial: &Multiaddr) {
@@ -43,16 +43,13 @@ pub async fn handle_request_artifact(
         "Handling request artifact: {:?}={:?}",
         artifact_type, artifact_id
     );
+
+    let mut artifact_service = artifact_service.lock().await;
     let content = match artifact_type {
-        ArtifactType::Artifact => artifact_service
-            .lock()
-            .await
-            .get_artifact_locally(artifact_id)?,
+        ArtifactType::Artifact => artifact_service.get_artifact_locally(artifact_id)?,
     };
 
     artifact_service
-        .lock()
-        .await
         .p2p_client
         .respond_artifact(content, channel)
         .await

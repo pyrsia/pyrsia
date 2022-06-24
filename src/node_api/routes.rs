@@ -16,8 +16,8 @@
 
 use super::handlers::swarm::*;
 use crate::artifact_service::service::ArtifactService;
-use futures::lock::Mutex;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use warp::Filter;
 
 pub fn make_node_routes(

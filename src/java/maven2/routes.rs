@@ -16,9 +16,9 @@
 
 use super::handlers::maven_artifacts::handle_get_maven_artifact;
 use crate::artifact_service::service::ArtifactService;
-use futures::lock::Mutex;
 use log::debug;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use warp::Filter;
 
 pub fn make_maven_routes(
