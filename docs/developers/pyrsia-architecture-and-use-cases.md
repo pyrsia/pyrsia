@@ -190,16 +190,12 @@ The transparency log service provides these functions:
     - otherwise the latest transaction is returned
 
 - searching transactions (for inspection)
-  - TODO: details
 
 - adding a transaction to add another authorized node
-  - TODO: details
 
 - adding a transaction to remove an authorized node
-  - TODO: details
 
 - adding a transaction to remove an artifact
-  - TODO: details
 
 ### Blockchain
 
@@ -219,10 +215,6 @@ The blockchain component supports these functions:
 
 - add_block: to request the addition of a new transaction
 - add_block_listener: to register a listener for new blocks that reached consensus
-
-TODO:
-- describe how an authorized node will try to reach consensus with other nodes
-- describe how this component distributes block across all nodes
 
 ### Build service
 
