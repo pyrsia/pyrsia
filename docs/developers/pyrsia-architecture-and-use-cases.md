@@ -67,25 +67,25 @@ of the Pyrsia network.
 
 ![Pyrsia component diagram](pyrsia-node-high-level-components.png)
 
-### Package type ecosystem connectors
+### Package ecosystem integrations
 
-A Pyrsia node contains several connectors to specific package type ecosystems
-like Docker or Maven. The ecosystem connectors allow the existing tooling of a
+A Pyrsia node contains several integrations for specific package ecosystems
+like Docker or Maven. The ecosystem integrations allow the existing tooling of a
 specific package type to seamlessly integrate with Pyrsia. e.g. the Docker
 repository service implements a subset of the Docker Registry API or the Java
 repository service implements a subset of the Maven repository API.
 
-The end goal of a such a service is always a frictionless integration of Pyrsia
-in the developer's workflow.
+The end goal of a such an integration service is always a frictionless integration
+of Pyrsia in the developer's workflow.
 
-Different package type connector deal with package specific details in a different
-way. But all must follow the some logic:
+Different package type integrations deal with package specific details in a different
+way. But all must follow the same logic:
 
 - Handle incoming requests from the package type specific clients (e.g. Docker
   client, Maven client, ...)
-- Use the `Artifact Service` to retrieve the artifact. The artifact service
+- Use the artifact service to retrieve the artifact. (The artifact service
   contains all the logic to retrieve (locally or from the p2p network) and validate
-  the artifact.
+  the artifact.)
 
 ### Pyrsia CLI API
 
@@ -103,46 +103,40 @@ The Pyrsia CLI API has functions to:
 ### Artifact Service
 
 The artifact service is the component that handles everything related to Pyrsia
-artifacts. It allows artifacts to be retrieved and it allows artifacts to be
-added, by triggering a build from source.
+artifacts. It allows artifacts to be retrieved, and it allows artifacts to be
+added to the Pyrsia network, by triggering a build from source.
 
-The artifact service supports these functions:
+The artifact service provides these functions:
 
-- request an artifact based on the package type and a  package type specific
+- get an artifact based on the package type and a package specific
   artifact ID (PSID). \
   the artifact service implements this as follows:
-    - query the `Transparency Log` to retrieve the latest `add_artifact` transaction
-      (if any)
-    - the `transaction` contains the (Pyrsia) `artifact_id` which is used to retrieve
+    - get the latest available `add_artifact` transaction (if any) for this artifact
+      from the transparency log.
+    - the transaction contains the (Pyrsia) `artifact_id` which is used to retrieve
       the actual artifact file
     - if the file is available locally, it is used
     - if the file isn't available locally, it is retrieve using the `p2p` component.
     - the file is then checked by calculating its hash and comparing it to the
       `artifact_hash` stored in the `transaction`.
     - if the hashes match the bytes of the file are returned to the caller of
-      the artifact service.
+      the artifact service, otherwise an error is returned.
 
-- request a build from source for a specific package type and a package type
+- request a build from source for a specific package type and a package
   specific artifact ID (PSID). \
   the artifact service implements this as follows:
-  - start a build using the `Build and verifaction service` and wait for its result.
-  - when the build finishes, temporary hold the build result and create a `add_artifact`
-    transaction, including
-    - operator: add_artifact
-    - package type: from the caller of this function
-    - package type specific artifact ID (PSID): from the caller of this function
-    - timestamp: now
-    - artifact_hash (provided by the build service)
-    - source_bash (provided by the build service)
-    - artifact_id: the (Pyrsia) artifact ID (uniquely generated)
-    - source_id: the (Pyrsia) artifact source ID (uniquely generated)
-  - call `add_artifact` on the `Transparency log` component with the newly created
-    `transaction` and wait for it to be confirmed (which happens only after
-    consensus is reached)
-  - when the `add_artifact` succeeds, store the artifact locally in a file named
-    `artifact_id` and the source in a file named `source_id`.
-  - provide both files on the p2p network using the `p2p` component.
-
+  - start a build using the build and verifaction service, and wait for its result.
+  - when the build is finished:
+    - temporary hold the build result
+    - and call the transparency log including the package type, PSID and
+      the hashes from the build result to add an `add_artifact` transaction.
+      this call is asynchronous (because consensus will need to be reached about
+      the transaction), so the artifact service will wait from a callback from
+      the transparency log
+    - when the call is received and the `add_artifact` succeeded, the artifact
+      service stores the artifact locally in a file named `artifact_id` and the
+      source in a file named `source_id`. Both files are provided on the p2p
+      network using the `p2p` component.
 
 ### p2p
 
@@ -153,31 +147,47 @@ artifacts and transparency logs.
 
 ### Transparency Log Service
 
-This component is used by the Artifact Service to store and retrieve transparency
+This component is used by the artifact service to store and retrieve transparency
 log information about an artifact.
 
-It uses the Blockchain component to retrieve transactions and to reach consensus
+It uses the blockchain component to retrieve transactions and to reach consensus
 on the publication of new transactions. It uses a local database to store and index
 transaction information for easy access.
 
-The transparency log service supports these functions:
+The transparency log service provides these functions:
 
-- adding a transaction to add an artifact
-  - the transaction is added as the payload of a block and `add_block` is called
-    on the blockchain component. the service now waits for the blockchain component
-    to reach consensus with the other authorized nodes.
-  - when consensus is reached, the transparency log service will be notified by
-    the blockchain component, which will:
-    - store the transaction in the transaction log database
-    - notify the caller of `add_artifact`
+- `add_artifact`: to add a transaction, logging the addition of an artifact
+   to the Pyrsia network. \
+   It follows this procedure:
+  - create a `Transaction` including
+      - operation: `add_artifact`
+      - package type: provided by the `AddArtifactRequest`
+      - package type specific artifact ID (PSID): provided by the `AddArtifactRequest`
+      - timestamp: now
+      - artifact_hash: provided by the `AddArtifactRequest`
+      - source_bash: provided by the `AddArtifactRequest`
+      - artifact_id: Pyrsia specific id of the artifact (UUID to be generated by
+        the Transparency Log at the time of Transaction creation)
+      - source_id: Pyrsia specific id of the artifact's source (UUID to be generated
+        by the Transparency Log at the time of Transaction creation)
+      - the transaction is added as the payload of a block and `add_block` is called
+        on the blockchain component. the service now waits for the blockchain component
+        to reach consensus with the other authorized nodes.
+      - when consensus is reached, the transparency log service will be notified
+        by the blockchain component, which will:
+        - store the transaction in the transaction log database
+        - notify the caller of `add_artifact`
 
 - retrieving the latest `add_artifact` transaction
-  - this function takes the package type and PSID as input
-  - it uses those fields to search the transaction log database
-  - it will search for the latest `add_artifact` or `remove_artifact` transaction
-  - if the latest transaction is `remove_artifact` or no transaction is found,
-    an error is returned
-  - otherwise the latest `add_transaction` is returned
+  - this function takes the package type and PSID as input \
+    and follows this procedure:
+    - search the transaction log database for all transactions with
+        - operation: add_artifact or remove_artifact
+        - package_type: given as a parameter to this method
+        - package_type_id: the PSID also given as a parameter to this method
+        - and sort on timestamp descending
+    - if the latest transaction is remove_artifact or no transaction is found, an error is returned
+    - otherwise the latest transaction is returned
 
 - searching transactions (for inspection)
   - TODO: details
