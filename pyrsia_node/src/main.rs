@@ -73,7 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     );
 
     debug!("Start p2p components");
-    setup_p2p(p2p_client.clone(), args).await;
+    setup_p2p(p2p_client.clone(), args).await?;
 
     debug!("Listen for p2p events");
     loop {
@@ -164,14 +164,13 @@ fn setup_http(
     tokio::spawn(server);
 }
 
-async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
-    p2p_client
-        .listen(&args.listen_address)
-        .await
-        .expect("Listening should not fail");
+async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) -> Result<()> {
+    p2p_client.listen(&args.listen_address).await?;
 
     if let Some(to_dial) = args.peer {
-        handlers::dial_other_peer(p2p_client.clone(), &to_dial).await;
+        handlers::dial_other_peer(p2p_client.clone(), &to_dial).await
+    } else {
+        Ok(())
     }
 }
 
