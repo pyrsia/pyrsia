@@ -28,7 +28,16 @@ use std::io::{BufReader, Read};
 use std::path::Path;
 use std::str;
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, strum_macros::Display)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    PartialEq,
+    Serialize,
+    strum_macros::Display,
+    strum_macros::EnumString,
+)]
 pub enum PackageType {
     Docker,
     Maven2,

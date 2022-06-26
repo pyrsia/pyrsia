@@ -33,6 +33,7 @@ pub enum Command {
         sender: oneshot::Sender<anyhow::Result<()>>,
     },
     Dial {
+        peer_id: PeerId,
         peer_addr: Multiaddr,
         sender: oneshot::Sender<anyhow::Result<()>>,
     },

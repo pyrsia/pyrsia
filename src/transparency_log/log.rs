@@ -17,11 +17,12 @@
 use crate::artifact_service::service::PackageType;
 use libp2p::PeerId;
 use log::debug;
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 use tokio::sync::oneshot;
@@ -44,18 +45,8 @@ pub enum TransparencyLogError {
         invalid_hash: String,
         actual_hash: String,
     },
-    #[error("Invalid JSON Payload: {json_error}")]
-    InvalidPayload { json_error: String },
     #[error("Failure while accessing underlying storage: {0}")]
     StorageFailure(String),
-}
-
-impl From<serde_json::Error> for TransparencyLogError {
-    fn from(err: serde_json::Error) -> TransparencyLogError {
-        TransparencyLogError::InvalidPayload {
-            json_error: err.to_string(),
-        }
-    }
 }
 
 impl From<io::Error> for TransparencyLogError {
@@ -64,13 +55,22 @@ impl From<io::Error> for TransparencyLogError {
     }
 }
 
-#[derive(Debug, Clone, strum_macros::Display, Deserialize, Serialize, PartialEq)]
+impl From<rusqlite::Error> for TransparencyLogError {
+    fn from(err: rusqlite::Error) -> TransparencyLogError {
+        TransparencyLogError::StorageFailure(err.to_string())
+    }
+}
+
+#[derive(
+    Debug, Clone, strum_macros::Display, strum_macros::EnumString, Deserialize, Serialize, PartialEq,
+)]
 pub enum Operation {
     AddArtifact,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Transaction {
+    id: String,
     package_type: PackageType,
     package_type_id: String,
     pub hash: String,
@@ -86,7 +86,6 @@ pub struct AddArtifactRequest {
 
 pub struct TransparencyLog {
     storage_path: PathBuf,
-    transactions: HashMap<String, String>,
 }
 
 impl TransparencyLog {
@@ -95,7 +94,6 @@ impl TransparencyLog {
         absolute_path.push("transparency_log");
         Ok(TransparencyLog {
             storage_path: absolute_path,
-            transactions: HashMap::new(),
         })
     }
 
@@ -113,9 +111,10 @@ impl TransparencyLog {
         _sender: oneshot::Sender<Result<Transaction, TransparencyLogError>>,
     ) -> Result<(), TransparencyLogError> {
         let transaction = Transaction {
+            id: add_artifact_request.package_type_id.to_string(),
             package_type: add_artifact_request.package_type,
             package_type_id: add_artifact_request.package_type_id.to_string(),
-            hash: add_artifact_request.hash.to_string(),
+            hash: add_artifact_request.hash,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
@@ -123,14 +122,7 @@ impl TransparencyLog {
             operation: Operation::AddArtifact,
         };
 
-        let json_transaction = self.write_transaction(&transaction)?;
-        self.transactions.insert(
-            format!(
-                "{}::{}",
-                add_artifact_request.package_type, add_artifact_request.package_type_id
-            ),
-            json_transaction,
-        );
+        self.write_transaction(&transaction)?;
 
         Ok(())
     }
@@ -148,49 +140,106 @@ impl TransparencyLog {
         package_type: &PackageType,
         package_type_id: &str,
     ) -> Result<Transaction, TransparencyLogError> {
-        if let Some(json_transaction) = self
-            .transactions
-            .get(&format!("{}::{}", package_type, package_type_id))
-        {
-            let transaction: Transaction = serde_json::from_str(json_transaction)?;
-            Ok(transaction)
-        } else {
-            Err(TransparencyLogError::NotFound {
-                package_type: *package_type,
-                package_type_id: package_type_id.to_string(),
-            })
-        }
+        self.read_transaction(package_type, package_type_id)
     }
 
     pub fn search_transactions(&self) -> Result<Vec<Transaction>, TransparencyLogError> {
         Ok(vec![])
     }
 
-    fn write_transaction(&self, transaction: &Transaction) -> Result<String, TransparencyLogError> {
+    fn open_db(&self) -> Result<Connection, TransparencyLogError> {
         fs::create_dir_all(&self.storage_path)?;
-        let transaction_filename = format!(
-            "{}/{}.log",
-            self.storage_path.to_str().unwrap(),
-            str::replace(&transaction.package_type_id, "/", "_")
-        );
-        debug!("Storing transaction at: {:?}", transaction_filename);
-        match fs::File::options()
-            .write(true)
-            .create_new(true)
-            .open(&transaction_filename)
-        {
-            Ok(mut transaction_file) => {
-                let json_transaction = serde_json::to_string(transaction)?;
-                transaction_file.write_all(json_transaction.as_bytes())?;
-                Ok(json_transaction)
+        let db_storage_path = self.storage_path.to_str().unwrap();
+        let conn = Connection::open(db_storage_path.to_owned() + "/transparency_log.db")?;
+        match conn.execute(
+            "CREATE TABLE IF NOT EXISTS tl_transaction (
+                id TEXT PRIMARY KEY,
+                package_type TEXT,
+                package_type_id TEXT,
+                hash TEXT NOT NULL,
+                timestamp INTEGER,
+                operation TEXT NOT NULL
+            )",
+            [],
+        ) {
+            Ok(_) => Ok(conn),
+            Err(err) => {
+                debug!("Error creating transparency log database table: {:?}", err);
+                Err(err.into())
             }
-            Err(e) => match e.kind() {
-                io::ErrorKind::AlreadyExists => Err(TransparencyLogError::DuplicateId {
+        }
+    }
+
+    fn write_transaction(&self, transaction: &Transaction) -> Result<(), TransparencyLogError> {
+        let conn = self.open_db()?;
+
+        match conn.execute(
+            "INSERT INTO tl_transaction (id, package_type, package_type_id, hash, timestamp, operation) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            [
+                transaction.id.to_string(),
+                transaction.package_type.to_string(),
+                transaction.package_type_id.to_string(),
+                transaction.hash.to_string(),
+                transaction.timestamp.to_string(),
+                transaction.operation.to_string(),
+            ],
+        ) {
+            Ok(_) => {
+                debug!(
+                    "Transaction inserted into transparency log with id: {}",
+                    transaction.id
+                );
+                Ok(())
+            }
+            Err(rusqlite::Error::SqliteFailure(sqlite_error, ref _sqlite_options))
+                if sqlite_error.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_PRIMARYKEY =>
+            {
+                Err(TransparencyLogError::DuplicateId {
                     package_type: transaction.package_type,
                     package_type_id: transaction.package_type_id.clone(),
-                }),
-                _ => Err(e.into()),
+                })
+            }
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    fn read_transaction(
+        &self,
+        package_type: &PackageType,
+        package_type_id: &str,
+    ) -> Result<Transaction, TransparencyLogError> {
+        let conn = self.open_db()?;
+
+        let mut stmt = conn.prepare("SELECT * FROM tl_transaction WHERE package_type = :package_type AND package_type_id = :package_type_id;")?;
+        let mut transaction_records = stmt.query_map(
+            &[
+                (":package_type", &*package_type.to_string()),
+                (":package_type_id", package_type_id),
+            ],
+            |row| {
+                Ok(Transaction {
+                    id: row.get(0)?,
+                    package_type: {
+                        let pt: String = row.get(1)?;
+                        PackageType::from_str(&pt).unwrap()
+                    },
+                    package_type_id: row.get(2)?,
+                    hash: row.get(3)?,
+                    timestamp: row.get(4)?,
+                    operation: {
+                        let op: String = row.get(5)?;
+                        Operation::from_str(&op).unwrap()
+                    },
+                })
             },
+        )?;
+
+        match transaction_records.next() {
+            Some(Ok(transaction)) => Ok(transaction),
+            _ => Err(TransparencyLogError::NotFound {
+                package_type: *package_type,
+                package_type_id: package_type_id.to_string(),
+            }),
         }
     }
 }
@@ -202,12 +251,14 @@ mod tests {
 
     #[test]
     fn create_transaction_log() {
+        let id = "id";
         let package_type = PackageType::Docker;
         let package_type_id = "package_type_id";
         let hash = "hash";
         let timestamp = 1234567890;
         let operation = Operation::AddArtifact;
         let transaction = Transaction {
+            id: id.to_string(),
             package_type: package_type.clone(),
             package_type_id: package_type_id.to_string(),
             hash: hash.to_string(),
@@ -215,6 +266,7 @@ mod tests {
             operation: Operation::AddArtifact,
         };
 
+        assert_eq!(transaction.id, id);
         assert_eq!(transaction.package_type, package_type);
         assert_eq!(transaction.package_type_id, package_type_id);
         assert_eq!(transaction.hash, hash);
@@ -223,12 +275,126 @@ mod tests {
     }
 
     #[test]
-    fn test_new_transparency_log_has_empty_logs() {
+    fn test_open_db() {
         let tmp_dir = test_util::tests::setup();
 
         let log = TransparencyLog::new(&tmp_dir).unwrap();
 
-        assert_eq!(log.transactions.len(), 0);
+        let result = log.open_db();
+        assert!(result.is_ok());
+
+        let conn = result.unwrap();
+        let mut path = log.storage_path;
+        path.push("transparency_log.db");
+        assert_eq!(conn.path().unwrap(), path.as_path());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_write_transaction() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = TransparencyLog::new(&tmp_dir).unwrap();
+
+        let transaction = Transaction {
+            id: String::from("id"),
+            package_type: PackageType::Maven2,
+            package_type_id: String::from("package_type_id"),
+            hash: String::from("hash"),
+            timestamp: 1234567890,
+            operation: Operation::AddArtifact,
+        };
+
+        let result = log.write_transaction(&transaction);
+        assert!(result.is_ok());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_write_twice_transaction_error() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = TransparencyLog::new(&tmp_dir).unwrap();
+
+        let transaction = Transaction {
+            id: String::from("id"),
+            package_type: PackageType::Maven2,
+            package_type_id: String::from("package_type_id"),
+            hash: String::from("hash"),
+            timestamp: 1234567890,
+            operation: Operation::AddArtifact,
+        };
+
+        let mut result = log.write_transaction(&transaction);
+        assert!(result.is_ok());
+        result = log.write_transaction(&transaction);
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            TransparencyLogError::DuplicateId {
+                package_type: PackageType::Maven2,
+                package_type_id: String::from("package_type_id"),
+            }
+            .to_string()
+        );
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_read_transaction() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = TransparencyLog::new(&tmp_dir).unwrap();
+
+        let transaction = Transaction {
+            id: String::from("id"),
+            package_type: PackageType::Maven2,
+            package_type_id: String::from("package_type_id"),
+            hash: String::from("hash"),
+            timestamp: 1234567890,
+            operation: Operation::AddArtifact,
+        };
+
+        let result_write = log.write_transaction(&transaction);
+        assert!(result_write.is_ok());
+
+        let result_read = log.read_transaction(&PackageType::Maven2, "package_type_id");
+        assert!(result_read.is_ok());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_read_transaction_invalid_id() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = TransparencyLog::new(&tmp_dir).unwrap();
+
+        let transaction = Transaction {
+            id: String::from("id"),
+            package_type: PackageType::Maven2,
+            package_type_id: String::from("package_type_id"),
+            hash: String::from("hash"),
+            timestamp: 1234567890,
+            operation: Operation::AddArtifact,
+        };
+
+        let result_write = log.write_transaction(&transaction);
+        assert!(result_write.is_ok());
+
+        let result_read = log.read_transaction(&PackageType::Maven2, "invalid_package_type_id");
+        assert!(result_read.is_err());
+        assert_eq!(
+            result_read.err().unwrap().to_string(),
+            TransparencyLogError::NotFound {
+                package_type: PackageType::Maven2,
+                package_type_id: String::from("invalid_package_type_id"),
+            }
+            .to_string()
+        );
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -245,40 +411,14 @@ mod tests {
             .add_artifact(
                 AddArtifactRequest {
                     package_type: PackageType::Docker,
-                    package_type_id: "id".to_string(),
+                    package_type_id: "package_type_id".to_string(),
                     hash: "hash".to_string(),
                 },
                 sender,
             )
             .await;
+        println!("RESULT: {:?}", result);
         assert!(result.is_ok());
-
-        assert!(log.transactions.contains_key("Docker::id"));
-
-        test_util::tests::teardown(tmp_dir);
-    }
-
-    #[tokio::test]
-    async fn test_add_artifact_with_id_containing_forward_slash() {
-        let tmp_dir = test_util::tests::setup();
-
-        let (sender, _receiver) = oneshot::channel();
-
-        let mut log = TransparencyLog::new(&tmp_dir).unwrap();
-
-        let result = log
-            .add_artifact(
-                AddArtifactRequest {
-                    package_type: PackageType::Docker,
-                    package_type_id: "id/with/slash".to_string(),
-                    hash: "hash".to_string(),
-                },
-                sender,
-            )
-            .await;
-        assert!(result.is_ok());
-
-        assert!(log.transactions.contains_key("Docker::id/with/slash"));
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -296,7 +436,7 @@ mod tests {
             .add_artifact(
                 AddArtifactRequest {
                     package_type: PackageType::Docker,
-                    package_type_id: "id".to_string(),
+                    package_type_id: "package_type_id".to_string(),
                     hash: "hash".to_string(),
                 },
                 sender1,
@@ -308,7 +448,7 @@ mod tests {
             .add_artifact(
                 AddArtifactRequest {
                     package_type: PackageType::Docker,
-                    package_type_id: "id".to_string(),
+                    package_type_id: "package_type_id".to_string(),
                     hash: "hash2".to_string(),
                 },
                 sender2,
