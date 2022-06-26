@@ -3373,7 +3373,7 @@ dependencies = [
  "stringreader",
  "strum",
  "strum_macros",
- "sysinfo 0.24.2",
+ "sysinfo 0.24.5",
  "tempfile",
  "test-log",
  "thiserror",
@@ -4203,9 +4203,9 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.24.2"
+version = "0.24.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a2809487b962344ca55d9aea565f9ffbcb6929780802217acc82561f6746770"
+checksum = "7d80929a3b477bce3a64360ca82bfb361eacce1dcb7b1fb31e8e5e181e37c212"
 dependencies = [
  "cfg-if 1.0.0",
  "core-foundation-sys",
