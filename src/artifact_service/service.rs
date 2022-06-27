@@ -43,6 +43,9 @@ pub enum PackageType {
     Maven2,
 }
 
+/// The artifact service is the component that handles everything related to
+/// pyrsia artifacts. It allows artifacts to be retrieved and added to the
+/// pyrsia network by requesting a build from source.
 pub struct ArtifactService {
     pub artifact_storage: ArtifactStorage,
     pub transparency_log: TransparencyLog,
@@ -60,8 +63,12 @@ impl ArtifactService {
         })
     }
 
+    /// Request a build from source for the specified package.
     pub fn request_build(&self, _package_type: PackageType, _package_type_id: &str) {}
 
+    /// Retrieve the artifact data for the specified package. If the artifact
+    /// is not available locally, the service will try to fetch the artifact
+    /// from the p2p network.
     pub async fn get_artifact(
         &mut self,
         package_type: PackageType,
@@ -82,6 +89,7 @@ impl ArtifactService {
         Ok(blob_content)
     }
 
+    /// Retrieve the artifact data specified by `artifact_id` from the local storage.
     pub fn get_artifact_locally(&mut self, artifact_id: &str) -> Result<Vec<u8>, anyhow::Error> {
         let decoded_hash = hex::decode(artifact_id)?;
         let hash: Hash = Hash::new(HashAlgorithm::SHA256, &decoded_hash)?;

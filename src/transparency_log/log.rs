@@ -84,6 +84,14 @@ pub struct AddArtifactRequest {
     pub hash: String,
 }
 
+/// The transparency log is used by the artifact service to store and retrieve
+/// transparency log information about artifacts.
+///
+/// The transparency log itself depends on the blockchain component to retrieve
+/// transactions and to reach consensus on the publication of new transactions.
+///
+/// It uses a local database to store and index transaction information to simplify
+/// access.
 pub struct TransparencyLog {
     storage_path: PathBuf,
 }
@@ -97,14 +105,17 @@ impl TransparencyLog {
         })
     }
 
+    /// Add a new authorized node to the p2p network.
     pub fn add_authorized_node(&self, _peer_id: PeerId) -> Result<(), TransparencyLogError> {
         Ok(())
     }
 
+    /// Remove a known authorized node from the p2p network.
     pub fn remove_authorized_node(&self, _peer_id: PeerId) -> Result<(), TransparencyLogError> {
         Ok(())
     }
 
+    /// Adds a transaction with the AddArtifact operation.
     pub async fn add_artifact(
         &mut self,
         add_artifact_request: AddArtifactRequest,
@@ -127,6 +138,7 @@ impl TransparencyLog {
         Ok(())
     }
 
+    /// Adds a transaction with the RemoveArtifact operation.
     pub fn remove_artifact(
         &mut self,
         _package_type: &PackageType,
@@ -135,6 +147,9 @@ impl TransparencyLog {
         Ok(())
     }
 
+    /// Gets the latest transaction for the specified package of which the
+    /// operation is either AddArtifact or RemoveArtifact. Returns an error
+    /// when no transaction could be found.
     pub fn get_artifact(
         &mut self,
         package_type: &PackageType,
@@ -143,6 +158,8 @@ impl TransparencyLog {
         self.read_transaction(package_type, package_type_id)
     }
 
+    /// Search the transparency log for a list of transactions using the
+    /// specified filter.
     pub fn search_transactions(&self) -> Result<Vec<Transaction>, TransparencyLogError> {
         Ok(vec![])
     }
