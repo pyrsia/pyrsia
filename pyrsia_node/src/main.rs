@@ -159,7 +159,8 @@ fn setup_artifact_service(p2p_client: Client) -> Result<Arc<Mutex<ArtifactServic
 }
 
 fn setup_blockchain() -> Result<Arc<Mutex<Blockchain>>> {
-    let local_keypair = keypair_util::load_or_generate_ed25519();
+    let local_keypair =
+        keypair_util::load_or_generate_ed25519(PathBuf::from(ARTIFACTS_DIR.as_str()));
 
     let ed25519_keypair = match local_keypair {
         libp2p::identity::Keypair::Ed25519(v) => v,

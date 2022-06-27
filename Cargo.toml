@@ -79,7 +79,6 @@ default-features = false
 features = []
 
 [dev-dependencies]
-string_manipulation = {path="tests/string_manipulation"}
 tempfile = "3.2.0"
 time = { version = "0.3.10", features = ["formatting", "parsing"] }
 tokio-test = "0.4.2"

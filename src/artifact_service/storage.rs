@@ -19,14 +19,12 @@ use crate::util::env_util::read_var;
 use anyhow::{anyhow, bail, Context, Error, Result};
 use lazy_static::lazy_static;
 use log::{debug, error, info, warn};
-use std::collections::HashMap;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Read, Write};
 use std::panic::UnwindSafe;
 use std::path::{Path, PathBuf};
 use strum::IntoEnumIterator;
-use walkdir::{DirEntry, WalkDir};
 
 const FILE_EXTENSION: &str = "file";
 
@@ -181,38 +179,6 @@ impl ArtifactStorage {
         }
     }
 
-    pub fn artifacts_count_bydir(&self) -> Result<HashMap<String, usize>, Error> {
-        let mut dirs_map: HashMap<String, usize> = HashMap::new();
-
-        for file in WalkDir::new(&self.repository_path)
-            .into_iter()
-            .filter_entry(is_directory_or_artifact_file)
-            .filter_map(|file| file.ok())
-        {
-            let path = file.path().display().to_string();
-
-            let dir_1 = match path.rfind('/') {
-                Some(x) => &path[0..x],
-                None => "",
-            };
-
-            if !dir_1.is_empty() {
-                let len = dir_1.len();
-                if let Some(x) = dir_1.rfind('/') {
-                    *dirs_map.entry(dir_1[x + 1..len].to_string()).or_insert(0) += 1;
-                }
-            }
-        }
-        Ok(dirs_map)
-    }
-
-    /// Calculate the repository size by recursively adding size of each directory inside it.
-    /// Returns the size
-    pub fn space_used(&self) -> Result<u64, Error> {
-        fs_extra::dir::get_size(self.repository_path.as_os_str())
-            .context("Error while calculating the size of artifact manager")
-    }
-
     fn file_path_for_new_artifact(&self, expected_hash: &Hash) -> std::io::Result<PathBuf> {
         let mut base_path: PathBuf = base_file_path(expected_hash, &self.repository_path);
         // for now all artifacts are unstructured
@@ -287,21 +253,6 @@ fn tmp_path_from_base(base: &Path) -> PathBuf {
     let file_name: &OsStr = base.file_name().unwrap();
     tmp_buf.set_file_name(format!("l0-{}", file_name.to_str().unwrap()));
     tmp_buf
-}
-
-fn is_directory_or_artifact_file(entry: &DirEntry) -> bool {
-    let not_hidden = entry
-        .file_name()
-        .to_str()
-        .map(|s| entry.depth() == 0 || !s.starts_with('.'))
-        .unwrap_or(false);
-    not_hidden
-        && (entry.file_type().is_dir()
-            || entry
-                .path()
-                .extension()
-                .map(|extension| extension == OsString::from(FILE_EXTENSION).as_os_str())
-                .unwrap_or(false))
 }
 
 fn create_artifact_file(tmp_path: &Path) -> std::io::Result<File> {
@@ -450,31 +401,12 @@ mod tests {
         let artifact_storage =
             ArtifactStorage::new(&tmp_dir).expect("Error creating ArtifactManager");
 
-        // Check the space before pushing artifact
-        let space_before = artifact_storage
-            .space_used()
-            .context("Error getting space used by ArtifactManager")
-            .unwrap();
-        assert_eq!(0, space_before);
-
         artifact_storage
             .push_artifact(&mut string_reader, &hash)
             .context("Error from push_artifact")
             .unwrap();
 
         check_artifact_is_written_correctly(&tmp_dir).unwrap();
-
-        // Currently the space_used method does not include the size of directories in the directory tree, so this is how we obtain an independent result to check it.
-        let size_of_files_in_directory_tree = fs_extra::dir::get_size(&tmp_dir).unwrap();
-        // Check the space used after pushing artifact
-        let space_after = artifact_storage
-            .space_used()
-            .context("Error getting space used by ArtifactManager")
-            .unwrap();
-        assert_eq!(
-            size_of_files_in_directory_tree, space_after,
-            "expect correct result from space_used"
-        );
 
         check_able_to_pull_artifact(&hash, &artifact_storage).unwrap();
 
