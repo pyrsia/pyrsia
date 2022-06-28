@@ -73,7 +73,6 @@ impl From<rusqlite::Error> for TransparencyLogError {
 pub enum Operation {
     AddArtifact,
     RemoveArtifact,
-    Unknown,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -554,41 +553,6 @@ mod tests {
             TransparencyLogError::InvalidOperation {
                 id: String::from("id"),
                 invalid_operation: Operation::RemoveArtifact,
-            }
-            .to_string()
-        );
-
-        test_util::tests::teardown(tmp_dir);
-    }
-
-    #[test]
-    fn test_read_unknown_transaction() {
-        let tmp_dir = test_util::tests::setup();
-
-        let log = TransparencyLog::new(&tmp_dir).unwrap();
-
-        let transaction = Transaction {
-            id: String::from("id"),
-            package_type: PackageType::Maven2,
-            package_type_id: String::from("package_type_id"),
-            artifact_hash: String::from("artifact_hash"),
-            source_hash: String::from("source_hash"),
-            artifact_id: String::from(Uuid::new_v4().to_string()),
-            source_id: String::from(Uuid::new_v4().to_string()),
-            timestamp: 10000000,
-            operation: Operation::Unknown,
-        };
-
-        let result_write = log.write_transaction(&transaction);
-        assert!(result_write.is_ok());
-
-        let result_read = log.read_transaction(&PackageType::Maven2, "package_type_id");
-        assert!(result_read.is_err());
-        assert_eq!(
-            result_read.err().unwrap().to_string(),
-            TransparencyLogError::NotFound {
-                package_type: PackageType::Maven2,
-                package_type_id: String::from("package_type_id"),
             }
             .to_string()
         );
