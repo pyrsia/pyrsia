@@ -33,34 +33,36 @@ pub fn read_var(variable_name: &str, default_value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assay::assay;
 
-    #[assay(
-        env = [
-          ("DEV_MODE", "on")
-        ],)]
+    #[test]
     fn test_value_present() {
-        assert_eq!("on", read_var("DEV_MODE", "off"));
+        env::set_var("ENV_VAR_PRESENT", "on");
+
+        assert_eq!("on", read_var("ENV_VAR_PRESENT", "off"));
+
+        env::remove_var("ENV_VAR_PRESENT");
     }
 
-    #[assay(
-        env = [
-          ("DEV_MODE", "on ")
-        ],)]
+    #[test]
     fn test_value_present_trim() {
-        assert_eq!("on", read_var("DEV_MODE", "off"));
+        env::set_var("ENV_VAR_PRESENT_TRIM", "on ");
+
+        assert_eq!("on", read_var("ENV_VAR_PRESENT_TRIM", "off"));
+
+        env::remove_var("ENV_VAR_PRESENT_TRIM");
     }
 
-    #[assay(
-        env = [
-            ("DEV_MODE", "")
-        ],)]
+    #[test]
     fn test_value_empty() {
-        assert_eq!("off", read_var("DEV_MODE", "off"));
+        env::set_var("ENV_VAR_EMPTY", "");
+
+        assert_eq!("off", read_var("ENV_VAR_EMPTY", "off"));
+
+        env::remove_var("ENV_VAR_EMPTY");
     }
 
-    #[assay]
+    #[test]
     fn test_value_absent() {
-        assert_eq!("absent", read_var("DEV_MODE", "absent"));
+        assert_eq!("absent", read_var("ENV_VAR_ABSENT", "absent"));
     }
 }

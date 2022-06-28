@@ -273,7 +273,7 @@ mod tests {
             key_filename: DEFAULT_BLOCK_KEYPAIR_FILENAME.to_string(),
             peer_index: 0,
         };
-        let result = std::panic::catch_unwind(|| create_ed25519_keypair(args));
+        let result = std::panic::catch_unwind(|| create_ed25519_keypair(get_keyfile_name(args)));
         assert!(result.is_ok());
     }
 }

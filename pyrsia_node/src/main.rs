@@ -20,9 +20,10 @@ pub mod network;
 use anyhow::{bail, Result};
 use args::parser::PyrsiaNodeArgs;
 use network::handlers;
-use pyrsia::artifact_service::storage::ArtifactStorage;
+use pyrsia::artifact_service::storage::{ArtifactStorage, ARTIFACTS_DIR};
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::make_docker_routes;
+use pyrsia::java::maven2::routes::make_maven_routes;
 use pyrsia::logging::*;
 use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
@@ -37,6 +38,7 @@ use futures::StreamExt;
 use log::{debug, info, warn};
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::path::PathBuf;
 use std::sync::Arc;
 use warp::Filter;
 
@@ -48,13 +50,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = PyrsiaNodeArgs::parse();
 
     debug!("Create transparency log");
-    let transparency_log = TransparencyLog::new();
+    let transparency_log = TransparencyLog::new(PathBuf::from(ARTIFACTS_DIR.as_str()))?;
 
     debug!("Create p2p components");
     let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm(args.max_provided_keys)?;
 
     debug!("Create artifact storage");
-    let artifact_storage = ArtifactStorage::new()?;
+    let artifact_storage = ArtifactStorage::new(PathBuf::from(ARTIFACTS_DIR.as_str()))?;
 
     debug!("Create blockchain components");
     let blockchain = setup_blockchain()?;
@@ -71,7 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     );
 
     debug!("Start p2p components");
-    setup_p2p(p2p_client.clone(), args).await;
+    setup_p2p(p2p_client.clone(), args).await?;
 
     debug!("Listen for p2p events");
     loop {
@@ -152,12 +154,17 @@ fn setup_http(
 
     debug!("Setup HTTP routing");
     let docker_routes = make_docker_routes(
+        transparency_log.clone(),
+        p2p_client.clone(),
+        artifact_storage.clone(),
+    );
+    let maven_routes = make_maven_routes(
         transparency_log,
         p2p_client.clone(),
         artifact_storage.clone(),
     );
     let node_api_routes = make_node_routes(p2p_client, artifact_storage);
-    let all_routes = docker_routes.or(node_api_routes);
+    let all_routes = docker_routes.or(maven_routes).or(node_api_routes);
 
     debug!("Setup HTTP server");
     let (addr, server) = warp::serve(
@@ -177,14 +184,13 @@ fn setup_http(
     tokio::spawn(server);
 }
 
-async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) {
-    p2p_client
-        .listen(&args.listen_address)
-        .await
-        .expect("Listening should not fail");
+async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) -> Result<()> {
+    p2p_client.listen(&args.listen_address).await?;
 
     if let Some(to_dial) = args.peer {
-        handlers::dial_other_peer(p2p_client.clone(), &to_dial).await;
+        handlers::dial_other_peer(p2p_client.clone(), &to_dial).await
+    } else {
+        Ok(())
     }
 }
 

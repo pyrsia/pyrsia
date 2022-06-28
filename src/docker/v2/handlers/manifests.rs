@@ -19,13 +19,15 @@ use crate::artifact_service::storage::ArtifactStorage;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::network::client::Client;
 use crate::transparency_log::log::TransparencyLog;
+use futures::lock::Mutex;
 use log::debug;
+use std::sync::Arc;
 use warp::http::StatusCode;
 use warp::{Rejection, Reply};
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn fetch_manifest(
-    transparency_log: TransparencyLog,
+    transparency_log: Arc<Mutex<TransparencyLog>>,
     p2p_client: Client,
     artifact_storage: ArtifactStorage,
     name: String,
@@ -46,14 +48,16 @@ pub async fn fetch_manifest(
         })
     })?;
 
+    let len = manifest_content.len();
+
     Ok(warp::http::response::Builder::new()
         .header(
             "Content-Type",
             "application/vnd.docker.distribution.manifest.v2+json",
         )
-        .header("Content-Length", manifest_content.len())
+        .header("Content-Length", len)
         .status(StatusCode::OK)
-        .body(manifest_content)
+        .body(manifest_content.to_vec())
         .unwrap())
 }
 
@@ -67,7 +71,6 @@ mod tests {
     use crate::artifact_service::service::{Hash, HashAlgorithm};
     use crate::util::test_util;
     use anyhow::Context;
-    use assay::assay;
     use futures::channel::mpsc;
     use hyper::header::HeaderValue;
     use libp2p::identity::Keypair;
@@ -92,22 +95,21 @@ mod tests {
         );
     }
 
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-          ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
     #[tokio::test]
     async fn test_fetch_manifest_unknown_in_artifact_service() {
+        let tmp_dir = test_util::tests::setup();
+
         let name = "name";
         let tag = "tag";
         let hash = "7300a197d7deb39371d4683d60f60f2fbbfd7541837ceb2278c12014e94e657b";
         let namespace_specific_id = format!("DOCKER::MANIFEST::{}::{}", name, tag);
 
-        let mut transparency_log = TransparencyLog::new();
-        transparency_log.add_artifact(&namespace_specific_id, hash)?;
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new(&tmp_dir).unwrap()));
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(&namespace_specific_id, hash)
+            .unwrap();
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
@@ -115,7 +117,7 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_storage = ArtifactStorage::new()?;
+        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
 
         let result = fetch_manifest(
             transparency_log,
@@ -135,24 +137,25 @@ mod tests {
                 code: RegistryErrorCode::ManifestUnknown,
             }
         );
+
+        test_util::tests::teardown(tmp_dir);
     }
 
-    #[assay(
-        env = [
-          ("PYRSIA_ARTIFACT_PATH", "pyrsia-test-node"),
-          ("DEV_MODE", "on")
-        ],
-        teardown = test_util::tear_down()
-    )]
     #[tokio::test]
     async fn test_fetch_manifest() {
+        let tmp_dir = test_util::tests::setup();
+
         let name = "name";
         let tag = "tag";
         let hash = "865c8d988be4669f3e48f73b98f9bc2507be0246ea35e0098cf6054d3644c14f";
         let namespace_specific_id = format!("DOCKER::MANIFEST::{}::{}", name, tag);
 
-        let mut transparency_log = TransparencyLog::new();
-        transparency_log.add_artifact(&namespace_specific_id, hash)?;
+        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new(&tmp_dir).unwrap()));
+        transparency_log
+            .lock()
+            .await
+            .add_artifact(&namespace_specific_id, hash)
+            .unwrap();
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
@@ -160,8 +163,8 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_storage = ArtifactStorage::new()?;
-        create_artifact(&artifact_storage)?;
+        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
+        create_artifact(&artifact_storage).unwrap();
 
         let result = fetch_manifest(
             transparency_log,
@@ -186,6 +189,8 @@ mod tests {
                 "application/vnd.docker.distribution.manifest.v2+json"
             ))
         );
+
+        test_util::tests::teardown(tmp_dir);
     }
 
     fn get_file_reader() -> Result<File, anyhow::Error> {
