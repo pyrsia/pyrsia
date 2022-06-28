@@ -16,11 +16,11 @@
 */
 
 use crate::artifact_service::storage::ArtifactStorage;
+use crate::docker::v2::handlers::{blobs::handle_get_blobs, manifests::fetch_manifest};
 use crate::network::client::Client;
 use crate::transparency_log::log::TransparencyLog;
-
-use super::handlers::blobs::*;
-use super::handlers::manifests::*;
+use futures::lock::Mutex;
+use std::sync::Arc;
 use warp::Filter;
 
 pub fn make_docker_routes(
@@ -42,17 +42,18 @@ pub fn make_docker_routes(
             "application/json",
         ));
 
-    let transparency_log_get_manifest = transparency_log.clone();
-    let p2p_client_get_manifest = p2p_client.clone();
-    let artifact_storage_get_manifest = artifact_storage.clone();
+    let transparency_log_fetch_manifest = Arc::new(Mutex::new(transparency_log));
+    let transparency_log_get_blobs = transparency_log_fetch_manifest.clone();
+    let p2p_client_fetch_manifest = p2p_client.clone();
+    let artifact_storage_fetch_manifest = artifact_storage.clone();
 
     let v2_manifests = warp::path!("v2" / "library" / String / "manifests" / String)
         .and(warp::get().or(warp::head()).unify())
         .and_then(move |name, tag| {
             fetch_manifest(
-                transparency_log_get_manifest.clone(),
-                p2p_client_get_manifest.clone(),
-                artifact_storage_get_manifest.clone(),
+                transparency_log_fetch_manifest.clone(),
+                p2p_client_fetch_manifest.clone(),
+                artifact_storage_fetch_manifest.clone(),
                 name,
                 tag,
             )
@@ -63,7 +64,7 @@ pub fn make_docker_routes(
         .and(warp::path::end())
         .and_then(move |_name, hash| {
             handle_get_blobs(
-                transparency_log.clone(),
+                transparency_log_get_blobs.clone(),
                 p2p_client.clone(),
                 artifact_storage.clone(),
                 hash,
