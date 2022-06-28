@@ -16,7 +16,7 @@
   A transparency log is stored as the payload of a blockchain transaction.
 - Blockchain : a distributed ledger including all the transactions in the Pyrsia
   network
-- Block: a record of the distributed ledger including one ore more transactions
+- Block: a record of the distributed ledger including one or more transactions
 - Transaction: a record in the block, containing the transparency log as the payload.
 - Consensus: consensus establishes the agreement between authorized nodes that a
   transaction is valid.
@@ -121,7 +121,7 @@ The artifact service provides these functions:
   - the transparency log contains the (Pyrsia) `artifact_id` which is used to retrieve
     the actual artifact file
   - if the file is available locally, it is used
-  - if the file isn't available locally, it is retrieve using the `p2p` component.
+  - if the file isn't available locally, it is retrieved using the `p2p` component.
   - the file is then checked by calculating its hash and comparing it to the
       `artifact_hash` stored in the transparency log.
   - if the hashes match the bytes of the file are returned to the caller of
