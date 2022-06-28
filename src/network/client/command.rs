@@ -17,11 +17,11 @@
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::client::{ArtifactHash, ArtifactType};
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
-use futures::channel::oneshot;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
 use std::collections::HashSet;
 use strum_macros::Display;
+use tokio::sync::oneshot;
 
 /// Commands are sent by the [`Client`] to the [`PyrsiaEventLoop`].
 /// Each command matches exactly with one if the functions that are
@@ -74,7 +74,6 @@ pub enum Command {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures::channel::oneshot;
 
     #[test]
     fn command_correctly_implements_display() {

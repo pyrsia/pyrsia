@@ -19,9 +19,8 @@ use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::client::command::Command;
 use crate::network::client::ArtifactType;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
-use futures::channel::{mpsc, oneshot};
-use futures::prelude::*;
 use libp2p::core::PeerId;
+use libp2p::futures::StreamExt;
 use libp2p::kad::{GetClosestPeersOk, GetProvidersOk, KademliaEvent, QueryId, QueryResult};
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{
@@ -32,6 +31,7 @@ use libp2p::Swarm;
 use log::{debug, info, trace, warn};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::error::Error;
+use tokio::sync::{mpsc, oneshot};
 
 type PendingDialMap = HashMap<PeerId, oneshot::Sender<anyhow::Result<()>>>;
 type PendingListPeersMap = HashMap<QueryId, oneshot::Sender<HashSet<PeerId>>>;
@@ -78,14 +78,14 @@ impl PyrsiaEventLoop {
     /// incoming events on the swarm and command channels.
     pub async fn run(mut self) {
         loop {
-            futures::select! {
-                event = self.swarm.next() => match event.expect("Swarm stream to be infinite.") {
+            tokio::select! {
+                event = self.swarm.select_next_some() => match event {
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Kademlia(kademlia_event)) => self.handle_kademlia_event(kademlia_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::RequestResponse(request_response_event)) => self.handle_request_response_event(request_response_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::IdleMetricRequestResponse(request_response_event)) => self.handle_idle_metric_request_response_event(request_response_event).await,
                     swarm_event => self.handle_swarm_event(swarm_event).await,
                 },
-                command = self.command_receiver.next() => match command {
+                command = self.command_receiver.recv() => match command {
                     Some(c) => {
                         self.handle_command(c).await;
                     },
@@ -402,7 +402,6 @@ mod tests {
     use crate::network::idle_metric_protocol::{
         IdleMetricExchangeCodec, IdleMetricExchangeProtocol,
     };
-    use futures::channel::mpsc;
     use libp2p::core::upgrade;
     use libp2p::core::Transport;
     use libp2p::dns;

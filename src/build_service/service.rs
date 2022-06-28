@@ -14,4 +14,40 @@
    limitations under the License.
 */
 
+use thiserror::Error;
+use tokio::sync::oneshot;
+
+use crate::artifact_service::service::PackageType;
+use crate::transparency_log::log::Transaction;
+
+#[derive(Debug, Error)]
+pub enum BuildError {}
+
+pub struct BuildResult {}
+
+/// The build service is a component used by authorized nodes only. It is
+/// the entrypoint to the authorized node's build pipeline infrastructure.
 pub struct BuildService {}
+
+impl BuildService {
+    /// Starts a new build for the specified package.
+    pub async fn start_build(
+        &self,
+        _package_type: PackageType,
+        _package_type_id: &str,
+        _sender: oneshot::Sender<Result<Vec<BuildResult>, BuildError>>,
+    ) -> Result<(), BuildError> {
+        Ok(())
+    }
+
+    /// Verify a build for the specified transaction. This method is
+    /// used to be able to reach consensus about a built artifact
+    /// between authorized nodes.
+    pub async fn verify_build(
+        &self,
+        _add_build_transaction: Transaction,
+        _sender: oneshot::Sender<Result<(), BuildError>>,
+    ) -> Result<(), BuildError> {
+        Ok(())
+    }
+}

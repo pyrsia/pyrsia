@@ -66,6 +66,7 @@ sysinfo = "0.24.5"
 test-log = "0.2.8"
 thiserror = "1.0.31"
 tokio = { version = "1.19.2", features = [ "macros", "rt-multi-thread", "io-std" ] }
+tokio-stream = "0.1.9"
 toml = "0.5.9"
 url = "2.2.2"
 uuid = { version = "1.1.2", features = [ "v4" ] }
@@ -78,7 +79,6 @@ default-features = false
 features = []
 
 [dev-dependencies]
-string_manipulation = {path="tests/string_manipulation"}
 tempfile = "3.2.0"
 time = { version = "0.3.10", features = ["formatting", "parsing"] }
 tokio-test = "0.4.2"

@@ -3369,7 +3369,6 @@ dependencies = [
  "serde_json",
  "serial_test",
  "sha2 0.10.2",
- "string_manipulation",
  "stringreader",
  "strum",
  "strum_macros",
@@ -3379,6 +3378,7 @@ dependencies = [
  "thiserror",
  "time",
  "tokio",
+ "tokio-stream",
  "tokio-test",
  "toml",
  "url",
@@ -3448,6 +3448,7 @@ dependencies = [
  "pyrsia_blockchain_network",
  "test-log",
  "tokio",
+ "tokio-stream",
  "warp",
 ]
 
@@ -4124,10 +4125,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
-name = "string_manipulation"
-version = "0.1.0"
-
-[[package]]
 name = "stringreader"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4372,9 +4369,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-stream"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50145484efff8818b5ccd256697f36863f587da82cf8b409c53adf1e840798e3"
+checksum = "df54d54117d6fdc4e4fea40fe1e4e566b3505700e148a6827e59b34b0d2600d9"
 dependencies = [
  "futures-core",
  "pin-project-lite 0.2.8",

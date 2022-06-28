@@ -14,37 +14,30 @@
    limitations under the License.
 */
 
-use crate::artifact_service::handlers::get_artifact;
-use crate::artifact_service::storage::ArtifactStorage;
+use crate::artifact_service::service::{ArtifactService, PackageType};
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
-use crate::network::client::Client;
-use crate::transparency_log::log::TransparencyLog;
-use futures::lock::Mutex;
 use log::debug;
 use std::result::Result;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_blobs(
-    transparency_log: Arc<Mutex<TransparencyLog>>,
-    p2p_client: Client,
-    artifact_storage: ArtifactStorage,
+    artifact_service: Arc<Mutex<ArtifactService>>,
     hash: String,
 ) -> Result<impl Reply, Rejection> {
     debug!("Getting blob with hash : {:?}", hash);
 
-    let blob_content = get_artifact(
-        transparency_log,
-        p2p_client,
-        &artifact_storage,
-        &get_namespace_specific_id(&hash),
-    )
-    .await
-    .map_err(|_| {
-        warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::BlobUnknown,
-        })
-    })?;
+    let blob_content = artifact_service
+        .lock()
+        .await
+        .get_artifact(PackageType::Docker, &hash)
+        .await
+        .map_err(|_| {
+            warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::BlobUnknown,
+            })
+        })?;
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/octet-stream")
@@ -53,22 +46,21 @@ pub async fn handle_get_blobs(
         .unwrap())
 }
 
-fn get_namespace_specific_id(hash: &str) -> String {
-    format!("DOCKER::BLOB::{}", hash)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artifact_service::service::{Hash, HashAlgorithm};
+    use crate::artifact_service::hashing::{Hash, HashAlgorithm};
+    use crate::artifact_service::storage::ArtifactStorage;
+    use crate::network::client::Client;
+    use crate::transparency_log::log::AddArtifactRequest;
     use crate::util::test_util;
     use anyhow::Context;
-    use futures::channel::mpsc;
     use hyper::header::HeaderValue;
     use libp2p::identity::Keypair;
     use std::borrow::Borrow;
     use std::fs::File;
     use std::path::PathBuf;
+    use tokio::sync::{mpsc, oneshot};
 
     const VALID_ARTIFACT_HASH: [u8; 32] = [
         0x86, 0x5c, 0x8d, 0x98, 0x8b, 0xe4, 0x66, 0x9f, 0x3e, 0x48, 0xf7, 0x3b, 0x98, 0xf9, 0xbc,
@@ -76,45 +68,39 @@ mod tests {
         0x4f,
     ];
 
-    #[test]
-    fn test_get_namespace_specific_id() {
-        let hash = "hash";
-
-        assert_eq!(
-            get_namespace_specific_id(hash),
-            format!("DOCKER::BLOB::{}", hash)
-        );
-    }
-
     #[tokio::test]
     async fn test_handle_get_blobs_unknown_in_artifact_service() {
         let tmp_dir = test_util::tests::setup();
 
         let hash = "7300a197d7deb39371d4683d60f60f2fbbfd7541837ceb2278c12014e94e657b";
-        let namespace_specific_id = format!("DOCKER::BLOB::{}", hash);
+        let package_type = PackageType::Docker;
+        let package_type_id = hash;
 
-        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new(&tmp_dir).unwrap()));
-        transparency_log
-            .lock()
-            .await
-            .add_artifact(&namespace_specific_id, hash)
-            .unwrap();
-
+        let (add_artifact_sender, _) = oneshot::channel();
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
             sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
 
-        let result = handle_get_blobs(
-            transparency_log,
-            p2p_client,
-            artifact_storage,
-            hash.to_string(),
-        )
-        .await;
+        artifact_service
+            .transparency_log
+            .add_artifact(
+                AddArtifactRequest {
+                    package_type,
+                    package_type_id: package_type_id.to_string(),
+                    hash: hash.to_string(),
+                },
+                add_artifact_sender,
+            )
+            .await
+            .unwrap();
+
+        let result =
+            handle_get_blobs(Arc::new(Mutex::new(artifact_service)), hash.to_string()).await;
 
         assert!(result.is_err());
         let rejection = result.err().unwrap();
@@ -134,31 +120,34 @@ mod tests {
         let tmp_dir = test_util::tests::setup();
 
         let hash = "865c8d988be4669f3e48f73b98f9bc2507be0246ea35e0098cf6054d3644c14f";
-        let namespace_specific_id = format!("DOCKER::BLOB::{}", hash);
+        let package_type = PackageType::Docker;
+        let package_type_id = hash;
 
-        let transparency_log = Arc::new(Mutex::new(TransparencyLog::new(&tmp_dir).unwrap()));
-        transparency_log
-            .lock()
-            .await
-            .add_artifact(&namespace_specific_id, hash)
-            .unwrap();
-
+        let (add_artifact_sender, _) = oneshot::channel();
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
             sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_storage = ArtifactStorage::new(&tmp_dir).unwrap();
-        create_artifact(&artifact_storage).unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+        artifact_service
+            .transparency_log
+            .add_artifact(
+                AddArtifactRequest {
+                    package_type,
+                    package_type_id: package_type_id.to_string(),
+                    hash: hash.to_string(),
+                },
+                add_artifact_sender,
+            )
+            .await
+            .unwrap();
+        create_artifact(&artifact_service.artifact_storage).unwrap();
 
-        let result = handle_get_blobs(
-            transparency_log,
-            p2p_client,
-            artifact_storage,
-            hash.to_string(),
-        )
-        .await;
+        let result =
+            handle_get_blobs(Arc::new(Mutex::new(artifact_service)), hash.to_string()).await;
 
         assert!(result.is_ok());
 
