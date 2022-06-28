@@ -22,21 +22,15 @@ use crate::network::event_loop::{PyrsiaEvent, PyrsiaEventLoop};
 use crate::network::idle_metric_protocol::{IdleMetricExchangeCodec, IdleMetricExchangeProtocol};
 use crate::util::keypair_util;
 
-use libp2p::core;
-use libp2p::dns;
-use libp2p::identity;
-use libp2p::kad;
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
-use libp2p::mplex;
-use libp2p::noise;
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
 use libp2p::swarm::{Swarm, SwarmBuilder};
-use libp2p::tcp;
-use libp2p::yamux;
 use libp2p::Transport;
+use libp2p::{autonat, core, dns, identity, kad, mplex, noise, tcp, yamux};
 use std::error::Error;
 use std::iter;
 use std::path::PathBuf;
+use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::Stream;
@@ -54,6 +48,7 @@ use tokio_stream::Stream;
 /// [`PyrsiaNetworkBehaviour`]. The PyrsiaNetworkBehaviour contains the following
 /// components:
 ///
+/// * autonat: a protocol for establishing Network Address Translation function
 /// * Identify: a protocol for exchanging identity information between peers
 /// * Kademlia: a DHT to share information over the libp2p network
 /// * RequestResponse: a generic request/response protocol implementation for
@@ -164,6 +159,16 @@ fn create_swarm(
         SwarmBuilder::new(
             create_transport(keypair)?,
             PyrsiaNetworkBehaviour {
+                auto_nat: autonat::Behaviour::new(
+                    peer_id,
+                    autonat::Config {
+                        retry_interval: Duration::from_secs(10),
+                        refresh_interval: Duration::from_secs(30),
+                        boot_delay: Duration::from_secs(5),
+                        throttle_server_period: Duration::ZERO,
+                        ..Default::default()
+                    },
+                ),
                 kademlia: kad::Kademlia::new(
                     peer_id,
                     MemoryStore::with_config(peer_id, memory_store_config),

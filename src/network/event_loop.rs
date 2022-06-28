@@ -404,15 +404,12 @@ mod tests {
     };
     use libp2p::core::upgrade;
     use libp2p::core::Transport;
-    use libp2p::dns;
     use libp2p::identity::Keypair;
-    use libp2p::kad;
-    use libp2p::noise;
-    use libp2p::request_response;
     use libp2p::swarm::SwarmBuilder;
-    use libp2p::tcp;
     use libp2p::yamux::YamuxConfig;
+    use libp2p::{autonat, dns, kad, noise, request_response, tcp};
     use std::iter;
+    use std::time::Duration;
 
     fn create_test_swarm() -> (Client, PyrsiaEventLoop) {
         let id_keys = Keypair::generate_ed25519();
@@ -434,6 +431,16 @@ mod tests {
             .boxed();
 
         let behaviour = PyrsiaNetworkBehaviour {
+            auto_nat: autonat::Behaviour::new(
+                peer_id,
+                autonat::Config {
+                    retry_interval: Duration::from_secs(10),
+                    refresh_interval: Duration::from_secs(30),
+                    boot_delay: Duration::from_secs(5),
+                    throttle_server_period: Duration::ZERO,
+                    ..Default::default()
+                },
+            ),
             kademlia: kad::Kademlia::new(peer_id, kad::record::store::MemoryStore::new(peer_id)),
             request_response: request_response::RequestResponse::new(
                 ArtifactExchangeCodec(),
