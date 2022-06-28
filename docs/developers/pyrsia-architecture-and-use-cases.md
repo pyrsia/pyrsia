@@ -130,7 +130,7 @@ The artifact service provides these functions:
 - request a build from source for a specific package type and a package
   specific artifact ID (PSID). \
   the artifact service implements this as follows:
-  - start a build using the build and verifaction service, and wait for its result.
+  - start a build using the build and verification service, and wait for its result.
   - when the build is finished:
     - temporary hold the build result
     - and call the transparency log including the package type, PSID and
