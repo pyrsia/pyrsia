@@ -243,7 +243,6 @@ The blockchain component supports these functions:
   service to inspect the payload and perform the necessary steps (e.g. start
   a build and verify its output)
 
-
 ### Verification service
 
 The build service is a component only used by authorized nodes. It implements all
@@ -255,19 +254,19 @@ The verification service supports this function:
   this function is called from the blockchain component to verify a transaction
   payload to try reach consensus about a transaction added by another authorized
   node.
-    - based on the transparency log operation
-      - if `add_node`
-        - if the node was previously marked as a authorized node candidate, agree
+  - based on the transparency log operation
+    - if `add_node`
+      - if the node was previously marked as a authorized node candidate, agree
           to the transaction
-        - if not, do not agree to the transaction
-      - if `add_artifact` perform these steps:
-        - based on the package type (from the transparency log)
-          - start a build using the build service and wait for the result
-          - when the build finishes, hash the binary and source artifacts and compare
+      - if not, do not agree to the transaction
+    - if `add_artifact` perform these steps:
+      - based on the package type (from the transparency log)
+        - start a build using the build service and wait for the result
+        - when the build finishes, hash the binary and source artifacts and compare
             them to the hashes in the transparency log
-              - simple hashing might not be sufficient for non-reproducible builds
-              - if the hashes match, return success to the caller of this function
-              - TDB: how do we make sure all authorized nodes will store the build
+          - simple hashing might not be sufficient for non-reproducible builds
+          - if the hashes match, return success to the caller of this function
+          - TDB: how do we make sure all authorized nodes will store the build
                 result?
 
 ### Build service
@@ -294,7 +293,6 @@ The builds service supports this function:
       - the source artifact
       - the hash of the binary artifact
       - the hash of the source artifact
-
 
 ## Technical stories and details
 
