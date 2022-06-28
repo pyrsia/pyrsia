@@ -83,5 +83,7 @@ pub async fn handle_request_blockchain(
         transaction_operation, payload
     );
 
-    p2p_client.respond_blockchain(Some(1 as u64), channel).await
+    let _ = blockchain; // TODO!
+
+    p2p_client.respond_blockchain(Some(1u64), channel).await
 }
