@@ -80,7 +80,7 @@ features = []
 
 [dev-dependencies]
 tempfile = "3.2.0"
-time = { version = "0.3.10", features = ["formatting", "parsing"] }
+time = { version = "0.3.11", features = ["formatting", "parsing"] }
 tokio-test = "0.4.2"
 
 [workspace]
