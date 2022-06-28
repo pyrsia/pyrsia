@@ -286,7 +286,7 @@ The builds service supports this function:
     - when the build finishes, hash the binary artifact and the source artifact
       - one build might produce multiple (Pyrsia) artifacts
       - for non-reproducible builds simple hashing will not be sufficient
-    - return the build result (could be multple: one per artifact) to the caller
+    - return the build result (could be multiple: one per artifact) to the caller
       of the `start_build` (this will need to be an async callback) \
       the build result contains:
       - the binary artifact
