@@ -24,6 +24,7 @@ const CONF_FILE: &str = "pyrsia-cli";
 pub struct CliConfig {
     pub host: String,
     pub port: String,
+    pub p2p_port: String,
     pub disk_allocated: String,
 }
 
@@ -32,6 +33,7 @@ impl Default for CliConfig {
         CliConfig {
             host: "localhost".to_string(),
             port: "7888".to_string(),
+            p2p_port: "44120".to_string(),
             disk_allocated: "5.84 GB".to_string(),
         }
     }
@@ -52,6 +54,9 @@ pub fn add_config(new_cfg: CliConfig) -> Result<()> {
 
     if !new_cfg.port.is_empty() {
         cfg.port = new_cfg.port
+    }
+    if !new_cfg.p2p_port.is_empty() {
+        cfg.p2p_port = new_cfg.p2p_port
     }
     // need more validation for checking units
     if !new_cfg.disk_allocated.is_empty() {
