@@ -19,12 +19,13 @@ use libp2p::multiaddr::Protocol;
 use libp2p::request_response::ResponseChannel;
 use libp2p::{Multiaddr, PeerId};
 use log::debug;
-use pyrsia::artifact_service;
+use pyrsia::artifact_service::service::ArtifactService;
 use pyrsia::artifact_service::storage::ArtifactStorage;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
 use pyrsia::network::blockchain_protocol::BlockchainResponse;
 use pyrsia::network::client::{ArtifactType, Client};
 use pyrsia::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
+use pyrsia::peer_metrics;
 use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::structures::transaction::TransactionType;
 use std::sync::Arc;
@@ -43,8 +44,7 @@ pub async fn dial_other_peer(mut p2p_client: Client, to_dial: &Multiaddr) -> any
 /// Respond to a RequestArtifact event by getting the artifact
 /// based on the provided artifact type and hash.
 pub async fn handle_request_artifact(
-    mut p2p_client: Client,
-    artifact_storage: ArtifactStorage,
+    artifact_service: Arc<Mutex<ArtifactService>>,
     artifact_type: &ArtifactType,
     artifact_id: &str,
     channel: ResponseChannel<ArtifactResponse>,
@@ -53,11 +53,16 @@ pub async fn handle_request_artifact(
         "Handling request artifact: {:?}={:?}",
         artifact_type, artifact_id
     );
+
+    let mut artifact_service = artifact_service.lock().await;
     let content = match artifact_type {
-        ArtifactType::Artifact => get_artifact(artifact_storage, artifact_id)?,
+        ArtifactType::Artifact => artifact_service.get_artifact_locally(artifact_id)?,
     };
 
-    p2p_client.respond_artifact(content, channel).await
+    artifact_service
+        .p2p_client
+        .respond_artifact(content, channel)
+        .await
 }
 
 //Respond to the IdleMetricRequest event
@@ -65,7 +70,7 @@ pub async fn handle_request_idle_metric(
     mut p2p_client: Client,
     channel: ResponseChannel<IdleMetricResponse>,
 ) -> anyhow::Result<()> {
-    let metric = artifact_service::handlers::get_quality_metric();
+    let metric = peer_metrics::metrics::get_quality_metric();
     let peer_metrics: PeerMetrics = PeerMetrics {
         idle_metric: metric.to_le_bytes(),
     };

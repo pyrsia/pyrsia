@@ -15,25 +15,25 @@
 */
 
 use super::handlers::swarm::*;
-use crate::artifact_service::storage::ArtifactStorage;
-use crate::network::client::Client;
+use crate::artifact_service::service::ArtifactService;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use warp::Filter;
 
 pub fn make_node_routes(
-    p2p_client: Client,
-    artifact_storage: ArtifactStorage,
+    artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    let p2p_client_peers = p2p_client.clone();
+    let artifact_service_peers = artifact_service.clone();
 
     let peers = warp::path!("peers")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(move || handle_get_peers(p2p_client_peers.clone()));
+        .and_then(move || handle_get_peers(artifact_service_peers.clone()));
 
     let status = warp::path!("status")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(move || handle_get_status(p2p_client.clone(), artifact_storage.clone()));
+        .and_then(move || handle_get_status(artifact_service.clone()));
 
     warp::any().and(peers.or(status))
 }

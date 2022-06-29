@@ -14,20 +14,19 @@
    limitations under the License.
 */
 
-use crate::util::env_util::read_var;
-
 use libp2p::identity;
 use log::warn;
 use std::error;
 use std::fs;
 use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
 
 const KEYPAIR_FILENAME: &str = "p2p_keypair.ser";
 
 /// Load a ed25519 keypair from disk. If a keypair file does not yet exist,
 /// a new keypair is generated and then saved to disk.
-pub fn load_or_generate_ed25519() -> identity::Keypair {
-    let keypair_path = get_keypair_path();
+pub fn load_or_generate_ed25519<P: AsRef<Path>>(storage_path: P) -> identity::Keypair {
+    let keypair_path = get_keypair_path(storage_path.as_ref());
     match load_ed25519(&keypair_path) {
         Ok(keypair) => identity::Keypair::Ed25519(keypair),
         Err(_) => {
@@ -46,22 +45,24 @@ pub fn load_or_generate_ed25519() -> identity::Keypair {
 //  * the file at the specified path exists
 //  * the size of the file is exactly 64 bytes
 //  * no io errors occured while reading from the file
-fn load_ed25519(keypair_path: &str) -> Result<identity::ed25519::Keypair, Box<dyn error::Error>> {
+fn load_ed25519(keypair_path: &Path) -> Result<identity::ed25519::Keypair, io::Error> {
     let mut keypair_file = fs::File::open(keypair_path)?;
     let keypair_metadata = fs::metadata(keypair_path)?;
     if keypair_metadata.len() == 64 {
         let mut buffer = vec![0; 64];
         keypair_file.read_exact(&mut buffer)?;
-        return Ok(identity::ed25519::Keypair::decode(&mut buffer)?);
+        if let Ok(keypair) = identity::ed25519::Keypair::decode(&mut buffer) {
+            return Ok(keypair);
+        }
     }
 
-    Err(Box::new(io::Error::from(io::ErrorKind::InvalidData)))
+    Err(io::Error::from(io::ErrorKind::InvalidData))
 }
 
 // Save the provided keypair to the specified path.
 fn save_ed25519(
     keypair: &identity::ed25519::Keypair,
-    keypair_path: &str,
+    keypair_path: &Path,
 ) -> Result<(), Box<dyn error::Error>> {
     let mut keypair_file = fs::File::create(&keypair_path)?;
     keypair_file.write_all(&keypair.encode())?;
@@ -69,12 +70,10 @@ fn save_ed25519(
 }
 
 // Get the path on disk where the keypair is stored.
-fn get_keypair_path() -> String {
-    format!(
-        "{}/{}",
-        read_var("PYRSIA_ARTIFACT_PATH", "pyrsia"),
-        KEYPAIR_FILENAME
-    )
+fn get_keypair_path(storage_path: &Path) -> PathBuf {
+    let mut storage_path = storage_path.to_path_buf();
+    storage_path.push(KEYPAIR_FILENAME);
+    storage_path
 }
 
 #[cfg(test)]
@@ -82,15 +81,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn load_non_existing_keypair_fails() {
+    fn load_non_existing_keypair_generates_new_keypair_and_saves_it() {
         let tmp_dir = tempfile::tempdir().unwrap();
-        let path = tmp_dir
-            .path()
-            .join("load_non_existing_keypair_fails")
-            .join(KEYPAIR_FILENAME);
 
-        let keypair = load_ed25519(path.to_str().unwrap());
-        assert!(keypair.is_err());
+        load_or_generate_ed25519(&tmp_dir);
+
+        assert!(tmp_dir.path().join(KEYPAIR_FILENAME).exists());
+    }
+
+    #[test]
+    fn load_non_existing_keypair_generates_new_keypair_but_does_not_save_it() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().join("load_non_existing_keypair_fails");
+
+        load_or_generate_ed25519(&path);
+
+        assert!(!path.join(KEYPAIR_FILENAME).exists());
     }
 
     #[test]
@@ -98,28 +104,25 @@ mod tests {
         let tmp_file = tempfile::Builder::new().tempfile().unwrap();
         tmp_file.as_file().write_all(&[1; 32]).unwrap();
 
-        let keypair = load_ed25519(tmp_file.path().to_str().unwrap());
-        assert!(keypair.is_err());
-    }
-
-    #[test]
-    fn load_existing_keypair_succeeds() {
-        let tmp_file = tempfile::Builder::new().tempfile().unwrap();
-        tmp_file.as_file().write_all(&[1; 64]).unwrap();
-
-        let keypair = load_ed25519(tmp_file.path().to_str().unwrap());
-        assert!(keypair.is_ok());
+        let keypair = load_ed25519(&tmp_file.path());
+        assert_eq!(keypair.unwrap_err().kind(), io::ErrorKind::InvalidData);
     }
 
     #[test]
     fn saved_keypair_can_be_loaded() {
-        let tmp_file = tempfile::Builder::new().tempfile().unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().join(KEYPAIR_FILENAME);
 
         let saved_keypair = identity::ed25519::Keypair::generate();
-        let save_result = save_ed25519(&saved_keypair, tmp_file.path().to_str().unwrap());
+        let save_result = save_ed25519(&saved_keypair, &path);
         assert!(save_result.is_ok());
 
-        let loaded_keypair = load_ed25519(tmp_file.path().to_str().unwrap()).unwrap();
-        assert_eq!(saved_keypair.encode(), loaded_keypair.encode());
+        let loaded_keypair = load_or_generate_ed25519(&tmp_dir.path());
+        assert_eq!(
+            identity::Keypair::Ed25519(saved_keypair)
+                .to_protobuf_encoding()
+                .unwrap(),
+            loaded_keypair.to_protobuf_encoding().unwrap()
+        );
     }
 }

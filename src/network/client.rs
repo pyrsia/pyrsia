@@ -20,13 +20,12 @@ use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::blockchain_protocol::BlockchainResponse;
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
-use futures::channel::{mpsc, oneshot};
-use futures::prelude::*;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
 use log::debug;
 use pyrsia_blockchain_network::structures::transaction::TransactionType;
 use std::collections::HashSet;
+use tokio::sync::{mpsc, oneshot};
 
 /* peer metrics support */
 const PEER_METRIC_THRESHOLD: f64 = 0.5_f64;
@@ -350,8 +349,8 @@ mod tests {
         let cloned_address = address.clone();
         tokio::spawn(async move { client.listen(&address).await });
 
-        futures::select! {
-            command = receiver.next() => match command {
+        tokio::select! {
+            command = receiver.recv() => match command {
                 Some(Command::Listen { addr, sender }) => {
                     assert_eq!(addr, cloned_address);
                     let _ = sender.send(Ok(()));
@@ -375,8 +374,8 @@ mod tests {
         let cloned_address = address.clone();
         tokio::spawn(async move { client.dial(&local_peer_id, &address).await });
 
-        futures::select! {
-            command = receiver.next() => match command {
+        tokio::select! {
+            command = receiver.recv() => match command {
                 Some(Command::Dial { peer_id, peer_addr, sender }) => {
                     assert_eq!(peer_id, local_peer_id);
                     assert_eq!(peer_addr, cloned_address);
@@ -399,8 +398,8 @@ mod tests {
 
         tokio::spawn(async move { client.list_peers().await });
 
-        futures::select! {
-            command = receiver.next() => match command {
+        tokio::select! {
+            command = receiver.recv() => match command {
                 Some(Command::ListPeers { peer_id, sender }) => {
                     assert_eq!(peer_id, local_peer_id);
                     let _ = sender.send(Default::default());
@@ -424,8 +423,8 @@ mod tests {
         peers.insert(client.local_peer_id);
         tokio::spawn(async move { client.get_idle_peer(peers).await });
 
-        futures::select! {
-            command = receiver.next() => match command {
+        tokio::select! {
+            command = receiver.recv() => match command {
                 Some(Command::RequestIdleMetric { peer, sender }) => {
                     assert_eq!(peer, local_peer_id);
                     let peer_metric = PeerMetrics {
@@ -460,8 +459,8 @@ mod tests {
                 .await
         });
 
-        futures::select! {
-            command = receiver.next() => match command {
+        tokio::select! {
+            command = receiver.recv() => match command {
                 Some(Command::Provide { artifact_type, artifact_hash, sender }) => {
                     assert_eq!(artifact_type, ArtifactType::Artifact);
                     assert_eq!(artifact_hash.hash, cloned_random_hash);
@@ -493,8 +492,8 @@ mod tests {
                 .await
         });
 
-        futures::select! {
-            command = receiver.next() => match command {
+        tokio::select! {
+            command = receiver.recv() => match command {
                 Some(Command::ListProviders { artifact_type, artifact_hash, sender }) => {
                     assert_eq!(artifact_type, ArtifactType::Artifact);
                     assert_eq!(artifact_hash.hash, cloned_random_hash);
@@ -527,8 +526,8 @@ mod tests {
                 .await
         });
 
-        futures::select! {
-            command = receiver.next() => match command {
+        tokio::select! {
+            command = receiver.recv() => match command {
                 Some(Command::RequestArtifact { peer, artifact_type, artifact_hash, sender }) => {
                     assert_eq!(peer, other_peer_id);
                     assert_eq!(artifact_type, ArtifactType::Artifact);
@@ -558,8 +557,8 @@ mod tests {
                 .await
         });
 
-        futures::select! {
-            command = receiver.next() => match command {
+        tokio::select! {
+            command = receiver.recv() => match command {
                 Some(Command::RequestBlockchain { peer, transaction_operation, payload, sender }) => {
                     assert_eq!(peer, other_peer_id);
                     assert_eq!(transaction_operation, TransactionType::AddAuthority);
