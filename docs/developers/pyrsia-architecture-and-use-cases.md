@@ -22,6 +22,10 @@
   transaction is valid.
 - Artifact: a single file that can be retrieved from the Pyrsia network. It does
   not necessarily coincide with package specific artifacts.
+- Package ecosystem: a specific package ecosystem that Pyrsia supports. e.g. Java,
+  Docker, ...
+- Package type: the type of a package in a specific package ecosystem. e.g. jars
+  for Java, Docker images for Docker, ...
 - PSID: a package type specific artifact ID.
 - Authorized node admin: the person who can administer an authorized node
 
