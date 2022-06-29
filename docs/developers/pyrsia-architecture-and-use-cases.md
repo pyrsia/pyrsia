@@ -256,9 +256,9 @@ necessary logic to verify blockchain transactions.
 The verification service supports this function:
 
 - `verify_transaction` verifies a transaction based on its payload
-  this function is called from the blockchain component to verify a transaction
-  payload to try reach consensus about a transaction added by another authorized
-  node.
+  this function is called by the blockchain component to try and reach consensus
+  on a transaction that was added by another authorized node by verifying the payload
+  of that transaction.
   - based on the transparency log operation
     - if `add_node`
       - if the node was previously marked as a authorized node candidate, agree
