@@ -104,6 +104,7 @@ The Pyrsia CLI API has functions to:
 - request status information about the local artifact storage
 - request status information about the p2p connection status
 - request the addition of a new authorized node (_Authorized nodes only_)
+- request starting a new build from source
 
 ### Artifact Service
 
@@ -124,13 +125,13 @@ The artifact service provides these functions:
   - if the file isn't available locally, it is retrieved using the `p2p` component.
   - the file is then checked by calculating its hash and comparing it to the
       `artifact_hash` stored in the transparency log.
-  - if the hashes match the bytes of the file are returned to the caller of
+  - if the hashes match the bytes of the file, they are returned to the caller of
       the artifact service, otherwise an error is returned.
 
 - request a build from source for a specific package type and a package
   specific artifact ID (PSID). \
   the artifact service implements this as follows:
-  - start a build using the build and verification service, and wait for its result.
+  - start a build using the build service, and wait for its result.
   - when the build is finished:
     - temporary hold the build result
     - and call the transparency log including the package type, PSID and
@@ -201,7 +202,7 @@ The transparency log service provides these functions:
 
 - searching transparency logs (for inspection)
 
-- adding a transparency logs to add another authorized node
+- adding a transparency log to add another authorized node
 
 - adding a transparency log to remove an authorized node
 
@@ -245,12 +246,12 @@ The blockchain component supports these functions:
 
 ### Verification service
 
-The build service is a component only used by authorized nodes. It implements all
+The verification service is a component only used by authorized nodes. It implements all
 necessary logic to verify blockchain transactions.
 
 The verification service supports this function:
 
-- verify a transaction based on a its payload
+- `verify_transaction` verifies a transaction based on its payload
   this function is called from the blockchain component to verify a transaction
   payload to try reach consensus about a transaction added by another authorized
   node.
