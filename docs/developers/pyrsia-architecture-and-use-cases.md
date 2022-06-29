@@ -255,7 +255,7 @@ necessary logic to verify blockchain transactions.
 
 The verification service supports this function:
 
-- `verify_transaction` verifies a transaction based on its payload
+- `verify_transaction` verifies a transaction based on its payload \
   this function is called by the blockchain component to try and reach consensus
   on a transaction that was added by another authorized node by verifying the payload
   of that transaction.
