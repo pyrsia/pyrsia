@@ -11,12 +11,22 @@
 - Authorized node: a Node authorized to participate in the consensus algorithm to
   verify transactions
 - Regular node: a Node using the network to download and validate software packages
-- Transaction: an operation in the transparency log. e.g. `add_artifact`,
-  `add_node`, ...
+- Transparency log: information about every operation on the Pyrsia network, like
+  adding or removing an artifact, but also about adding or removing authorized nodes.
+  A transparency log is stored as the payload of a blockchain transaction.
+- Blockchain : a distributed ledger including all the transactions in the Pyrsia
+  network
+- Block: a record of the distributed ledger including one or more transactions
+- Transaction: a record in the block, containing the transparency log as the payload.
 - Consensus: consensus establishes the agreement between authorized nodes that a
   transaction is valid.
 - Artifact: a single file that can be retrieved from the Pyrsia network. It does
   not necessarily coincide with package specific artifacts.
+- Package ecosystem: a specific package ecosystem that Pyrsia supports. e.g. Java,
+  Docker, ...
+- Package type: the type of a package in a specific package ecosystem. e.g. jars
+  for Java, Docker images for Docker, ...
+- PSID: a package type specific artifact ID.
 - Authorized node admin: the person who can administer an authorized node
 
 ## Introduction
@@ -66,39 +76,77 @@ of the Pyrsia network.
 
 ![Pyrsia component diagram](pyrsia-node-high-level-components.png)
 
-### Package type ecosystems
+### Package ecosystem integrations
 
-A Pyrsia node contains several connectors to specific package type ecosystems
-like Docker or Maven. The ecosystem connectors allow the existing tooling of a
+A Pyrsia node contains several integrations for specific package ecosystems
+like Docker or Maven. The ecosystem integrations allow the existing tooling of a
 specific package type to seamlessly integrate with Pyrsia. e.g. the Docker
 repository service implements a subset of the Docker Registry API or the Java
 repository service implements a subset of the Maven repository API.
 
-The end goal of a such a service is always a frictionless integration of Pyrsia
-in the developer's workflow.
+The end goal of a such an integration service is always a frictionless integration
+of Pyrsia in the developer's workflow.
+
+Different package type integrations deal with package specific details in a different
+way. But all must follow the same logic:
+
+- Handle incoming requests from the package type specific clients (e.g. Docker
+  client, Maven client, ...)
+- Use the artifact service to retrieve the artifact. (The artifact service
+  contains all the logic to retrieve (locally or from the p2p network) and validate
+  the artifact.)
 
 ### Pyrsia CLI API
 
 The Pyrsia CLI API is the entry point into the Pyrsia node for the Pyrsia
-command line tool. It supports all kinds of management operations (requesting
-status information about the local artifact storage, information about the peers
-in the p2p network) and inspecting transparency logs.
+command line tool. It supports all kinds of management operations and inspecting
+transparency logs.
+
+The Pyrsia CLI API has functions to:
+
+- retrieve and change node configuration
+- request status information about the local artifact storage
+- request status information about the p2p connection status
+- request the addition of a new authorized node (_Authorized nodes only_)
+- request starting a new build from source
 
 ### Artifact Service
 
-The artifact service is the component that can store, retrieve and verify Pyrsia
-artifacts.
+The artifact service is the component that handles everything related to Pyrsia
+artifacts. It allows artifacts to be retrieved, and it allows artifacts to be
+added to the Pyrsia network, by triggering a build from source.
 
-In the artifact consumption use cases, this component offers an abstract way of
-dealing with Pyrsia artifacts for the specific ecosystem connectors. It will
-handle get_artifact requests and perform all necessary steps to find, retrieve
-and validate artifacts either locally or using the p2p network.
+The artifact service provides these functions:
 
-In the publication use cases (on authorized nodes) this component is responsible
-to drive build triggers: it will request a build from source at the Build Service,
-use the Transparency Log Service to add an `add_artifact` transaction, and when
-consensus is reached, it will store the artifact and make it available in the p2p
-network.
+- get an artifact based on the package type and a package specific
+  artifact ID (PSID). \
+  the artifact service implements this as follows:
+  - get the latest available `add_artifact`transparency log (if any) for this artifact
+    from the transparency log service.
+  - the transparency log contains the (Pyrsia) `artifact_id` which is used to retrieve
+    the actual artifact file
+  - if the file is available locally, it is used
+  - if the file isn't available locally, it is retrieved using the `p2p` component.
+  - the file is then checked by calculating its hash and comparing it to the
+      `artifact_hash` stored in the transparency log.
+  - if the hashes match the bytes of the file, they are returned to the caller of
+      the artifact service, otherwise an error is returned.
+
+- request a build from source for a specific package type and a package
+  specific artifact ID (PSID). \
+  the artifact service implements this as follows:
+  - start a build using the build service, and wait for its result.
+  - when the build is finished:
+    - temporary hold the build result
+    - and call the transparency log including the package type, PSID and
+      the hashes from the build result to add an `add_artifact` transparency log.
+      this call is asynchronous (because consensus will need to be reached about
+      the transaction), so the artifact service will wait from a callback from
+      the transparency log
+    - when the call is received and the `add_artifact` succeeded, the artifact
+      service stores the artifact locally in a file named `artifact_id` and the
+      source in a file named `source_id`. Both files are provided on the p2p
+      network using the `p2p` component.
 
 ### p2p
 
@@ -109,20 +157,68 @@ artifacts and transparency logs.
 
 ### Transparency Log Service
 
-This component is used by the Artifact Service to store and retrieve transparency
+This component is used by the artifact service to store and retrieve transparency
 log information about an artifact.
 
-It uses the Blockchain component to retrieve transactions and to reach consensus
-on the publication of new transactions. It uses a local database to store and index
-transaction information for easy access.
+It uses the blockchain component to retrieve transparency logs and to reach consensus
+on the publication of new transparency logs. It uses a local database to store
+and index transparency log information for easy access.
+
+The transparency log service provides these functions:
+
+- `add_artifact`: to add a transparency log, logging the addition of an artifact
+   to the Pyrsia network. \
+   It follows this procedure:
+  - create a `TransparencyLog` including
+    - operation: `add_artifact`
+    - package type: provided by the `AddArtifactRequest`
+    - package type specific artifact ID (PSID): provided by the `AddArtifactRequest`
+    - timestamp: now
+    - artifact_hash: provided by the `AddArtifactRequest`
+    - source_bash: provided by the `AddArtifactRequest`
+    - artifact_id: Pyrsia specific id of the artifact (UUID to be generated by
+        the Transparency Log Service at the time of transparency log creation)
+    - source_id: Pyrsia specific id of the artifact's source (UUID to be generated
+        by the Transparency Log Service at the time of transparency log creation)
+    - the transparency log is provided as the payload of the `add_transaction`
+      method of the blockchain component. the service now waits for the blockchain
+      component to reach consensus with the other authorized nodes.
+    - when consensus is reached, the transparency log service will be notified
+      by the blockchain component, which will:
+      - store the transparency log in the transparency log database
+      - notify the caller of `add_artifact`
+
+- retrieving the latest `add_artifact` transparency log
+  - this function takes the package type and PSID as input \
+    and follows this procedure:
+    - search the transparency log database for all transparency log with
+      - operation: add_artifact or remove_artifact
+      - package_type: given as a parameter to this method
+      - package_type_id: the PSID also given as a parameter to this method
+      - and sort on timestamp descending
+    - if the latest transparency log is remove_artifact or no transparency log
+      is found, an error is returned
+    - otherwise the latest transparency log is returned
+
+- retrieving current authorized nodes
+  - this function is mainly used by the blockchain component to find out who
+    the other authorized nodes are.
+
+- searching transparency logs (for inspection)
+
+- adding a transparency log to add another authorized node
+
+- adding a transparency log to remove an authorized node
+
+- adding a transparency log to remove an artifact
 
 ### Blockchain
 
-This component offers an interface to store and retrieve immutable transaction
+This component offers an interface to store and retrieve immutable transparency
 logs, and distribute them across all peers.
 
-Before transactions can be added to the blockchain, consensus needs to be reached
-using a fault-tolerant consensus algorithm, because:
+Before transparency logs can be added to the blockchain, consensus needs to be
+reached using a fault-tolerant consensus algorithm, because:
 
 - A majority of (authorized) nodes must be able to agree to the same result
 - A small number of faulty (authorized) nodes must not be able to influence the
@@ -130,17 +226,78 @@ using a fault-tolerant consensus algorithm, because:
 - A small number of faulty (authorized) nodes must not be able to slow down the
   system or make it stop working
 
+The blockchain component supports these functions:
+
+- add_transaction(payload, callback) to request the addition of a new transaction
+  - called by the transparency log service (payload can contain operation=add_artifact,
+    add_node, etc)
+    - the blockchain component receives this call, builds a block and communicates
+      with other authorized nodes
+    - if a consensus is reached, commit a new block
+    - if a new block is committed, the blockchain module broadcasts the event add_block
+      on the p2p network
+
+- add_block_listener(callback): to register a listener for new payloads that reached
+  consensus.
+  - this function is used by the transparency log service
+  - so it receives the payload of every committed payload
+
+- when an authorized Pyrsia node needs to verify a block to reach consensus,
+  the blockchain component will use the verification service to verify the payload
+  of each transaction in the block. It's the responsibility of the verification
+  service to inspect the payload and perform the necessary steps (e.g. start
+  a build and verify its output)
+
+### Verification service
+
+The verification service is a component only used by authorized nodes. It implements all
+necessary logic to verify blockchain transactions.
+
+The verification service supports this function:
+
+- `verify_transaction` verifies a transaction based on its payload \
+  this function is called by the blockchain component to try and reach consensus
+  on a transaction that was added by another authorized node by verifying the payload
+  of that transaction.
+  - based on the transparency log operation
+    - if `add_node`
+      - if the node was previously marked as a authorized node candidate, agree
+          to the transaction
+      - if not, do not agree to the transaction
+    - if `add_artifact` perform these steps:
+      - based on the package type (from the transparency log)
+        - start a build using the build service and wait for the result
+        - when the build finishes, hash the binary and source artifacts and compare
+            them to the hashes in the transparency log
+          - simple hashing might not be sufficient for non-reproducible builds
+          - if the hashes match, return success to the caller of this function
+          - TDB: how do we make sure all authorized nodes will store the build
+                result?
+
 ### Build service
 
 The build service is a component only used by authorized nodes. It is the entry
-point to the authorized node's build pipeline infrastructure and takes a Transaction
-as input, including:
+point to the authorized node's build pipeline infrastructure.
 
-- the package type
-- the source repo url
+The builds service supports this function:
 
-Based on the package type and the build spec of the artifact, the build service
-will then invoke a build using a suitable pipeline.
+- start a build based on the package type and the PSID \
+  this function is typically called from the CLI component when a build from
+  source was requested by a user.
+  - based on the package type it will:
+    - map the PSID to a source repo (if necessary)
+    - find a suitable build pipeline and trigger a build
+    - wait for the build result
+    - when the build finishes, hash the binary artifact and the source artifact
+      - one build might produce multiple (Pyrsia) artifacts
+      - for non-reproducible builds simple hashing will not be sufficient
+    - return the build result (could be multiple: one per artifact) to the caller
+      of the `start_build` (this will need to be an async callback) \
+      the build result contains:
+      - the binary artifact
+      - the source artifact
+      - the hash of the binary artifact
+      - the hash of the source artifact
 
 ## Technical stories and details
 
