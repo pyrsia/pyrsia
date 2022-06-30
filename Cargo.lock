@@ -1841,9 +1841,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p"
-version = "0.45.0"
+version = "0.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3541a9b837ea166d91b6f54e9e3264ac94f0af7f7b51a78dadd52912e7bdba6"
+checksum = "41726ee8f662563fafba2d2d484b14037cc8ecb8c953fbfc8439d4ce3a0a9029"
 dependencies = [
  "bytes",
  "futures",
@@ -2047,9 +2047,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-identify"
-version = "0.36.0"
+version = "0.36.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40ad878c9b15bbc629b0c0cef57f59e8b37fa3f4f0e5ce11ff2bca42aae62e38"
+checksum = "b84b53490442d086db1fa5375670c9666e79143dccadef3f7c74a4346899a984"
 dependencies = [
  "asynchronous-codec",
  "futures",
@@ -2063,13 +2063,14 @@ dependencies = [
  "prost-codec",
  "smallvec",
  "thiserror",
+ "void",
 ]
 
 [[package]]
 name = "libp2p-kad"
-version = "0.37.0"
+version = "0.37.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49c89373bfe5cef5aa525e5fa9b216d1604a71c17821a9d5fed7eae551cd6d66"
+checksum = "5f6b5d4de90fcd35feb65ea6223fd78f3b747a64ca4b65e0813fbe66a27d56aa"
 dependencies = [
  "arrayvec",
  "asynchronous-codec",
@@ -2220,9 +2221,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-relay"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dec0892d6da2540d64b2ec914d434f588ddef6db49702678d4477d02dacc1014"
+checksum = "624ead3406f64437a0d4567c31bd128a9a0b8226d5f16c074038f5d0fc32f650"
 dependencies = [
  "asynchronous-codec",
  "bytes",
@@ -2236,11 +2237,11 @@ dependencies = [
  "pin-project 1.0.10",
  "prost 0.10.4",
  "prost-build 0.10.4",
+ "prost-codec",
  "rand 0.8.5",
  "smallvec",
  "static_assertions",
  "thiserror",
- "unsigned-varint",
  "void",
 ]
 
@@ -2287,9 +2288,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-swarm"
-version = "0.36.0"
+version = "0.36.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8863c7e17641622969ffeab84e338481a8c75e4bce40f18f27822127e975f4b"
+checksum = "8f4bb21c5abadbf00360c734f16bf87f1712ed4f23cd46148f625d2ddb867346"
 dependencies = [
  "either",
  "fnv",
