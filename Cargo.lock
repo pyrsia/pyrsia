@@ -1885,9 +1885,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-autonat"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50de7c1d5c3f040fccb469e8a2d189e068b7627d760dd74ef914071c16bbe905"
+checksum = "1d45945fd2f96c4b133c23d5c28a8b7fc8d7138e6dd8d5a8cd492dd384f888e3"
 dependencies = [
  "async-trait",
  "futures",

@@ -46,7 +46,7 @@ if-watch = "1.1.1"
 itertools = "0.10.3"
 lazy_static = "1.4.0"
 libp2p = { version = "0.45.1", features=["dns-tokio", "tcp-tokio"]}
-libp2p-autonat = { version = "0.4.0" }
+libp2p-autonat = { version = "0.4.1" }
 log = { version = "0.4.17", features = ["max_level_trace", "release_max_level_trace"] }
 maplit = "1.0.2"
 multihash = {version = "0.16.0", features = ["serde-codec"]}
