@@ -17,7 +17,7 @@
 use super::hashing::{Hash, HashAlgorithm};
 use super::storage::ArtifactStorage;
 use crate::network::client::{ArtifactType, Client};
-use crate::transparency_log::log::{TransparencyLog, TransparencyLogError};
+use crate::transparency_log::log::{TransparencyLogService, TransparencyLogError};
 use anyhow::{bail, Context};
 use libp2p::PeerId;
 use log::info;
@@ -48,14 +48,14 @@ pub enum PackageType {
 /// pyrsia network by requesting a build from source.
 pub struct ArtifactService {
     pub artifact_storage: ArtifactStorage,
-    pub transparency_log: TransparencyLog,
+    pub transparency_log: TransparencyLogService,
     pub p2p_client: Client,
 }
 
 impl ArtifactService {
     pub fn new<P: AsRef<Path>>(artifact_path: P, p2p_client: Client) -> anyhow::Result<Self> {
         let artifact_storage = ArtifactStorage::new(&artifact_path)?;
-        let transparency_log = TransparencyLog::new(&artifact_path)?;
+        let transparency_log = TransparencyLogService::new(&artifact_path)?;
         Ok(ArtifactService {
             artifact_storage,
             transparency_log,
