@@ -17,7 +17,7 @@
 use super::hashing::{Hash, HashAlgorithm};
 use super::storage::ArtifactStorage;
 use crate::network::client::{ArtifactType, Client};
-use crate::transparency_log::log::{TransparencyLogService, TransparencyLogError};
+use crate::transparency_log::log::{TransparencyLogError, TransparencyLogService};
 use anyhow::{bail, Context};
 use libp2p::PeerId;
 use log::info;

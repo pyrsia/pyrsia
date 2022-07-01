@@ -207,7 +207,10 @@ impl TransparencyLogService {
         }
     }
 
-    fn write_transparency_log(&self, transparency_log: &TransparencyLog) -> Result<(), TransparencyLogError> {
+    fn write_transparency_log(
+        &self,
+        transparency_log: &TransparencyLog,
+    ) -> Result<(), TransparencyLogError> {
         let conn = self.open_db()?;
 
         match conn.execute(
@@ -469,7 +472,8 @@ mod tests {
         let result_write = log.write_transparency_log(&transparency_log);
         assert!(result_write.is_ok());
 
-        let result_read = log.read_transparency_log(&PackageType::Maven2, "invalid_package_type_id");
+        let result_read =
+            log.read_transparency_log(&PackageType::Maven2, "invalid_package_type_id");
         assert!(result_read.is_err());
         assert_eq!(
             result_read.err().unwrap().to_string(),
