@@ -114,7 +114,8 @@ mod tests {
                 AddArtifactRequest {
                     package_type,
                     package_type_id: package_type_id.to_string(),
-                    hash: hash.to_string(),
+                    artifact_hash: hash.to_string(),
+                    source_hash: hash.to_string(),
                 },
                 add_artifact_sender,
             )
@@ -167,7 +168,8 @@ mod tests {
                 AddArtifactRequest {
                     package_type,
                     package_type_id: package_type_id.to_string(),
-                    hash: hash.to_string(),
+                    artifact_hash: hash.to_string(),
+                    source_hash: hash.to_string(),
                 },
                 add_artifact_sender,
             )

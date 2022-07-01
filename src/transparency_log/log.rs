@@ -26,6 +26,7 @@ use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 use tokio::sync::oneshot;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Error, PartialEq)]
 pub enum TransparencyLogError {
@@ -44,6 +45,11 @@ pub enum TransparencyLogError {
         id: String,
         invalid_hash: String,
         actual_hash: String,
+    },
+    #[error("Invalid operation for ID {id}: {invalid_operation}")]
+    InvalidOperation {
+        id: String,
+        invalid_operation: Operation,
     },
     #[error("Failure while accessing underlying storage: {0}")]
     StorageFailure(String),
@@ -66,6 +72,7 @@ impl From<rusqlite::Error> for TransparencyLogError {
 )]
 pub enum Operation {
     AddArtifact,
+    RemoveArtifact,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -73,7 +80,10 @@ pub struct Transaction {
     id: String,
     package_type: PackageType,
     package_type_id: String,
-    pub hash: String,
+    pub artifact_hash: String,
+    source_hash: String,
+    artifact_id: String,
+    source_id: String,
     timestamp: u64,
     operation: Operation,
 }
@@ -81,7 +91,8 @@ pub struct Transaction {
 pub struct AddArtifactRequest {
     pub package_type: PackageType,
     pub package_type_id: String,
-    pub hash: String,
+    pub artifact_hash: String,
+    pub source_hash: String,
 }
 
 /// The transparency log is used by the artifact service to store and retrieve
@@ -125,13 +136,19 @@ impl TransparencyLog {
             id: add_artifact_request.package_type_id.to_string(),
             package_type: add_artifact_request.package_type,
             package_type_id: add_artifact_request.package_type_id.to_string(),
-            hash: add_artifact_request.hash,
+            artifact_hash: add_artifact_request.artifact_hash,
+            source_hash: add_artifact_request.source_hash,
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
             operation: Operation::AddArtifact,
         };
+
+        // TODO: Blockchain::add_block(transaction)
+        // Wait for callback and resume
 
         self.write_transaction(&transaction)?;
 
@@ -173,7 +190,10 @@ impl TransparencyLog {
                 id TEXT PRIMARY KEY,
                 package_type TEXT,
                 package_type_id TEXT,
-                hash TEXT NOT NULL,
+                artifact_hash TEXT NOT NULL,
+                source_hash TEXT,
+                artifact_id TEXT,
+                source_id TEXT,
                 timestamp INTEGER,
                 operation TEXT NOT NULL
             )",
@@ -191,12 +211,15 @@ impl TransparencyLog {
         let conn = self.open_db()?;
 
         match conn.execute(
-            "INSERT INTO tl_transaction (id, package_type, package_type_id, hash, timestamp, operation) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            "INSERT INTO tl_transaction (id, package_type, package_type_id, artifact_hash, source_hash, artifact_id, source_id, timestamp, operation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             [
                 transaction.id.to_string(),
                 transaction.package_type.to_string(),
                 transaction.package_type_id.to_string(),
-                transaction.hash.to_string(),
+                transaction.artifact_hash.to_string(),
+                transaction.source_hash.to_string(),
+                transaction.artifact_id.to_string(),
+                transaction.source_id.to_string(),
                 transaction.timestamp.to_string(),
                 transaction.operation.to_string(),
             ],
@@ -228,7 +251,7 @@ impl TransparencyLog {
         let conn = self.open_db()?;
 
         let mut stmt = conn.prepare("SELECT * FROM tl_transaction WHERE package_type = :package_type AND package_type_id = :package_type_id;")?;
-        let mut transaction_records = stmt.query_map(
+        let transaction_records = stmt.query_map(
             &[
                 (":package_type", &*package_type.to_string()),
                 (":package_type_id", package_type_id),
@@ -241,23 +264,46 @@ impl TransparencyLog {
                         PackageType::from_str(&pt).unwrap()
                     },
                     package_type_id: row.get(2)?,
-                    hash: row.get(3)?,
-                    timestamp: row.get(4)?,
+                    artifact_hash: row.get(3)?,
+                    source_hash: row.get(4)?,
+                    artifact_id: row.get(5)?,
+                    source_id: row.get(6)?,
+                    timestamp: row.get(7)?,
                     operation: {
-                        let op: String = row.get(5)?;
+                        let op: String = row.get(8)?;
                         Operation::from_str(&op).unwrap()
                     },
                 })
             },
         )?;
 
-        match transaction_records.next() {
-            Some(Ok(transaction)) => Ok(transaction),
-            _ => Err(TransparencyLogError::NotFound {
+        let mut vector: Vec<Transaction> = Vec::new();
+        for transaction_record in transaction_records {
+            let record = transaction_record?;
+            if record.operation == Operation::AddArtifact
+                || record.operation == Operation::RemoveArtifact
+            {
+                vector.push(record);
+            }
+        }
+
+        vector.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+
+        let latest_record = vector
+            .into_iter()
+            .next()
+            .ok_or(TransparencyLogError::NotFound {
                 package_type: *package_type,
                 package_type_id: package_type_id.to_string(),
-            }),
+            })?;
+
+        if latest_record.operation == Operation::RemoveArtifact {
+            return Err(TransparencyLogError::InvalidOperation {
+                id: latest_record.id,
+                invalid_operation: latest_record.operation,
+            });
         }
+        Ok(latest_record)
     }
 }
 
@@ -271,14 +317,20 @@ mod tests {
         let id = "id";
         let package_type = PackageType::Docker;
         let package_type_id = "package_type_id";
-        let hash = "hash";
+        let artifact_hash = "artifact_hash";
+        let source_hash = "source_hash";
+        let artifact_id = Uuid::new_v4().to_string();
+        let source_id = Uuid::new_v4().to_string();
         let timestamp = 1234567890;
         let operation = Operation::AddArtifact;
         let transaction = Transaction {
             id: id.to_string(),
             package_type: package_type.clone(),
             package_type_id: package_type_id.to_string(),
-            hash: hash.to_string(),
+            artifact_hash: artifact_hash.to_string(),
+            source_hash: source_hash.to_string(),
+            artifact_id: artifact_id.to_string(),
+            source_id: source_id.to_string(),
             timestamp,
             operation: Operation::AddArtifact,
         };
@@ -286,7 +338,10 @@ mod tests {
         assert_eq!(transaction.id, id);
         assert_eq!(transaction.package_type, package_type);
         assert_eq!(transaction.package_type_id, package_type_id);
-        assert_eq!(transaction.hash, hash);
+        assert_eq!(transaction.artifact_hash, artifact_hash);
+        assert_eq!(transaction.source_hash, source_hash);
+        assert_eq!(transaction.artifact_id, artifact_id);
+        assert_eq!(transaction.source_id, source_id);
         assert_eq!(transaction.timestamp, timestamp);
         assert_eq!(transaction.operation, operation);
     }
@@ -318,7 +373,10 @@ mod tests {
             id: String::from("id"),
             package_type: PackageType::Maven2,
             package_type_id: String::from("package_type_id"),
-            hash: String::from("hash"),
+            artifact_hash: String::from("artifact_hash"),
+            source_hash: String::from("source_hash"),
+            artifact_id: String::from(Uuid::new_v4().to_string()),
+            source_id: String::from(Uuid::new_v4().to_string()),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
         };
@@ -339,7 +397,10 @@ mod tests {
             id: String::from("id"),
             package_type: PackageType::Maven2,
             package_type_id: String::from("package_type_id"),
-            hash: String::from("hash"),
+            artifact_hash: String::from("artifact_hash"),
+            source_hash: String::from("source_hash"),
+            artifact_id: String::from(Uuid::new_v4().to_string()),
+            source_id: String::from(Uuid::new_v4().to_string()),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
         };
@@ -370,7 +431,10 @@ mod tests {
             id: String::from("id"),
             package_type: PackageType::Maven2,
             package_type_id: String::from("package_type_id"),
-            hash: String::from("hash"),
+            artifact_hash: String::from("artifact_hash"),
+            source_hash: String::from("source_hash"),
+            artifact_id: String::from(Uuid::new_v4().to_string()),
+            source_id: String::from(Uuid::new_v4().to_string()),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
         };
@@ -394,7 +458,10 @@ mod tests {
             id: String::from("id"),
             package_type: PackageType::Maven2,
             package_type_id: String::from("package_type_id"),
-            hash: String::from("hash"),
+            artifact_hash: String::from("artifact_hash"),
+            source_hash: String::from("source_hash"),
+            artifact_id: String::from(Uuid::new_v4().to_string()),
+            source_id: String::from(Uuid::new_v4().to_string()),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
         };
@@ -416,6 +483,83 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
+    #[test]
+    fn test_read_latest_transaction() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = TransparencyLog::new(&tmp_dir).unwrap();
+
+        let transaction1 = Transaction {
+            id: String::from("id1"),
+            package_type: PackageType::Maven2,
+            package_type_id: String::from("package_type_id1"),
+            artifact_hash: String::from("artifact_hash1"),
+            source_hash: String::from("source_hash1"),
+            artifact_id: String::from(Uuid::new_v4().to_string()),
+            source_id: String::from(Uuid::new_v4().to_string()),
+            timestamp: 10000000,
+            operation: Operation::AddArtifact,
+        };
+
+        let result_write1 = log.write_transaction(&transaction1);
+        assert!(result_write1.is_ok());
+
+        let transaction2 = Transaction {
+            id: String::from("id2"),
+            package_type: PackageType::Maven2,
+            package_type_id: String::from("package_type_id2"),
+            artifact_hash: String::from("artifact_hash2"),
+            source_hash: String::from("source_hash2"),
+            artifact_id: String::from(Uuid::new_v4().to_string()),
+            source_id: String::from(Uuid::new_v4().to_string()),
+            timestamp: 20000000,
+            operation: Operation::AddArtifact,
+        };
+
+        let result_write2 = log.write_transaction(&transaction2);
+        assert!(result_write2.is_ok());
+
+        let result_read = log.read_transaction(&PackageType::Maven2, "package_type_id2");
+        assert!(result_read.is_ok());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_read_remove_artifact_transaction() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = TransparencyLog::new(&tmp_dir).unwrap();
+
+        let transaction = Transaction {
+            id: String::from("id"),
+            package_type: PackageType::Maven2,
+            package_type_id: String::from("package_type_id"),
+            artifact_hash: String::from("artifact_hash"),
+            source_hash: String::from("source_hash"),
+            artifact_id: String::from(Uuid::new_v4().to_string()),
+            source_id: String::from(Uuid::new_v4().to_string()),
+            timestamp: 10000000,
+            operation: Operation::RemoveArtifact,
+        };
+
+        let result_write = log.write_transaction(&transaction);
+        assert!(result_write.is_ok());
+
+        let result_read = log.read_transaction(&PackageType::Maven2, "package_type_id");
+        assert!(result_read.is_err());
+        assert_eq!(
+            result_read.err().unwrap().to_string(),
+            TransparencyLogError::InvalidOperation {
+                id: String::from("id"),
+                invalid_operation: Operation::RemoveArtifact,
+            }
+            .to_string()
+        );
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
     #[tokio::test]
     async fn test_add_artifact() {
         let tmp_dir = test_util::tests::setup();
@@ -429,7 +573,8 @@ mod tests {
                 AddArtifactRequest {
                     package_type: PackageType::Docker,
                     package_type_id: "package_type_id".to_string(),
-                    hash: "hash".to_string(),
+                    artifact_hash: "artifact_hash".to_string(),
+                    source_hash: "source_hash".to_string(),
                 },
                 sender,
             )
@@ -454,7 +599,8 @@ mod tests {
                 AddArtifactRequest {
                     package_type: PackageType::Docker,
                     package_type_id: "package_type_id".to_string(),
-                    hash: "hash".to_string(),
+                    artifact_hash: "artifact_hash".to_string(),
+                    source_hash: "source_hash".to_string(),
                 },
                 sender1,
             )
@@ -466,7 +612,8 @@ mod tests {
                 AddArtifactRequest {
                     package_type: PackageType::Docker,
                     package_type_id: "package_type_id".to_string(),
-                    hash: "hash2".to_string(),
+                    artifact_hash: "artifact_hash2".to_string(),
+                    source_hash: "source_hash2".to_string(),
                 },
                 sender2,
             )

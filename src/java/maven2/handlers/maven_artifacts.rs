@@ -92,6 +92,8 @@ mod tests {
 
     const VALID_ARTIFACT_HASH: &str =
         "e11c16ff163ccc1efe01d2696c626891560fa82123601a5ff196d97b6ab156da";
+    const VALID_SOURCE_HASH: &str =
+        "b6f87982af625a228822adf42d0a091d40e96220b6d4d09a566173b9ea072e34";
     const VALID_FULL_PATH: &str = "/maven2/test/test/1.0/test-1.0.jar";
     const INVALID_FULL_PATH: &str = "/maven2/test/1.0/test-1.0.jar";
     const VALID_MAVEN_ID: &str = "test/test/1.0/test-1.0.jar";
@@ -129,7 +131,8 @@ mod tests {
                 AddArtifactRequest {
                     package_type: PackageType::Maven2,
                     package_type_id: VALID_MAVEN_ID.to_string(),
-                    hash: VALID_ARTIFACT_HASH.to_string(),
+                    artifact_hash: VALID_ARTIFACT_HASH.to_string(),
+                    source_hash: VALID_SOURCE_HASH.to_string(),
                 },
                 add_artifact_sender,
             )
