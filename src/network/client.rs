@@ -307,7 +307,7 @@ mod tests {
             command = receiver.recv() => match command {
                 Some(Command::Listen { addr, sender }) => {
                     assert_eq!(addr, cloned_address);
-                    let _ = sender.send(Ok(()));
+                    sender.send(Ok(()));
                 },
                 _ => panic!("Command must match Command::Listen")
             }
@@ -333,7 +333,7 @@ mod tests {
                 Some(Command::Dial { peer_id, peer_addr, sender }) => {
                     assert_eq!(peer_id, local_peer_id);
                     assert_eq!(peer_addr, cloned_address);
-                    let _ = sender.send(Ok(()));
+                    sender.send(Ok(()));
                 },
                 _ => panic!("Command must match Command::Dial")
             }
@@ -356,7 +356,7 @@ mod tests {
             command = receiver.recv() => match command {
                 Some(Command::ListPeers { peer_id, sender }) => {
                     assert_eq!(peer_id, local_peer_id);
-                    let _ = sender.send(Default::default());
+                    sender.send(Default::default());
                 },
                 _ => panic!("Command must match Command::ListPeers")
             }
@@ -384,7 +384,7 @@ mod tests {
                     let peer_metric = PeerMetrics {
                         idle_metric: 8675309f64.to_le_bytes(),
                     };
-                    let _ = sender.send(Ok(peer_metric));
+                    sender.send(Ok(peer_metric));
                 },
                 None => {},
                 _ => panic!("Command must match Command::RequestIdleMetric")
@@ -418,7 +418,7 @@ mod tests {
                 Some(Command::Provide { artifact_type, artifact_hash, sender }) => {
                     assert_eq!(artifact_type, ArtifactType::Artifact);
                     assert_eq!(artifact_hash.hash, cloned_random_hash);
-                    let _ = sender.send(());
+                    sender.send(());
                 },
                 _ => panic!("Command must match Command::Provide")
             }
@@ -451,7 +451,7 @@ mod tests {
                 Some(Command::ListProviders { artifact_type, artifact_hash, sender }) => {
                     assert_eq!(artifact_type, ArtifactType::Artifact);
                     assert_eq!(artifact_hash.hash, cloned_random_hash);
-                    let _ = sender.send(Default::default());
+                    sender.send(Default::default());
                 },
                 _ => panic!("Command must match Command::ListProviders")
             }
@@ -486,7 +486,7 @@ mod tests {
                     assert_eq!(peer, other_peer_id);
                     assert_eq!(artifact_type, ArtifactType::Artifact);
                     assert_eq!(artifact_hash.hash, cloned_random_hash);
-                    let _ = sender.send(Ok(vec![]));
+                    sender.send(Ok(vec![]));
                 },
                 _ => panic!("Command must match Command::RequestArtifact")
             }

@@ -279,15 +279,15 @@ mod tests {
                     Some(Command::ListProviders { artifact_type: _artifact_type, artifact_hash: _artifact_hash, sender }) => {
                         let mut set = HashSet::new();
                         set.insert(local_peer_id);
-                        let _ = sender.send(set);
+                        sender.send(set);
                     },
                     Some(Command::RequestIdleMetric { peer: _peer, sender }) => {
-                        let _ = sender.send(Ok(PeerMetrics {
+                        sender.send(Ok(PeerMetrics {
                             idle_metric: (0.1_f64).to_le_bytes()
                         }));
                     },
                     Some(Command::RequestArtifact { artifact_type: _artifact_type, artifact_hash: _artifact_hash, peer: _peer, sender }) => {
-                        let _ = sender.send(Ok(b"SAMPLE_DATA".to_vec()));
+                        sender.send(Ok(b"SAMPLE_DATA".to_vec()));
                     },
                     _ => panic!("Command must match Command::ListProviders, Command::RequestIdleMetric, Command::RequestArtifact"),
                 }
@@ -324,7 +324,7 @@ mod tests {
                 command = receiver.recv() => {
                     match command {
                         Some(Command::ListProviders { artifact_type: _artifact_type, artifact_hash: _artifact_hash, sender }) => {
-                            let _ = sender.send(Default::default());
+                            sender.send(Default::default());
                         },
                         _ => panic!("Command must match Command::ListProviders"),
                     }
