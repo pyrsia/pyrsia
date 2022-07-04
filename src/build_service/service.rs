@@ -18,7 +18,7 @@ use thiserror::Error;
 use tokio::sync::oneshot;
 
 use crate::artifact_service::service::PackageType;
-use crate::transparency_log::log::Transaction;
+use crate::transparency_log::log::TransparencyLog;
 
 #[derive(Debug, Error)]
 pub enum BuildError {}
@@ -45,7 +45,7 @@ impl BuildService {
     /// between authorized nodes.
     pub async fn verify_build(
         &self,
-        _add_build_transaction: Transaction,
+        _add_build_transaction: TransparencyLog,
         _sender: oneshot::Sender<Result<(), BuildError>>,
     ) -> Result<(), BuildError> {
         Ok(())
