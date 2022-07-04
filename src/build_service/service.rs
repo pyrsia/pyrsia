@@ -46,7 +46,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_verify_transaction() {
+    async fn test_start_build() {
         let package_type = PackageType::Docker;
         let package_type_id = "alpine:3.15.2";
 
