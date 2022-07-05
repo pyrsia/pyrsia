@@ -17,7 +17,7 @@
 use super::hashing::{Hash, HashAlgorithm};
 use super::storage::ArtifactStorage;
 use crate::network::client::{ArtifactType, Client};
-use crate::transparency_log::log::{TransparencyLog, TransparencyLogError};
+use crate::transparency_log::log::{TransparencyLogError, TransparencyLogService};
 use anyhow::{bail, Context};
 use libp2p::PeerId;
 use log::info;
@@ -48,14 +48,14 @@ pub enum PackageType {
 /// pyrsia network by requesting a build from source.
 pub struct ArtifactService {
     pub artifact_storage: ArtifactStorage,
-    pub transparency_log: TransparencyLog,
+    pub transparency_log: TransparencyLogService,
     pub p2p_client: Client,
 }
 
 impl ArtifactService {
     pub fn new<P: AsRef<Path>>(artifact_path: P, p2p_client: Client) -> anyhow::Result<Self> {
         let artifact_storage = ArtifactStorage::new(&artifact_path)?;
-        let transparency_log = TransparencyLog::new(&artifact_path)?;
+        let transparency_log = TransparencyLogService::new(&artifact_path)?;
         Ok(ArtifactService {
             artifact_storage,
             transparency_log,
@@ -78,9 +78,12 @@ impl ArtifactService {
             .transparency_log
             .get_artifact(&package_type, package_type_id)?;
 
-        let blob_content = match self.get_artifact_locally(&transaction.hash) {
+        let blob_content = match self.get_artifact_locally(&transaction.artifact_hash) {
             Ok(blob_content) => Ok(blob_content),
-            Err(_) => self.get_artifact_from_peers(&transaction.hash).await,
+            Err(_) => {
+                self.get_artifact_from_peers(&transaction.artifact_hash)
+                    .await
+            }
         }?;
 
         self.verify_artifact(&package_type, package_type_id, &blob_content)
@@ -150,19 +153,19 @@ impl ArtifactService {
         let transaction = self
             .transparency_log
             .get_artifact(package_type, package_type_id)?;
-        if transaction.hash == calculated_hash {
+        if transaction.artifact_hash == calculated_hash {
             Ok(())
         } else {
             Err(TransparencyLogError::InvalidHash {
                 id: package_type_id.to_string(),
                 invalid_hash: calculated_hash,
-                actual_hash: transaction.hash,
+                actual_hash: transaction.artifact_hash,
             })
         }
     }
 
-    //put_artifact: given artifact_hash(artifactName) & artifact_path push artifact to artifact_manager
-    //              and returns the boolean as true or false if it was able to create or not
+    /// Given artifact_hash(artifactName) & artifact_path push artifact to artifact_manager
+    /// and returns the boolean as true or false if it was able to create or not
     fn put_artifact(
         &self,
         artifact_hash: &Hash,
@@ -220,7 +223,8 @@ mod tests {
                 AddArtifactRequest {
                     package_type,
                     package_type_id: artifact_id.to_string(),
-                    hash: hex::encode(VALID_ARTIFACT_HASH),
+                    artifact_hash: hex::encode(VALID_ARTIFACT_HASH),
+                    source_hash: hex::encode(VALID_ARTIFACT_HASH),
                 },
                 add_artifact_sender,
             )
@@ -366,7 +370,8 @@ mod tests {
                 AddArtifactRequest {
                     package_type,
                     package_type_id: package_type_id.to_string(),
-                    hash: random_hash,
+                    artifact_hash: random_hash.clone(),
+                    source_hash: random_hash,
                 },
                 add_artifact_sender,
             )
@@ -411,7 +416,8 @@ mod tests {
                 AddArtifactRequest {
                     package_type,
                     package_type_id: package_type_id.to_string(),
-                    hash: random_hash.clone(),
+                    artifact_hash: random_hash.clone(),
+                    source_hash: random_hash.clone(),
                 },
                 add_artifact_sender,
             )

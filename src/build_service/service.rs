@@ -18,7 +18,6 @@ use thiserror::Error;
 use tokio::sync::oneshot;
 
 use crate::artifact_service::service::PackageType;
-use crate::transparency_log::log::Transaction;
 
 #[derive(Debug, Error)]
 pub enum BuildError {}
@@ -27,6 +26,7 @@ pub struct BuildResult {}
 
 /// The build service is a component used by authorized nodes only. It is
 /// the entrypoint to the authorized node's build pipeline infrastructure.
+#[derive(Default)]
 pub struct BuildService {}
 
 impl BuildService {
@@ -39,15 +39,24 @@ impl BuildService {
     ) -> Result<(), BuildError> {
         Ok(())
     }
+}
 
-    /// Verify a build for the specified transaction. This method is
-    /// used to be able to reach consensus about a built artifact
-    /// between authorized nodes.
-    pub async fn verify_build(
-        &self,
-        _add_build_transaction: Transaction,
-        _sender: oneshot::Sender<Result<(), BuildError>>,
-    ) -> Result<(), BuildError> {
-        Ok(())
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_start_build() {
+        let package_type = PackageType::Docker;
+        let package_type_id = "alpine:3.15.2";
+
+        let (sender, _) = oneshot::channel();
+
+        let build_service = BuildService::default();
+        let build_result = build_service
+            .start_build(package_type, package_type_id, sender)
+            .await;
+
+        assert!(build_result.is_ok());
     }
 }
