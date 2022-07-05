@@ -19,6 +19,8 @@ use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::blockchain_protocol::{BlockUpdateRequest, BlockUpdateResponse};
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
+use crate::node_api::model::cli::Status;
+use crate::util::env_util::read_var;
 use libp2p::core::PeerId;
 use libp2p::futures::StreamExt;
 use libp2p::identify::IdentifyEvent;
@@ -386,6 +388,45 @@ impl PyrsiaEventLoop {
                     .kademlia
                     .get_closest_peers(peer_id);
                 self.pending_list_peers.insert(query_id, sender);
+            }
+            Command::Status { peers, sender } => {
+                let swarm = &self.swarm;
+                let listeners = swarm.listeners();
+                let local_peer_id = *swarm.local_peer_id();
+
+                let mut addrs = Vec::new();
+
+                for addr in listeners {
+                    addrs.push(addr.clone());
+                }
+
+                let multiaddr = local_peer_id.into();
+                let local_peer = Protocol::P2p(multiaddr);
+
+                let externalip = read_var("PRYSIA_EXTERNAL_IP", "");
+
+                let mut addr_map = HashSet::new();
+
+                for addr in addrs {
+                    let addr_str = addr.to_string();
+                    let mut parts = addr_str.split('/').collect::<Vec<&str>>();
+
+                    if !externalip.is_empty() {
+                        parts[2] = &externalip;
+                    }
+
+                    addr_map.insert(format!("{}{}", parts.join("/"), local_peer));
+                }
+
+                let peer_addrs = addr_map.into_iter().collect::<Vec<_>>();
+
+                let status = Status {
+                    peers_count: peers.len(),
+                    peer_id: local_peer_id.to_string(),
+                    peer_addrs,
+                };
+
+                sender.send(status).unwrap();
             }
             Command::Provide {
                 artifact_id,

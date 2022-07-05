@@ -1,0 +1,55 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "pyrsia-node.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  serviceName: {{ include "pyrsia-node.name" . }}
+  selector:
+    matchLabels:
+      app:  {{ include "pyrsia-node.name" . }}
+      tier: frontend
+      track: stable
+  template:
+    metadata:
+      labels:
+        app: pyrsia-node
+        tier: frontend
+        track: stable
+    spec:
+      containers:
+        - name: {{ include "pyrsia-node.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}        
+          ports:
+            - name: pyrsia
+              containerPort: 80
+            - name: p2p
+              containerPort: 44000
+          env:
+            - name: PYRSIA_ARTIFACT_PATH
+              value: "/usr/local/var/pyrsia"
+            - name: PYRSIA_KEYPAIR
+              value: "/usr/local/var/prysia_ed25519"
+          volumeMounts:
+            # name must match the volume name below
+            - name: pyrsia-storage
+              mountPath: "/usr/local/var/pyrsia"
+  volumeClaimTemplates:
+    - metadata:
+        name: pyrsia-storage
+      spec:
+        storageClassName: standard
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1500Gi
+    - metadata:
+        name: pyrsia-storage
+      spec:
+        storageClassName: standard
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1500Gi

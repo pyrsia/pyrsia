@@ -2,6 +2,6 @@
 replicaCount: 3
 
 image:
-  repository: sbtaylor15/nginx-gcsfuse
+  repository: sbtaylor15/pyrsia-node
   tag: latest
   pullPolicy: Always
