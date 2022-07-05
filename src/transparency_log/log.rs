@@ -73,6 +73,8 @@ impl From<rusqlite::Error> for TransparencyLogError {
 pub enum Operation {
     AddArtifact,
     RemoveArtifact,
+    AddNode,
+    RemoveNode,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -86,6 +88,8 @@ pub struct TransparencyLog {
     source_id: String,
     timestamp: u64,
     operation: Operation,
+    node_id: String,
+    node_public_key: String,
 }
 
 pub struct AddArtifactRequest {
@@ -93,6 +97,11 @@ pub struct AddArtifactRequest {
     pub package_type_id: String,
     pub artifact_hash: String,
     pub source_hash: String,
+}
+
+pub struct AuthorizedNode {
+    pub id: String,
+    pub public_key: String,
 }
 
 /// The transparency log service is used by the artifact service to store and retrieve
@@ -145,6 +154,8 @@ impl TransparencyLogService {
                 .unwrap()
                 .as_secs(),
             operation: Operation::AddArtifact,
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
         };
 
         // TODO: Blockchain::add_block(transaction(transparency_log))
@@ -181,6 +192,12 @@ impl TransparencyLogService {
         Ok(vec![])
     }
 
+    /// Gets a list of transparency logs of which the operation is AddNode. Returns an error
+    /// when no transparency log could be found.
+    pub fn get_authorized_nodes(&self) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
+        self.find_added_nodes()
+    }
+
     fn open_db(&self) -> Result<Connection, TransparencyLogError> {
         fs::create_dir_all(&self.storage_path)?;
         let db_storage_path = self.storage_path.to_str().unwrap();
@@ -195,7 +212,9 @@ impl TransparencyLogService {
                 artifact_id TEXT,
                 source_id TEXT,
                 timestamp INTEGER,
-                operation TEXT NOT NULL
+                operation TEXT NOT NULL,
+                node_id TEXT,
+                node_public_key TEXT
             )",
             [],
         ) {
@@ -214,7 +233,7 @@ impl TransparencyLogService {
         let conn = self.open_db()?;
 
         match conn.execute(
-            "INSERT INTO TRANSPARENCYLOG (id, package_type, package_type_id, artifact_hash, source_hash, artifact_id, source_id, timestamp, operation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO TRANSPARENCYLOG (id, package_type, package_type_id, artifact_hash, source_hash, artifact_id, source_id, timestamp, operation, node_id, node_public_key) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             [
                 transparency_log.id.to_string(),
                 transparency_log.package_type.to_string(),
@@ -225,6 +244,8 @@ impl TransparencyLogService {
                 transparency_log.source_id.to_string(),
                 transparency_log.timestamp.to_string(),
                 transparency_log.operation.to_string(),
+                transparency_log.node_id.to_string(),
+                transparency_log.node_public_key.to_string(),
             ],
         ) {
             Ok(_) => {
@@ -276,6 +297,8 @@ impl TransparencyLogService {
                         let op: String = row.get(8)?;
                         Operation::from_str(&op).unwrap()
                     },
+                    node_id: row.get(9)?,
+                    node_public_key: row.get(10)?,
                 })
             },
         )?;
@@ -308,6 +331,55 @@ impl TransparencyLogService {
         }
         Ok(latest_record)
     }
+
+    fn find_added_nodes(&self) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
+        let conn = self.open_db()?;
+
+        let mut stmt = conn.prepare("SELECT * FROM TRANSPARENCYLOG WHERE operation = :operation_add_node OR operation = :operation_remove_node;")?;
+        let transparency_log_records = stmt.query_map(
+            &[
+                (":operation_add_node", &Operation::AddNode.to_string()),
+                (":operation_remove_node", &Operation::RemoveNode.to_string()),
+            ],
+            |row| {
+                Ok(TransparencyLog {
+                    id: row.get(0)?,
+                    package_type: {
+                        let pt: String = row.get(1)?;
+                        PackageType::from_str(&pt).unwrap()
+                    },
+                    package_type_id: row.get(2)?,
+                    artifact_hash: row.get(3)?,
+                    source_hash: row.get(4)?,
+                    artifact_id: row.get(5)?,
+                    source_id: row.get(6)?,
+                    timestamp: row.get(7)?,
+                    operation: {
+                        let op: String = row.get(8)?;
+                        Operation::from_str(&op).unwrap()
+                    },
+                    node_id: row.get(9)?,
+                    node_public_key: row.get(10)?,
+                })
+            },
+        )?;
+
+        let mut vector_added: Vec<TransparencyLog> = Vec::new();
+        let mut vector_removed: Vec<TransparencyLog> = Vec::new();
+        for transparency_log_record in transparency_log_records {
+            let record = transparency_log_record?;
+            if record.operation == Operation::AddNode {
+                vector_added.push(record);
+            } else if record.operation == Operation::RemoveNode {
+                vector_removed.push(record);
+            }
+        }
+        for removed_record in vector_removed {
+            vector_added.retain(|x| x.node_id != removed_record.node_id)
+        }
+
+        Ok(vector_added)
+    }
 }
 
 #[cfg(test)]
@@ -326,6 +398,8 @@ mod tests {
         let source_id = Uuid::new_v4().to_string();
         let timestamp = 1234567890;
         let operation = Operation::AddArtifact;
+        let node_id = Uuid::new_v4().to_string();
+        let node_public_key = Uuid::new_v4().to_string();
         let transparency_log = TransparencyLog {
             id: id.to_string(),
             package_type,
@@ -336,6 +410,8 @@ mod tests {
             source_id: source_id.to_string(),
             timestamp,
             operation: Operation::AddArtifact,
+            node_id: node_id.to_string(),
+            node_public_key: node_public_key.to_string(),
         };
 
         assert_eq!(transparency_log.id, id);
@@ -347,6 +423,8 @@ mod tests {
         assert_eq!(transparency_log.source_id, source_id);
         assert_eq!(transparency_log.timestamp, timestamp);
         assert_eq!(transparency_log.operation, operation);
+        assert_eq!(transparency_log.node_id, node_id);
+        assert_eq!(transparency_log.node_public_key, node_public_key);
     }
 
     #[test]
@@ -382,6 +460,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
+            node_id: String::from(Uuid::new_v4().to_string()),
+            node_public_key: String::from(Uuid::new_v4().to_string()),
         };
 
         let result = log.write_transparency_log(&transparency_log);
@@ -406,6 +486,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
+            node_id: String::from(Uuid::new_v4().to_string()),
+            node_public_key: String::from(Uuid::new_v4().to_string()),
         };
 
         let mut result = log.write_transparency_log(&transparency_log);
@@ -440,6 +522,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
+            node_id: String::from(Uuid::new_v4().to_string()),
+            node_public_key: String::from(Uuid::new_v4().to_string()),
         };
 
         let result_write = log.write_transparency_log(&transparency_log);
@@ -467,6 +551,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
+            node_id: String::from(Uuid::new_v4().to_string()),
+            node_public_key: String::from(Uuid::new_v4().to_string()),
         };
 
         let result_write = log.write_transparency_log(&transparency_log);
@@ -503,6 +589,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 10000000,
             operation: Operation::AddArtifact,
+            node_id: String::from(Uuid::new_v4().to_string()),
+            node_public_key: String::from(Uuid::new_v4().to_string()),
         };
 
         let result_write1 = log.write_transparency_log(&transparency_log1);
@@ -518,6 +606,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 20000000,
             operation: Operation::AddArtifact,
+            node_id: String::from(Uuid::new_v4().to_string()),
+            node_public_key: String::from(Uuid::new_v4().to_string()),
         };
 
         let result_write2 = log.write_transparency_log(&transparency_log2);
@@ -545,6 +635,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 10000000,
             operation: Operation::RemoveArtifact,
+            node_id: String::from(Uuid::new_v4().to_string()),
+            node_public_key: String::from(Uuid::new_v4().to_string()),
         };
 
         let result_write = log.write_transparency_log(&transparency_log);
@@ -623,6 +715,117 @@ mod tests {
             )
             .await;
         assert!(result.is_err());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_get_authorized_nodes_empty() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+
+        let result_read = log.get_authorized_nodes();
+        assert!(result_read.is_ok());
+        assert_eq!(result_read.unwrap().len(), 0);
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_get_authorized_nodes_add() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+
+        let transparency_log1 = TransparencyLog {
+            id: String::from("id1"),
+            package_type: PackageType::Maven2,
+            package_type_id: String::from("package_type_id1"),
+            artifact_hash: String::from("artifact_hash1"),
+            source_hash: String::from("source_hash1"),
+            artifact_id: String::from(Uuid::new_v4().to_string()),
+            source_id: String::from(Uuid::new_v4().to_string()),
+            timestamp: 10000000,
+            operation: Operation::AddNode,
+            node_id: String::from("node_id1"),
+            node_public_key: String::from(Uuid::new_v4().to_string()),
+        };
+
+        let result_write1 = log.write_transparency_log(&transparency_log1);
+        assert!(result_write1.is_ok());
+
+        let result_read = log.get_authorized_nodes();
+        assert!(result_read.is_ok());
+        let vec = result_read.unwrap();
+        assert_eq!(vec.len(), 1);
+        assert_eq!(vec.get(0).unwrap().node_id, "node_id1");
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_get_authorized_nodes_add_and_remove() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+
+        let transparency_log1 = TransparencyLog {
+            id: String::from("id1"),
+            package_type: PackageType::Maven2,
+            package_type_id: String::from("package_type_id1"),
+            artifact_hash: String::from("artifact_hash1"),
+            source_hash: String::from("source_hash1"),
+            artifact_id: String::from(Uuid::new_v4().to_string()),
+            source_id: String::from(Uuid::new_v4().to_string()),
+            timestamp: 10000000,
+            operation: Operation::AddNode,
+            node_id: String::from("node_id1"),
+            node_public_key: String::from(Uuid::new_v4().to_string()),
+        };
+
+        let result_write1 = log.write_transparency_log(&transparency_log1);
+        assert!(result_write1.is_ok());
+
+        let transparency_log2 = TransparencyLog {
+            id: String::from("id2"),
+            package_type: PackageType::Maven2,
+            package_type_id: String::from("package_type_id2"),
+            artifact_hash: String::from("artifact_hash2"),
+            source_hash: String::from("source_hash2"),
+            artifact_id: String::from(Uuid::new_v4().to_string()),
+            source_id: String::from(Uuid::new_v4().to_string()),
+            timestamp: 20000000,
+            operation: Operation::AddNode,
+            node_id: String::from("node_id2"),
+            node_public_key: String::from(Uuid::new_v4().to_string()),
+        };
+
+        let result_write2 = log.write_transparency_log(&transparency_log2);
+        assert!(result_write2.is_ok());
+
+        let transparency_log3 = TransparencyLog {
+            id: String::from("id3"),
+            package_type: PackageType::Maven2,
+            package_type_id: String::from("package_type_id3"),
+            artifact_hash: String::from("artifact_hash3"),
+            source_hash: String::from("source_hash3"),
+            artifact_id: String::from(Uuid::new_v4().to_string()),
+            source_id: String::from(Uuid::new_v4().to_string()),
+            timestamp: 30000000,
+            operation: Operation::RemoveNode,
+            node_id: String::from("node_id1"),
+            node_public_key: String::from(Uuid::new_v4().to_string()),
+        };
+
+        let result_write3 = log.write_transparency_log(&transparency_log3);
+        assert!(result_write3.is_ok());
+
+        let result_read = log.get_authorized_nodes();
+        assert!(result_read.is_ok());
+        let vec = result_read.unwrap();
+        assert_eq!(vec.len(), 1);
+        assert_eq!(vec.get(0).unwrap().node_id, "node_id2");
 
         test_util::tests::teardown(tmp_dir);
     }
