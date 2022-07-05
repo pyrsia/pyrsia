@@ -115,10 +115,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     )
                     .await
                     {
-                        warn!(
-                            "This node failed to provide artifact with type {:?} and hash {:?}. Error: {:?}",
-                            transaction_operation, payload, error
-                        );
+                        warn!("This node failed to update blockchain Error: {:?}", error);
                     }
                 }
             }
