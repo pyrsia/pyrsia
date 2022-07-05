@@ -104,7 +104,7 @@ mod tests {
         let tmp_file = tempfile::Builder::new().tempfile().unwrap();
         tmp_file.as_file().write_all(&[1; 32]).unwrap();
 
-        let keypair = load_ed25519(&tmp_file.path());
+        let keypair = load_ed25519(tmp_file.path());
         assert_eq!(keypair.unwrap_err().kind(), io::ErrorKind::InvalidData);
     }
 

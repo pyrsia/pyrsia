@@ -328,7 +328,7 @@ mod tests {
         let operation = Operation::AddArtifact;
         let transparency_log = TransparencyLog {
             id: id.to_string(),
-            package_type: package_type.clone(),
+            package_type,
             package_type_id: package_type_id.to_string(),
             artifact_hash: artifact_hash.to_string(),
             source_hash: source_hash.to_string(),
@@ -378,8 +378,8 @@ mod tests {
             package_type_id: String::from("package_type_id"),
             artifact_hash: String::from("artifact_hash"),
             source_hash: String::from("source_hash"),
-            artifact_id: String::from(Uuid::new_v4().to_string()),
-            source_id: String::from(Uuid::new_v4().to_string()),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
         };
@@ -402,8 +402,8 @@ mod tests {
             package_type_id: String::from("package_type_id"),
             artifact_hash: String::from("artifact_hash"),
             source_hash: String::from("source_hash"),
-            artifact_id: String::from(Uuid::new_v4().to_string()),
-            source_id: String::from(Uuid::new_v4().to_string()),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
         };
@@ -436,8 +436,8 @@ mod tests {
             package_type_id: String::from("package_type_id"),
             artifact_hash: String::from("artifact_hash"),
             source_hash: String::from("source_hash"),
-            artifact_id: String::from(Uuid::new_v4().to_string()),
-            source_id: String::from(Uuid::new_v4().to_string()),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
         };
@@ -463,8 +463,8 @@ mod tests {
             package_type_id: String::from("package_type_id"),
             artifact_hash: String::from("artifact_hash"),
             source_hash: String::from("source_hash"),
-            artifact_id: String::from(Uuid::new_v4().to_string()),
-            source_id: String::from(Uuid::new_v4().to_string()),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
         };
@@ -499,8 +499,8 @@ mod tests {
             package_type_id: String::from("package_type_id1"),
             artifact_hash: String::from("artifact_hash1"),
             source_hash: String::from("source_hash1"),
-            artifact_id: String::from(Uuid::new_v4().to_string()),
-            source_id: String::from(Uuid::new_v4().to_string()),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
             timestamp: 10000000,
             operation: Operation::AddArtifact,
         };
@@ -514,8 +514,8 @@ mod tests {
             package_type_id: String::from("package_type_id2"),
             artifact_hash: String::from("artifact_hash2"),
             source_hash: String::from("source_hash2"),
-            artifact_id: String::from(Uuid::new_v4().to_string()),
-            source_id: String::from(Uuid::new_v4().to_string()),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
             timestamp: 20000000,
             operation: Operation::AddArtifact,
         };
@@ -541,8 +541,8 @@ mod tests {
             package_type_id: String::from("package_type_id"),
             artifact_hash: String::from("artifact_hash"),
             source_hash: String::from("source_hash"),
-            artifact_id: String::from(Uuid::new_v4().to_string()),
-            source_id: String::from(Uuid::new_v4().to_string()),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
             timestamp: 10000000,
             operation: Operation::RemoveArtifact,
         };
