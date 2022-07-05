@@ -54,7 +54,7 @@ impl Blockchain {
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let transaction = Transaction::new(
-            TransactionType::AddAuthority,
+            TransactionType::Create,
             local_id,
             "this needs to be the root authority".as_bytes().to_vec(),
             keypair,
@@ -128,7 +128,7 @@ mod tests {
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
-            TransactionType::AddTransparencyLog,
+            TransactionType::Create,
             local_id,
             data.as_bytes().to_vec(),
             &keypair,
@@ -152,7 +152,7 @@ mod tests {
         let mut chain = Blockchain::new(&keypair);
 
         let transaction = Transaction::new(
-            TransactionType::AddTransparencyLog,
+            TransactionType::Create,
             local_id,
             "some transaction".as_bytes().to_vec(),
             &keypair,

@@ -91,7 +91,7 @@ mod tests {
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
 
         let transactions = vec![Transaction::new(
-            TransactionType::AddTransparencyLog,
+            TransactionType::Create,
             local_id,
             b"Hello First Transaction".to_vec(),
             &keypair,

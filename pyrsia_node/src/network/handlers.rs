@@ -14,13 +14,12 @@
    limitations under the License.
 */
 
-use futures::lock::Mutex;
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::ResponseChannel;
 use libp2p::{Multiaddr, PeerId};
 use log::debug;
+
 use pyrsia::artifact_service::service::ArtifactService;
-use pyrsia::artifact_service::storage::ArtifactStorage;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
 use pyrsia::network::blockchain_protocol::BlockchainResponse;
 use pyrsia::network::client::{ArtifactType, Client};
@@ -29,6 +28,7 @@ use pyrsia::peer_metrics;
 use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::structures::transaction::TransactionType;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// Reach out to another node with the specified address
 pub async fn dial_other_peer(mut p2p_client: Client, to_dial: &Multiaddr) -> anyhow::Result<()> {
@@ -75,11 +75,6 @@ pub async fn handle_request_idle_metric(
         idle_metric: metric.to_le_bytes(),
     };
     p2p_client.respond_idle_metric(peer_metrics, channel).await
-}
-
-/// Get the artifact with the provided hash from the artifact manager.
-fn get_artifact(artifact_storage: ArtifactStorage, artifact_id: &str) -> anyhow::Result<Vec<u8>> {
-    artifact_service::handlers::get_artifact_locally(&artifact_storage, artifact_id)
 }
 
 pub async fn handle_request_blockchain(

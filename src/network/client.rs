@@ -553,7 +553,7 @@ mod tests {
         let payload = vec![0, 1, 2, 3, 4];
         tokio::spawn(async move {
             client
-                .request_blockchain(&other_peer_id, TransactionType::AddAuthority, payload)
+                .request_blockchain(&other_peer_id, TransactionType::Create, payload)
                 .await
         });
 
@@ -561,7 +561,7 @@ mod tests {
             command = receiver.recv() => match command {
                 Some(Command::RequestBlockchain { peer, transaction_operation, payload, sender }) => {
                     assert_eq!(peer, other_peer_id);
-                    assert_eq!(transaction_operation, TransactionType::AddAuthority);
+                    assert_eq!(transaction_operation, TransactionType::Create);
                     assert_eq!(payload, vec![0, 1, 2, 3, 4]);
                     let _ = sender.send(Ok(Some(1u64)));
                 },

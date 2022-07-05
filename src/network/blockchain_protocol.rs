@@ -67,8 +67,7 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
         }
 
         let transaction_operation = match type_vec[0] {
-            1 => TransactionType::AddAuthority,
-            2 => TransactionType::AddTransparencyLog,
+            1 => TransactionType::Create,
             _ => return Err(io::ErrorKind::InvalidData.into()),
         };
 
@@ -124,8 +123,7 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
         );
 
         let transaction_data_operator: Vec<u8> = match transaction_operation {
-            TransactionType::AddAuthority => vec![1],
-            TransactionType::AddTransparencyLog => vec![2],
+            TransactionType::Create => vec![1],
         };
 
         write_length_prefixed(io, transaction_data_operator).await?;
