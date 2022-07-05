@@ -1,5 +1,6 @@
 FROM ubuntu:focal
 
+# Default Ports
 EXPOSE 7888
 EXPOSE 44000
 
@@ -10,4 +11,9 @@ RUN apt-get update; \
     apt-get -y install wget gnupg2; \
     wget -O - https://pyrsia.io/install.sh | sh; 
 
-ENTRYPOINT [ "/usr/bin/pyrsia_node", "--host", "0.0.0.0", "-L", "/ip4/0.0.0.0/tcp/44000" ]
+# Need to run an entrypoint script that will determine if the docker container
+# is runnin under Kubernetes or not.  This is done to derive the external ip address
+# assigned to the service/pod
+COPY installers/docker/node-entrypoint.sh /tmp/entrypoint.sh
+
+ENTRYPOINT [ "/tmp/entrypoint.sh", "--host", "0.0.0.0", "--listen", "/ip4/0.0.0.0/tcp/44000" ]

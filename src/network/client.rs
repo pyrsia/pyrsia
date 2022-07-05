@@ -19,6 +19,7 @@ pub mod command;
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
+use crate::node_api::model::cli::Status;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
 use log::debug;
@@ -111,6 +112,13 @@ impl Client {
                 sender,
             })
             .await?;
+        Ok(receiver.await?)
+    }
+
+    /// Get the status of the node including nearby peers cnt and my peer addrs
+    pub async fn status(&mut self, peers: HashSet<PeerId>) -> anyhow::Result<Status> {
+        let (sender, receiver) = oneshot::channel();
+        self.sender.send(Command::Status { peers, sender }).await?;
         Ok(receiver.await?)
     }
 
@@ -361,6 +369,29 @@ mod tests {
                     let _ = sender.send(Default::default());
                 },
                 _ => panic!("Command must match Command::ListPeers")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_status() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+        let mut client = Client {
+            sender,
+            local_peer_id,
+        };
+
+        let peers = HashSet::new();
+        tokio::spawn(async move { client.status(peers).await });
+
+        tokio::select! {
+            command = receiver.recv() => match command {
+                Some(Command::Status { peers: _, sender }) => {
+                    let _ = sender.send(Default::default());
+                },
+                _ => panic!("Command must match Command::Status")
             }
         }
     }

@@ -16,10 +16,11 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct Status {
     pub peers_count: usize,
     pub peer_id: String,
+    pub peer_addrs: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

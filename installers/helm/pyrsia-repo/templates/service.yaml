@@ -11,4 +11,4 @@ spec:
       targetPort: 80
       protocol: TCP
       name: http
-  type: NodePort
+  type: LoadBalancer
