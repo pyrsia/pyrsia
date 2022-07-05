@@ -1,0 +1,23 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "repo-nginx.name" . }}
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: {{ include "repo-nginx.name" . }}
+    networking.gke.io/managed-certificates: managed-cert,managed-cert-repo
+    networking.gke.io/v1beta1.FrontendConfig: {{ include "repo-nginx.name" . }}
+spec:
+  defaultBackend:
+    service:
+      name: {{ include "repo-nginx.name" . }}
+      port:
+        number: 80
+---
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: {{ include "repo-nginx.name" . }}
+spec:
+  redirectToHttps:
+    enabled: true
