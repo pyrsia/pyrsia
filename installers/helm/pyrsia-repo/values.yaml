@@ -1,0 +1,11 @@
+# Default values for dh-ms-nginx.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 3
+
+image:
+  repository: sbtaylor15/nginx-gcsfuse
+  tag: latest
+  pullPolicy: Always
+  
