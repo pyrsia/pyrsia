@@ -30,6 +30,7 @@ use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
 use pyrsia::util::keypair_util;
+use pyrsia::util::keypair_util::KEYPAIR_FILENAME;
 use pyrsia_blockchain_network::blockchain::Blockchain;
 
 use clap::Parser;
@@ -159,8 +160,7 @@ fn setup_artifact_service(p2p_client: Client) -> Result<Arc<Mutex<ArtifactServic
 }
 
 fn setup_blockchain() -> Result<Arc<Mutex<Blockchain>>> {
-    let local_keypair =
-        keypair_util::load_or_generate_ed25519(PathBuf::from(ARTIFACTS_DIR.as_str()));
+    let local_keypair = keypair_util::load_or_generate_ed25519(KEYPAIR_FILENAME.as_str());
 
     let ed25519_keypair = match local_keypair {
         libp2p::identity::Keypair::Ed25519(v) => v,

@@ -14,13 +14,13 @@
    limitations under the License.
 */
 
-use crate::artifact_service::storage::ARTIFACTS_DIR;
 use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactExchangeProtocol};
 use crate::network::behaviour::PyrsiaNetworkBehaviour;
 use crate::network::client::Client;
 use crate::network::event_loop::{PyrsiaEvent, PyrsiaEventLoop};
 use crate::network::idle_metric_protocol::{IdleMetricExchangeCodec, IdleMetricExchangeProtocol};
 use crate::util::keypair_util;
+use crate::util::keypair_util::KEYPAIR_FILENAME;
 
 use libp2p::core;
 use libp2p::dns;
@@ -36,7 +36,6 @@ use libp2p::yamux;
 use libp2p::Transport;
 use std::error::Error;
 use std::iter;
-use std::path::PathBuf;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::Stream;
@@ -108,8 +107,7 @@ use tokio_stream::Stream;
 pub fn setup_libp2p_swarm(
     max_provided_keys: usize,
 ) -> Result<(Client, impl Stream<Item = PyrsiaEvent>, PyrsiaEventLoop), Box<dyn Error>> {
-    let local_keypair =
-        keypair_util::load_or_generate_ed25519(PathBuf::from(ARTIFACTS_DIR.as_str()));
+    let local_keypair = keypair_util::load_or_generate_ed25519(KEYPAIR_FILENAME.as_str());
 
     let (swarm, local_peer_id) = create_swarm(local_keypair, max_provided_keys)?;
 
