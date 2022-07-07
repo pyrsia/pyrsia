@@ -21,113 +21,89 @@ use libp2p::core::upgrade::{
 };
 use libp2p::request_response::RequestResponseCodec;
 use log::debug;
-use pyrsia_blockchain_network::structures::transaction::TransactionType;
 use std::io;
 
 #[derive(Debug, Clone)]
-pub struct BlockchainExchangeProtocol();
+pub struct BlockUpdateExchangeProtocol();
 
 #[derive(Clone)]
-pub struct BlockchainExchangeCodec();
+pub struct BlockUpdateExchangeCodec();
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BlockchainRequest(pub TransactionType, pub Vec<u8>);
+pub struct BlockUpdateRequest(pub u64, pub Vec<u8>);
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BlockchainResponse(pub Option<u64>);
+pub struct BlockUpdateResponse();
 
-impl ProtocolName for BlockchainExchangeProtocol {
+impl ProtocolName for BlockUpdateExchangeProtocol {
     fn protocol_name(&self) -> &[u8] {
-        "/pyrsia-blockchain-exchange/1".as_bytes()
+        "/pyrsia-blockchain-update-exchange/1".as_bytes()
     }
 }
 #[async_trait]
-impl RequestResponseCodec for BlockchainExchangeCodec {
-    type Protocol = BlockchainExchangeProtocol;
-    type Request = BlockchainRequest;
-    type Response = BlockchainResponse;
+impl RequestResponseCodec for BlockUpdateExchangeCodec {
+    type Protocol = BlockUpdateExchangeProtocol;
+    type Request = BlockUpdateRequest;
+    type Response = BlockUpdateResponse;
 
     //read blockchain request from a peer.
     async fn read_request<T>(
         &mut self,
-        _: &BlockchainExchangeProtocol,
+        _: &BlockUpdateExchangeProtocol,
         io: &mut T,
     ) -> io::Result<Self::Request>
     where
         T: AsyncRead + Unpin + Send,
     {
-        debug!("prysia::blobkchain_protocol::read_request received from peer.");
+        debug!("prysia::blobkchain_protocol::BlockUpdate::read_request received from peer.");
+        let mut buff: [u8; 8] = [0; 8];
+        let mut size = read_varint(io).await?;
+        if size != 8 {
+            return Err(io::ErrorKind::InvalidData.into());
+        }
 
-        let type_vec = read_length_prefixed(io, 1_000).await?;
-        if type_vec.is_empty() {
+        size = io.read(&mut buff).await?;
+        if size != 8 {
+            return Err(io::ErrorKind::InvalidData.into());
+        }
+
+        let block_vec = read_length_prefixed(io, 1_000_000).await?;
+        if block_vec.is_empty() {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
 
-        let payload_vec = read_length_prefixed(io, 1_000_000).await?;
-        if payload_vec.is_empty() {
-            return Err(io::ErrorKind::UnexpectedEof.into());
-        }
+        debug!("Read Blockchain Request: block is {:?}", block_vec);
 
-        let transaction_operation = match type_vec[0] {
-            1 => TransactionType::Create,
-            _ => return Err(io::ErrorKind::InvalidData.into()),
-        };
-
-        debug!(
-            "Read Blockchain Request: {:?}={:?}",
-            transaction_operation, payload_vec
-        );
-
-        Ok(BlockchainRequest(transaction_operation, payload_vec))
+        Ok(BlockUpdateRequest(u64::from_be_bytes(buff), block_vec))
     }
 
     //reads blockchain response from the peer
     async fn read_response<T>(
         &mut self,
-        _: &BlockchainExchangeProtocol,
-        io: &mut T,
+        _: &BlockUpdateExchangeProtocol,
+        _io: &mut T,
     ) -> io::Result<Self::Response>
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut buff: [u8; 8] = [0; 8];
-        let mut size = read_varint(io).await?;
-        if size != 8 {
-            return Ok(BlockchainResponse(None));
-        }
-
-        size = io.read(&mut buff).await?;
-        if size != 8 {
-            return Ok(BlockchainResponse(None));
-        }
-
-        let block_ordinal = Some(u64::from_be_bytes(buff));
-        debug!(
-            "prysia::blockchain_protocol::read_response Reading response to blockchain request with value ={:?}",
-            block_ordinal
-        );
-        Ok(BlockchainResponse(block_ordinal))
+        Ok(BlockUpdateResponse())
     }
 
     //this method send blockchain request from the peer
     async fn write_request<T>(
         &mut self,
-        _: &BlockchainExchangeProtocol,
+        _: &BlockUpdateExchangeProtocol,
         io: &mut T,
-        BlockchainRequest(transaction_operation, payload): BlockchainRequest,
+        BlockUpdateRequest(block_ordinal, block): BlockUpdateRequest,
     ) -> io::Result<()>
     where
         T: AsyncWrite + Unpin + Send,
     {
-        debug!(
-            "Write BlockchainRequest: {:?}={:?}",
-            transaction_operation, payload
-        );
+        debug!("Write BlockUpdateRequest: {:?}={:?}", block_ordinal, block);
+        let data = block_ordinal.to_be_bytes();
+        write_varint(io, data.as_ref().len()).await?;
+        io.write_all(data.as_ref()).await?;
+        io.flush().await?;
 
-        let transaction_data_operator: Vec<u8> = match transaction_operation {
-            TransactionType::Create => vec![1],
-        };
-
-        write_length_prefixed(io, transaction_data_operator).await?;
-        write_length_prefixed(io, payload).await?;
+        write_length_prefixed(io, block).await?;
         io.close().await?;
 
         Ok(())
@@ -136,33 +112,13 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     //this object writes the quality metric to the peer.
     async fn write_response<T>(
         &mut self,
-        _: &BlockchainExchangeProtocol,
-        io: &mut T,
-        BlockchainResponse(data): BlockchainResponse,
+        _: &BlockUpdateExchangeProtocol,
+        _io: &mut T,
+        BlockUpdateResponse(): BlockUpdateResponse,
     ) -> io::Result<()>
     where
         T: AsyncWrite + Unpin + Send,
     {
-        debug!(
-            "prysia::blobkchain_protocol::write_response Send blockchain response with value = {:?}",
-            data
-        );
-
-        match data {
-            Some(x) => {
-                let data = u64::to_be_bytes(x);
-                write_varint(io, data.as_ref().len()).await?;
-                io.write_all(data.as_ref()).await?;
-                io.flush().await?;
-            }
-            None => {
-                write_varint(io, 0).await?;
-                io.flush().await?;
-            }
-        }
-
-        io.close().await?;
-
         Ok(())
     }
 }

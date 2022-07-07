@@ -16,7 +16,7 @@
 
 use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse};
 use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
-use crate::network::blockchain_protocol::{BlockchainRequest, BlockchainResponse};
+use crate::network::blockchain_protocol::{BlockUpdateRequest, BlockUpdateResponse};
 use crate::network::client::command::Command;
 use crate::network::client::ArtifactType;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
@@ -30,7 +30,6 @@ use libp2p::request_response::{
 use libp2p::swarm::SwarmEvent;
 use libp2p::Swarm;
 use log::{debug, info, trace, warn};
-use pyrsia_blockchain_network::structures::transaction::TransactionType;
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::error::Error;
 use tokio::sync::{mpsc, oneshot};
@@ -40,7 +39,8 @@ type PendingListPeersMap = HashMap<QueryId, oneshot::Sender<HashSet<PeerId>>>;
 type PendingStartProvidingMap = HashMap<QueryId, oneshot::Sender<()>>;
 type PendingRequestArtifactMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<Vec<u8>>>>;
 type PendingRequestIdleMetricMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<PeerMetrics>>>;
-type PendingRequestBlockchain = HashMap<RequestId, oneshot::Sender<anyhow::Result<Option<u64>>>>;
+type PendingRequestBlockUpdateMap =
+    HashMap<RequestId, oneshot::Sender<anyhow::Result<Option<u64>>>>;
 
 /// The `PyrsiaEventLoop` is responsible for taking care of incoming
 /// events from the libp2p [`Swarm`] itself, the different network
@@ -56,7 +56,7 @@ pub struct PyrsiaEventLoop {
     pending_list_providers: PendingListPeersMap,
     pending_request_artifact: PendingRequestArtifactMap,
     pending_idle_metric_requests: PendingRequestIdleMetricMap,
-    pending_blockchain_requests: PendingRequestBlockchain,
+    pending_block_update_requests: PendingRequestBlockUpdateMap,
 }
 
 impl PyrsiaEventLoop {
@@ -75,7 +75,7 @@ impl PyrsiaEventLoop {
             pending_list_providers: Default::default(),
             pending_request_artifact: Default::default(),
             pending_idle_metric_requests: Default::default(),
-            pending_blockchain_requests: Default::default(),
+            pending_block_update_requests: Default::default(),
         }
     }
 
@@ -88,7 +88,7 @@ impl PyrsiaEventLoop {
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Kademlia(kademlia_event)) => self.handle_kademlia_event(kademlia_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::RequestResponse(request_response_event)) => self.handle_request_response_event(request_response_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::IdleMetricRequestResponse(request_response_event)) => self.handle_idle_metric_request_response_event(request_response_event).await,
-                    SwarmEvent::Behaviour(PyrsiaNetworkEvent::BlockchainRequestResponse(request_response_event)) => self.handle_blockchain_request_response_event(request_response_event).await,
+                    SwarmEvent::Behaviour(PyrsiaNetworkEvent::BlockUpdateRequestResponse(request_response_event)) => self.handle_block_update_request_response_event(request_response_event).await,
                     swarm_event => self.handle_swarm_event(swarm_event).await,
                 },
                 command = self.command_receiver.recv() => match command {
@@ -234,35 +234,35 @@ impl PyrsiaEventLoop {
         }
     }
 
-    // Handles events from the `RequestResponse` for blockchain exchange network behaviour.
-    async fn handle_blockchain_request_response_event(
+    // Handles events from the `RequestResponse` for blockchain update exchange network behaviour.
+    async fn handle_block_update_request_response_event(
         &mut self,
-        event: RequestResponseEvent<BlockchainRequest, BlockchainResponse>,
+        event: RequestResponseEvent<BlockUpdateRequest, BlockUpdateResponse>,
     ) {
         trace!("Handle RequestResponseEvent: {:?}", event);
         match event {
             RequestResponseEvent::Message { message, .. } => match message {
                 RequestResponseMessage::Request {
-                    request, channel, ..
+                    request,
+                    channel: _,
+                    ..
                 } => {
                     self.event_sender
-                        .send(PyrsiaEvent::BlockchainRequest {
-                            transaction_operation: request.0,
-                            payload: request.1,
-                            channel,
+                        .send(PyrsiaEvent::BlockUpdateRequest {
+                            block_ordinal: request.0,
+                            block: request.1,
                         })
                         .await
                         .expect("Event receiver not to be dropped.");
                 }
                 RequestResponseMessage::Response {
                     request_id,
-                    response,
+                    response: _,
                 } => {
                     let _ = self
-                        .pending_blockchain_requests
+                        .pending_block_update_requests
                         .remove(&request_id)
-                        .expect("Request to still be pending.")
-                        .send(Ok(response.0));
+                        .expect("Request to still be pending.");
                 }
             },
             RequestResponseEvent::InboundFailure { .. } => {}
@@ -270,7 +270,7 @@ impl PyrsiaEventLoop {
                 request_id, error, ..
             } => {
                 let _ = self
-                    .pending_blockchain_requests
+                    .pending_block_update_requests
                     .remove(&request_id)
                     .expect("Request to still be pending.")
                     .send(Err(From::from(error)));
@@ -430,29 +430,21 @@ impl PyrsiaEventLoop {
                     .send_response(channel, IdleMetricResponse(metric))
                     .expect("Connection to peer to be still open.");
             }
-            Command::RequestBlockchain {
-                transaction_operation,
-                payload,
+            Command::RequestBlockUpdate {
+                block_ordinal,
+                block,
                 peer,
                 sender,
             } => {
                 let request_id = self
                     .swarm
                     .behaviour_mut()
-                    .blockchain_request_response
-                    .send_request(&peer, BlockchainRequest(transaction_operation, payload));
-                self.pending_blockchain_requests.insert(request_id, sender);
+                    .block_update_request_response
+                    .send_request(&peer, BlockUpdateRequest(block_ordinal, block));
+                self.pending_block_update_requests
+                    .insert(request_id, sender);
             }
-            Command::RespondBlockchain {
-                block_ordinal,
-                channel,
-            } => {
-                self.swarm
-                    .behaviour_mut()
-                    .blockchain_request_response
-                    .send_response(channel, BlockchainResponse(block_ordinal))
-                    .expect("Connection to peer to be still open.");
-            }
+            Command::RespondBlockUpdate {} => {}
         }
     }
 }
@@ -467,10 +459,9 @@ pub enum PyrsiaEvent {
     IdleMetricRequest {
         channel: ResponseChannel<IdleMetricResponse>,
     },
-    BlockchainRequest {
-        transaction_operation: TransactionType,
-        payload: Vec<u8>,
-        channel: ResponseChannel<BlockchainResponse>,
+    BlockUpdateRequest {
+        block_ordinal: u64,
+        block: Vec<u8>,
     },
 }
 
@@ -479,7 +470,7 @@ mod tests {
     use super::*;
     use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactExchangeProtocol};
     use crate::network::blockchain_protocol::{
-        BlockchainExchangeCodec, BlockchainExchangeProtocol,
+        BlockUpdateExchangeCodec, BlockUpdateExchangeProtocol,
     };
     use crate::network::client::Client;
     use crate::network::idle_metric_protocol::{
@@ -534,10 +525,10 @@ mod tests {
                 )),
                 Default::default(),
             ),
-            blockchain_request_response: request_response::RequestResponse::new(
-                BlockchainExchangeCodec(),
+            block_update_request_response: request_response::RequestResponse::new(
+                BlockUpdateExchangeCodec(),
                 iter::once((
-                    BlockchainExchangeProtocol(),
+                    BlockUpdateExchangeProtocol(),
                     request_response::ProtocolSupport::Full,
                 )),
                 Default::default(),

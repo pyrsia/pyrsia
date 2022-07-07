@@ -15,12 +15,10 @@
 */
 
 use crate::network::artifact_protocol::ArtifactResponse;
-use crate::network::blockchain_protocol::BlockchainResponse;
 use crate::network::client::{ArtifactHash, ArtifactType};
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
-use pyrsia_blockchain_network::structures::transaction::TransactionType;
 use std::collections::HashSet;
 use strum_macros::Display;
 use tokio::sync::oneshot;
@@ -71,16 +69,13 @@ pub enum Command {
         metric: PeerMetrics,
         channel: ResponseChannel<IdleMetricResponse>,
     },
-    RequestBlockchain {
-        transaction_operation: TransactionType,
-        payload: Vec<u8>,
+    RequestBlockUpdate {
+        block_ordinal: u64,
+        block: Vec<u8>,
         peer: PeerId,
         sender: oneshot::Sender<anyhow::Result<Option<u64>>>,
     },
-    RespondBlockchain {
-        block_ordinal: Option<u64>,
-        channel: ResponseChannel<BlockchainResponse>,
-    },
+    RespondBlockUpdate(),
 }
 
 #[cfg(test)]

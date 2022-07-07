@@ -21,12 +21,10 @@ use log::debug;
 
 use pyrsia::artifact_service::service::ArtifactService;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
-use pyrsia::network::blockchain_protocol::BlockchainResponse;
 use pyrsia::network::client::{ArtifactType, Client};
 use pyrsia::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use pyrsia::peer_metrics;
 use pyrsia_blockchain_network::blockchain::Blockchain;
-use pyrsia_blockchain_network::structures::transaction::TransactionType;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -77,19 +75,17 @@ pub async fn handle_request_idle_metric(
     p2p_client.respond_idle_metric(peer_metrics, channel).await
 }
 
-pub async fn handle_request_blockchain(
+pub async fn handle_request_block_update(
     mut p2p_client: Client,
     blockchain: Arc<Mutex<Blockchain>>,
-    transaction_operation: TransactionType,
-    payload: Vec<u8>,
-    channel: ResponseChannel<BlockchainResponse>,
+    block_ordinal: u64,
+    block: Vec<u8>,
 ) -> anyhow::Result<()> {
     debug!(
         "Handling request blockchain: {:?}={:?}",
-        transaction_operation, payload
+        block_ordinal, block
     );
 
     let _ = blockchain; // TODO!
-
-    p2p_client.respond_blockchain(Some(1u64), channel).await
+    p2p_client.respond_block_update().await
 }

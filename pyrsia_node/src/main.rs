@@ -101,17 +101,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         );
                     }
                 }
-                pyrsia::network::event_loop::PyrsiaEvent::BlockchainRequest {
-                    transaction_operation,
-                    payload,
-                    channel,
+                pyrsia::network::event_loop::PyrsiaEvent::BlockUpdateRequest {
+                    block_ordinal,
+                    block,
                 } => {
-                    if let Err(error) = handlers::handle_request_blockchain(
+                    if let Err(error) = handlers::handle_request_block_update(
                         p2p_client.clone(),
                         blockchain.clone(),
-                        transaction_operation,
-                        payload.clone(),
-                        channel,
+                        block_ordinal,
+                        block.clone(),
                     )
                     .await
                     {
