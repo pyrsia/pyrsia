@@ -105,8 +105,7 @@ impl PyrsiaEventLoop {
                 result: QueryResult::GetClosestPeers(Ok(GetClosestPeersOk { key: _key, peers })),
                 ..
             } => {
-                let _ = self
-                    .pending_list_peers
+                self.pending_list_peers
                     .remove(&id)
                     .expect("Completed query to be previously pending.")
                     .send(HashSet::from_iter(peers));
@@ -120,7 +119,7 @@ impl PyrsiaEventLoop {
                     .pending_start_providing
                     .remove(&id)
                     .expect("Completed query to be previously pending.");
-                let _ = sender.send(());
+                sender.send(());
             }
             KademliaEvent::OutboundQueryCompleted {
                 id,
@@ -132,8 +131,7 @@ impl PyrsiaEventLoop {
                     })),
                 ..
             } => {
-                let _ = self
-                    .pending_list_providers
+                self.pending_list_providers
                     .remove(&id)
                     .expect("Completed query to be previously pending.")
                     .send(providers);
@@ -167,8 +165,7 @@ impl PyrsiaEventLoop {
                     request_id,
                     response,
                 } => {
-                    let _ = self
-                        .pending_request_artifact
+                    self.pending_request_artifact
                         .remove(&request_id)
                         .expect("Request to still be pending.")
                         .send(Ok(response.0));
@@ -178,8 +175,7 @@ impl PyrsiaEventLoop {
             RequestResponseEvent::OutboundFailure {
                 request_id, error, ..
             } => {
-                let _ = self
-                    .pending_request_artifact
+                self.pending_request_artifact
                     .remove(&request_id)
                     .expect("Request to still be pending.")
                     .send(Err(error.into()));
@@ -207,8 +203,7 @@ impl PyrsiaEventLoop {
                     request_id,
                     response,
                 } => {
-                    let _ = self
-                        .pending_idle_metric_requests
+                    self.pending_idle_metric_requests
                         .remove(&request_id)
                         .expect("Request to still be pending.")
                         .send(Ok(response.0));
@@ -218,8 +213,7 @@ impl PyrsiaEventLoop {
             RequestResponseEvent::OutboundFailure {
                 request_id, error, ..
             } => {
-                let _ = self
-                    .pending_idle_metric_requests
+                self.pending_idle_metric_requests
                     .remove(&request_id)
                     .expect("Request to still be pending.")
                     .send(Err(error.into()));
@@ -246,7 +240,7 @@ impl PyrsiaEventLoop {
             } => {
                 if endpoint.is_dialer() {
                     if let Some(sender) = self.pending_dial.remove(&peer_id) {
-                        let _ = sender.send(Ok(()));
+                        sender.send(Ok(()));
                     }
                 }
             }
@@ -254,7 +248,7 @@ impl PyrsiaEventLoop {
             SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
                 if let Some(peer_id) = peer_id {
                     if let Some(sender) = self.pending_dial.remove(&peer_id) {
-                        let _ = sender.send(Err(error.into()));
+                        sender.send(Err(error.into()));
                     }
                 }
             }
@@ -279,7 +273,7 @@ impl PyrsiaEventLoop {
         trace!("Handle Command: {}", command);
         match command {
             Command::Listen { addr, sender } => {
-                let _ = match self.swarm.listen_on(addr) {
+                match self.swarm.listen_on(addr) {
                     Ok(_) => sender.send(Ok(())),
                     Err(e) => sender.send(Err(e.into())),
                 };
@@ -303,7 +297,7 @@ impl PyrsiaEventLoop {
                             self.pending_dial.insert(peer_id, sender);
                         }
                         Err(e) => {
-                            let _ = sender.send(Err(e.into()));
+                            sender.send(Err(e.into()));
                         }
                     }
                 }
