@@ -70,19 +70,19 @@ pub async fn node_ping() {
 
 pub async fn node_status() {
     let result = status().await;
-    let _resp = match result {
+    match result {
         Ok(resp) => {
             println!("{}", resp);
         }
         Err(error) => {
             println!("Error: {}", error);
         }
-    };
+    }
 }
 
 pub async fn node_list() {
     let result = peers_connected().await;
-    let _resp = match result {
+    match result {
         Ok(resp) => {
             println!("Connected Peers:");
             let peers_split = resp.split(',');
@@ -95,5 +95,5 @@ pub async fn node_list() {
         Err(error) => {
             println!("Error: {}", error);
         }
-    };
+    }
 }

@@ -17,7 +17,6 @@
 use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse};
 use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::client::command::Command;
-use crate::network::client::ArtifactType;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
 use libp2p::core::PeerId;
 use libp2p::futures::StreamExt;
@@ -156,8 +155,7 @@ impl PyrsiaEventLoop {
                 } => {
                     self.event_sender
                         .send(PyrsiaEvent::RequestArtifact {
-                            artifact_type: request.0,
-                            artifact_hash: request.1,
+                            artifact_id: request.0,
                             channel,
                         })
                         .await
@@ -317,35 +315,30 @@ impl PyrsiaEventLoop {
                 self.pending_list_peers.insert(query_id, sender);
             }
             Command::Provide {
-                artifact_type,
-                artifact_hash,
+                artifact_id,
                 sender,
             } => {
-                let kademlia_key = format!("{}|{}", artifact_type, artifact_hash.hash);
                 let query_id = self
                     .swarm
                     .behaviour_mut()
                     .kademlia
-                    .start_providing(kademlia_key.into_bytes().into())
+                    .start_providing(artifact_id.into_bytes().into())
                     .expect("No store error.");
                 self.pending_start_providing.insert(query_id, sender);
             }
             Command::ListProviders {
-                artifact_type,
-                artifact_hash,
+                artifact_id,
                 sender,
             } => {
-                let kademlia_key = format!("{}|{}", artifact_type, artifact_hash.hash);
                 let query_id = self
                     .swarm
                     .behaviour_mut()
                     .kademlia
-                    .get_providers(kademlia_key.into_bytes().into());
+                    .get_providers(artifact_id.into_bytes().into());
                 self.pending_list_providers.insert(query_id, sender);
             }
             Command::RequestArtifact {
-                artifact_type,
-                artifact_hash,
+                artifact_id,
                 peer,
                 sender,
             } => {
@@ -353,7 +346,7 @@ impl PyrsiaEventLoop {
                     .swarm
                     .behaviour_mut()
                     .request_response
-                    .send_request(&peer, ArtifactRequest(artifact_type, artifact_hash.hash));
+                    .send_request(&peer, ArtifactRequest(artifact_id));
                 self.pending_request_artifact.insert(request_id, sender);
             }
             Command::RespondArtifact { artifact, channel } => {
@@ -385,8 +378,7 @@ impl PyrsiaEventLoop {
 #[derive(Debug)]
 pub enum PyrsiaEvent {
     RequestArtifact {
-        artifact_type: ArtifactType,
-        artifact_hash: String,
+        artifact_id: String,
         channel: ResponseChannel<ArtifactResponse>,
     },
     IdleMetricRequest {
