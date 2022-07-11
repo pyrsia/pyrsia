@@ -10,7 +10,7 @@ pyrsia = {path=".."}
 anyhow = "1.0"
 clap = { version = "3.2.8", features= ["cargo"] }
 confy = "0.4.0"
-const_format = "0.2.25"
+const_format = "0.2.26"
 futures = { version = "0.3.*"}
 reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
