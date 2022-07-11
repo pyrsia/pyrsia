@@ -84,7 +84,7 @@ pub struct TransparencyLog {
     package_type_id: String,
     pub artifact_hash: String,
     source_hash: String,
-    artifact_id: String,
+    pub artifact_id: String,
     source_id: String,
     timestamp: u64,
     operation: Operation,
@@ -139,7 +139,7 @@ impl TransparencyLogService {
     pub async fn add_artifact(
         &mut self,
         add_artifact_request: AddArtifactRequest,
-        _sender: oneshot::Sender<Result<TransparencyLog, TransparencyLogError>>,
+        sender: oneshot::Sender<Result<TransparencyLog, TransparencyLogError>>,
     ) -> Result<(), TransparencyLogError> {
         let transparency_log = TransparencyLog {
             id: add_artifact_request.package_type_id.to_string(),
@@ -162,6 +162,12 @@ impl TransparencyLogService {
         // Wait for callback and resume
 
         self.write_transparency_log(&transparency_log)?;
+
+        sender.send(Ok(transparency_log)).map_err(|_| {
+            TransparencyLogError::StorageFailure(
+                "Receiver dropped. Could not send add_transaction result.".to_owned(),
+            )
+        })?;
 
         Ok(())
     }
@@ -460,8 +466,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
-            node_id: String::from(Uuid::new_v4().to_string()),
-            node_public_key: String::from(Uuid::new_v4().to_string()),
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
         };
 
         let result = log.write_transparency_log(&transparency_log);
@@ -486,8 +492,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
-            node_id: String::from(Uuid::new_v4().to_string()),
-            node_public_key: String::from(Uuid::new_v4().to_string()),
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
         };
 
         let mut result = log.write_transparency_log(&transparency_log);
@@ -522,8 +528,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
-            node_id: String::from(Uuid::new_v4().to_string()),
-            node_public_key: String::from(Uuid::new_v4().to_string()),
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
         };
 
         let result_write = log.write_transparency_log(&transparency_log);
@@ -551,8 +557,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 1234567890,
             operation: Operation::AddArtifact,
-            node_id: String::from(Uuid::new_v4().to_string()),
-            node_public_key: String::from(Uuid::new_v4().to_string()),
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
         };
 
         let result_write = log.write_transparency_log(&transparency_log);
@@ -589,8 +595,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 10000000,
             operation: Operation::AddArtifact,
-            node_id: String::from(Uuid::new_v4().to_string()),
-            node_public_key: String::from(Uuid::new_v4().to_string()),
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
         };
 
         let result_write1 = log.write_transparency_log(&transparency_log1);
@@ -606,8 +612,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 20000000,
             operation: Operation::AddArtifact,
-            node_id: String::from(Uuid::new_v4().to_string()),
-            node_public_key: String::from(Uuid::new_v4().to_string()),
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
         };
 
         let result_write2 = log.write_transparency_log(&transparency_log2);
@@ -635,8 +641,8 @@ mod tests {
             source_id: Uuid::new_v4().to_string(),
             timestamp: 10000000,
             operation: Operation::RemoveArtifact,
-            node_id: String::from(Uuid::new_v4().to_string()),
-            node_public_key: String::from(Uuid::new_v4().to_string()),
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
         };
 
         let result_write = log.write_transparency_log(&transparency_log);
@@ -744,12 +750,12 @@ mod tests {
             package_type_id: String::from("package_type_id1"),
             artifact_hash: String::from("artifact_hash1"),
             source_hash: String::from("source_hash1"),
-            artifact_id: String::from(Uuid::new_v4().to_string()),
-            source_id: String::from(Uuid::new_v4().to_string()),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
             timestamp: 10000000,
             operation: Operation::AddNode,
             node_id: String::from("node_id1"),
-            node_public_key: String::from(Uuid::new_v4().to_string()),
+            node_public_key: Uuid::new_v4().to_string(),
         };
 
         let result_write1 = log.write_transparency_log(&transparency_log1);
@@ -776,12 +782,12 @@ mod tests {
             package_type_id: String::from("package_type_id1"),
             artifact_hash: String::from("artifact_hash1"),
             source_hash: String::from("source_hash1"),
-            artifact_id: String::from(Uuid::new_v4().to_string()),
-            source_id: String::from(Uuid::new_v4().to_string()),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
             timestamp: 10000000,
             operation: Operation::AddNode,
             node_id: String::from("node_id1"),
-            node_public_key: String::from(Uuid::new_v4().to_string()),
+            node_public_key: Uuid::new_v4().to_string(),
         };
 
         let result_write1 = log.write_transparency_log(&transparency_log1);
@@ -793,12 +799,12 @@ mod tests {
             package_type_id: String::from("package_type_id2"),
             artifact_hash: String::from("artifact_hash2"),
             source_hash: String::from("source_hash2"),
-            artifact_id: String::from(Uuid::new_v4().to_string()),
-            source_id: String::from(Uuid::new_v4().to_string()),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
             timestamp: 20000000,
             operation: Operation::AddNode,
             node_id: String::from("node_id2"),
-            node_public_key: String::from(Uuid::new_v4().to_string()),
+            node_public_key: Uuid::new_v4().to_string(),
         };
 
         let result_write2 = log.write_transparency_log(&transparency_log2);
@@ -810,12 +816,12 @@ mod tests {
             package_type_id: String::from("package_type_id3"),
             artifact_hash: String::from("artifact_hash3"),
             source_hash: String::from("source_hash3"),
-            artifact_id: String::from(Uuid::new_v4().to_string()),
-            source_id: String::from(Uuid::new_v4().to_string()),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
             timestamp: 30000000,
             operation: Operation::RemoveNode,
             node_id: String::from("node_id1"),
-            node_public_key: String::from(Uuid::new_v4().to_string()),
+            node_public_key: Uuid::new_v4().to_string(),
         };
 
         let result_write3 = log.write_transparency_log(&transparency_log3);

@@ -15,7 +15,6 @@
 */
 
 use crate::network::artifact_protocol::ArtifactResponse;
-use crate::network::client::{ArtifactHash, ArtifactType};
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
@@ -42,18 +41,15 @@ pub enum Command {
         sender: oneshot::Sender<HashSet<PeerId>>,
     },
     Provide {
-        artifact_type: ArtifactType,
-        artifact_hash: ArtifactHash,
+        artifact_id: String,
         sender: oneshot::Sender<()>,
     },
     ListProviders {
-        artifact_type: ArtifactType,
-        artifact_hash: ArtifactHash,
+        artifact_id: String,
         sender: oneshot::Sender<HashSet<PeerId>>,
     },
     RequestArtifact {
-        artifact_type: ArtifactType,
-        artifact_hash: ArtifactHash,
+        artifact_id: String,
         peer: PeerId,
         sender: oneshot::Sender<anyhow::Result<Vec<u8>>>,
     },

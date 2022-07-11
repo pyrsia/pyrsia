@@ -61,7 +61,6 @@ fn get_package_type_id(name: &str, tag: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artifact_service::hashing::{Hash, HashAlgorithm};
     use crate::artifact_service::storage::ArtifactStorage;
     use crate::network::client::Client;
     use crate::transparency_log::log::AddArtifactRequest;
@@ -73,12 +72,6 @@ mod tests {
     use std::fs::File;
     use std::path::PathBuf;
     use tokio::sync::{mpsc, oneshot};
-
-    const VALID_ARTIFACT_HASH: [u8; 32] = [
-        0x86, 0x5c, 0x8d, 0x98, 0x8b, 0xe4, 0x66, 0x9f, 0x3e, 0x48, 0xf7, 0x3b, 0x98, 0xf9, 0xbc,
-        0x25, 0x7, 0xbe, 0x2, 0x46, 0xea, 0x35, 0xe0, 0x9, 0x8c, 0xf6, 0x5, 0x4d, 0x36, 0x44, 0xc1,
-        0x4f,
-    ];
 
     #[test]
     fn test_get_package_type_id() {
@@ -94,33 +87,15 @@ mod tests {
 
         let name = "name_manifests";
         let tag = "tag_fetch_manifest_unknown_in_artifact_service";
-        let hash = "7300a197d7deb39371d4683d60f60f2fbbfd7541837ceb2278c12014e94e657b";
-        let package_type = PackageType::Docker;
-        let package_type_id = get_package_type_id(name, tag);
 
-        let (add_artifact_sender, _) = oneshot::channel();
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
             sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let mut artifact_service =
+        let artifact_service =
             ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
-
-        artifact_service
-            .transparency_log
-            .add_artifact(
-                AddArtifactRequest {
-                    package_type,
-                    package_type_id: package_type_id.to_string(),
-                    artifact_hash: hash.to_string(),
-                    source_hash: hash.to_string(),
-                },
-                add_artifact_sender,
-            )
-            .await
-            .unwrap();
 
         let result = fetch_manifest(
             Arc::new(Mutex::new(artifact_service)),
@@ -152,7 +127,7 @@ mod tests {
         let package_type = PackageType::Docker;
         let package_type_id = get_package_type_id(name, tag);
 
-        let (add_artifact_sender, _) = oneshot::channel();
+        let (add_artifact_sender, add_artifact_receiver) = oneshot::channel();
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
             sender,
@@ -163,7 +138,7 @@ mod tests {
             ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
 
         artifact_service
-            .transparency_log
+            .transparency_log_service
             .add_artifact(
                 AddArtifactRequest {
                     package_type,
@@ -175,7 +150,14 @@ mod tests {
             )
             .await
             .unwrap();
-        create_artifact(&artifact_service.artifact_storage).unwrap();
+
+        let transparency_log = add_artifact_receiver.await.unwrap().unwrap();
+
+        create_artifact(
+            &artifact_service.artifact_storage,
+            &transparency_log.artifact_id,
+        )
+        .unwrap();
 
         let result = fetch_manifest(
             Arc::new(Mutex::new(artifact_service)),
@@ -212,10 +194,12 @@ mod tests {
         Ok(reader)
     }
 
-    fn create_artifact(artifact_storage: &ArtifactStorage) -> Result<(), anyhow::Error> {
-        let hash = Hash::new(HashAlgorithm::SHA256, &VALID_ARTIFACT_HASH)?;
+    fn create_artifact(
+        artifact_storage: &ArtifactStorage,
+        artifact_id: &str,
+    ) -> Result<(), anyhow::Error> {
         artifact_storage
-            .push_artifact(&mut get_file_reader()?, &hash)
+            .push_artifact(&mut get_file_reader()?, artifact_id)
             .context("Error while pushing artifact")
     }
 }
