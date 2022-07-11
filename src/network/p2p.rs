@@ -31,7 +31,7 @@ use libp2p::mplex;
 use libp2p::noise;
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
 use libp2p::swarm::{Swarm, SwarmBuilder};
-use libp2p::tcp;
+use libp2p::tcp::{self, GenTcpConfig};
 use libp2p::yamux;
 use libp2p::Transport;
 use std::error::Error;
@@ -134,7 +134,7 @@ fn create_transport(
         .into_authentic(&keypair)
         .expect("Signing libp2p-noise static DH keypair failed.");
 
-    let tcp = tcp::TokioTcpConfig::new().nodelay(true);
+    let tcp = tcp::TokioTcpTransport::new(GenTcpConfig::default().nodelay(true));
     let dns = dns::TokioDnsConfig::system(tcp)?;
 
     Ok(dns
