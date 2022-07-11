@@ -73,21 +73,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
             match event {
                 // Reply with the content of the artifact on incoming requests.
                 pyrsia::network::event_loop::PyrsiaEvent::RequestArtifact {
-                    artifact_type,
-                    artifact_hash,
+                    artifact_id,
                     channel,
                 } => {
                     if let Err(error) = handlers::handle_request_artifact(
                         artifact_service.clone(),
-                        &artifact_type,
-                        &artifact_hash,
+                        &artifact_id,
                         channel,
                     )
                     .await
                     {
                         warn!(
-                            "This node failed to provide artifact with type {} and hash {}. Error: {:?}",
-                            artifact_type, artifact_hash, error
+                            "This node failed to provide artifact with id {}. Error: {:?}",
+                            artifact_id, error
                         );
                     }
                 }

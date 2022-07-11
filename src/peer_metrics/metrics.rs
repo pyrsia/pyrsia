@@ -192,9 +192,7 @@ mod tests {
         let qm2 = get_disk_stress() * DISK_STRESS_WEIGHT;
         loading.store(false, Ordering::Relaxed); //kill thread
         write_thread.join().unwrap();
-        fs::remove_file(test_file).unwrap_or_else(|why| {
-            panic!("{:?}", why.kind());
-        });
+        fs::remove_file(test_file).unwrap();
         assert!(qm2 > qm);
 
         //we could add another measure of disks did no think it was that important

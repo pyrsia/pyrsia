@@ -14,7 +14,6 @@
    limitations under the License.
 */
 
-use crate::network::client::ArtifactType;
 use async_trait::async_trait;
 use futures::prelude::*;
 use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
@@ -31,7 +30,7 @@ pub struct ArtifactExchangeProtocol();
 #[derive(Clone)]
 pub struct ArtifactExchangeCodec();
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ArtifactRequest(pub ArtifactType, pub String);
+pub struct ArtifactRequest(pub String);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArtifactResponse(pub Vec<u8>);
 
@@ -55,28 +54,15 @@ impl RequestResponseCodec for ArtifactExchangeCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let type_vec = read_length_prefixed(io, 1_000).await?;
-        if type_vec.is_empty() {
-            return Err(io::ErrorKind::UnexpectedEof.into());
-        }
-
         let hash_vec = read_length_prefixed(io, 1_000_000).await?;
         if hash_vec.is_empty() {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
 
-        let artifact_type = match type_vec[0] {
-            1 => ArtifactType::Artifact,
-            _ => return Err(io::ErrorKind::InvalidData.into()),
-        };
+        let artifact_id = String::from_utf8(hash_vec).unwrap();
+        debug!("Read ArtifactRequest: {:?}", artifact_id);
 
-        let artifact_hash = String::from_utf8(hash_vec).unwrap();
-        debug!(
-            "Read ArtifactRequest: {:?}={:?}",
-            artifact_type, artifact_hash
-        );
-
-        Ok(ArtifactRequest(artifact_type, artifact_hash))
+        Ok(ArtifactRequest(artifact_id))
     }
 
     async fn read_response<T>(
@@ -100,22 +86,14 @@ impl RequestResponseCodec for ArtifactExchangeCodec {
         &mut self,
         _: &ArtifactExchangeProtocol,
         io: &mut T,
-        ArtifactRequest(artifact_type, artifact_hash): ArtifactRequest,
+        ArtifactRequest(artifact_id): ArtifactRequest,
     ) -> io::Result<()>
     where
         T: AsyncWrite + Unpin + Send,
     {
-        debug!(
-            "Write ArtifactRequest: {:?}={:?}",
-            artifact_type, artifact_hash
-        );
+        debug!("Write ArtifactRequest: {:?}", artifact_id);
 
-        let artifact_data_type: Vec<u8> = match artifact_type {
-            ArtifactType::Artifact => vec![1],
-        };
-
-        write_length_prefixed(io, artifact_data_type).await?;
-        write_length_prefixed(io, artifact_hash).await?;
+        write_length_prefixed(io, artifact_id).await?;
         io.close().await?;
 
         Ok(())
