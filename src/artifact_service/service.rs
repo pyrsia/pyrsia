@@ -391,9 +391,11 @@ mod tests {
             )
             .await
             .unwrap();
-        
-        
-        let transparency_log = artifact_service.transparency_log_service.get_artifact(&package_type, package_specific_artifact_id).unwrap();
+
+        let transparency_log = artifact_service
+            .transparency_log_service
+            .get_artifact(&package_type, package_specific_artifact_id)
+            .unwrap();
 
         let result = artifact_service
             .verify_artifact(&transparency_log, b"SAMPLE_DATA")
@@ -443,13 +445,13 @@ mod tests {
             .await
             .unwrap();
 
-        let transparency_log = artifact_service.transparency_log_service.get_artifact(&package_type, package_specific_artifact_id).unwrap();
+        let transparency_log = artifact_service
+            .transparency_log_service
+            .get_artifact(&package_type, package_specific_artifact_id)
+            .unwrap();
 
         let result = artifact_service
-            .verify_artifact(
-                &transparency_log,
-                b"OTHER_SAMPLE_DATA",
-            )
+            .verify_artifact(&transparency_log, b"OTHER_SAMPLE_DATA")
             .await;
         assert!(result.is_err());
         assert_eq!(
