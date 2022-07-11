@@ -78,7 +78,6 @@ fn get_package_type_id(full_path: &str) -> Result<String, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artifact_service::hashing::{Hash, HashAlgorithm};
     use crate::artifact_service::storage::ArtifactStorage;
     use crate::network::client::Client;
     use crate::transparency_log::log::AddArtifactRequest;
@@ -115,7 +114,7 @@ mod tests {
     async fn handle_get_maven_artifact_test() {
         let tmp_dir = test_util::tests::setup();
 
-        let (add_artifact_sender, _) = oneshot::channel();
+        let (add_artifact_sender, add_artifact_receiver) = oneshot::channel();
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
             sender,
@@ -126,7 +125,7 @@ mod tests {
             ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
 
         artifact_service
-            .transparency_log
+            .transparency_log_service
             .add_artifact(
                 AddArtifactRequest {
                     package_type: PackageType::Maven2,
@@ -138,7 +137,13 @@ mod tests {
             )
             .await
             .unwrap();
-        create_artifact(&artifact_service.artifact_storage).unwrap();
+        let transparency_log = add_artifact_receiver.await.unwrap().unwrap();
+
+        create_artifact(
+            &artifact_service.artifact_storage,
+            &transparency_log.artifact_id,
+        )
+        .unwrap();
 
         let result = handle_get_maven_artifact(
             Arc::new(Mutex::new(artifact_service)),
@@ -168,11 +173,12 @@ mod tests {
         Ok(reader)
     }
 
-    fn create_artifact(artifact_storage: &ArtifactStorage) -> Result<(), anyhow::Error> {
-        let artifact_hash = hex::decode(VALID_ARTIFACT_HASH)?;
-        let hash = Hash::new(HashAlgorithm::SHA256, &artifact_hash)?;
+    fn create_artifact(
+        artifact_storage: &ArtifactStorage,
+        artifact_id: &str,
+    ) -> Result<(), anyhow::Error> {
         artifact_storage
-            .push_artifact(&mut get_file_reader()?, &hash)
+            .push_artifact(&mut get_file_reader()?, artifact_id)
             .context("Error while pushing artifact")
     }
 }

@@ -34,14 +34,6 @@ struct IdleMetric {
 }
 /* peer metric support */
 
-use strum_macros::Display;
-/// Defines the different types of artifacts that can be transferred
-/// within the libp2p swarm.
-#[derive(Clone, Debug, Display, PartialEq, Eq)]
-pub enum ArtifactType {
-    Artifact,
-}
-
 /// A utility struct for easily defining a hash from different
 /// types that can be used as a provisioning key within the
 /// libp2p swarm.
@@ -122,24 +114,15 @@ impl Client {
         Ok(receiver.await?)
     }
 
-    /// Inform the swarm that this node is currently a
-    /// provider of the artifact with the specified `type`
-    /// and `hash`.
-    pub async fn provide(
-        &mut self,
-        artifact_type: ArtifactType,
-        artifact_hash: ArtifactHash,
-    ) -> anyhow::Result<()> {
-        debug!(
-            "p2p::Client::provide {:?}={:?}",
-            artifact_type, artifact_hash
-        );
+    /// Inform the swarm that this node is currently a provider
+    /// of the artifact with the specified `artifact_id`.
+    pub async fn provide(&mut self, artifact_id: String) -> anyhow::Result<()> {
+        debug!("p2p::Client::provide {:?}", artifact_id);
 
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::Provide {
-                artifact_type,
-                artifact_hash,
+                artifact_id,
                 sender,
             })
             .await?;
@@ -147,46 +130,36 @@ impl Client {
     }
 
     /// List all peers in the swarm that are providing
-    /// the artifact with the specified `type` and `hash`.
-    pub async fn list_providers(
-        &mut self,
-        artifact_type: ArtifactType,
-        artifact_hash: ArtifactHash,
-    ) -> anyhow::Result<HashSet<PeerId>> {
-        debug!(
-            "p2p::Client::list_providers {:?}={:?}",
-            artifact_type, artifact_hash
-        );
+    /// the artifact with the specified `artifact_id`.
+    pub async fn list_providers(&mut self, artifact_id: &str) -> anyhow::Result<HashSet<PeerId>> {
+        debug!("p2p::Client::list_providers {:?}", artifact_id);
 
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::ListProviders {
-                artifact_type,
-                artifact_hash,
+                artifact_id: artifact_id.to_owned(),
                 sender,
             })
             .await?;
         Ok(receiver.await?)
     }
 
-    /// Request an artifact with the specified `type` and `hash`
+    /// Request an artifact with the specified `artifact_id`
     /// from the swarm.
     pub async fn request_artifact(
         &mut self,
         peer: &PeerId,
-        artifact_type: ArtifactType,
-        artifact_hash: ArtifactHash,
+        artifact_id: &str,
     ) -> anyhow::Result<Vec<u8>> {
         debug!(
-            "p2p::Client::request_artifact {:?}: {:?}={:?}",
-            peer, artifact_type, artifact_hash
+            "p2p::Client::request_artifact {:?}: {:?}",
+            peer, artifact_id
         );
 
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::RequestArtifact {
-                artifact_type,
-                artifact_hash,
+                artifact_id: artifact_id.to_owned(),
                 peer: *peer,
                 sender,
             })
@@ -401,23 +374,18 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let random_hash: String = thread_rng()
+        let random_artifact_id: String = thread_rng()
             .sample_iter(&Alphanumeric)
             .take(30)
             .map(char::from)
             .collect();
-        let cloned_random_hash = random_hash.clone();
-        tokio::spawn(async move {
-            client
-                .provide(ArtifactType::Artifact, random_hash.into())
-                .await
-        });
+        let cloned_random_artifact_id = random_artifact_id.clone();
+        tokio::spawn(async move { client.provide(random_artifact_id).await });
 
         tokio::select! {
             command = receiver.recv() => match command {
-                Some(Command::Provide { artifact_type, artifact_hash, sender }) => {
-                    assert_eq!(artifact_type, ArtifactType::Artifact);
-                    assert_eq!(artifact_hash.hash, cloned_random_hash);
+                Some(Command::Provide { artifact_id, sender }) => {
+                    assert_eq!(artifact_id, cloned_random_artifact_id);
                     let _ = sender.send(());
                 },
                 _ => panic!("Command must match Command::Provide")
@@ -434,23 +402,18 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let random_hash: String = thread_rng()
+        let random_artifact_id: String = thread_rng()
             .sample_iter(&Alphanumeric)
             .take(30)
             .map(char::from)
             .collect();
-        let cloned_random_hash = random_hash.clone();
-        tokio::spawn(async move {
-            client
-                .list_providers(ArtifactType::Artifact, random_hash.into())
-                .await
-        });
+        let cloned_random_artifact_id = random_artifact_id.clone();
+        tokio::spawn(async move { client.list_providers(&random_artifact_id).await });
 
         tokio::select! {
             command = receiver.recv() => match command {
-                Some(Command::ListProviders { artifact_type, artifact_hash, sender }) => {
-                    assert_eq!(artifact_type, ArtifactType::Artifact);
-                    assert_eq!(artifact_hash.hash, cloned_random_hash);
+                Some(Command::ListProviders { artifact_id, sender }) => {
+                    assert_eq!(artifact_id, cloned_random_artifact_id);
                     let _ = sender.send(Default::default());
                 },
                 _ => panic!("Command must match Command::ListProviders")
@@ -468,24 +431,23 @@ mod tests {
         };
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
-        let random_hash: String = thread_rng()
+        let random_artifact_id: String = thread_rng()
             .sample_iter(&Alphanumeric)
             .take(30)
             .map(char::from)
             .collect();
-        let cloned_random_hash = random_hash.clone();
+        let cloned_random_artifact_id = random_artifact_id.clone();
         tokio::spawn(async move {
             client
-                .request_artifact(&other_peer_id, ArtifactType::Artifact, random_hash.into())
+                .request_artifact(&other_peer_id, &random_artifact_id)
                 .await
         });
 
         tokio::select! {
             command = receiver.recv() => match command {
-                Some(Command::RequestArtifact { peer, artifact_type, artifact_hash, sender }) => {
+                Some(Command::RequestArtifact { peer, artifact_id, sender }) => {
                     assert_eq!(peer, other_peer_id);
-                    assert_eq!(artifact_type, ArtifactType::Artifact);
-                    assert_eq!(artifact_hash.hash, cloned_random_hash);
+                    assert_eq!(artifact_id, cloned_random_artifact_id);
                     let _ = sender.send(Ok(vec![]));
                 },
                 _ => panic!("Command must match Command::RequestArtifact")

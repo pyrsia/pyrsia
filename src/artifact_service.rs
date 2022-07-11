@@ -14,6 +14,5 @@
    limitations under the License.
 */
 
-pub mod hashing;
 pub mod service;
 pub mod storage;
