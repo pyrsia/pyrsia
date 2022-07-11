@@ -15,25 +15,22 @@
 */
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Status {
-    pub peers_count: usize,
-    pub peer_id: String,
+#[derive(Debug, Error)]
+pub enum BuildError {}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum BuildStatus {
+    Running,
+    Success { artifact_urls: Vec<String> },
+    Failure(String),
 }
 
-impl std::fmt::Display for Status {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Connected Peers Count:       {}", self.peers_count)
-    }
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct BuildInfo {
+    pub id: String,
+    pub status: BuildStatus,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct RequestDockerBuild {
-    pub manifest: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct RequestMavenBuild {
-    pub gav: String,
-}
+pub struct BuildResult {}

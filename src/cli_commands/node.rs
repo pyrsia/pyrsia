@@ -15,7 +15,8 @@
 */
 
 use super::config::get_config;
-use crate::node_api::model::cli::Status;
+use crate::build_service::model::BuildInfo;
+use crate::node_api::model::cli::{RequestDockerBuild, RequestMavenBuild, Status};
 
 pub async fn ping() -> Result<String, reqwest::Error> {
     //TODO: implement ping api in Node
@@ -35,6 +36,38 @@ pub async fn status() -> Result<Status, reqwest::Error> {
 
     let response = reqwest::get(node_url).await?.json::<Status>().await?;
     Ok(response)
+}
+
+pub async fn request_docker_build(
+    request: RequestDockerBuild,
+) -> Result<BuildInfo, reqwest::Error> {
+    let node_url = format!("http://{}/build/docker", get_url());
+    let client = reqwest::Client::new();
+    match client
+        .post(node_url)
+        .json(&request)
+        .send()
+        .await?
+        .error_for_status()
+    {
+        Ok(response) => response.json::<BuildInfo>().await,
+        Err(e) => Err(e),
+    }
+}
+
+pub async fn request_maven_build(request: RequestMavenBuild) -> Result<BuildInfo, reqwest::Error> {
+    let node_url = format!("http://{}/build/maven", get_url());
+    let client = reqwest::Client::new();
+    match client
+        .post(node_url)
+        .json(&request)
+        .send()
+        .await?
+        .error_for_status()
+    {
+        Ok(response) => response.json::<BuildInfo>().await,
+        Err(e) => Err(e),
+    }
 }
 
 pub fn get_url() -> String {

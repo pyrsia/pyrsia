@@ -23,8 +23,8 @@ use tokio::sync::Mutex;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_maven_artifact(
-    artifact_service: Arc<Mutex<ArtifactService>>,
     full_path: String,
+    artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> Result<impl Reply, Rejection> {
     debug!("Requesting maven artifact: {}", full_path);
     let package_specific_artifact_id =
@@ -152,8 +152,8 @@ mod tests {
         .unwrap();
 
         let result = handle_get_maven_artifact(
-            Arc::new(Mutex::new(artifact_service)),
             VALID_FULL_PATH.to_string(),
+            Arc::new(Mutex::new(artifact_service)),
         )
         .await;
 

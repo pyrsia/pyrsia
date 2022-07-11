@@ -15,6 +15,7 @@
 */
 
 use super::handlers::swarm::*;
+use super::model::cli::{RequestDockerBuild, RequestMavenBuild};
 use crate::artifact_service::service::ArtifactService;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -23,17 +24,35 @@ use warp::Filter;
 pub fn make_node_routes(
     artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    let artifact_service_peers = artifact_service.clone();
+    let artifact_service_filter = warp::any().map(move || artifact_service.clone());
+
+    let build_docker = warp::path!("build" / "docker")
+        .and(warp::post())
+        .and(warp::path::end())
+        .and(warp::body::content_length_limit(1024 * 8))
+        .and(warp::body::json::<RequestDockerBuild>())
+        .and(artifact_service_filter.clone())
+        .and_then(handle_build_docker);
+
+    let build_maven = warp::path!("build" / "maven")
+        .and(warp::post())
+        .and(warp::path::end())
+        .and(warp::body::content_length_limit(1024 * 8))
+        .and(warp::body::json::<RequestMavenBuild>())
+        .and(artifact_service_filter.clone())
+        .and_then(handle_build_maven);
 
     let peers = warp::path!("peers")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(move || handle_get_peers(artifact_service_peers.clone()));
+        .and(artifact_service_filter.clone())
+        .and_then(handle_get_peers);
 
     let status = warp::path!("status")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(move || handle_get_status(artifact_service.clone()));
+        .and(artifact_service_filter)
+        .and_then(handle_get_status);
 
-    warp::any().and(peers.or(status))
+    warp::any().and(build_docker.or(build_maven).or(peers).or(status))
 }

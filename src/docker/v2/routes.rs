@@ -40,18 +40,18 @@ pub fn make_docker_routes(
             "application/json",
         ));
 
-    let artifact_service_get_manifest = artifact_service.clone();
+    let artifact_service_filter = warp::any().map(move || artifact_service.clone());
 
     let v2_manifests = warp::path!("v2" / "library" / String / "manifests" / String)
         .and(warp::get().or(warp::head()).unify())
-        .and_then(move |name, tag| {
-            fetch_manifest(artifact_service_get_manifest.clone(), name, tag)
-        });
+        .and(artifact_service_filter.clone())
+        .and_then(fetch_manifest);
 
     let v2_blobs = warp::path!("v2" / "library" / String / "blobs" / String)
         .and(warp::get().or(warp::head()).unify())
         .and(warp::path::end())
-        .and_then(move |_name, hash| handle_get_blobs(artifact_service.clone(), hash));
+        .and(artifact_service_filter)
+        .and_then(handle_get_blobs);
 
     warp::any().and(v2_base.or(v2_manifests).or(v2_blobs))
 }

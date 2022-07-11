@@ -24,9 +24,9 @@ use warp::{Rejection, Reply};
 
 // Handles GET endpoint documented at https://docs.docker.com/registry/spec/api/#manifest
 pub async fn fetch_manifest(
-    artifact_service: Arc<Mutex<ArtifactService>>,
     name: String,
     tag: String,
+    artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> Result<impl Reply, Rejection> {
     debug!("Fetching manifest for {} with tag: {}", name, tag);
 
@@ -104,9 +104,9 @@ mod tests {
             ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
 
         let result = fetch_manifest(
-            Arc::new(Mutex::new(artifact_service)),
             name.to_string(),
             tag.to_string(),
+            Arc::new(Mutex::new(artifact_service)),
         )
         .await;
 
@@ -168,9 +168,9 @@ mod tests {
         .unwrap();
 
         let result = fetch_manifest(
-            Arc::new(Mutex::new(artifact_service)),
             name.to_string(),
             tag.to_string(),
+            Arc::new(Mutex::new(artifact_service)),
         )
         .await;
 

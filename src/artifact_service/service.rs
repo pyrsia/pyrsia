@@ -15,16 +15,19 @@
 */
 
 use super::storage::ArtifactStorage;
+use crate::build_service::model::{BuildError, BuildInfo};
+use crate::build_service::service::BuildService;
 use crate::network::client::Client;
 use crate::transparency_log::log::{TransparencyLog, TransparencyLogError, TransparencyLogService};
 use anyhow::{bail, Context};
 use libp2p::PeerId;
-use log::info;
+use log::{debug, info};
 use multihash::Hasher;
 use serde::{Deserialize, Serialize};
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::str;
+use tokio::sync::oneshot;
 
 #[derive(
     Clone,
@@ -46,6 +49,7 @@ pub enum PackageType {
 /// pyrsia network by requesting a build from source.
 pub struct ArtifactService {
     pub artifact_storage: ArtifactStorage,
+    pub build_service: BuildService,
     pub transparency_log_service: TransparencyLogService,
     pub p2p_client: Client,
 }
@@ -53,16 +57,33 @@ pub struct ArtifactService {
 impl ArtifactService {
     pub fn new<P: AsRef<Path>>(artifact_path: P, p2p_client: Client) -> anyhow::Result<Self> {
         let artifact_storage = ArtifactStorage::new(&artifact_path)?;
+        let build_service = BuildService::new(&artifact_path)?;
         let transparency_log_service = TransparencyLogService::new(&artifact_path)?;
         Ok(ArtifactService {
             artifact_storage,
+            build_service,
             transparency_log_service,
             p2p_client,
         })
     }
 
     /// Request a build from source for the specified package.
-    pub fn request_build(&self, _package_type: PackageType, _package_specific_id: &str) {}
+    pub async fn request_build(
+        &self,
+        package_type: PackageType,
+        package_specific_id: &str,
+    ) -> Result<BuildInfo, BuildError> {
+        debug!(
+            "Build requested for package type {:?} and specific ID {:}",
+            package_type, package_specific_id
+        );
+
+        let (start_build_sender, _start_build_receiver) = oneshot::channel();
+
+        self.build_service
+            .start_build(package_type, package_specific_id, start_build_sender)
+            .await
+    }
 
     /// Retrieve the artifact data for the specified package. If the artifact
     /// is not available locally, the service will try to fetch the artifact
@@ -391,9 +412,11 @@ mod tests {
             )
             .await
             .unwrap();
-        
-        
-        let transparency_log = artifact_service.transparency_log_service.get_artifact(&package_type, package_specific_artifact_id).unwrap();
+
+        let transparency_log = artifact_service
+            .transparency_log_service
+            .get_artifact(&package_type, package_specific_artifact_id)
+            .unwrap();
 
         let result = artifact_service
             .verify_artifact(&transparency_log, b"SAMPLE_DATA")
@@ -443,13 +466,13 @@ mod tests {
             .await
             .unwrap();
 
-        let transparency_log = artifact_service.transparency_log_service.get_artifact(&package_type, package_specific_artifact_id).unwrap();
+        let transparency_log = artifact_service
+            .transparency_log_service
+            .get_artifact(&package_type, package_specific_artifact_id)
+            .unwrap();
 
         let result = artifact_service
-            .verify_artifact(
-                &transparency_log,
-                b"OTHER_SAMPLE_DATA",
-            )
+            .verify_artifact(&transparency_log, b"OTHER_SAMPLE_DATA")
             .await;
         assert!(result.is_err());
         assert_eq!(

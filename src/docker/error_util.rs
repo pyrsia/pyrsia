@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use crate::build_service::model::BuildError;
 use crate::transparency_log::log::TransparencyLogError;
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -67,6 +68,14 @@ impl From<anyhow::Error> for RegistryError {
     }
 }
 
+impl From<BuildError> for RegistryError {
+    fn from(err: BuildError) -> RegistryError {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(err.to_string()),
+        }
+    }
+}
+
 impl From<TransparencyLogError> for RegistryError {
     fn from(err: TransparencyLogError) -> RegistryError {
         RegistryError {
@@ -85,6 +94,14 @@ impl From<hex::FromHexError> for RegistryError {
 
 impl From<reqwest::Error> for RegistryError {
     fn from(err: reqwest::Error) -> RegistryError {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(err.to_string()),
+        }
+    }
+}
+
+impl From<serde_json::Error> for RegistryError {
+    fn from(err: serde_json::Error) -> RegistryError {
         RegistryError {
             code: RegistryErrorCode::Unknown(err.to_string()),
         }

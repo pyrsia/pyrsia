@@ -24,6 +24,8 @@ use warp::Filter;
 pub fn make_maven_routes(
     artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    let artifact_service_filter = warp::any().map(move || artifact_service.clone());
+
     let maven2_root = warp::path("maven2")
         .and(warp::path::full())
         .map(|path: warp::path::FullPath| {
@@ -31,7 +33,8 @@ pub fn make_maven_routes(
             debug!("route full path: {}", full_path);
             full_path
         })
-        .and_then(move |full_path| handle_get_maven_artifact(artifact_service.clone(), full_path));
+        .and(artifact_service_filter)
+        .and_then(handle_get_maven_artifact);
 
     warp::any().and(maven2_root)
 }
