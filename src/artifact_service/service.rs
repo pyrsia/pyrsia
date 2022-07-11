@@ -283,9 +283,9 @@ mod tests {
 
         let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client).unwrap();
 
-        let mut hasher1 = Sha256::new();
-        hasher1.update(b"SAMPLE_DATA");
-        let random_hash = hex::encode(hasher1.finalize());
+        let mut hasher = Sha256::new();
+        hasher.update(b"SAMPLE_DATA");
+        let random_hash = hex::encode(hasher.finalize());
 
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";

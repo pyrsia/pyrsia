@@ -99,13 +99,13 @@ impl ArtifactStorage {
         path
     }
 
-    fn artifact_file_path(&self, artifact_id: &str) -> std::io::Result<PathBuf> {
+    fn artifact_file_path(&self, artifact_id: &str) -> io::Result<PathBuf> {
         let mut base_file_path: PathBuf = self.base_file_path(artifact_id);
         base_file_path.set_extension(FILE_EXTENSION);
         Ok(base_file_path)
     }
 
-    fn create_artifact_file(&self, artifact_id: &str) -> std::io::Result<File> {
+    fn create_artifact_file(&self, artifact_id: &str) -> io::Result<File> {
         let artifact_file_path = self.artifact_file_path(artifact_id)?;
         OpenOptions::new()
             .write(true)
@@ -169,7 +169,7 @@ mod tests {
     pub fn new_artifact_storage_with_file_as_repository_path() {
         let tmp_dir = test_util::tests::setup();
         let tmp_file_path = PathBuf::from(&tmp_dir).join("sample.file");
-        std::fs::File::create(&tmp_file_path).unwrap();
+        File::create(&tmp_file_path).unwrap();
 
         assert!(ArtifactStorage::new(&tmp_file_path).is_err());
 
