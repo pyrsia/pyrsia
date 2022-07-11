@@ -420,8 +420,8 @@ mod tests {
             .into_authentic(&id_keys)
             .expect("Signing libp2p-noise static DH keypair failed.");
 
-        let tcp = tcp::TokioTcpConfig::new().nodelay(true);
-        let dns = dns::TokioDnsConfig::system(tcp).unwrap();
+        let transport = tcp::TokioTcpConfig::new().nodelay(true);
+        let dns = dns::TokioDnsConfig::system(transport).unwrap();
 
         let mem_transport = dns
             .upgrade(upgrade::Version::V1)

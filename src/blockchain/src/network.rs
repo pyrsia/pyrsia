@@ -40,8 +40,7 @@ use libp2p::{
         RequestResponseEvent, RequestResponseMessage,
     },
     swarm::{NetworkBehaviourEventProcess, SwarmBuilder},
-    tcp::TokioTcpConfig,
-    NetworkBehaviour, PeerId, Swarm, Transport,
+    tcp, NetworkBehaviour, PeerId, Swarm, Transport,
 };
 use log::{debug, info, trace, warn};
 use std::{collections::HashMap, error::Error, io, iter, time::Duration};
@@ -368,7 +367,7 @@ impl Network {
 
         // Create a tokio-based TCP transport use noise for authenticated
         // encryption and Mplex for multiplexing of substreams on a TCP stream.
-        let transport = TokioTcpConfig::new()
+        let transport = tcp::TokioTcpConfig::new()
             .nodelay(true)
             .upgrade(upgrade::Version::V1)
             .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())

@@ -1851,7 +1851,7 @@ dependencies = [
  "getrandom 0.2.6",
  "instant",
  "lazy_static",
- "libp2p-autonat",
+ "libp2p-autonat 0.4.1",
  "libp2p-core 0.33.0",
  "libp2p-deflate",
  "libp2p-dns",
@@ -1868,8 +1868,8 @@ dependencies = [
  "libp2p-pnet",
  "libp2p-relay",
  "libp2p-rendezvous",
- "libp2p-request-response",
- "libp2p-swarm",
+ "libp2p-request-response 0.18.0",
+ "libp2p-swarm 0.36.1",
  "libp2p-swarm-derive",
  "libp2p-tcp",
  "libp2p-uds",
@@ -1894,8 +1894,27 @@ dependencies = [
  "futures-timer",
  "instant",
  "libp2p-core 0.33.0",
- "libp2p-request-response",
- "libp2p-swarm",
+ "libp2p-request-response 0.18.0",
+ "libp2p-swarm 0.36.1",
+ "log",
+ "prost 0.10.4",
+ "prost-build 0.10.4",
+ "rand 0.8.5",
+]
+
+[[package]]
+name = "libp2p-autonat"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4decc51f3573653a9f4ecacb31b1b922dd20c25a6322bb15318ec04287ec46f9"
+dependencies = [
+ "async-trait",
+ "futures",
+ "futures-timer",
+ "instant",
+ "libp2p-core 0.34.0",
+ "libp2p-request-response 0.19.0",
+ "libp2p-swarm 0.37.0",
  "log",
  "prost 0.10.4",
  "prost-build 0.10.4",
@@ -1973,6 +1992,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "libp2p-core"
+version = "0.34.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbf9b94cefab7599b2d3dff2f93bee218c6621d68590b23ede4485813cbcece6"
+dependencies = [
+ "asn1_der",
+ "bs58",
+ "ed25519-dalek",
+ "either",
+ "fnv",
+ "futures",
+ "futures-timer",
+ "instant",
+ "lazy_static",
+ "log",
+ "multiaddr",
+ "multihash",
+ "multistream-select",
+ "parking_lot 0.12.0",
+ "pin-project 1.0.10",
+ "prost 0.10.4",
+ "prost-build 0.10.4",
+ "rand 0.8.5",
+ "ring",
+ "rw-stream-sink 0.3.0",
+ "sha2 0.10.2",
+ "smallvec",
+ "thiserror",
+ "unsigned-varint",
+ "void",
+ "zeroize",
+]
+
+[[package]]
 name = "libp2p-deflate"
 version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2008,7 +2061,7 @@ dependencies = [
  "fnv",
  "futures",
  "libp2p-core 0.33.0",
- "libp2p-swarm",
+ "libp2p-swarm 0.36.1",
  "log",
  "prost 0.10.4",
  "prost-build 0.10.4",
@@ -2031,7 +2084,7 @@ dependencies = [
  "hex_fmt",
  "instant",
  "libp2p-core 0.33.0",
- "libp2p-swarm",
+ "libp2p-swarm 0.36.1",
  "log",
  "prometheus-client",
  "prost 0.10.4",
@@ -2055,7 +2108,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "libp2p-core 0.33.0",
- "libp2p-swarm",
+ "libp2p-swarm 0.36.1",
  "log",
  "lru",
  "prost 0.10.4",
@@ -2081,7 +2134,7 @@ dependencies = [
  "futures-timer",
  "instant",
  "libp2p-core 0.33.0",
- "libp2p-swarm",
+ "libp2p-swarm 0.36.1",
  "log",
  "prost 0.10.4",
  "prost-build 0.10.4",
@@ -2108,7 +2161,7 @@ dependencies = [
  "if-watch",
  "lazy_static",
  "libp2p-core 0.33.0",
- "libp2p-swarm",
+ "libp2p-swarm 0.36.1",
  "log",
  "rand 0.8.5",
  "smallvec",
@@ -2128,7 +2181,7 @@ dependencies = [
  "libp2p-kad",
  "libp2p-ping",
  "libp2p-relay",
- "libp2p-swarm",
+ "libp2p-swarm 0.36.1",
  "prometheus-client",
 ]
 
@@ -2182,7 +2235,7 @@ dependencies = [
  "futures-timer",
  "instant",
  "libp2p-core 0.33.0",
- "libp2p-swarm",
+ "libp2p-swarm 0.36.1",
  "log",
  "rand 0.7.3",
  "void",
@@ -2232,7 +2285,7 @@ dependencies = [
  "futures-timer",
  "instant",
  "libp2p-core 0.33.0",
- "libp2p-swarm",
+ "libp2p-swarm 0.36.1",
  "log",
  "pin-project 1.0.10",
  "prost 0.10.4",
@@ -2257,7 +2310,7 @@ dependencies = [
  "futures-timer",
  "instant",
  "libp2p-core 0.33.0",
- "libp2p-swarm",
+ "libp2p-swarm 0.36.1",
  "log",
  "prost 0.10.4",
  "prost-build 0.10.4",
@@ -2279,7 +2332,25 @@ dependencies = [
  "futures",
  "instant",
  "libp2p-core 0.33.0",
- "libp2p-swarm",
+ "libp2p-swarm 0.36.1",
+ "log",
+ "rand 0.7.3",
+ "smallvec",
+ "unsigned-varint",
+]
+
+[[package]]
+name = "libp2p-request-response"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "508a189e2795d892c8f5c1fa1e9e0b1845d32d7b0b249dbf7b05b18811361843"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "futures",
+ "instant",
+ "libp2p-core 0.34.0",
+ "libp2p-swarm 0.37.0",
  "log",
  "rand 0.7.3",
  "smallvec",
@@ -2298,6 +2369,26 @@ dependencies = [
  "futures-timer",
  "instant",
  "libp2p-core 0.33.0",
+ "log",
+ "pin-project 1.0.10",
+ "rand 0.7.3",
+ "smallvec",
+ "thiserror",
+ "void",
+]
+
+[[package]]
+name = "libp2p-swarm"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95ac5be6c2de2d1ff3f7693fda6faf8a827b1f3e808202277783fea9f527d114"
+dependencies = [
+ "either",
+ "fnv",
+ "futures",
+ "futures-timer",
+ "instant",
+ "libp2p-core 0.34.0",
  "log",
  "pin-project 1.0.10",
  "rand 0.7.3",
@@ -3355,7 +3446,7 @@ dependencies = [
  "itertools",
  "lazy_static",
  "libp2p",
- "libp2p-autonat",
+ "libp2p-autonat 0.5.0",
  "log",
  "maplit",
  "multihash",
@@ -3404,6 +3495,7 @@ dependencies = [
  "futures-timer",
  "hex",
  "libp2p",
+ "libp2p-autonat 0.5.0",
  "log",
  "multihash",
  "once_cell",
