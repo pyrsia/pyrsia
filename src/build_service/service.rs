@@ -16,32 +16,43 @@
 
 use tokio::sync::oneshot;
 
-use crate::artifact_service::service::PackageType;
-use crate::build_service::model::{BuildError, BuildInfo, BuildResult, BuildStatus};
+use super::error::BuildError;
+use super::mapping::service::MappingService;
+use super::model::{BuildInfo, BuildResult, BuildStatus};
+use crate::artifact_service::model::PackageType;
 use std::path::{Path, PathBuf};
 
 /// The build service is a component used by authorized nodes only. It is
 /// the entrypoint to the authorized node's build pipeline infrastructure.
-#[derive(Default)]
 pub struct BuildService {
     _repository_path: PathBuf,
+    mapping_service: MappingService,
 }
 
 impl BuildService {
-    pub fn new<P: AsRef<Path>>(repository_path: P) -> Result<Self, anyhow::Error> {
+    pub fn new<P: AsRef<Path>>(
+        repository_path: P,
+        mapping_service_endpoint: &str,
+    ) -> Result<Self, anyhow::Error> {
         let repository_path = repository_path.as_ref().to_path_buf().canonicalize()?;
         Ok(BuildService {
             _repository_path: repository_path,
+            mapping_service: MappingService::new(mapping_service_endpoint),
         })
     }
 
     /// Starts a new build for the specified package.
     pub async fn start_build(
         &self,
-        _package_type: PackageType,
-        _package_specific_id: &str,
+        package_type: PackageType,
+        package_specific_id: &str,
         _sender: oneshot::Sender<Result<Vec<BuildResult>, BuildError>>,
     ) -> Result<BuildInfo, BuildError> {
+        let _mapping_info = self
+            .mapping_service
+            .get_mapping(package_type, package_specific_id)
+            .await?;
+
         Ok(BuildInfo {
             id: uuid::Uuid::new_v4().to_string(),
             status: BuildStatus::Running,
@@ -63,7 +74,7 @@ mod tests {
 
         let (sender, _) = oneshot::channel();
 
-        let build_service = BuildService::new(&tmp_dir).unwrap();
+        let build_service = BuildService::new(&tmp_dir, "").unwrap();
         let build_result = build_service
             .start_build(package_type, package_specific_id, sender)
             .await;

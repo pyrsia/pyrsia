@@ -14,7 +14,8 @@
    limitations under the License.
 */
 
-use crate::artifact_service::service::{ArtifactService, PackageType};
+use crate::artifact_service::model::PackageType;
+use crate::artifact_service::service::ArtifactService;
 use crate::cli_commands::config::get_config;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::node_api::model::cli::{RequestDockerBuild, RequestMavenBuild, Status};

@@ -14,19 +14,19 @@
    limitations under the License.
 */
 
+use crate::artifact_service::model::PackageType;
+
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-pub enum BuildStatus {
-    Running,
-    Success { artifact_urls: Vec<String> },
-    Failure(String),
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
+pub enum SourceRepository {
+    Git { url: String, tag: String },
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct BuildInfo {
-    pub id: String,
-    pub status: BuildStatus,
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
+pub struct MappingInfo {
+    pub package_type: PackageType,
+    pub package_specific_id: String,
+    pub source_repository: Option<SourceRepository>,
+    pub build_spec_url: Option<String>,
 }
-
-pub struct BuildResult {}

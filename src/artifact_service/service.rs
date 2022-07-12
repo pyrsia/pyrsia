@@ -14,8 +14,10 @@
    limitations under the License.
 */
 
+use super::model::PackageType;
 use super::storage::ArtifactStorage;
-use crate::build_service::model::{BuildError, BuildInfo};
+use crate::build_service::error::BuildError;
+use crate::build_service::model::BuildInfo;
 use crate::build_service::service::BuildService;
 use crate::network::client::Client;
 use crate::transparency_log::log::{TransparencyLog, TransparencyLogError, TransparencyLogService};
@@ -23,26 +25,10 @@ use anyhow::{bail, Context};
 use libp2p::PeerId;
 use log::{debug, info};
 use multihash::Hasher;
-use serde::{Deserialize, Serialize};
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::str;
 use tokio::sync::oneshot;
-
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    PartialEq,
-    Serialize,
-    strum_macros::Display,
-    strum_macros::EnumString,
-)]
-pub enum PackageType {
-    Docker,
-    Maven2,
-}
 
 /// The artifact service is the component that handles everything related to
 /// pyrsia artifacts. It allows artifacts to be retrieved and added to the
@@ -55,9 +41,12 @@ pub struct ArtifactService {
 }
 
 impl ArtifactService {
-    pub fn new<P: AsRef<Path>>(artifact_path: P, p2p_client: Client) -> anyhow::Result<Self> {
+    pub fn new<P: AsRef<Path>>(
+        artifact_path: P,
+        p2p_client: Client,
+        build_service: BuildService,
+    ) -> anyhow::Result<Self> {
         let artifact_storage = ArtifactStorage::new(&artifact_path)?;
-        let build_service = BuildService::new(&artifact_path)?;
         let transparency_log_service = TransparencyLogService::new(&artifact_path)?;
         Ok(ArtifactService {
             artifact_storage,
@@ -216,7 +205,9 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client).unwrap();
+        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
@@ -302,7 +293,9 @@ mod tests {
             }
         });
 
-        let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client).unwrap();
+        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
         let mut hasher = Sha256::new();
         hasher.update(b"SAMPLE_DATA");
@@ -350,7 +343,9 @@ mod tests {
             local_peer_id: peer_id,
         };
 
-        let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client).unwrap();
+        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
         tokio::spawn(async move {
             tokio::select! {
@@ -389,7 +384,9 @@ mod tests {
             local_peer_id,
         };
 
-        let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client).unwrap();
+        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
         let mut hasher1 = Sha256::new();
         hasher1.update(b"SAMPLE_DATA");
@@ -438,7 +435,9 @@ mod tests {
             local_peer_id,
         };
 
-        let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client).unwrap();
+        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
         let mut hasher1 = Sha256::new();
         hasher1.update(b"SAMPLE_DATA");

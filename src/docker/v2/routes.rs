@@ -59,6 +59,7 @@ pub fn make_docker_routes(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::build_service::service::BuildService;
     use crate::docker::error_util::{RegistryError, RegistryErrorCode};
     use crate::network::client::Client;
     use crate::util::test_util;
@@ -76,8 +77,9 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
+            .expect("Creating ArtifactService failed");
 
         let filter = make_docker_routes(Arc::new(Mutex::new(artifact_service)));
         let response = warp::test::request().path("/v2").reply(&filter).await;
@@ -100,8 +102,9 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
+            .expect("Creating ArtifactService failed");
 
         let filter = make_docker_routes(Arc::new(Mutex::new(artifact_service)));
         let response = warp::test::request()
@@ -130,8 +133,9 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
+            .expect("Creating ArtifactService failed");
 
         let filter = make_docker_routes(Arc::new(Mutex::new(artifact_service)));
         let response = warp::test::request()

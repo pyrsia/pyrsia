@@ -16,17 +16,17 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-pub enum BuildStatus {
-    Running,
-    Success { artifact_urls: Vec<String> },
-    Failure(String),
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    PartialEq,
+    Serialize,
+    strum_macros::Display,
+    strum_macros::EnumString,
+)]
+pub enum PackageType {
+    Docker,
+    Maven2,
 }
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct BuildInfo {
-    pub id: String,
-    pub status: BuildStatus,
-}
-
-pub struct BuildResult {}

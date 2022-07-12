@@ -60,10 +60,14 @@ pub fn make_node_routes(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::artifact_service::model::PackageType;
+    use crate::build_service::mapping::model::{MappingInfo, SourceRepository};
     use crate::build_service::model::{BuildInfo, BuildStatus};
+    use crate::build_service::service::BuildService;
     use crate::docker::error_util::{RegistryError, RegistryErrorCode};
     use crate::network::client::Client;
     use crate::util::test_util;
+    use httptest::{matchers, responders, Expectation, Server};
     use libp2p::identity::Keypair;
     use std::str;
     use tokio::sync::mpsc;
@@ -78,8 +82,9 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
+            .expect("Creating ArtifactService failed");
 
         let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let request = RequestDockerBuild {
@@ -104,14 +109,34 @@ mod tests {
     async fn node_routes_build_maven() {
         let tmp_dir = test_util::tests::setup();
 
+        let mapping_info = MappingInfo {
+            package_type: PackageType::Maven2,
+            package_specific_id: "commons-codec:commons-codec:1.15".to_owned(),
+            source_repository: Some(SourceRepository::Git {
+                url: "https://github.com/apache/commons-codec".to_owned(),
+                tag: "rel/commons-codec-1.15".to_owned()
+            }),
+            build_spec_url: Some("https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.buildspec".to_owned()),
+        };
+
+        let http_server = Server::run();
+        http_server.expect(
+            Expectation::matching(matchers::request::method_path(
+                "GET",
+                "/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.mapping",
+            ))
+            .respond_with(responders::json_encoded(&mapping_info)),
+        );
+
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
             sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+        let build_service = BuildService::new(&tmp_dir, &http_server.url("/").to_string()).unwrap();
+        let artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
+            .expect("Creating ArtifactService failed");
 
         let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let request = RequestMavenBuild {
@@ -142,8 +167,9 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
+            .expect("Creating ArtifactService failed");
 
         let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let response = warp::test::request().path("/peers").reply(&filter).await;
@@ -169,8 +195,9 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
+            .expect("Creating ArtifactService failed");
 
         let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let response = warp::test::request().path("/status").reply(&filter).await;
