@@ -29,7 +29,10 @@ pub async fn handle_get_maven_artifact(
     debug!("Requesting maven artifact: {}", full_path);
     let package_specific_artifact_id =
         get_package_specific_artifact_id(&full_path).map_err(|err| {
-            debug!("Error getting package type id for artifact: {:?}", err);
+            debug!(
+                "Error getting package specific artifact id for artifact: {:?}",
+                err
+            );
             warp::reject::custom(RegistryError {
                 code: RegistryErrorCode::Unknown(err.to_string()),
             })
