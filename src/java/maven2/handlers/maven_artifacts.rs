@@ -27,19 +27,26 @@ pub async fn handle_get_maven_artifact(
     full_path: String,
 ) -> Result<impl Reply, Rejection> {
     debug!("Requesting maven artifact: {}", full_path);
-    let package_type_id = get_package_type_id(&full_path).map_err(|err| {
-        debug!("Error getting package type id for artifact: {:?}", err);
-        warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown(err.to_string()),
-        })
-    })?;
+    let package_specific_artifact_id =
+        get_package_specific_artifact_id(&full_path).map_err(|err| {
+            debug!(
+                "Error getting package specific artifact id for artifact: {:?}",
+                err
+            );
+            warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::Unknown(err.to_string()),
+            })
+        })?;
 
     // request artifact
-    debug!("Requesting artifact for id {}", package_type_id);
+    debug!(
+        "Requesting artifact for id {}",
+        package_specific_artifact_id
+    );
     let artifact_content = artifact_service
         .lock()
         .await
-        .get_artifact(PackageType::Maven2, &package_type_id)
+        .get_artifact(PackageType::Maven2, &package_specific_artifact_id)
         .await
         .map_err(|err| {
             debug!("Error retrieving artifact: {:?}", err);
@@ -55,7 +62,7 @@ pub async fn handle_get_maven_artifact(
         .unwrap())
 }
 
-fn get_package_type_id(full_path: &str) -> Result<String, anyhow::Error> {
+fn get_package_specific_artifact_id(full_path: &str) -> Result<String, anyhow::Error> {
     // maven coordinates like "com.company:test:1.0" will produce a request
     // like: "GET /maven2/com/company/test/1.0/test-1.0.jar"
 
@@ -78,7 +85,6 @@ fn get_package_type_id(full_path: &str) -> Result<String, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artifact_service::hashing::{Hash, HashAlgorithm};
     use crate::artifact_service::storage::ArtifactStorage;
     use crate::network::client::Client;
     use crate::transparency_log::log::AddArtifactRequest;
@@ -96,26 +102,27 @@ mod tests {
         "b6f87982af625a228822adf42d0a091d40e96220b6d4d09a566173b9ea072e34";
     const VALID_FULL_PATH: &str = "/maven2/test/test/1.0/test-1.0.jar";
     const INVALID_FULL_PATH: &str = "/maven2/test/1.0/test-1.0.jar";
-    const VALID_MAVEN_ID: &str = "test/test/1.0/test-1.0.jar";
+    const VALID_MAVEN_ID: &str = "test:test:1.0";
+    const VALID_MAVEN_ARTIFACT_ID: &str = "test/test/1.0/test-1.0.jar";
 
     #[test]
-    fn get_package_type_id_test() {
+    fn get_package_specific_artifact_id_test() {
         assert_eq!(
-            get_package_type_id(VALID_FULL_PATH).unwrap(),
-            VALID_MAVEN_ID
+            get_package_specific_artifact_id(VALID_FULL_PATH).unwrap(),
+            VALID_MAVEN_ARTIFACT_ID
         );
     }
 
     #[test]
-    fn get_package_type_id_with_invalid_path_test() {
-        assert!(get_package_type_id(INVALID_FULL_PATH).is_err());
+    fn get_package_specific_artifact_id_with_invalid_path_test() {
+        assert!(get_package_specific_artifact_id(INVALID_FULL_PATH).is_err());
     }
 
     #[tokio::test]
     async fn handle_get_maven_artifact_test() {
         let tmp_dir = test_util::tests::setup();
 
-        let (add_artifact_sender, _) = oneshot::channel();
+        let (add_artifact_sender, add_artifact_receiver) = oneshot::channel();
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
             sender,
@@ -126,19 +133,26 @@ mod tests {
             ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
 
         artifact_service
-            .transparency_log
+            .transparency_log_service
             .add_artifact(
                 AddArtifactRequest {
                     package_type: PackageType::Maven2,
-                    package_type_id: VALID_MAVEN_ID.to_string(),
-                    artifact_hash: VALID_ARTIFACT_HASH.to_string(),
-                    source_hash: VALID_SOURCE_HASH.to_string(),
+                    package_specific_id: VALID_MAVEN_ID.to_owned(),
+                    package_specific_artifact_id: VALID_MAVEN_ARTIFACT_ID.to_owned(),
+                    artifact_hash: VALID_ARTIFACT_HASH.to_owned(),
+                    source_hash: VALID_SOURCE_HASH.to_owned(),
                 },
                 add_artifact_sender,
             )
             .await
             .unwrap();
-        create_artifact(&artifact_service.artifact_storage).unwrap();
+        let transparency_log = add_artifact_receiver.await.unwrap().unwrap();
+
+        create_artifact(
+            &artifact_service.artifact_storage,
+            &transparency_log.artifact_id,
+        )
+        .unwrap();
 
         let result = handle_get_maven_artifact(
             Arc::new(Mutex::new(artifact_service)),
@@ -168,11 +182,12 @@ mod tests {
         Ok(reader)
     }
 
-    fn create_artifact(artifact_storage: &ArtifactStorage) -> Result<(), anyhow::Error> {
-        let artifact_hash = hex::decode(VALID_ARTIFACT_HASH)?;
-        let hash = Hash::new(HashAlgorithm::SHA256, &artifact_hash)?;
+    fn create_artifact(
+        artifact_storage: &ArtifactStorage,
+        artifact_id: &str,
+    ) -> Result<(), anyhow::Error> {
         artifact_storage
-            .push_artifact(&mut get_file_reader()?, &hash)
+            .push_artifact(&mut get_file_reader()?, artifact_id)
             .context("Error while pushing artifact")
     }
 }

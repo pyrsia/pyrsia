@@ -34,7 +34,7 @@ impl BuildService {
     pub async fn start_build(
         &self,
         _package_type: PackageType,
-        _package_type_id: &str,
+        _package_specific_id: &str,
         _sender: oneshot::Sender<Result<Vec<BuildResult>, BuildError>>,
     ) -> Result<(), BuildError> {
         Ok(())
@@ -48,13 +48,13 @@ mod tests {
     #[tokio::test]
     async fn test_start_build() {
         let package_type = PackageType::Docker;
-        let package_type_id = "alpine:3.15.2";
+        let package_specific_id = "alpine:3.15.2";
 
         let (sender, _) = oneshot::channel();
 
         let build_service = BuildService::default();
         let build_result = build_service
-            .start_build(package_type, package_type_id, sender)
+            .start_build(package_type, package_specific_id, sender)
             .await;
 
         assert!(build_result.is_ok());
