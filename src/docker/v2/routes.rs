@@ -55,3 +55,98 @@ pub fn make_docker_routes(
 
     warp::any().and(v2_base.or(v2_manifests).or(v2_blobs))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::docker::error_util::{RegistryError, RegistryErrorCode};
+    use crate::network::client::Client;
+    use crate::util::test_util;
+    use libp2p::identity::Keypair;
+    use std::str;
+    use tokio::sync::mpsc;
+
+    #[tokio::test]
+    async fn docker_routes_base() {
+        let tmp_dir = test_util::tests::setup();
+
+        let (sender, _) = mpsc::channel(1);
+        let p2p_client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+
+        let filter = make_docker_routes(Arc::new(Mutex::new(artifact_service)));
+        let response = warp::test::request().path("/v2").reply(&filter).await;
+
+        let expected_body = "{}";
+
+        assert_eq!(response.status(), 200);
+        assert_eq!(expected_body, str::from_utf8(response.body()).unwrap());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn docker_routes_blobs() {
+        let tmp_dir = test_util::tests::setup();
+
+        let (sender, _) = mpsc::channel(1);
+        let p2p_client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+
+        let filter = make_docker_routes(Arc::new(Mutex::new(artifact_service)));
+        let response = warp::test::request()
+            .path("/v2/library/alpine/blobs/sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a")
+            .reply(&filter)
+            .await;
+
+        let expected_error = RegistryError {
+            code: RegistryErrorCode::BlobUnknown,
+        };
+        let expected_body = format!("Unhandled rejection: {:?}", expected_error);
+
+        assert_eq!(response.status(), 500);
+        assert_eq!(expected_body, str::from_utf8(response.body()).unwrap());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn docker_routes_manifests() {
+        let tmp_dir = test_util::tests::setup();
+
+        let (sender, _) = mpsc::channel(1);
+        let p2p_client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+
+        let filter = make_docker_routes(Arc::new(Mutex::new(artifact_service)));
+        let response = warp::test::request()
+            .path("/v2/library/alpine/manifests/1.15")
+            .reply(&filter)
+            .await;
+
+        let expected_error = RegistryError {
+            code: RegistryErrorCode::ManifestUnknown,
+        };
+        let expected_body = format!("Unhandled rejection: {:?}", expected_error);
+
+        assert_eq!(response.status(), 500);
+        assert_eq!(expected_body, str::from_utf8(response.body()).unwrap());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+}

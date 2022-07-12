@@ -20,7 +20,6 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::error::Error;
-use std::fmt;
 use warp::http::StatusCode;
 use warp::reject::Reject;
 use warp::{Rejection, Reply};
@@ -41,18 +40,6 @@ pub enum RegistryErrorCode {
     BlobDoesNotExist(String),
     ManifestUnknown,
     Unknown(String),
-}
-
-impl fmt::Display for RegistryErrorCode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let printable = match &self {
-            RegistryErrorCode::BlobUnknown => "BLOB_UNKNOWN".to_string(),
-            RegistryErrorCode::BlobDoesNotExist(hash) => format!("BLOB_DOES_NOT_EXIST({})", hash),
-            RegistryErrorCode::ManifestUnknown => "MANIFEST_UNKNOWN".to_string(),
-            RegistryErrorCode::Unknown(m) => format!("UNKNOWN({})", m),
-        };
-        write!(f, "{}", printable)
-    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -218,6 +205,18 @@ mod tests {
         assert_eq!(
             registry_error.code,
             RegistryErrorCode::Unknown(anyhow_error_2.to_string())
+        );
+    }
+
+    #[test]
+    fn from_build_error() {
+        let build_error_1 = BuildError::BuildFailure("Failed".to_owned());
+        let build_error_2 = BuildError::BuildFailure("Failed".to_owned());
+
+        let registry_error: RegistryError = build_error_1.into();
+        assert_eq!(
+            registry_error.code,
+            RegistryErrorCode::Unknown(build_error_2.to_string())
         );
     }
 

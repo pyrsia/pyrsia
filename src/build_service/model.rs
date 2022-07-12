@@ -18,9 +18,12 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum BuildError {}
+pub enum BuildError {
+    #[error("Build failed: {0}")]
+    BuildFailure(String),
+}
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum BuildStatus {
     Running,
     Success { artifact_urls: Vec<String> },

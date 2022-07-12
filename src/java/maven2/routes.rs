@@ -38,3 +38,48 @@ pub fn make_maven_routes(
 
     warp::any().and(maven2_root)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::artifact_service::service::PackageType;
+    use crate::docker::error_util::RegistryError;
+    use crate::network::client::Client;
+    use crate::transparency_log::log::TransparencyLogError;
+    use crate::util::test_util;
+    use libp2p::identity::Keypair;
+    use std::str;
+    use tokio::sync::mpsc;
+
+    #[tokio::test]
+    async fn maven_routes() {
+        let tmp_dir = test_util::tests::setup();
+
+        let (sender, _) = mpsc::channel(1);
+        let p2p_client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+
+        let filter = make_maven_routes(Arc::new(Mutex::new(artifact_service)));
+        let response = warp::test::request()
+            .path("/maven2/com/company/artifact/1.8/artifact-1.8.pom")
+            .reply(&filter)
+            .await;
+
+        let not_found_error = TransparencyLogError::NotFound {
+            package_type: PackageType::Maven2,
+            package_specific_artifact_id: "com.company/artifact/1.8/artifact-1.8.pom".to_owned(),
+        };
+        let expected_error: RegistryError = not_found_error.into();
+        let expected_body = format!("Unhandled rejection: {:?}", expected_error);
+
+        assert_eq!(response.status(), 500);
+        assert_eq!(expected_body, str::from_utf8(response.body()).unwrap());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+}

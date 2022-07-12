@@ -115,7 +115,7 @@ pub async fn node_status() {
     let result = node::status().await;
     match result {
         Ok(resp) => {
-            println!("{}", resp);
+            println!("Connected Peers Count:       {}", resp.peers_count);
         }
         Err(error) => {
             println!("Error: {}", error);
