@@ -112,8 +112,7 @@ mod tests {
 
     #[tokio::test]
     async fn docker_mapping_info() {
-        let mapping_service =
-            MappingService::new("");
+        let mapping_service = MappingService::new("");
 
         let package_type = PackageType::Docker;
         let package_specific_id =
