@@ -208,11 +208,11 @@ mod tests {
     fn from_transparency_log_error() {
         let transparency_log_error_1 = TransparencyLogError::NotFound {
             package_type: PackageType::Docker,
-            package_type_id: String::from("package_type_id"),
+            package_specific_artifact_id: "package_specific_artifact_id".to_owned(),
         };
         let transparency_log_error_2 = TransparencyLogError::NotFound {
             package_type: PackageType::Docker,
-            package_type_id: String::from("package_type_id"),
+            package_specific_artifact_id: "package_specific_artifact_id".to_owned(),
         };
 
         let registry_error: RegistryError = transparency_log_error_1.into();

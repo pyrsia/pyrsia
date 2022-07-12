@@ -33,7 +33,10 @@ pub async fn fetch_manifest(
     let manifest_content = artifact_service
         .lock()
         .await
-        .get_artifact(PackageType::Docker, &get_package_type_id(&name, &tag))
+        .get_artifact(
+            PackageType::Docker,
+            &get_package_specific_artifact_id(&name, &tag),
+        )
         .await
         .map_err(|_| {
             warp::reject::custom(RegistryError {
@@ -54,7 +57,7 @@ pub async fn fetch_manifest(
         .unwrap())
 }
 
-fn get_package_type_id(name: &str, tag: &str) -> String {
+fn get_package_specific_artifact_id(name: &str, tag: &str) -> String {
     format!("{}::{}", name, tag)
 }
 
@@ -74,11 +77,14 @@ mod tests {
     use tokio::sync::{mpsc, oneshot};
 
     #[test]
-    fn test_get_package_type_id() {
+    fn test_get_package_specific_artifact_id() {
         let name = "name_manifests";
-        let tag = "tag_package_type_id";
+        let tag = "tag";
 
-        assert_eq!(get_package_type_id(name, tag), format!("{}::{}", name, tag));
+        assert_eq!(
+            get_package_specific_artifact_id(name, tag),
+            format!("{}::{}", name, tag)
+        );
     }
 
     #[tokio::test]
@@ -125,7 +131,8 @@ mod tests {
         let tag = "tag_fetch_manifest";
         let hash = "865c8d988be4669f3e48f73b98f9bc2507be0246ea35e0098cf6054d3644c14f";
         let package_type = PackageType::Docker;
-        let package_type_id = get_package_type_id(name, tag);
+        let package_specific_id = format!("{}:{}", name, tag);
+        let package_specific_artifact_id = get_package_specific_artifact_id(name, tag);
 
         let (add_artifact_sender, add_artifact_receiver) = oneshot::channel();
         let (sender, _) = mpsc::channel(1);
@@ -142,9 +149,10 @@ mod tests {
             .add_artifact(
                 AddArtifactRequest {
                     package_type,
-                    package_type_id: package_type_id.to_string(),
-                    artifact_hash: hash.to_string(),
-                    source_hash: hash.to_string(),
+                    package_specific_id: package_specific_id.to_owned(),
+                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
+                    artifact_hash: hash.to_owned(),
+                    source_hash: hash.to_owned(),
                 },
                 add_artifact_sender,
             )

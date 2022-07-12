@@ -16,7 +16,7 @@
 
 use super::storage::ArtifactStorage;
 use crate::network::client::Client;
-use crate::transparency_log::log::{TransparencyLogError, TransparencyLogService};
+use crate::transparency_log::log::{TransparencyLog, TransparencyLogError, TransparencyLogService};
 use anyhow::{bail, Context};
 use libp2p::PeerId;
 use log::info;
@@ -62,7 +62,7 @@ impl ArtifactService {
     }
 
     /// Request a build from source for the specified package.
-    pub fn request_build(&self, _package_type: PackageType, _package_type_id: &str) {}
+    pub fn request_build(&self, _package_type: PackageType, _package_specific_id: &str) {}
 
     /// Retrieve the artifact data for the specified package. If the artifact
     /// is not available locally, the service will try to fetch the artifact
@@ -70,11 +70,11 @@ impl ArtifactService {
     pub async fn get_artifact(
         &mut self,
         package_type: PackageType,
-        package_type_id: &str,
+        package_specific_artifact_id: &str,
     ) -> anyhow::Result<Vec<u8>> {
         let transparency_log = self
             .transparency_log_service
-            .get_artifact(&package_type, package_type_id)?;
+            .get_artifact(&package_type, package_specific_artifact_id)?;
 
         let artifact = match self.get_artifact_locally(&transparency_log.artifact_id) {
             Ok(artifact) => Ok(artifact),
@@ -84,8 +84,7 @@ impl ArtifactService {
             }
         }?;
 
-        self.verify_artifact(&package_type, package_type_id, &artifact)
-            .await?;
+        self.verify_artifact(&transparency_log, &artifact).await?;
 
         Ok(artifact)
     }
@@ -134,24 +133,20 @@ impl ArtifactService {
 
     async fn verify_artifact(
         &mut self,
-        package_type: &PackageType,
-        package_type_id: &str,
+        transparency_log: &TransparencyLog,
         artifact: &[u8],
     ) -> Result<(), TransparencyLogError> {
         let mut sha256 = multihash::Sha2_256::default();
         sha256.update(artifact);
         let calculated_hash = hex::encode(sha256.finalize());
 
-        let transparency_log = self
-            .transparency_log_service
-            .get_artifact(package_type, package_type_id)?;
         if transparency_log.artifact_hash == calculated_hash {
             Ok(())
         } else {
             Err(TransparencyLogError::InvalidHash {
-                id: package_type_id.to_string(),
+                id: transparency_log.package_specific_artifact_id.clone(),
                 invalid_hash: calculated_hash,
-                actual_hash: transparency_log.artifact_hash,
+                actual_hash: transparency_log.artifact_hash.clone(),
             })
         }
     }
@@ -203,13 +198,15 @@ mod tests {
         let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client).unwrap();
 
         let package_type = PackageType::Docker;
-        let package_type_id = "package_type_id";
+        let package_specific_id = "package_specific_id";
+        let package_specific_artifact_id = "package_specific_artifact_id";
         artifact_service
             .transparency_log_service
             .add_artifact(
                 AddArtifactRequest {
                     package_type,
-                    package_type_id: package_type_id.to_owned(),
+                    package_specific_id: package_specific_id.to_owned(),
+                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: hex::encode(VALID_ARTIFACT_HASH),
                     source_hash: hex::encode(VALID_ARTIFACT_HASH),
                 },
@@ -232,7 +229,7 @@ mod tests {
         // pull artifact
         let future = {
             artifact_service
-                .get_artifact(package_type, package_type_id)
+                .get_artifact(package_type, package_specific_artifact_id)
                 .await
                 .context("Error from get_artifact")
         };
@@ -291,13 +288,15 @@ mod tests {
         let random_hash = hex::encode(hasher.finalize());
 
         let package_type = PackageType::Docker;
-        let package_type_id = "package_type_id";
+        let package_specific_id = "package_specific_id";
+        let package_specific_artifact_id = "package_specific_artifact_id";
         artifact_service
             .transparency_log_service
             .add_artifact(
                 AddArtifactRequest {
                     package_type,
-                    package_type_id: package_type_id.to_string(),
+                    package_specific_id: package_specific_id.to_owned(),
+                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: random_hash.clone(),
                     source_hash: random_hash.clone(),
                 },
@@ -310,7 +309,7 @@ mod tests {
 
         let future = {
             artifact_service
-                .get_artifact(package_type, package_type_id)
+                .get_artifact(package_type, package_specific_artifact_id)
                 .await
         };
         let result = task::spawn_blocking(|| future).await.unwrap();
@@ -376,13 +375,15 @@ mod tests {
         let random_hash = hex::encode(hasher1.finalize());
 
         let package_type = PackageType::Docker;
-        let package_type_id = "package_type_id";
+        let package_specific_id = "package_specific_id";
+        let package_specific_artifact_id = "package_specific_artifact_id";
         artifact_service
             .transparency_log_service
             .add_artifact(
                 AddArtifactRequest {
                     package_type,
-                    package_type_id: package_type_id.to_string(),
+                    package_specific_id: package_specific_id.to_owned(),
+                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: random_hash.clone(),
                     source_hash: random_hash,
                 },
@@ -391,8 +392,13 @@ mod tests {
             .await
             .unwrap();
 
+        let transparency_log = artifact_service
+            .transparency_log_service
+            .get_artifact(&package_type, package_specific_artifact_id)
+            .unwrap();
+
         let result = artifact_service
-            .verify_artifact(&package_type, package_type_id, b"SAMPLE_DATA")
+            .verify_artifact(&transparency_log, b"SAMPLE_DATA")
             .await;
         assert!(result.is_ok());
 
@@ -422,13 +428,15 @@ mod tests {
         let random_other_hash = hex::encode(hasher2.finalize());
 
         let package_type = PackageType::Docker;
-        let package_type_id = "package_type_id";
+        let package_specific_id = "package_specific_id";
+        let package_specific_artifact_id = "package_specific_artifact_id";
         artifact_service
             .transparency_log_service
             .add_artifact(
                 AddArtifactRequest {
                     package_type,
-                    package_type_id: package_type_id.to_string(),
+                    package_specific_id: package_specific_id.to_owned(),
+                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: random_hash.clone(),
                     source_hash: random_hash.clone(),
                 },
@@ -437,14 +445,19 @@ mod tests {
             .await
             .unwrap();
 
+        let transparency_log = artifact_service
+            .transparency_log_service
+            .get_artifact(&package_type, package_specific_artifact_id)
+            .unwrap();
+
         let result = artifact_service
-            .verify_artifact(&package_type, package_type_id, b"OTHER_SAMPLE_DATA")
+            .verify_artifact(&transparency_log, b"OTHER_SAMPLE_DATA")
             .await;
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
             TransparencyLogError::InvalidHash {
-                id: package_type_id.to_string(),
+                id: package_specific_artifact_id.to_string(),
                 invalid_hash: random_other_hash,
                 actual_hash: random_hash
             }

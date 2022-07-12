@@ -98,7 +98,8 @@ mod tests {
 
         let hash = "865c8d988be4669f3e48f73b98f9bc2507be0246ea35e0098cf6054d3644c14f";
         let package_type = PackageType::Docker;
-        let package_type_id = hash;
+        let package_specific_id = hash;
+        let package_specific_artifact_id = hash;
 
         let (add_artifact_sender, add_artifact_receiver) = oneshot::channel();
         let (sender, _) = mpsc::channel(1);
@@ -114,9 +115,10 @@ mod tests {
             .add_artifact(
                 AddArtifactRequest {
                     package_type,
-                    package_type_id: package_type_id.to_string(),
-                    artifact_hash: hash.to_string(),
-                    source_hash: hash.to_string(),
+                    package_specific_id: package_specific_id.to_owned(),
+                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
+                    artifact_hash: hash.to_owned(),
+                    source_hash: hash.to_owned(),
                 },
                 add_artifact_sender,
             )
@@ -132,7 +134,7 @@ mod tests {
         .unwrap();
 
         let result =
-            handle_get_blobs(Arc::new(Mutex::new(artifact_service)), hash.to_string()).await;
+            handle_get_blobs(Arc::new(Mutex::new(artifact_service)), hash.to_owned()).await;
 
         assert!(result.is_ok());
 
