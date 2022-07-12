@@ -31,7 +31,7 @@ bytes = "1.1.0"
 byte-unit = { version = "4.0.13", default-features = false}
 confy = "0.4.0"
 ctor = "0.1.21"
-clap = { version = "3.2.8", features = ["derive"] }
+clap = { version = "3.2.10", features = ["derive"] }
 dirs = "4.0.0"
 defaults = "0.2.0"
 derive_builder = "0.11.2"
