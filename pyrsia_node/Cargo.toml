@@ -12,7 +12,7 @@ pyrsia = { path = ".." }
 pyrsia_blockchain_network = { path = "../src/blockchain" }
 
 anyhow = "1.0.58"
-clap = { version = "3.2.8", features= [ "cargo", "derive" ] }
+clap = { version = "3.2.10", features= [ "cargo", "derive" ] }
 futures = "0.3.19"
 hex = "0.4.3"
 libp2p = { version = "0.45.1", features=["dns-tokio", "tcp-tokio"]}
