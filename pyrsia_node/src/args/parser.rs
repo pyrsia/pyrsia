@@ -22,6 +22,7 @@ const DEFAULT_LISTEN_ADDRESS: &str = "/ip4/0.0.0.0/tcp/0";
 const DEFAULT_MAX_PROVIDED_KEYS: &str = "32768";
 const DEFAULT_MAPPING_SERVICE_ENDPOINT: &str =
     "https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/";
+const DEFAULT_PIPELINE_SERVICE_ENDPOINT: &str = "http://localhost:8080";
 const DEFAULT_PORT: &str = "7888";
 
 /// Application to connect to and participate in the Pyrsia network
@@ -46,4 +47,7 @@ pub struct PyrsiaNodeArgs {
     /// The http endpoint where the mapping service will fetch mapping info from.
     #[clap(long, default_value = DEFAULT_MAPPING_SERVICE_ENDPOINT)]
     pub mapping_service_endpoint: String,
+    /// The http endpoint of the external build pipeline that the pipeline service will use to communicate with.
+    #[clap(long, default_value = DEFAULT_PIPELINE_SERVICE_ENDPOINT)]
+    pub pipeline_service_endpoint: String,
 }

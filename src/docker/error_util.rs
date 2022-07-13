@@ -210,8 +210,8 @@ mod tests {
 
     #[test]
     fn from_build_error() {
-        let build_error_1 = BuildError::BuildFailure("Failed".to_owned());
-        let build_error_2 = BuildError::BuildFailure("Failed".to_owned());
+        let build_error_1 = BuildError::Failure("Failed".to_owned());
+        let build_error_2 = BuildError::Failure("Failed".to_owned());
 
         let registry_error: RegistryError = build_error_1.into();
         assert_eq!(

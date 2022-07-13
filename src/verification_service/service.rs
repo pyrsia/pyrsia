@@ -35,7 +35,7 @@ pub struct VerificationService {
 
 impl VerificationService {
     pub fn new<P: AsRef<Path>>(repository_path: P) -> Result<Self, anyhow::Error> {
-        let build_service = BuildService::new(&repository_path, "")?;
+        let build_service = BuildService::new(&repository_path, "", "")?;
         Ok(VerificationService {
             _build_service: build_service,
         })
