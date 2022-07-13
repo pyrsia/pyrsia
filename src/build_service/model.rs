@@ -14,5 +14,26 @@
    limitations under the License.
 */
 
-pub mod model;
-pub mod service;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum BuildError {
+    #[error("Build failed: {0}")]
+    BuildFailure(String),
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub enum BuildStatus {
+    Running,
+    Success { artifact_urls: Vec<String> },
+    Failure(String),
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct BuildInfo {
+    pub id: String,
+    pub status: BuildStatus,
+}
+
+pub struct BuildResult {}
