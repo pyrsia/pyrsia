@@ -20,7 +20,7 @@ use crate::build_service::model::BuildInfo;
 
 pub struct PipelineService {
     http_client: reqwest::Client,
-    pub pipeline_service_endpoint: String,
+    pipeline_service_endpoint: String,
 }
 
 impl PipelineService {
@@ -165,6 +165,33 @@ mod tests {
     }
 
     #[tokio::test]
+    #[should_panic(expected = "InvalidPipelineResponse")]
+    async fn start_build_invalid_response() {
+        let mapping_info = MappingInfo {
+            package_type: PackageType::Docker,
+            package_specific_id:
+                "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a".to_owned(),
+            source_repository: None,
+            build_spec_url: None,
+        };
+
+        let http_server = Server::run();
+        http_server.expect(
+            Expectation::matching(matchers::all_of!(
+                matchers::request::method_path("PUT", "/build"),
+                matchers::request::body(matchers::json_decoded(matchers::eq(serde_json::json!(
+                    &mapping_info
+                ))))
+            ))
+            .respond_with(responders::json_encoded("{}")),
+        );
+
+        let pipeline_service = PipelineService::new(&http_server.url("/").to_string());
+
+        pipeline_service.start_build(mapping_info).await.unwrap();
+    }
+
+    #[tokio::test]
     async fn start_build_server_error() {
         let mapping_info = MappingInfo {
             package_type: PackageType::Docker,
@@ -235,6 +262,25 @@ mod tests {
 
         let build_info_result = pipeline_service.get_build_status(&build_id).await.unwrap();
         assert_eq!(build_info_result, build_info);
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "InvalidPipelineResponse")]
+    async fn get_build_status_invalid_response() {
+        let build_id = uuid::Uuid::new_v4().to_string();
+
+        let http_server = Server::run();
+        http_server.expect(
+            Expectation::matching(matchers::request::method_path(
+                "GET",
+                format!("/build/{}", &build_id),
+            ))
+            .respond_with(responders::json_encoded("{}")),
+        );
+
+        let pipeline_service = PipelineService::new(&http_server.url("/").to_string());
+
+        pipeline_service.get_build_status(&build_id).await.unwrap();
     }
 
     #[tokio::test]

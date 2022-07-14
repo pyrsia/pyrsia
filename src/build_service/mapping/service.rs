@@ -19,7 +19,7 @@ use crate::artifact_service::model::PackageType;
 use crate::build_service::error::BuildError;
 
 pub struct MappingService {
-    pub mapping_service_endpoint: String,
+    mapping_service_endpoint: String,
 }
 
 impl MappingService {
@@ -169,6 +169,29 @@ mod tests {
 
         let mapping_info_result = result.unwrap();
         assert_eq!(mapping_info, mapping_info_result);
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "InvalidMappingResponse")]
+    async fn maven_mapping_invalid_mapping() {
+        let http_server = Server::run();
+        http_server.expect(
+            Expectation::matching(matchers::request::method_path(
+                "GET",
+                "/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.mapping",
+            ))
+            .respond_with(responders::json_encoded("{}")),
+        );
+
+        let mapping_service = MappingService::new(&http_server.url("/").to_string());
+
+        let package_type = PackageType::Maven2;
+        let package_specific_id = "commons-codec:commons-codec:1.15";
+
+        mapping_service
+            .get_mapping(package_type, package_specific_id)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]

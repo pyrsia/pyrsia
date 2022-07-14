@@ -18,7 +18,7 @@ use tokio::sync::oneshot;
 
 use super::error::BuildError;
 use super::mapping::service::MappingService;
-use super::model::{BuildInfo, BuildResult, BuildStatus};
+use super::model::{BuildInfo, BuildResult};
 use super::pipeline::service::PipelineService;
 use crate::artifact_service::model::PackageType;
 use std::path::{Path, PathBuf};
@@ -52,48 +52,22 @@ impl BuildService {
         package_specific_id: &str,
         _sender: oneshot::Sender<Result<Vec<BuildResult>, BuildError>>,
     ) -> Result<BuildInfo, BuildError> {
-        let _mapping_info = self
+        let mapping_info = self
             .mapping_service
             .get_mapping(package_type, package_specific_id)
             .await?;
 
-        Ok(BuildInfo {
-            id: uuid::Uuid::new_v4().to_string(),
-            status: BuildStatus::Running,
-        })
+        self.pipeline_service.start_build(mapping_info).await
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::build_service::mapping::model::MappingInfo;
     use crate::util::test_util;
+    use httptest::{matchers, responders, Expectation, Server};
 
-    #[tokio::test]
-    async fn test_new() {
-        let tmp_dir = test_util::tests::setup();
-
-        let mapping_service_endpoint = "https://mapping-service.pyrsia.io/";
-        let pipeline_service_endpoint = "https://pipeline-service.pyrsia.io/";
-
-        let build_service = BuildService::new(
-            &tmp_dir,
-            mapping_service_endpoint,
-            pipeline_service_endpoint,
-        )
-        .unwrap();
-
-        assert_eq!(
-            build_service.mapping_service.mapping_service_endpoint,
-            mapping_service_endpoint
-        );
-        assert_eq!(
-            build_service.pipeline_service.pipeline_service_endpoint,
-            pipeline_service_endpoint
-        );
-
-        test_util::tests::teardown(tmp_dir);
-    }
     #[tokio::test]
     async fn test_start_build() {
         let tmp_dir = test_util::tests::setup();
@@ -103,8 +77,31 @@ mod tests {
 
         let (sender, _) = oneshot::channel();
 
+        let mapping_info = MappingInfo {
+            package_type: PackageType::Docker,
+            package_specific_id: "alpine:3.15.2".to_owned(),
+            source_repository: None,
+            build_spec_url: None,
+        };
+
+        let build_info = BuildInfo {
+            id: uuid::Uuid::new_v4().to_string(),
+            status: BuildStatus::Running,
+        };
+
+        let http_server = Server::run();
+        http_server.expect(
+            Expectation::matching(matchers::all_of!(
+                matchers::request::method_path("PUT", "/build"),
+                matchers::request::body(matchers::json_decoded(matchers::eq(serde_json::json!(
+                    &mapping_info
+                ))))
+            ))
+            .respond_with(responders::json_encoded(&build_info)),
+        );
+
         let mapping_service_endpoint = "https://mapping-service.pyrsia.io/";
-        let pipeline_service_endpoint = "https://pipeline-service.pyrsia.io/";
+        let pipeline_service_endpoint = &http_server.url_str("/");
 
         let build_service = BuildService::new(
             &tmp_dir,
@@ -112,11 +109,12 @@ mod tests {
             pipeline_service_endpoint,
         )
         .unwrap();
-        let build_result = build_service
+        let build_info_result = build_service
             .start_build(package_type, package_specific_id, sender)
-            .await;
+            .await
+            .unwrap();
 
-        assert!(build_result.is_ok());
+        assert_eq!(build_info_result, build_info);
 
         test_util::tests::teardown(tmp_dir);
     }
