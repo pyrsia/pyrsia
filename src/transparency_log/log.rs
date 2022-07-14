@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use crate::artifact_service::service::PackageType;
+use crate::artifact_service::model::PackageType;
 use libp2p::PeerId;
 use log::debug;
 use rusqlite::Connection;
@@ -689,7 +689,6 @@ mod tests {
                 sender,
             )
             .await;
-        println!("RESULT: {:?}", result);
         assert!(result.is_ok());
 
         test_util::tests::teardown(tmp_dir);

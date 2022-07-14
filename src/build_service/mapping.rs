@@ -14,8 +14,5 @@
    limitations under the License.
 */
 
-pub mod error;
-pub mod mapping;
 pub mod model;
-pub mod pipeline;
 pub mod service;

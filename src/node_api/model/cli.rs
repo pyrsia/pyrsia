@@ -22,8 +22,12 @@ pub struct Status {
     pub peer_id: String,
 }
 
-impl std::fmt::Display for Status {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Connected Peers Count:       {}", self.peers_count)
-    }
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RequestDockerBuild {
+    pub manifest: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RequestMavenBuild {
+    pub gav: String,
 }

@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use std::path::Path;
 use thiserror::Error;
 use tokio::sync::oneshot;
 
@@ -28,16 +29,16 @@ pub struct VerificationResult {}
 
 /// The verification service is a component used by authorized nodes only.
 /// It implements all necessary logic to verify blockchain transactions.
-#[derive(Default)]
 pub struct VerificationService {
     _build_service: BuildService,
 }
 
 impl VerificationService {
-    pub fn new() -> Self {
-        VerificationService {
-            _build_service: BuildService {},
-        }
+    pub fn new<P: AsRef<Path>>(repository_path: P) -> Result<Self, anyhow::Error> {
+        let build_service = BuildService::new(&repository_path, "", "")?;
+        Ok(VerificationService {
+            _build_service: build_service,
+        })
     }
 
     /// Verify a build for the specified transaction. This method is
@@ -55,12 +56,15 @@ impl VerificationService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::test_util;
     use libp2p::identity;
     use pyrsia_blockchain_network::structures::header::Address;
     use pyrsia_blockchain_network::structures::transaction::TransactionType;
 
     #[tokio::test]
     async fn test_verify_transaction() {
+        let tmp_dir = test_util::tests::setup();
+
         let keypair = identity::ed25519::Keypair::generate();
         let submitter = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let payload = vec![1, 2, 3];
@@ -68,11 +72,13 @@ mod tests {
 
         let (sender, _) = oneshot::channel();
 
-        let verification_service = VerificationService::new();
+        let verification_service = VerificationService::new(&tmp_dir).unwrap();
         let verification_result = verification_service
             .verify_transaction(transaction, sender)
             .await;
 
         assert!(verification_result.is_ok());
+
+        test_util::tests::teardown(tmp_dir);
     }
 }

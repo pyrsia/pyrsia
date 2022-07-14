@@ -14,8 +14,19 @@
    limitations under the License.
 */
 
-pub mod error;
-pub mod mapping;
-pub mod model;
-pub mod pipeline;
-pub mod service;
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub enum BuildStatus {
+    Running,
+    Success { artifact_urls: Vec<String> },
+    Failure(String),
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct BuildInfo {
+    pub id: String,
+    pub status: BuildStatus,
+}
+
+pub struct BuildResult {}

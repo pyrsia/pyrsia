@@ -35,6 +35,15 @@ async fn main() {
                 config_show();
             }
         }
+        Some(("build", build_matches)) => match build_matches.subcommand() {
+            Some(("docker", docker_matches)) => {
+                request_docker_build(docker_matches.get_one::<String>("manifest").unwrap()).await;
+            }
+            Some(("maven", maven_matches)) => {
+                request_maven_build(maven_matches.get_one::<String>("gav").unwrap()).await;
+            }
+            _ => {}
+        },
         Some(("list", _config_matches)) => {
             node_list().await;
         }
