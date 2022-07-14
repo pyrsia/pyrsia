@@ -149,10 +149,9 @@ impl Blockchain {
             trans_vec,
             &ed25519_key,
         );
-        self.add_block(block);
+        self.add_block(block)
     }
 
-    
     pub fn add_block(&mut self, block: Block) {
         self.chain.blocks.push(block);
         self.notify_block_event(self.chain.blocks.last().expect("block must exist").clone());
