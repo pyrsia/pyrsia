@@ -54,14 +54,13 @@ impl MappingService {
     ) -> Result<MappingInfo, BuildError> {
         let package_specific_pieces: Vec<&str> = package_specific_id.split(':').collect();
 
+        let group_id = package_specific_pieces[0].replace('.', "/");
+        let artifact_id = package_specific_pieces[1];
+        let version = package_specific_pieces[2];
+
         let remote_mapping_url = format!(
             "{}Maven2/{}/{}/{}/{}-{}.mapping",
-            self.mapping_service_endpoint,
-            package_specific_pieces[0],
-            package_specific_pieces[1],
-            package_specific_pieces[2],
-            package_specific_pieces[1],
-            package_specific_pieces[2]
+            self.mapping_service_endpoint, group_id, artifact_id, version, artifact_id, version
         );
 
         let client = reqwest::Client::new();
@@ -143,19 +142,19 @@ mod tests {
     async fn maven_mapping_info() {
         let mapping_info = MappingInfo {
             package_type: PackageType::Maven2,
-            package_specific_id: "commons-codec:commons-codec:1.15".to_owned(),
+            package_specific_id: "org.apache.maven:maven:3.8.6".to_owned(),
             source_repository: Some(SourceRepository::Git {
-                url: "https://github.com/apache/commons-codec".to_owned(),
-                tag: "rel/commons-codec-1.15".to_owned()
+                url: "https://github.com/apache/maven".to_owned(),
+                tag: "maven-3.8.6".to_owned()
             }),
-            build_spec_url: Some("https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.buildspec".to_owned()),
+            build_spec_url: Some("https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/org/apache/maven/maven/3.8.6/maven-3.8.6.buildspec".to_owned()),
         };
 
         let http_server = Server::run();
         http_server.expect(
             Expectation::matching(matchers::request::method_path(
                 "GET",
-                "/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.mapping",
+                "/Maven2/org/apache/maven/maven/3.8.6/maven-3.8.6.mapping",
             ))
             .respond_with(responders::json_encoded(&mapping_info)),
         );
