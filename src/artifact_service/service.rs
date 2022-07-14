@@ -205,7 +205,7 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
         let mut artifact_service =
             ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
@@ -293,7 +293,7 @@ mod tests {
             }
         });
 
-        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
         let mut artifact_service =
             ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
@@ -343,7 +343,7 @@ mod tests {
             local_peer_id: peer_id,
         };
 
-        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
         let mut artifact_service =
             ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
@@ -384,7 +384,7 @@ mod tests {
             local_peer_id,
         };
 
-        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
         let mut artifact_service =
             ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
@@ -435,7 +435,7 @@ mod tests {
             local_peer_id,
         };
 
-        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
         let mut artifact_service =
             ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 

@@ -20,6 +20,12 @@ use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq)]
 pub enum BuildError {
+    #[error("Build failed: {0}")]
+    Failure(String),
+    #[error("Invalid response from mapping service endpoint: {0}")]
+    InvalidMappingResponse(String),
+    #[error("Invalid response from pipeline service endpoint: {0}")]
+    InvalidPipelineResponse(String),
     #[error("No mapping found for package with ID {package_specific_id} and type {package_type}")]
     MappingNotFound {
         package_type: PackageType,
@@ -29,12 +35,8 @@ pub enum BuildError {
     MappingServiceEndpointFailure(StatusCode),
     #[error("Failed to connect to mapping service endpoint: {0}")]
     MappingServiceEndpointRequestFailure(String),
-    #[error("Build failed: {0}")]
-    BuildFailure(String),
-}
-
-impl From<reqwest::Error> for BuildError {
-    fn from(error: reqwest::Error) -> Self {
-        BuildError::MappingServiceEndpointRequestFailure(error.to_string())
-    }
+    #[error("Request to pipeline service endpoint failed with status {0}")]
+    PipelineServiceEndpointFailure(StatusCode),
+    #[error("Failed to connect to pipeline service endpoint: {0}")]
+    PipelineServiceEndpointRequestFailure(String),
 }

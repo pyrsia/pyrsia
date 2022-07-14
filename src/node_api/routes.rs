@@ -76,19 +76,44 @@ mod tests {
     async fn node_routes_build_docker() {
         let tmp_dir = test_util::tests::setup();
 
+        let mapping_info = MappingInfo {
+            package_type: PackageType::Docker,
+            package_specific_id: "alpine:3.15.2".to_owned(),
+            source_repository: None,
+            build_spec_url: None,
+        };
+
+        let build_info = BuildInfo {
+            id: uuid::Uuid::new_v4().to_string(),
+            status: BuildStatus::Running,
+        };
+
+        let http_server = Server::run();
+        http_server.expect(
+            Expectation::matching(matchers::all_of!(
+                matchers::request::method_path("PUT", "/build"),
+                matchers::request::body(matchers::json_decoded(matchers::eq(serde_json::json!(
+                    &mapping_info
+                ))))
+            ))
+            .respond_with(responders::json_encoded(&build_info)),
+        );
+
+        let http_server_url = &http_server.url_str("/");
+
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
             sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let build_service = BuildService::new(&tmp_dir, http_server_url, http_server_url).unwrap();
         let artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
             .expect("Creating ArtifactService failed");
 
         let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let request = RequestDockerBuild {
-            manifest: "alpine/1.15".to_owned(),
+            manifest: "alpine:3.15.2".to_owned(),
         };
         let response = warp::test::request()
             .method("POST")
@@ -119,6 +144,11 @@ mod tests {
             build_spec_url: Some("https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.buildspec".to_owned()),
         };
 
+        let build_info = BuildInfo {
+            id: uuid::Uuid::new_v4().to_string(),
+            status: BuildStatus::Running,
+        };
+
         let http_server = Server::run();
         http_server.expect(
             Expectation::matching(matchers::request::method_path(
@@ -127,6 +157,17 @@ mod tests {
             ))
             .respond_with(responders::json_encoded(&mapping_info)),
         );
+        http_server.expect(
+            Expectation::matching(matchers::all_of!(
+                matchers::request::method_path("PUT", "/build"),
+                matchers::request::body(matchers::json_decoded(matchers::eq(serde_json::json!(
+                    &mapping_info
+                ))))
+            ))
+            .respond_with(responders::json_encoded(&build_info)),
+        );
+
+        let http_server_url = &http_server.url_str("/");
 
         let (sender, _) = mpsc::channel(1);
         let p2p_client = Client {
@@ -134,7 +175,7 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let build_service = BuildService::new(&tmp_dir, &http_server.url("/").to_string()).unwrap();
+        let build_service = BuildService::new(&tmp_dir, http_server_url, http_server_url).unwrap();
         let artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
             .expect("Creating ArtifactService failed");
 
@@ -167,7 +208,7 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
         let artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
             .expect("Creating ArtifactService failed");
 
@@ -195,7 +236,7 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let build_service = BuildService::new(&tmp_dir, "").unwrap();
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
         let artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
             .expect("Creating ArtifactService failed");
 

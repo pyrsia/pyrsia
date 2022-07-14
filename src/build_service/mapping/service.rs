@@ -64,13 +64,17 @@ impl MappingService {
         );
 
         let client = reqwest::Client::new();
-        let response = client.get(remote_mapping_url).send().await?;
+        let response = client
+            .get(remote_mapping_url)
+            .send()
+            .await
+            .map_err(|e| BuildError::MappingServiceEndpointRequestFailure(e.to_string()))?;
 
         if response.status().is_success() {
             response
                 .json::<MappingInfo>()
                 .await
-                .map_err(BuildError::from)
+                .map_err(|e| BuildError::InvalidMappingResponse(e.to_string()))
         } else if response.status() == hyper::StatusCode::NOT_FOUND {
             Err(BuildError::MappingNotFound {
                 package_type: PackageType::Maven2,
@@ -111,6 +115,14 @@ mod tests {
 
     #[tokio::test]
     async fn docker_mapping_info() {
+        let mapping_info = MappingInfo {
+            package_type: PackageType::Docker,
+            package_specific_id:
+                "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a".to_owned(),
+            source_repository: None,
+            build_spec_url: None,
+        };
+
         let mapping_service = MappingService::new("");
 
         let package_type = PackageType::Docker;
@@ -122,14 +134,8 @@ mod tests {
             .await;
         assert!(result.is_ok());
 
-        let mapping_info = result.unwrap();
-        assert_eq!(mapping_info.package_type, package_type);
-        assert_eq!(
-            mapping_info.package_specific_id,
-            package_specific_id.to_owned()
-        );
-        assert_eq!(mapping_info.source_repository, None);
-        assert_eq!(mapping_info.build_spec_url, None);
+        let mapping_info_result = result.unwrap();
+        assert_eq!(mapping_info, mapping_info_result);
     }
 
     #[tokio::test]
@@ -165,6 +171,29 @@ mod tests {
     }
 
     #[tokio::test]
+    #[should_panic(expected = "InvalidMappingResponse")]
+    async fn maven_mapping_invalid_mapping() {
+        let http_server = Server::run();
+        http_server.expect(
+            Expectation::matching(matchers::request::method_path(
+                "GET",
+                "/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.mapping",
+            ))
+            .respond_with(responders::json_encoded("{}")),
+        );
+
+        let mapping_service = MappingService::new(&http_server.url("/").to_string());
+
+        let package_type = PackageType::Maven2;
+        let package_specific_id = "commons-codec:commons-codec:1.15";
+
+        mapping_service
+            .get_mapping(package_type, package_specific_id)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
     async fn maven_mapping_info_unknown_mapping() {
         let http_server = Server::run();
         http_server.expect(
@@ -180,12 +209,10 @@ mod tests {
         let package_type = PackageType::Maven2;
         let package_specific_id = "commons-codec:commons-codec:1.14";
 
-        let result = mapping_service
+        let error = mapping_service
             .get_mapping(package_type, package_specific_id)
-            .await;
-        assert!(result.is_err());
-
-        let error = result.unwrap_err();
+            .await
+            .unwrap_err();
         assert_eq!(
             error,
             BuildError::MappingNotFound {
@@ -211,12 +238,10 @@ mod tests {
         let package_type = PackageType::Maven2;
         let package_specific_id = "commons-codec:commons-codec:1.14";
 
-        let result = mapping_service
+        let error = mapping_service
             .get_mapping(package_type, package_specific_id)
-            .await;
-        assert!(result.is_err());
-
-        let error = result.unwrap_err();
+            .await
+            .unwrap_err();
         assert_eq!(
             error,
             BuildError::MappingServiceEndpointFailure(StatusCode::BAD_REQUEST)
@@ -224,20 +249,16 @@ mod tests {
     }
 
     #[tokio::test]
+    #[should_panic(expected = "MappingServiceEndpointRequestFailure")]
     async fn maven_mapping_http_error() {
-        let mapping_service = MappingService::new("http://localhost:43210");
+        let mapping_service = MappingService::new("");
 
         let package_type = PackageType::Maven2;
         let package_specific_id = "commons-codec:commons-codec:1.14";
 
-        let result = mapping_service
+        mapping_service
             .get_mapping(package_type, package_specific_id)
-            .await;
-        assert!(result.is_err());
-
-        match result.unwrap_err() {
-            BuildError::MappingServiceEndpointRequestFailure(_msg) => {}
-            _ => panic!("Error should be of type BuildError::MappingServiceEndpointRequestFailure"),
-        };
+            .await
+            .unwrap();
     }
 }

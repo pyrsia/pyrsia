@@ -156,7 +156,11 @@ fn setup_artifact_service(
     args: &PyrsiaNodeArgs,
 ) -> Result<Arc<Mutex<ArtifactService>>> {
     let artifact_path = PathBuf::from(ARTIFACTS_DIR.as_str());
-    let build_service = BuildService::new(&artifact_path, &args.mapping_service_endpoint)?;
+    let build_service = BuildService::new(
+        &artifact_path,
+        &args.mapping_service_endpoint,
+        &args.pipeline_service_endpoint,
+    )?;
 
     let artifact_service = ArtifactService::new(artifact_path, p2p_client, build_service)?;
 
