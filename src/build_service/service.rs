@@ -65,6 +65,7 @@ impl BuildService {
 mod tests {
     use super::*;
     use crate::build_service::mapping::model::MappingInfo;
+    use crate::build_service::model::BuildStatus;
     use crate::util::test_util;
     use httptest::{matchers, responders, Expectation, Server};
 
