@@ -22,6 +22,7 @@ use args::parser::PyrsiaNodeArgs;
 use network::handlers;
 use pyrsia::artifact_service::service::ArtifactService;
 use pyrsia::artifact_service::storage::ARTIFACTS_DIR;
+use pyrsia::build_service::service::BuildService;
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::make_docker_routes;
 use pyrsia::java::maven2::routes::make_maven_routes;
@@ -53,7 +54,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm(args.max_provided_keys)?;
 
     debug!("Create artifact service");
-    let artifact_service = setup_artifact_service(p2p_client.clone())?;
+    let artifact_service = setup_artifact_service(p2p_client.clone(), &args)?;
 
     debug!("Create blockchain components");
     let blockchain = setup_blockchain()?;
@@ -65,7 +66,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     setup_http(&args, artifact_service.clone());
 
     debug!("Start p2p components");
-    setup_p2p(p2p_client.clone(), args).await?;
+    setup_p2p(p2p_client.clone(), &args).await?;
 
     debug!("Listen for p2p events");
     loop {
@@ -155,18 +156,28 @@ fn setup_http(args: &PyrsiaNodeArgs, artifact_service: Arc<Mutex<ArtifactService
     tokio::spawn(server);
 }
 
-async fn setup_p2p(mut p2p_client: Client, args: PyrsiaNodeArgs) -> Result<()> {
+async fn setup_p2p(mut p2p_client: Client, args: &PyrsiaNodeArgs) -> Result<()> {
     p2p_client.listen(&args.listen_address).await?;
 
-    if let Some(to_dial) = args.peer {
-        handlers::dial_other_peer(p2p_client.clone(), &to_dial).await
+    if let Some(to_dial) = &args.peer {
+        handlers::dial_other_peer(p2p_client.clone(), to_dial).await
     } else {
         Ok(())
     }
 }
 
-fn setup_artifact_service(p2p_client: Client) -> Result<Arc<Mutex<ArtifactService>>> {
-    let artifact_service = ArtifactService::new(PathBuf::from(ARTIFACTS_DIR.as_str()), p2p_client)?;
+fn setup_artifact_service(
+    p2p_client: Client,
+    args: &PyrsiaNodeArgs,
+) -> Result<Arc<Mutex<ArtifactService>>> {
+    let artifact_path = PathBuf::from(ARTIFACTS_DIR.as_str());
+    let build_service = BuildService::new(
+        &artifact_path,
+        &args.mapping_service_endpoint,
+        &args.pipeline_service_endpoint,
+    )?;
+
+    let artifact_service = ArtifactService::new(artifact_path, p2p_client, build_service)?;
 
     Ok(Arc::new(Mutex::new(artifact_service)))
 }

@@ -14,12 +14,12 @@
    limitations under the License.
 */
 
+use crate::build_service::error::BuildError;
 use crate::transparency_log::log::TransparencyLogError;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::error::Error;
-use std::fmt;
 use warp::http::StatusCode;
 use warp::reject::Reject;
 use warp::{Rejection, Reply};
@@ -42,18 +42,6 @@ pub enum RegistryErrorCode {
     Unknown(String),
 }
 
-impl fmt::Display for RegistryErrorCode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let printable = match &self {
-            RegistryErrorCode::BlobUnknown => "BLOB_UNKNOWN".to_string(),
-            RegistryErrorCode::BlobDoesNotExist(hash) => format!("BLOB_DOES_NOT_EXIST({})", hash),
-            RegistryErrorCode::ManifestUnknown => "MANIFEST_UNKNOWN".to_string(),
-            RegistryErrorCode::Unknown(m) => format!("UNKNOWN({})", m),
-        };
-        write!(f, "{}", printable)
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub struct RegistryError {
     pub code: RegistryErrorCode,
@@ -61,6 +49,14 @@ pub struct RegistryError {
 
 impl From<anyhow::Error> for RegistryError {
     fn from(err: anyhow::Error) -> RegistryError {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(err.to_string()),
+        }
+    }
+}
+
+impl From<BuildError> for RegistryError {
+    fn from(err: BuildError) -> RegistryError {
         RegistryError {
             code: RegistryErrorCode::Unknown(err.to_string()),
         }
@@ -85,6 +81,14 @@ impl From<hex::FromHexError> for RegistryError {
 
 impl From<reqwest::Error> for RegistryError {
     fn from(err: reqwest::Error) -> RegistryError {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(err.to_string()),
+        }
+    }
+}
+
+impl From<serde_json::Error> for RegistryError {
+    fn from(err: serde_json::Error) -> RegistryError {
         RegistryError {
             code: RegistryErrorCode::Unknown(err.to_string()),
         }
@@ -161,7 +165,7 @@ pub async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artifact_service::service::PackageType;
+    use crate::artifact_service::model::PackageType;
     use std::io;
     use std::str;
     use warp::reply::Response;
@@ -205,14 +209,26 @@ mod tests {
     }
 
     #[test]
+    fn from_build_error() {
+        let build_error_1 = BuildError::Failure("Failed".to_owned());
+        let build_error_2 = BuildError::Failure("Failed".to_owned());
+
+        let registry_error: RegistryError = build_error_1.into();
+        assert_eq!(
+            registry_error.code,
+            RegistryErrorCode::Unknown(build_error_2.to_string())
+        );
+    }
+
+    #[test]
     fn from_transparency_log_error() {
         let transparency_log_error_1 = TransparencyLogError::NotFound {
             package_type: PackageType::Docker,
-            package_type_id: String::from("package_type_id"),
+            package_specific_artifact_id: "package_specific_artifact_id".to_owned(),
         };
         let transparency_log_error_2 = TransparencyLogError::NotFound {
             package_type: PackageType::Docker,
-            package_type_id: String::from("package_type_id"),
+            package_specific_artifact_id: "package_specific_artifact_id".to_owned(),
         };
 
         let registry_error: RegistryError = transparency_log_error_1.into();

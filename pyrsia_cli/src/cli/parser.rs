@@ -35,6 +35,24 @@ pub fn cli_parser() -> ArgMatches {
                     arg!(-r --remove   "Removes the stored node configuration").visible_alias("rm"),
                     arg!(-s --show     "Shows the stored node configuration"),
                 ]),
+            Command::new("build")
+                .short_flag('b')
+                .about("Request a new build")
+                .setting(AppSettings::SubcommandRequiredElseHelp)
+                .subcommands(vec![
+                    Command::new("docker")
+                        .about("Request a new build for a Docker image")
+                        .arg_required_else_help(true)
+                        .args(&[
+                            arg!(--manifest <MANIFEST> "The SHA256 checksum of the manifest of the image"),
+                        ]),
+                    Command::new("maven")
+                        .about("Request a new build for a maven artifact")
+                        .arg_required_else_help(true)
+                        .args(&[
+                            arg!(--gav <GAV> "The maven GAV (e.g. org.myorg:my-artifact:1.1.0)"),
+                        ]),
+                ]),
             Command::new("list")
                 .short_flag('l')
                 .about("Shows list of connected Peers"),

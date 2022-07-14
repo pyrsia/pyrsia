@@ -14,55 +14,65 @@
    limitations under the License.
 */
 
+use super::model::PackageType;
 use super::storage::ArtifactStorage;
+use crate::build_service::error::BuildError;
+use crate::build_service::model::BuildInfo;
+use crate::build_service::service::BuildService;
 use crate::network::client::Client;
-use crate::transparency_log::log::{TransparencyLogError, TransparencyLogService};
+use crate::transparency_log::log::{TransparencyLog, TransparencyLogError, TransparencyLogService};
 use anyhow::{bail, Context};
 use libp2p::PeerId;
-use log::info;
+use log::{debug, info};
 use multihash::Hasher;
-use serde::{Deserialize, Serialize};
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::str;
-
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    PartialEq,
-    Serialize,
-    strum_macros::Display,
-    strum_macros::EnumString,
-)]
-pub enum PackageType {
-    Docker,
-    Maven2,
-}
+use tokio::sync::oneshot;
 
 /// The artifact service is the component that handles everything related to
 /// pyrsia artifacts. It allows artifacts to be retrieved and added to the
 /// pyrsia network by requesting a build from source.
 pub struct ArtifactService {
     pub artifact_storage: ArtifactStorage,
+    pub build_service: BuildService,
     pub transparency_log_service: TransparencyLogService,
     pub p2p_client: Client,
 }
 
 impl ArtifactService {
-    pub fn new<P: AsRef<Path>>(artifact_path: P, p2p_client: Client) -> anyhow::Result<Self> {
+    pub fn new<P: AsRef<Path>>(
+        artifact_path: P,
+        p2p_client: Client,
+        build_service: BuildService,
+    ) -> anyhow::Result<Self> {
         let artifact_storage = ArtifactStorage::new(&artifact_path)?;
         let transparency_log_service = TransparencyLogService::new(&artifact_path)?;
         Ok(ArtifactService {
             artifact_storage,
+            build_service,
             transparency_log_service,
             p2p_client,
         })
     }
 
     /// Request a build from source for the specified package.
-    pub fn request_build(&self, _package_type: PackageType, _package_type_id: &str) {}
+    pub async fn request_build(
+        &self,
+        package_type: PackageType,
+        package_specific_id: &str,
+    ) -> Result<BuildInfo, BuildError> {
+        debug!(
+            "Build requested for package type {:?} and specific ID {:}",
+            package_type, package_specific_id
+        );
+
+        let (start_build_sender, _start_build_receiver) = oneshot::channel();
+
+        self.build_service
+            .start_build(package_type, package_specific_id, start_build_sender)
+            .await
+    }
 
     /// Retrieve the artifact data for the specified package. If the artifact
     /// is not available locally, the service will try to fetch the artifact
@@ -70,11 +80,11 @@ impl ArtifactService {
     pub async fn get_artifact(
         &mut self,
         package_type: PackageType,
-        package_type_id: &str,
+        package_specific_artifact_id: &str,
     ) -> anyhow::Result<Vec<u8>> {
         let transparency_log = self
             .transparency_log_service
-            .get_artifact(&package_type, package_type_id)?;
+            .get_artifact(&package_type, package_specific_artifact_id)?;
 
         let artifact = match self.get_artifact_locally(&transparency_log.artifact_id) {
             Ok(artifact) => Ok(artifact),
@@ -84,8 +94,7 @@ impl ArtifactService {
             }
         }?;
 
-        self.verify_artifact(&package_type, package_type_id, &artifact)
-            .await?;
+        self.verify_artifact(&transparency_log, &artifact).await?;
 
         Ok(artifact)
     }
@@ -134,24 +143,20 @@ impl ArtifactService {
 
     async fn verify_artifact(
         &mut self,
-        package_type: &PackageType,
-        package_type_id: &str,
+        transparency_log: &TransparencyLog,
         artifact: &[u8],
     ) -> Result<(), TransparencyLogError> {
         let mut sha256 = multihash::Sha2_256::default();
         sha256.update(artifact);
         let calculated_hash = hex::encode(sha256.finalize());
 
-        let transparency_log = self
-            .transparency_log_service
-            .get_artifact(package_type, package_type_id)?;
         if transparency_log.artifact_hash == calculated_hash {
             Ok(())
         } else {
             Err(TransparencyLogError::InvalidHash {
-                id: package_type_id.to_string(),
+                id: transparency_log.package_specific_artifact_id.clone(),
                 invalid_hash: calculated_hash,
-                actual_hash: transparency_log.artifact_hash,
+                actual_hash: transparency_log.artifact_hash.clone(),
             })
         }
     }
@@ -200,16 +205,20 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client).unwrap();
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
         let package_type = PackageType::Docker;
-        let package_type_id = "package_type_id";
+        let package_specific_id = "package_specific_id";
+        let package_specific_artifact_id = "package_specific_artifact_id";
         artifact_service
             .transparency_log_service
             .add_artifact(
                 AddArtifactRequest {
                     package_type,
-                    package_type_id: package_type_id.to_owned(),
+                    package_specific_id: package_specific_id.to_owned(),
+                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: hex::encode(VALID_ARTIFACT_HASH),
                     source_hash: hex::encode(VALID_ARTIFACT_HASH),
                 },
@@ -232,7 +241,7 @@ mod tests {
         // pull artifact
         let future = {
             artifact_service
-                .get_artifact(package_type, package_type_id)
+                .get_artifact(package_type, package_specific_artifact_id)
                 .await
                 .context("Error from get_artifact")
         };
@@ -284,20 +293,24 @@ mod tests {
             }
         });
 
-        let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client).unwrap();
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
         let mut hasher = Sha256::new();
         hasher.update(b"SAMPLE_DATA");
         let random_hash = hex::encode(hasher.finalize());
 
         let package_type = PackageType::Docker;
-        let package_type_id = "package_type_id";
+        let package_specific_id = "package_specific_id";
+        let package_specific_artifact_id = "package_specific_artifact_id";
         artifact_service
             .transparency_log_service
             .add_artifact(
                 AddArtifactRequest {
                     package_type,
-                    package_type_id: package_type_id.to_string(),
+                    package_specific_id: package_specific_id.to_owned(),
+                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: random_hash.clone(),
                     source_hash: random_hash.clone(),
                 },
@@ -310,7 +323,7 @@ mod tests {
 
         let future = {
             artifact_service
-                .get_artifact(package_type, package_type_id)
+                .get_artifact(package_type, package_specific_artifact_id)
                 .await
         };
         let result = task::spawn_blocking(|| future).await.unwrap();
@@ -330,7 +343,9 @@ mod tests {
             local_peer_id: peer_id,
         };
 
-        let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client).unwrap();
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
         tokio::spawn(async move {
             tokio::select! {
@@ -369,20 +384,24 @@ mod tests {
             local_peer_id,
         };
 
-        let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client).unwrap();
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
         let mut hasher1 = Sha256::new();
         hasher1.update(b"SAMPLE_DATA");
         let random_hash = hex::encode(hasher1.finalize());
 
         let package_type = PackageType::Docker;
-        let package_type_id = "package_type_id";
+        let package_specific_id = "package_specific_id";
+        let package_specific_artifact_id = "package_specific_artifact_id";
         artifact_service
             .transparency_log_service
             .add_artifact(
                 AddArtifactRequest {
                     package_type,
-                    package_type_id: package_type_id.to_string(),
+                    package_specific_id: package_specific_id.to_owned(),
+                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: random_hash.clone(),
                     source_hash: random_hash,
                 },
@@ -391,8 +410,13 @@ mod tests {
             .await
             .unwrap();
 
+        let transparency_log = artifact_service
+            .transparency_log_service
+            .get_artifact(&package_type, package_specific_artifact_id)
+            .unwrap();
+
         let result = artifact_service
-            .verify_artifact(&package_type, package_type_id, b"SAMPLE_DATA")
+            .verify_artifact(&transparency_log, b"SAMPLE_DATA")
             .await;
         assert!(result.is_ok());
 
@@ -411,7 +435,9 @@ mod tests {
             local_peer_id,
         };
 
-        let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client).unwrap();
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
 
         let mut hasher1 = Sha256::new();
         hasher1.update(b"SAMPLE_DATA");
@@ -422,13 +448,15 @@ mod tests {
         let random_other_hash = hex::encode(hasher2.finalize());
 
         let package_type = PackageType::Docker;
-        let package_type_id = "package_type_id";
+        let package_specific_id = "package_specific_id";
+        let package_specific_artifact_id = "package_specific_artifact_id";
         artifact_service
             .transparency_log_service
             .add_artifact(
                 AddArtifactRequest {
                     package_type,
-                    package_type_id: package_type_id.to_string(),
+                    package_specific_id: package_specific_id.to_owned(),
+                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: random_hash.clone(),
                     source_hash: random_hash.clone(),
                 },
@@ -437,14 +465,19 @@ mod tests {
             .await
             .unwrap();
 
+        let transparency_log = artifact_service
+            .transparency_log_service
+            .get_artifact(&package_type, package_specific_artifact_id)
+            .unwrap();
+
         let result = artifact_service
-            .verify_artifact(&package_type, package_type_id, b"OTHER_SAMPLE_DATA")
+            .verify_artifact(&transparency_log, b"OTHER_SAMPLE_DATA")
             .await;
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
             TransparencyLogError::InvalidHash {
-                id: package_type_id.to_string(),
+                id: package_specific_artifact_id.to_string(),
                 invalid_hash: random_other_hash,
                 actual_hash: random_hash
             }

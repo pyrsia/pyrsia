@@ -14,8 +14,19 @@
    limitations under the License.
 */
 
-pub mod error;
-pub mod mapping;
-pub mod model;
-pub mod pipeline;
-pub mod service;
+use serde::{Deserialize, Serialize};
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    PartialEq,
+    Serialize,
+    strum_macros::Display,
+    strum_macros::EnumString,
+)]
+pub enum PackageType {
+    Docker,
+    Maven2,
+}
