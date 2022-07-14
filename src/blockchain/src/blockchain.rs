@@ -138,7 +138,7 @@ impl Blockchain {
         let last_block = match self.last_block() {
             Some(block) => block,
             None => {
-                debug!("Blockchain: Local Blockchain is non-exist!!");
+                debug!("Blockchain: Local blockchain does non exist!!");
                 return;
             }
         };
@@ -152,6 +152,7 @@ impl Blockchain {
         self.add_block(block);
     }
 
+    
     pub fn add_block(&mut self, block: Block) {
         self.chain.blocks.push(block);
         self.notify_block_event(self.chain.blocks.last().expect("block must exist").clone());
