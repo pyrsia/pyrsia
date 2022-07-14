@@ -14,5 +14,6 @@
    limitations under the License.
 */
 
+pub mod model;
 pub mod service;
 pub mod storage;

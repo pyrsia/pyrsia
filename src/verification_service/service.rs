@@ -29,14 +29,13 @@ pub struct VerificationResult {}
 
 /// The verification service is a component used by authorized nodes only.
 /// It implements all necessary logic to verify blockchain transactions.
-#[derive(Default)]
 pub struct VerificationService {
     _build_service: BuildService,
 }
 
 impl VerificationService {
     pub fn new<P: AsRef<Path>>(repository_path: P) -> Result<Self, anyhow::Error> {
-        let build_service = BuildService::new(&repository_path)?;
+        let build_service = BuildService::new(&repository_path, "")?;
         Ok(VerificationService {
             _build_service: build_service,
         })

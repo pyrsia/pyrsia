@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use crate::build_service::model::BuildError;
+use crate::build_service::error::BuildError;
 use crate::transparency_log::log::TransparencyLogError;
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -165,7 +165,7 @@ pub async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artifact_service::service::PackageType;
+    use crate::artifact_service::model::PackageType;
     use std::io;
     use std::str;
     use warp::reply::Response;
