@@ -65,6 +65,13 @@ pub enum Command {
         metric: PeerMetrics,
         channel: ResponseChannel<IdleMetricResponse>,
     },
+    RequestBlockUpdate {
+        block_ordinal: u64,
+        block: Vec<u8>,
+        peer: PeerId,
+        sender: oneshot::Sender<anyhow::Result<Option<u64>>>,
+    },
+    RespondBlockUpdate(),
 }
 
 #[cfg(test)]

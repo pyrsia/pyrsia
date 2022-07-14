@@ -14,7 +14,8 @@
    limitations under the License.
 */
 
-use crate::artifact_service::service::{ArtifactService, PackageType};
+use crate::artifact_service::model::PackageType;
+use crate::artifact_service::service::ArtifactService;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use log::debug;
 use std::result::Result;
@@ -23,8 +24,9 @@ use tokio::sync::Mutex;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_blobs(
-    artifact_service: Arc<Mutex<ArtifactService>>,
+    _name: String,
     hash: String,
+    artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> Result<impl Reply, Rejection> {
     debug!("Getting blob with hash : {:?}", hash);
 
@@ -50,6 +52,7 @@ pub async fn handle_get_blobs(
 mod tests {
     use super::*;
     use crate::artifact_service::storage::ArtifactStorage;
+    use crate::build_service::service::BuildService;
     use crate::network::client::Client;
     use crate::transparency_log::log::AddArtifactRequest;
     use crate::util::test_util;
@@ -65,6 +68,7 @@ mod tests {
     async fn test_handle_get_blobs_unknown_in_artifact_service() {
         let tmp_dir = test_util::tests::setup();
 
+        let name = "alpine";
         let hash = "7300a197d7deb39371d4683d60f60f2fbbfd7541837ceb2278c12014e94e657b";
 
         let (sender, _) = mpsc::channel(1);
@@ -73,11 +77,16 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
+        let artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
+            .expect("Creating ArtifactService failed");
 
-        let result =
-            handle_get_blobs(Arc::new(Mutex::new(artifact_service)), hash.to_string()).await;
+        let result = handle_get_blobs(
+            name.to_owned(),
+            hash.to_owned(),
+            Arc::new(Mutex::new(artifact_service)),
+        )
+        .await;
 
         assert!(result.is_err());
         let rejection = result.err().unwrap();
@@ -96,9 +105,11 @@ mod tests {
     async fn test_handle_get_blobs() {
         let tmp_dir = test_util::tests::setup();
 
+        let name = "alpine";
         let hash = "865c8d988be4669f3e48f73b98f9bc2507be0246ea35e0098cf6054d3644c14f";
         let package_type = PackageType::Docker;
-        let package_type_id = hash;
+        let package_specific_id = hash;
+        let package_specific_artifact_id = hash;
 
         let (add_artifact_sender, add_artifact_receiver) = oneshot::channel();
         let (sender, _) = mpsc::channel(1);
@@ -107,16 +118,19 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let mut artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client).expect("Creating ArtifactService failed");
+        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
+        let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
+            .expect("Creating ArtifactService failed");
+
         artifact_service
             .transparency_log_service
             .add_artifact(
                 AddArtifactRequest {
                     package_type,
-                    package_type_id: package_type_id.to_string(),
-                    artifact_hash: hash.to_string(),
-                    source_hash: hash.to_string(),
+                    package_specific_id: package_specific_id.to_owned(),
+                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
+                    artifact_hash: hash.to_owned(),
+                    source_hash: hash.to_owned(),
                 },
                 add_artifact_sender,
             )
@@ -131,8 +145,12 @@ mod tests {
         )
         .unwrap();
 
-        let result =
-            handle_get_blobs(Arc::new(Mutex::new(artifact_service)), hash.to_string()).await;
+        let result = handle_get_blobs(
+            name.to_owned(),
+            hash.to_owned(),
+            Arc::new(Mutex::new(artifact_service)),
+        )
+        .await;
 
         assert!(result.is_ok());
 

@@ -14,14 +14,54 @@
    limitations under the License.
 */
 
-use super::{get_config, RegistryError, RegistryErrorCode};
+use crate::artifact_service::model::PackageType;
 use crate::artifact_service::service::ArtifactService;
-use crate::node_api::model::cli::Status;
+use crate::cli_commands::config::get_config;
+use crate::docker::error_util::{RegistryError, RegistryErrorCode};
+use crate::node_api::model::cli::{RequestDockerBuild, RequestMavenBuild, Status};
 
 use log::debug;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use warp::{http::StatusCode, Rejection, Reply};
+
+pub async fn handle_build_docker(
+    request_docker_build: RequestDockerBuild,
+    artifact_service: Arc<Mutex<ArtifactService>>,
+) -> Result<impl Reply, Rejection> {
+    let build_info = artifact_service
+        .lock()
+        .await
+        .request_build(PackageType::Docker, &request_docker_build.manifest)
+        .await
+        .map_err(RegistryError::from)?;
+
+    let build_info_as_json = serde_json::to_string(&build_info).map_err(RegistryError::from)?;
+
+    Ok(warp::http::response::Builder::new()
+        .header("Content-Type", "application/json")
+        .status(StatusCode::OK)
+        .body(build_info_as_json))
+}
+
+pub async fn handle_build_maven(
+    request_maven_build: RequestMavenBuild,
+    artifact_service: Arc<Mutex<ArtifactService>>,
+) -> Result<impl Reply, Rejection> {
+    let build_info = artifact_service
+        .lock()
+        .await
+        .request_build(PackageType::Maven2, &request_maven_build.gav)
+        .await
+        .map_err(RegistryError::from)?;
+
+    let build_info_as_json = serde_json::to_string(&build_info).map_err(RegistryError::from)?;
+
+    Ok(warp::http::response::Builder::new()
+        .header("Content-Type", "application/json")
+        .status(StatusCode::OK)
+        .body(build_info_as_json))
+}
 
 pub async fn handle_get_peers(
     artifact_service: Arc<Mutex<ArtifactService>>,
