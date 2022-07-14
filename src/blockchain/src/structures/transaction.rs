@@ -27,8 +27,6 @@ use crate::signature::Signature;
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Copy, Decode, Encode)]
 pub enum TransactionType {
     Create,
-    AddAuthority,
-    RevokeAuthority,
 }
 
 // Temporary structure to be able to calculate the hash of a transaction

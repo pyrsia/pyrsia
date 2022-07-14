@@ -16,6 +16,7 @@
 
 pub mod artifact_protocol;
 pub mod behaviour;
+pub mod blockchain_protocol;
 pub mod client;
 pub mod event_loop;
 pub mod idle_metric_protocol;
