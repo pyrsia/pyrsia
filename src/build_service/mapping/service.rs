@@ -22,12 +22,17 @@ pub struct MappingService {
     mapping_service_endpoint: String,
 }
 
+fn remove_last_character(mut string: String) -> String {
+    string.pop();
+    string
+}
+
 impl MappingService {
     pub fn new(mapping_service_endpoint: &str) -> Self {
         MappingService {
             mapping_service_endpoint: match mapping_service_endpoint.ends_with('/') {
-                true => mapping_service_endpoint.to_owned(),
-                false => format!("{}/", mapping_service_endpoint),
+                true => remove_last_character(mapping_service_endpoint.to_owned()),
+                false => mapping_service_endpoint.to_owned(),
             },
         }
     }
@@ -59,7 +64,7 @@ impl MappingService {
         let version = package_specific_pieces[2];
 
         let remote_mapping_url = format!(
-            "{}Maven2/{}/{}/{}/{}-{}.mapping",
+            "{}/Maven2/{}/{}/{}/{}-{}.mapping",
             self.mapping_service_endpoint, group_id, artifact_id, version, artifact_id, version
         );
 
@@ -99,7 +104,7 @@ mod tests {
         let mapping_service = MappingService::new(mapping_service_endpoint);
         assert_eq!(
             mapping_service.mapping_service_endpoint,
-            mapping_service_endpoint
+            remove_last_character(mapping_service_endpoint.to_owned())
         );
     }
 
@@ -109,7 +114,7 @@ mod tests {
         let mapping_service = MappingService::new(mapping_service_endpoint);
         assert_eq!(
             mapping_service.mapping_service_endpoint,
-            format!("{}/", mapping_service_endpoint)
+            mapping_service_endpoint
         );
     }
 

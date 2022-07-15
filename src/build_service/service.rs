@@ -82,6 +82,8 @@ impl BuildService {
 
                     match pipeline_service.get_build_status(&build_id).await {
                         Ok(latest_build_info) => {
+                            println!("Latest Build Info: {:?}", &latest_build_info);
+
                             match latest_build_info.status {
                                 BuildStatus::Success { artifact_urls } => {
                                     match handle_successful_build(
