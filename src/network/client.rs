@@ -116,13 +116,13 @@ impl Client {
 
     /// Inform the swarm that this node is currently a provider
     /// of the artifact with the specified `artifact_id`.
-    pub async fn provide(&mut self, artifact_id: String) -> anyhow::Result<()> {
+    pub async fn provide(&mut self, artifact_id: &str) -> anyhow::Result<()> {
         debug!("p2p::Client::provide {:?}", artifact_id);
 
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::Provide {
-                artifact_id,
+                artifact_id: artifact_id.to_owned(),
                 sender,
             })
             .await?;
@@ -380,7 +380,7 @@ mod tests {
             .map(char::from)
             .collect();
         let cloned_random_artifact_id = random_artifact_id.clone();
-        tokio::spawn(async move { client.provide(random_artifact_id).await });
+        tokio::spawn(async move { client.provide(&random_artifact_id).await });
 
         tokio::select! {
             command = receiver.recv() => match command {

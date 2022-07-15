@@ -16,26 +16,28 @@
 
 use super::model::PackageType;
 use super::storage::ArtifactStorage;
-use crate::build_service::error::BuildError;
-use crate::build_service::model::BuildInfo;
-use crate::build_service::service::BuildService;
+use crate::build_service::event::BuildEvent;
+use crate::build_service::model::BuildResult;
 use crate::network::client::Client;
-use crate::transparency_log::log::{TransparencyLog, TransparencyLogError, TransparencyLogService};
+use crate::transparency_log::log::{
+    AddArtifactRequest, TransparencyLog, TransparencyLogError, TransparencyLogService,
+};
 use anyhow::{bail, Context};
 use libp2p::PeerId;
-use log::{debug, info};
+use log::{error, info};
 use multihash::Hasher;
+use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::str;
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 
 /// The artifact service is the component that handles everything related to
 /// pyrsia artifacts. It allows artifacts to be retrieved and added to the
 /// pyrsia network by requesting a build from source.
 pub struct ArtifactService {
     pub artifact_storage: ArtifactStorage,
-    pub build_service: BuildService,
+    build_event_sender: mpsc::Sender<BuildEvent>,
     pub transparency_log_service: TransparencyLogService,
     pub p2p_client: Client,
 }
@@ -43,35 +45,102 @@ pub struct ArtifactService {
 impl ArtifactService {
     pub fn new<P: AsRef<Path>>(
         artifact_path: P,
+        build_event_sender: mpsc::Sender<BuildEvent>,
         p2p_client: Client,
-        build_service: BuildService,
     ) -> anyhow::Result<Self> {
         let artifact_storage = ArtifactStorage::new(&artifact_path)?;
         let transparency_log_service = TransparencyLogService::new(&artifact_path)?;
         Ok(ArtifactService {
             artifact_storage,
-            build_service,
+            build_event_sender,
             transparency_log_service,
             p2p_client,
         })
     }
 
-    /// Request a build from source for the specified package.
-    pub async fn request_build(
-        &self,
-        package_type: PackageType,
-        package_specific_id: &str,
-    ) -> Result<BuildInfo, BuildError> {
-        debug!(
-            "Build requested for package type {:?} and specific ID {:}",
-            package_type, package_specific_id
+    pub async fn handle_build_result(&mut self, build_result: BuildResult) {
+        if let Err(error) = self.handle_actual_build_result(&build_result).await {
+            error!(
+                "Build with ID {} failed to handle build result: {:?}",
+                build_result.build_id, error
+            )
+        }
+
+        let _ = self
+            .build_event_sender
+            .send(BuildEvent::BuildCleanup {
+                build_id: build_result.build_id,
+            })
+            .await;
+    }
+
+    async fn handle_actual_build_result(
+        &mut self,
+        build_result: &BuildResult,
+    ) -> Result<(), anyhow::Error> {
+        let package_specific_id = build_result.package_specific_id.as_str();
+
+        info!(
+            "Build with ID {} completed successfully for package type {} and package specific ID {}",
+            build_result.build_id, build_result.package_type, package_specific_id
         );
 
-        let (start_build_sender, _start_build_receiver) = oneshot::channel();
+        for artifact in build_result.artifacts.iter() {
+            let add_artifact_request = AddArtifactRequest {
+                package_type: build_result.package_type,
+                package_specific_id: package_specific_id.to_owned(),
+                package_specific_artifact_id: artifact.artifact_specific_id.clone(),
+                artifact_hash: artifact.artifact_hash.clone(),
+            };
 
-        self.build_service
-            .start_build(package_type, package_specific_id, start_build_sender)
-            .await
+            info!(
+                "Adding artifact to transparency log: {:?}",
+                add_artifact_request
+            );
+
+            let (tp_log_sender, tp_log_receiver) = oneshot::channel();
+
+            self.transparency_log_service
+                .add_artifact(add_artifact_request, tp_log_sender)
+                .await?;
+
+            let add_artifact_transparency_log = tp_log_receiver.await??;
+            info!(
+                "Transparency Log for build with ID {} successfully added. Adding artifact locally: {:?}",
+                build_result.build_id, add_artifact_transparency_log
+            );
+
+            self.put_artifact_from_build_result(
+                &artifact.artifact_location,
+                &add_artifact_transparency_log.artifact_id,
+            )
+            .await?;
+
+            self.p2p_client
+                .provide(&add_artifact_transparency_log.artifact_id)
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn put_artifact_from_build_result(
+        &self,
+        artifact_location: &Path,
+        artifact_id: &str,
+    ) -> Result<(), anyhow::Error> {
+        let artifact_file = File::open(artifact_location)?;
+        let mut artifact_reader = BufReader::new(artifact_file);
+        self.put_artifact(artifact_id, &mut artifact_reader)
+    }
+
+    /// Given artifact_id & reader, push artifact to artifact_manager
+    /// and returns the boolean as true or false if it was able to create or not
+    fn put_artifact(&self, artifact_id: &str, reader: &mut impl Read) -> Result<(), anyhow::Error> {
+        info!("put_artifact with id: {}", artifact_id);
+        self.artifact_storage
+            .push_artifact(reader, artifact_id)
+            .context("Error from put_artifact")
     }
 
     /// Retrieve the artifact data for the specified package. If the artifact
@@ -86,7 +155,10 @@ impl ArtifactService {
             .transparency_log_service
             .get_artifact(&package_type, package_specific_artifact_id)?;
 
-        let artifact = match self.get_artifact_locally(&transparency_log.artifact_id) {
+        let artifact = match self
+            .get_artifact_locally(&transparency_log.artifact_id)
+            .await
+        {
             Ok(artifact) => Ok(artifact),
             Err(_) => {
                 self.get_artifact_from_peers(&transparency_log.artifact_id)
@@ -100,7 +172,10 @@ impl ArtifactService {
     }
 
     /// Retrieve the artifact data specified by `artifact_id` from the local storage.
-    pub fn get_artifact_locally(&mut self, artifact_id: &str) -> Result<Vec<u8>, anyhow::Error> {
+    pub async fn get_artifact_locally(
+        &mut self,
+        artifact_id: &str,
+    ) -> Result<Vec<u8>, anyhow::Error> {
         let artifact = self.artifact_storage.pull_artifact(artifact_id)?;
         let mut buf_reader = BufReader::new(artifact);
         let mut blob_content = Vec::new();
@@ -114,8 +189,8 @@ impl ArtifactService {
     ) -> Result<Vec<u8>, anyhow::Error> {
         let providers = self.p2p_client.list_providers(artifact_id).await?;
 
-        match self.p2p_client.get_idle_peer(providers).await? {
-            Some(peer) => self.get_artifact_from_peer(&peer, artifact_id).await,
+        match self.p2p_client.clone().get_idle_peer(providers).await? {
+            Some(peer_id) => self.get_artifact_from_peer(&peer_id, artifact_id).await,
             None => {
                 bail!(
                     "Artifact with id {} is not available on the p2p network.",
@@ -138,7 +213,7 @@ impl ArtifactService {
         let mut buf_reader = BufReader::new(artifact.as_slice());
 
         self.put_artifact(artifact_id, &mut buf_reader)?;
-        self.get_artifact_locally(artifact_id)
+        self.get_artifact_locally(artifact_id).await
     }
 
     async fn verify_artifact(
@@ -159,15 +234,6 @@ impl ArtifactService {
                 actual_hash: transparency_log.artifact_hash.clone(),
             })
         }
-    }
-
-    /// Given artifact_id & reader, push artifact to artifact_manager
-    /// and returns the boolean as true or false if it was able to create or not
-    fn put_artifact(&self, artifact_id: &str, reader: &mut impl Read) -> Result<(), anyhow::Error> {
-        info!("put_artifact with id: {}", artifact_id);
-        self.artifact_storage
-            .push_artifact(reader, artifact_id)
-            .context("Error from put_artifact")
     }
 }
 
@@ -199,15 +265,15 @@ mod tests {
         let tmp_dir = test_util::tests::setup();
 
         let (add_artifact_sender, add_artifact_receiver) = oneshot::channel();
-        let (sender, _receiver) = mpsc::channel(1);
+        let (command_sender, _command_receiver) = mpsc::channel(1);
         let p2p_client = Client {
-            sender,
+            sender: command_sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
+        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
         let mut artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
+            ArtifactService::new(&tmp_dir, build_command_sender, p2p_client).unwrap();
 
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
@@ -220,7 +286,6 @@ mod tests {
                     package_specific_id: package_specific_id.to_owned(),
                     package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: hex::encode(VALID_ARTIFACT_HASH),
-                    source_hash: hex::encode(VALID_ARTIFACT_HASH),
                 },
                 add_artifact_sender,
             )
@@ -293,9 +358,9 @@ mod tests {
             }
         });
 
-        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
+        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
         let mut artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
+            ArtifactService::new(&tmp_dir, build_command_sender, p2p_client).unwrap();
 
         let mut hasher = Sha256::new();
         hasher.update(b"SAMPLE_DATA");
@@ -312,7 +377,6 @@ mod tests {
                     package_specific_id: package_specific_id.to_owned(),
                     package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: random_hash.clone(),
-                    source_hash: random_hash.clone(),
                 },
                 add_artifact_sender,
             )
@@ -343,9 +407,9 @@ mod tests {
             local_peer_id: peer_id,
         };
 
-        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
+        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
         let mut artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
+            ArtifactService::new(&tmp_dir, build_command_sender, p2p_client).unwrap();
 
         tokio::spawn(async move {
             tokio::select! {
@@ -384,9 +448,9 @@ mod tests {
             local_peer_id,
         };
 
-        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
+        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
         let mut artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
+            ArtifactService::new(&tmp_dir, build_command_sender, p2p_client).unwrap();
 
         let mut hasher1 = Sha256::new();
         hasher1.update(b"SAMPLE_DATA");
@@ -402,8 +466,7 @@ mod tests {
                     package_type,
                     package_specific_id: package_specific_id.to_owned(),
                     package_specific_artifact_id: package_specific_artifact_id.to_owned(),
-                    artifact_hash: random_hash.clone(),
-                    source_hash: random_hash,
+                    artifact_hash: random_hash,
                 },
                 add_artifact_sender,
             )
@@ -435,9 +498,9 @@ mod tests {
             local_peer_id,
         };
 
-        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
+        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
         let mut artifact_service =
-            ArtifactService::new(&tmp_dir, p2p_client, build_service).unwrap();
+            ArtifactService::new(&tmp_dir, build_command_sender, p2p_client).unwrap();
 
         let mut hasher1 = Sha256::new();
         hasher1.update(b"SAMPLE_DATA");
@@ -458,7 +521,6 @@ mod tests {
                     package_specific_id: package_specific_id.to_owned(),
                     package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: random_hash.clone(),
-                    source_hash: random_hash.clone(),
                 },
                 add_artifact_sender,
             )

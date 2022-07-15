@@ -18,6 +18,7 @@ use crate::build_service::error::BuildError;
 use crate::build_service::mapping::model::MappingInfo;
 use crate::build_service::model::BuildInfo;
 
+#[derive(Clone)]
 pub struct PipelineService {
     http_client: reqwest::Client,
     pipeline_service_endpoint: String,

@@ -14,13 +14,12 @@
    limitations under the License.
 */
 
-use std::path::Path;
 use thiserror::Error;
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 
 use pyrsia_blockchain_network::structures::transaction::Transaction;
 
-use crate::build_service::service::BuildService;
+use crate::build_service::event::BuildEvent;
 
 #[derive(Debug, Error)]
 pub enum VerificationError {}
@@ -30,14 +29,13 @@ pub struct VerificationResult {}
 /// The verification service is a component used by authorized nodes only.
 /// It implements all necessary logic to verify blockchain transactions.
 pub struct VerificationService {
-    _build_service: BuildService,
+    _build_event_sender: mpsc::Sender<BuildEvent>,
 }
 
 impl VerificationService {
-    pub fn new<P: AsRef<Path>>(repository_path: P) -> Result<Self, anyhow::Error> {
-        let build_service = BuildService::new(&repository_path, "", "")?;
+    pub fn new(build_event_sender: mpsc::Sender<BuildEvent>) -> Result<Self, anyhow::Error> {
         Ok(VerificationService {
-            _build_service: build_service,
+            _build_event_sender: build_event_sender,
         })
     }
 
@@ -56,15 +54,12 @@ impl VerificationService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::test_util;
     use libp2p::identity;
     use pyrsia_blockchain_network::structures::header::Address;
     use pyrsia_blockchain_network::structures::transaction::TransactionType;
 
     #[tokio::test]
     async fn test_verify_transaction() {
-        let tmp_dir = test_util::tests::setup();
-
         let keypair = identity::ed25519::Keypair::generate();
         let submitter = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let payload = vec![1, 2, 3];
@@ -72,13 +67,13 @@ mod tests {
 
         let (sender, _) = oneshot::channel();
 
-        let verification_service = VerificationService::new(&tmp_dir).unwrap();
+        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
+
+        let verification_service = VerificationService::new(build_command_sender).unwrap();
         let verification_result = verification_service
             .verify_transaction(transaction, sender)
             .await;
 
         assert!(verification_result.is_ok());
-
-        test_util::tests::teardown(tmp_dir);
     }
 }

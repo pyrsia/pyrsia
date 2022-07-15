@@ -87,7 +87,6 @@ fn get_package_specific_artifact_id(full_path: &str) -> Result<String, anyhow::E
 mod tests {
     use super::*;
     use crate::artifact_service::storage::ArtifactStorage;
-    use crate::build_service::service::BuildService;
     use crate::network::client::Client;
     use crate::transparency_log::log::AddArtifactRequest;
     use crate::util::test_util;
@@ -100,8 +99,6 @@ mod tests {
 
     const VALID_ARTIFACT_HASH: &str =
         "e11c16ff163ccc1efe01d2696c626891560fa82123601a5ff196d97b6ab156da";
-    const VALID_SOURCE_HASH: &str =
-        "b6f87982af625a228822adf42d0a091d40e96220b6d4d09a566173b9ea072e34";
     const VALID_FULL_PATH: &str = "/maven2/test/test/1.0/test-1.0.jar";
     const INVALID_FULL_PATH: &str = "/maven2/test/1.0/test-1.0.jar";
     const VALID_MAVEN_ID: &str = "test:test:1.0";
@@ -131,8 +128,8 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
-        let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
+        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
+        let mut artifact_service = ArtifactService::new(&tmp_dir, build_command_sender, p2p_client)
             .expect("Creating ArtifactService failed");
 
         artifact_service
@@ -143,7 +140,6 @@ mod tests {
                     package_specific_id: VALID_MAVEN_ID.to_owned(),
                     package_specific_artifact_id: VALID_MAVEN_ARTIFACT_ID.to_owned(),
                     artifact_hash: VALID_ARTIFACT_HASH.to_owned(),
-                    source_hash: VALID_SOURCE_HASH.to_owned(),
                 },
                 add_artifact_sender,
             )

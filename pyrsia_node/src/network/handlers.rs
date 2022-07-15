@@ -47,7 +47,7 @@ pub async fn handle_request_artifact(
     debug!("Handling request artifact: {:?}", artifact_id);
 
     let mut artifact_service = artifact_service.lock().await;
-    let content = artifact_service.get_artifact_locally(artifact_id)?;
+    let content = artifact_service.get_artifact_locally(artifact_id).await?;
 
     artifact_service
         .p2p_client
