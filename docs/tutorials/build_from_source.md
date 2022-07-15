@@ -32,7 +32,13 @@ network, we can run a final step to show the build from source worked:
 ## Compile Pyrsia
 
 Download a fresh copy of the codebase by cloning the repo or updating to the
-HEAD of `main`. Let's call this folder `PYRSIA_HOME`. We will refer to this
+HEAD of `main`.
+
+```sh
+git clone git@github.com:pyrsia/pyrsia.git
+```
+
+Let's call this folder `PYRSIA_HOME`. We will refer to this
 name in the following steps.
 
 Build binaries for by running:
