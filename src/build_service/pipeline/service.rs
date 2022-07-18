@@ -18,9 +18,15 @@ use crate::build_service::error::BuildError;
 use crate::build_service::mapping::model::MappingInfo;
 use crate::build_service::model::BuildInfo;
 
+#[derive(Clone)]
 pub struct PipelineService {
     http_client: reqwest::Client,
     pipeline_service_endpoint: String,
+}
+
+fn remove_last_character(mut string: String) -> String {
+    string.pop();
+    string
 }
 
 impl PipelineService {
@@ -28,14 +34,14 @@ impl PipelineService {
         PipelineService {
             http_client: reqwest::Client::new(),
             pipeline_service_endpoint: match pipeline_service_endpoint.ends_with('/') {
-                true => pipeline_service_endpoint.to_owned(),
-                false => format!("{}/", pipeline_service_endpoint),
+                true => remove_last_character(pipeline_service_endpoint.to_owned()),
+                false => pipeline_service_endpoint.to_owned(),
             },
         }
     }
 
     pub async fn start_build(&self, mapping_info: MappingInfo) -> Result<BuildInfo, BuildError> {
-        let start_build_endpoint = format!("{}build", self.pipeline_service_endpoint);
+        let start_build_endpoint = format!("{}/build", self.pipeline_service_endpoint);
 
         let start_build_response = self
             .http_client
@@ -59,7 +65,7 @@ impl PipelineService {
 
     pub async fn get_build_status(&self, build_id: &str) -> Result<BuildInfo, BuildError> {
         let get_build_status_endpoint =
-            format!("{}build/{}", self.pipeline_service_endpoint, build_id);
+            format!("{}/build/{}", self.pipeline_service_endpoint, build_id);
 
         let get_build_status_response = self
             .http_client
@@ -118,7 +124,7 @@ mod tests {
         let pipeline_service = PipelineService::new(pipeline_service_endpoint);
         assert_eq!(
             pipeline_service.pipeline_service_endpoint,
-            pipeline_service_endpoint
+            remove_last_character(pipeline_service_endpoint.to_owned())
         );
     }
 
@@ -128,7 +134,7 @@ mod tests {
         let pipeline_service = PipelineService::new(pipeline_service_endpoint);
         assert_eq!(
             pipeline_service.pipeline_service_endpoint,
-            format!("{}/", pipeline_service_endpoint)
+            pipeline_service_endpoint
         );
     }
 
@@ -321,16 +327,13 @@ mod tests {
 
     #[tokio::test]
     async fn download_artifact() {
-        let artifact_url = "artifact.file";
+        let artifact_url = "/artifact.file";
         let artifact_bytes = bytes::Bytes::from("some_bytes");
 
         let http_server = Server::run();
         http_server.expect(
-            Expectation::matching(matchers::request::method_path(
-                "GET",
-                format!("/{}", artifact_url),
-            ))
-            .respond_with(responders::status_code(200).body(artifact_bytes.clone())),
+            Expectation::matching(matchers::request::method_path("GET", artifact_url))
+                .respond_with(responders::status_code(200).body(artifact_bytes.clone())),
         );
 
         let pipeline_service = PipelineService::new(&http_server.url("/").to_string());
@@ -344,15 +347,12 @@ mod tests {
 
     #[tokio::test]
     async fn download_artifact_server_error() {
-        let artifact_url = "artifact.file";
+        let artifact_url = "/artifact.file";
 
         let http_server = Server::run();
         http_server.expect(
-            Expectation::matching(matchers::request::method_path(
-                "GET",
-                format!("/{}", artifact_url),
-            ))
-            .respond_with(responders::status_code(400)),
+            Expectation::matching(matchers::request::method_path("GET", artifact_url))
+                .respond_with(responders::status_code(400)),
         );
 
         let pipeline_service = PipelineService::new(&http_server.url("/").to_string());
@@ -373,7 +373,7 @@ mod tests {
         let pipeline_service = PipelineService::new("");
 
         pipeline_service
-            .download_artifact("artifact.file")
+            .download_artifact("/artifact.file")
             .await
             .unwrap();
     }

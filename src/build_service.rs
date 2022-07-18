@@ -15,6 +15,7 @@
 */
 
 pub mod error;
+pub mod event;
 pub mod mapping;
 pub mod model;
 pub mod pipeline;
