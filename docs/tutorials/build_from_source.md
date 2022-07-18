@@ -137,7 +137,7 @@ cd $PYRSIA_HOME/target/debug
 ```
 
 The build trigger should return immediately providing a build ID:
-```
+```text
 Build request successfully handled. Build with ID 23c994a6-65b7-4041-beca-397d8f491f64 has been started.
 ```
 
@@ -145,13 +145,15 @@ Build request successfully handled. Build with ID 23c994a6-65b7-4041-beca-397d8f
 
 In the Pyrsia node logs, you will see that a build has been started and the Pyrsia
 node is now waiting for its result:
-```
+
+```text
 Executing build info request...!
 Current Build Info: BuildInfo { id: "23c994a6-65b7-4041-beca-397d8f491f64", status: Running }
 ```
 
 In the build pipeline prototype you should see that build starting:
-```
+
+```text
 Requesting build of Maven2 for commons-codec:commons-codec:1.15
 ...
 #######################################################
@@ -173,7 +175,7 @@ Cloning into 'repo'...
 
 Once the build has finished, the status request from the Pyrsia node will contain:
 
-```
+```text
 Current Build Info: BuildInfo { id: "23c994a6-65b7-4041-beca-397d8f491f64",
   status: Success { artifact_urls:
      ["/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15.pom.sha1",
@@ -205,13 +207,14 @@ other authorized nodes, but this step is skipped in this demo.
 
 When consensus has been reached, a transparency log is created for each build artifact.
 
-```
+```text
 INFO  pyrsia::artifact_service::service > Adding artifact to transparency log: AddArtifactRequest { package_type: Maven2, package_specific_id: "commons-codec:commons-codec:1.15", package_specific_artifact_id: "commons-codec/commons-codec/1.15/commons-codec-1.15.jar", artifact_hash: "7da8e6b90125463c26c950a97fd14143c2f39cd5d488748b265d83e8b124fa7c" }
 DEBUG pyrsia::transparency_log::log     > Transparency log inserted into database with id: 2f30167e-e40f-4831-9197-11fc0b5450e3
 INFO  pyrsia::artifact_service::service > Transparency Log for build with ID 0a6f2128-7410-4098-bd39-59dc05230464 successfully added. Adding artifact locally: TransparencyLog { id: "2f30167e-e40f-4831-9197-11fc0b5450e3", package_type: Maven2, package_specific_id: "commons-codec:commons-codec:1.15", package_specific_artifact_id: "commons-codec/commons-codec/1.15/commons-codec-1.15.jar", artifact_hash: "7da8e6b90125463c26c950a97fd14143c2f39cd5d488748b265d83e8b124fa7c", source_hash: "", artifact_id: "6eb90399-24cd-4aef-a78f-ef95d64b53fa", source_id: "77ea0ea3-2eb7-4aac-9fdb-f43664ce62a4", timestamp: 1658132836, operation: AddArtifact, node_id: "5a04ba4d-9c8f-445a-bcb7-5c91a610d03c", node_public_key: "9c6ab508-1b86-47bb-87e9-6b99c18e4a73" }
 ```
 
 Example for `commons-codec-1.15.jar`:
+
 ```json
 {
   "id":"c52d7954-d9d9-40e2-a795-31aed2fc8a61",
@@ -232,7 +235,7 @@ Example for `commons-codec-1.15.jar`:
 As a final step in the build from source scenario, the artifacts are stored locally
 and provided on the p2p network.
 
-```
+```text
  INFO  pyrsia::artifact_service::service > put_artifact with id: da341557-9150-4208-9474-f5884f799338
  INFO  pyrsia::artifact_service::storage > An artifact is being pushed to the artifact manager da341557-9150-4208-9474-f5884f799338
  DEBUG pyrsia::network::client           > p2p::Client::provide "da341557-9150-4208-9474-f5884f799338"
@@ -244,6 +247,7 @@ Now that we have a published Maven artifact in the Pyrsia network, we can try to
 use it in a Maven project.
 
 Create a Java project:
+
 ```sh
 mkdir pyrsia-maven-sample
 cd pyrsia-maven-sample
@@ -251,6 +255,7 @@ mkdir -p src/main/java/org/pyrsia/sample
 ```
 
 Create a file `src/main/java/org/pyrsia/sample/Main.java`:
+
 ```java
 package org.pyrsia.sample;
 
@@ -273,6 +278,7 @@ The code in this sample uses `org.apache.commons.codec.binary.Hex` from the comm
 library, so let's add this as dependency in our Maven build:
 
 Create a `pom.xml` file:
+
 ```xml
 <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xmlns="http://maven.apache.org/POM/4.0.0"
@@ -308,17 +314,20 @@ Pyrsia node, acting as a Maven repository.
 
 To make sure your local maven cache doesn't already contain this dependency, remove
 it first:
+
 ```sh
 rm -rf ~/.m2/repository/commons-codec/commons-codec/1.15
 ```
 
 And then run the maven build:
+
 ```sh
 mvn clean package
 ```
 
 It should show output like this:
-```
+
+```text
 [INFO] Scanning for projects...
 [INFO]
 [INFO] ----------------------< org.pyrsia.sample:maven >-----------------------
@@ -340,7 +349,7 @@ Downloaded from pyrsia: http://localhost:7888/maven2/commons-codec/commons-codec
 The dependency was downloaded from Pyrsia, which you can verify in the Pyrsia node
 logs:
 
-```
+```text
  DEBUG pyrsia::java::maven2::routes                    > route full path: /maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.jar
  DEBUG pyrsia::java::maven2::handlers::maven_artifacts > Requesting maven artifact: /maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.jar
  DEBUG pyrsia::java::maven2::handlers::maven_artifacts > Requesting artifact for id commons-codec/commons-codec/1.15/commons-codec-1.15.jar
