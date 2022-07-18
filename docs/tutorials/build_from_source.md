@@ -7,6 +7,7 @@ source with the goal to publish them in the Pyrsia network.
 
 Ultimately, the following scenario will be used, but for now some steps
 (indicated below) are skipped for the purpose of this build-from-source demo:
+
 - Setup at least 3 authorized nodes (skipped in this demo, only one Pyrsia node
   is used)
 - Make sure a mapping between an artifact and its source exists in the
@@ -27,7 +28,6 @@ Because this demo scenario results in a published Maven artifact in the Pyrsia
 network, we can run a final step to show the build from source worked:
 
 - Use Pyrsia in a Maven project
-
 
 ## Compile Pyrsia
 
@@ -51,6 +51,7 @@ cargo build --workspace
 ## Run the Pyrsia node
 
 Run the Pyrsia node using `cargo run`. We set the following env vars:
+
 - RUST_LOG: to make sure we can see all the debug logs
 - DEV_MODE: to make sure all non-existing directories are created on-the-fly
 - PYRSIA_ARTIFACT_PATH: to point to a clean space to store artifacts so we can
@@ -62,7 +63,7 @@ cargo run --package pyrsia_node -- --pipeline-service-endpoint  http://localhost
 ```
 
 As you can see we specified the `--pipeline service endpoint` argument to point
-to http://localhost:8080, which is where we will run our build pipeline prototype
+to `http://localhost:8080`, which is where we will run our build pipeline prototype
 (see below). In a real setup, the build pipeline obviously needs to run on its
 own isolated infrastructure.
 
@@ -100,6 +101,7 @@ industry-standard build pipeline solutions. Integration with such solutions is
 currently being investigated.
 
 The most important features of the build pipeline are:
+
 - it runs completely separate from the Pyrsia node
 - it exposes an interface so Pyrsia can start a build
 - it exposes an interface so Pyrsia can download the build output
@@ -137,6 +139,7 @@ cd $PYRSIA_HOME/target/debug
 ```
 
 The build trigger should return immediately providing a build ID:
+
 ```text
 Build request successfully handled. Build with ID 23c994a6-65b7-4041-beca-397d8f491f64 has been started.
 ```
