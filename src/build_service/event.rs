@@ -18,10 +18,11 @@ use crate::artifact_service::service::ArtifactService;
 use crate::build_service::error::BuildError;
 use crate::build_service::model::BuildResult;
 use crate::build_service::service::BuildService;
-use log::{error, warn};
+use log::{debug, error, warn};
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 
+#[derive(Debug)]
 pub enum BuildEvent {
     BuildCleanup {
         build_id: String,
@@ -69,6 +70,7 @@ impl BuildEventLoop {
     }
 
     async fn handle_build_event(&self, build_event: BuildEvent) {
+        debug!("Handle BuildEvent: {:?}", build_event);
         match build_event {
             BuildEvent::BuildCleanup { build_id } => {
                 self.build_service.lock().await.cleanup_build(&build_id);

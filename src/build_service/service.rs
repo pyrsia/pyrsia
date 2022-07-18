@@ -82,7 +82,7 @@ impl BuildService {
 
                     match pipeline_service.get_build_status(&build_id).await {
                         Ok(latest_build_info) => {
-                            println!("Latest Build Info: {:?}", &latest_build_info);
+                            debug!("Updated build info: {:?}", &latest_build_info);
 
                             match latest_build_info.status {
                                 BuildStatus::Success { artifact_urls } => {
@@ -97,37 +97,48 @@ impl BuildService {
                                     .await
                                     {
                                         Ok(build_result) => {
+                                            debug!("Successfully handled build {}.", build_id);
                                             let _ = build_event_sender
-                                                .send(BuildEvent::BuildSucceeded(build_result));
+                                                .send(BuildEvent::BuildSucceeded(build_result))
+                                                .await;
                                         }
                                         Err(build_error) => {
-                                            let _ =
-                                                build_event_sender.send(BuildEvent::BuildFailed {
+                                            debug!(
+                                                "Handling of build {} resulted in an error.",
+                                                build_id
+                                            );
+                                            let _ = build_event_sender
+                                                .send(BuildEvent::BuildFailed {
                                                     build_id: build_id.clone(),
                                                     build_error,
-                                                });
+                                                })
+                                                .await;
                                         }
                                     }
                                     break;
                                 }
                                 BuildStatus::Failure(error) => {
-                                    let _ = build_event_sender.send(BuildEvent::BuildFailed {
-                                        build_id: build_id.clone(),
-                                        build_error: BuildError::Failure(
-                                            latest_build_info.id,
-                                            error,
-                                        ),
-                                    });
+                                    let _ = build_event_sender
+                                        .send(BuildEvent::BuildFailed {
+                                            build_id: build_id.clone(),
+                                            build_error: BuildError::Failure(
+                                                latest_build_info.id,
+                                                error,
+                                            ),
+                                        })
+                                        .await;
                                     break;
                                 }
                                 _ => continue,
                             };
                         }
                         Err(build_error) => {
-                            let _ = build_event_sender.send(BuildEvent::BuildFailed {
-                                build_id: build_id.clone(),
-                                build_error,
-                            });
+                            let _ = build_event_sender
+                                .send(BuildEvent::BuildFailed {
+                                    build_id: build_id.clone(),
+                                    build_error,
+                                })
+                                .await;
                         }
                     }
                 }
@@ -166,6 +177,7 @@ async fn handle_successful_build(
         .map_err(|e| BuildError::Failure(build_id.to_owned(), e.to_string()))?;
 
     for build_artifact_url in build_artifact_urls {
+        debug!("Handle built artifact with url: {}", build_artifact_url);
         let artifact = pipeline_service
             .download_artifact(&build_artifact_url)
             .await?;
@@ -184,12 +196,23 @@ async fn handle_successful_build(
             }
         };
 
+        debug!(
+            "Handled artifact into artifact specific id {}",
+            artifact_specific_id
+        );
+
         artifacts.push(BuildResultArtifact {
             artifact_specific_id,
             artifact_location,
             artifact_hash,
         });
     }
+
+    debug!(
+        "Handling build {} resulted in {} artifacts.",
+        build_id,
+        artifacts.len()
+    );
 
     Ok(BuildResult {
         build_id: build_id.to_owned(),
