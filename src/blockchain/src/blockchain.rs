@@ -16,7 +16,6 @@
 
 use libp2p::identity;
 use libp2p::identity::Keypair::Ed25519;
-use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
@@ -116,16 +115,20 @@ impl Blockchain {
         self
     }
 
-    pub fn add_new_block(&mut self, payload: Vec<u8>, local_key: identity::Keypair) {
+    /// Add block after receiving payload and keypair
+    pub fn add_block(
+        &mut self,
+        payload: Vec<u8>,
+        local_key: identity::Keypair,
+    ) -> anyhow::Result<()> {
         let submitter = Address::from(local_key.public());
         let ed25519_key = match local_key {
             Ed25519(some) => some,
             _ => {
-                debug!(
+                anyhow::bail!(
                     "Blockchain: Key {:?} is not valid Ed25519 format",
                     local_key
                 );
-                return;
             }
         };
         let trans_vec = vec![Transaction::new(
@@ -138,8 +141,7 @@ impl Blockchain {
         let last_block = match self.last_block() {
             Some(block) => block,
             None => {
-                debug!("Blockchain: Local blockchain does non exist!!");
-                return;
+                anyhow::bail!("Blockchain: Local blockchain does non exist!!");
             }
         };
 
@@ -149,10 +151,14 @@ impl Blockchain {
             trans_vec,
             &ed25519_key,
         );
-        self.add_block(block)
+
+        // TODO: Consensus algorithm will be refactored
+        self.commit_block(block);
+        Ok(())
     }
 
-    pub fn add_block(&mut self, block: Block) {
+    /// Commit block and notify block listeners
+    fn commit_block(&mut self, block: Block) {
         self.chain.blocks.push(block);
         self.notify_block_event(self.chain.blocks.last().expect("block must exist").clone());
     }
@@ -180,7 +186,7 @@ mod tests {
             &keypair,
         );
         transactions.push(transaction);
-        chain.add_block(Block::new(
+        chain.commit_block(Block::new(
             chain.blocks()[0].header.hash(),
             chain.blocks()[0].header.ordinal + 1,
             transactions,
@@ -239,7 +245,7 @@ mod tests {
                     called.set(true);
                 }
             })
-            .add_block(block);
+            .commit_block(block);
 
         assert!(called.get()); // called is still false
         Ok(())
@@ -260,7 +266,7 @@ mod tests {
             &keypair,
         );
         transactions.push(transaction);
-        chain.add_block(Block::new(
+        chain.commit_block(Block::new(
             chain.blocks()[0].header.hash(),
             chain.blocks()[0].header.ordinal + 1,
             transactions,
@@ -285,7 +291,7 @@ mod tests {
             &keypair,
         );
         transactions.push(transaction);
-        chain.add_block(Block::new(
+        chain.commit_block(Block::new(
             chain.blocks()[0].header.hash(),
             chain.blocks()[0].header.ordinal + 1,
             transactions,
@@ -296,7 +302,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add_new_block() -> Result<(), String> {
+    fn test_add_block() -> Result<(), String> {
         let keypair = identity::Keypair::generate_ed25519();
         let ed25519_key = match keypair.clone() {
             Ed25519(some) => some,
@@ -307,7 +313,8 @@ mod tests {
 
         let data = "Hello First Transaction";
 
-        chain.add_new_block(data.as_bytes().to_vec(), keypair);
+        let result = chain.add_block(data.as_bytes().to_vec(), keypair);
+        assert_eq!(result.is_ok(), true);
         assert_eq!(
             b"Hello First Transaction".to_vec(),
             chain.last_block().unwrap().transactions[0].payload()
