@@ -134,8 +134,7 @@ impl ArtifactService {
         self.put_artifact(artifact_id, &mut artifact_reader)
     }
 
-    /// Given artifact_id & reader, push artifact to artifact_manager
-    /// and returns the boolean as true or false if it was able to create or not
+    /// Given artifact_id & reader, push artifact to artifact_storage
     fn put_artifact(&self, artifact_id: &str, reader: &mut impl Read) -> Result<(), anyhow::Error> {
         info!("put_artifact with id: {}", artifact_id);
         self.artifact_storage
@@ -189,7 +188,7 @@ impl ArtifactService {
     ) -> Result<Vec<u8>, anyhow::Error> {
         let providers = self.p2p_client.list_providers(artifact_id).await?;
 
-        match self.p2p_client.clone().get_idle_peer(providers).await? {
+        match self.p2p_client.get_idle_peer(providers).await? {
             Some(peer_id) => self.get_artifact_from_peer(&peer_id, artifact_id).await,
             None => {
                 bail!(

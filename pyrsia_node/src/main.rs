@@ -62,10 +62,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     debug!("Create pyrsia services");
     let artifact_service = setup_pyrsia_services(p2p_client.clone(), &args)?;
-    // let artifact_service = setup_artifact_service(p2p_client.clone(), &args)?;
-
-    // debug!("Create build service");
-    // let build_service = setup_build_service(p2p_client.clone(), &args)?;
 
     debug!("Start p2p components");
     setup_p2p(p2p_client.clone(), &args).await?;
@@ -145,6 +141,7 @@ fn setup_pyrsia_services(
     debug!("Create build service");
     let build_service = setup_build_service(&artifact_path, build_event_sender, args)?;
 
+    debug!("Start build event loop");
     let build_event_loop = BuildEventLoop::new(
         artifact_service.clone(),
         build_service.clone(),
