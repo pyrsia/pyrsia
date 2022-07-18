@@ -323,7 +323,7 @@ Create a `pom.xml` file:
 </project>
 ```
 
-As you can see we have set the repository to `http://localhost:7888/maven2`, which
+As you can see, we have set the repository to `http://localhost:7888/maven2`, which
 will trigger the Maven build to request dependencies from this URL, which is our
 Pyrsia node, acting as a Maven repository.
 
