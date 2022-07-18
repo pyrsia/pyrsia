@@ -8,7 +8,7 @@ source with the goal to publish them in the Pyrsia network.
 Ultimately, the following scenario will be used, but for now some steps
 (indicated below) are skipped for the purpose of this build-from-source demo:
 
-- Setup at least 3 authorized nodes (skipped in this demo, only one Pyrsia node
+- Setup at least 3 authorized nodes (Skipped in this demo, only one Pyrsia node
   is used)
 - Make sure a mapping between an artifact and its source exists in the
   [Pyrsia Mappings Repo](https://github.com/pyrsia/pyrsia-mappings) (for Maven artifacts
@@ -17,7 +17,7 @@ Ultimately, the following scenario will be used, but for now some steps
 - Trigger a build from source for a given artifact
 - Wait for the build to finish in the build pipeline
 - Try to reach consensus with the other authorized nodes, which have to run the
-  same build and verify they produce the same build result. (skipped in this demo)
+  same build and verify they produce the same build result. (Skipped in this demo)
 - Create a transparency log about the artifact publication
 - Publish the artifact on the p2p network
 
@@ -35,13 +35,13 @@ Download a fresh copy of the codebase by cloning the repo or updating to the
 HEAD of `main`.
 
 ```sh
-git clone git@github.com:pyrsia/pyrsia.git
+git clone https://github.com/pyrsia/pyrsia.git
 ```
 
 Let's call this folder `PYRSIA_HOME`. We will refer to this
 name in the following steps.
 
-Build binaries for by running:
+Build binaries by running:
 
 ```sh
 cd $PYRSIA_HOME
@@ -54,24 +54,25 @@ Run the Pyrsia node using `cargo run`. We set the following env vars:
 
 - RUST_LOG: to make sure we can see all the debug logs
 - DEV_MODE: to make sure all non-existing directories are created on-the-fly
-- PYRSIA_ARTIFACT_PATH: to point to a clean space to store artifacts so we can
-  easily start from scratch
+- PYRSIA_ARTIFACT_PATH: pointing to a directory to store artifacts. optionally
+  remove this directory prior to starting Pyrsia if you want to start from an
+  empty state.
 
 ```sh
 RUST_LOG=pyrsia=debug DEV_MODE=on PYRSIA_ARTIFACT_PATH=/tmp/pyrsia \
-cargo run --package pyrsia_node -- --pipeline-service-endpoint  http://localhost:8080
+cargo run --package pyrsia_node -- --pipeline-service-endpoint http://localhost:8080
 ```
 
-As you can see we specified the `--pipeline service endpoint` argument to point
+As you can see, we specified the `--pipeline-service-endpoint` argument to point
 to `http://localhost:8080`, which is where we will run our build pipeline prototype
-(see below). In a real setup, the build pipeline obviously needs to run on its
+(see below). In a production setup, the build pipeline needs to run on its
 own isolated infrastructure.
 
 ## Create a mapping between the artifact and its source repository
 
 In this demo, we will build a Maven artifact from source. Since there's no direct
 connection between the Maven artifact defined as `groupId:artifactId:version` and
-its source repository, Pyrsia keeps a public mapping repository. For every known
+its source repository, Pyrsia keeps a [public mapping repository](https://github.com/pyrsia/pyrsia-mappings). For every known
 artifact, this repository has a mapping file like this:
 
 ```json
@@ -91,7 +92,7 @@ artifact, this repository has a mapping file like this:
 In case you want to build a different artifact from source than already available
 in the mapping, feel free to create a pull request to add it to the mapping repository.
 
-In this demo we will build `commons-codec:commons-codec:1.15` for which the mapping
+In this demo we will build `commons-codec:commons-codec:1.15` for which the [mapping](https://github.com/pyrsia/pyrsia-mappings/blob/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.mapping)
 is already available.
 
 ## Run build pipeline prototype
@@ -107,7 +108,7 @@ The most important features of the build pipeline are:
 - it exposes an interface so Pyrsia can download the build output
 
 The current build pipeline prototype only supports Maven builds. It takes
-the artifact mapping as input (see above), start a Maven build and provide the
+the artifact mapping as input (see above), starts a Maven build and provides the
 build output as a download.
 
 Download or clone the [prototype repo](https://github.com/tiainen/pyrsia_build_pipeline_prototype)
@@ -119,22 +120,35 @@ RUST_LOG=debug cargo run
 ```
 
 By default, this prototype listens on http port 8080. If you run it on a different
-host or port, make sure the specify its location when starting the Pyrsia node
-with `--pipeline service endpoint` (see above).
+host or port, make sure to specify its location when starting the Pyrsia node
+with `--pipeline-service-endpoint` (see above).
 
 Because we will be using this prototype for building Maven artifacts, make sure
-you have installed a JDK and configured JAVA_HOME before running `cargo run`.
+you have installed a JDK11 and configured JAVA_HOME before running `cargo run`.
 
 ## Trigger a build from source for a given artifact
 
 In this demo we trigger a build for `commons-codec:commons-codec:1.15`.
 The mapping repository already contains the [source repository mapping](https://github.com/pyrsia/pyrsia-mappings/blob/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.mapping).
 
-We will use the Pyrsia CLI to trigger a build from source. Run this in a new terminal,
-while the Pyrsia node and build pipeline prototype are running:
+We will use the Pyrsia CLI to trigger a build from source. In a new terminal, while
+the Pyrsia node and build pipeline prototype are running, check if your Pyrsia CLI
+config is correct:
 
 ```sh
 cd $PYRSIA_HOME/target/debug
+./pyrsia config --show
+host = 'localhost'
+port = '7888'
+disk_allocated = '5.84 GB'
+```
+
+If you're not using the default port for your Pyrsia node, make sure to configure
+the CLI using `./pyrsia config --add`.
+
+Then trigger the build from source, like this:
+
+```sh
 ./pyrsia build maven --gav commons-codec:commons-codec:1.15
 ```
 
@@ -213,7 +227,7 @@ When consensus has been reached, a transparency log is created for each build ar
 ```text
 INFO  pyrsia::artifact_service::service > Adding artifact to transparency log: AddArtifactRequest { package_type: Maven2, package_specific_id: "commons-codec:commons-codec:1.15", package_specific_artifact_id: "commons-codec/commons-codec/1.15/commons-codec-1.15.jar", artifact_hash: "7da8e6b90125463c26c950a97fd14143c2f39cd5d488748b265d83e8b124fa7c" }
 DEBUG pyrsia::transparency_log::log     > Transparency log inserted into database with id: 2f30167e-e40f-4831-9197-11fc0b5450e3
-INFO  pyrsia::artifact_service::service > Transparency Log for build with ID 0a6f2128-7410-4098-bd39-59dc05230464 successfully added. Adding artifact locally: TransparencyLog { id: "2f30167e-e40f-4831-9197-11fc0b5450e3", package_type: Maven2, package_specific_id: "commons-codec:commons-codec:1.15", package_specific_artifact_id: "commons-codec/commons-codec/1.15/commons-codec-1.15.jar", artifact_hash: "7da8e6b90125463c26c950a97fd14143c2f39cd5d488748b265d83e8b124fa7c", source_hash: "", artifact_id: "6eb90399-24cd-4aef-a78f-ef95d64b53fa", source_id: "77ea0ea3-2eb7-4aac-9fdb-f43664ce62a4", timestamp: 1658132836, operation: AddArtifact, node_id: "5a04ba4d-9c8f-445a-bcb7-5c91a610d03c", node_public_key: "9c6ab508-1b86-47bb-87e9-6b99c18e4a73" }
+INFO  pyrsia::artifact_service::service > Transparency Log for build with ID 0a6f2128-7410-4098-bd39-59dc05230464 successfully added. Adding artifact locally: TransparencyLog { id: "2f30167e-e40f-4831-9197-11fc0b5450e3", package_type: Maven2, package_specific_id: "commons-codec:commons-codec:1.15", package_specific_artifact_id: "commons-codec/commons-codec/1.15/commons-codec-1.15.jar", artifact_hash: "7da8e6b90125463c26c950a97fd14143c2f39cd5d488748b265d83e8b124fa7c", artifact_id: "6eb90399-24cd-4aef-a78f-ef95d64b53fa", source_id: "77ea0ea3-2eb7-4aac-9fdb-f43664ce62a4", timestamp: 1658132836, operation: AddArtifact, node_id: "5a04ba4d-9c8f-445a-bcb7-5c91a610d03c", node_public_key: "9c6ab508-1b86-47bb-87e9-6b99c18e4a73" }
 ```
 
 Example for `commons-codec-1.15.jar`:
@@ -225,7 +239,6 @@ Example for `commons-codec-1.15.jar`:
   "package_specific_id":"commons-codec:commons-codec:1.15",
   "package_specific_artifact_id":"commons-codec/commons-codec/1.15/commons-codec-1.15.jar",
   "artifact_hash":"3a1cabaab612b463e30fe44ae8794595311bbb8981bdcbb887736d35fcfd4d6f",
-  "source_hash":"",
   "artifact_id":"e5b3ee84-4a83-491c-8cf6-3b9c60a0f87e",
   "source_id":"65e204f6-ff8b-42e2-898d-56c3723d6dc0",
   "timestamp":1657893583,
@@ -264,7 +277,6 @@ package org.pyrsia.sample;
 
 import java.util.Arrays;
 import org.apache.commons.codec.binary.Hex;
-import static java.lang.System.out;
 
 public class Main {
 
@@ -272,7 +284,7 @@ public class Main {
         byte[] data = { 1, 2, 3, 4, 5, 6, 7, 8 };
         String hexEncodedData = Hex.encodeHexString(data);
 
-        out.println("Byte array " + Arrays.toString(data) + " encoded as a hex string: " + hexEncodedData);
+        System.out.println("Byte array " + Arrays.toString(data) + " encoded as a hex string: " + hexEncodedData);
     }
 }
 ```
@@ -312,7 +324,7 @@ Create a `pom.xml` file:
 ```
 
 As you can see we have set the repository to `http://localhost:7888/maven2`, which
-will trigger to Maven build to request dependencies from this URL, which is our
+will trigger the Maven build to request dependencies from this URL, which is our
 Pyrsia node, acting as a Maven repository.
 
 To make sure your local maven cache doesn't already contain this dependency, remove
