@@ -205,6 +205,12 @@ other authorized nodes, but this step is skipped in this demo.
 
 When consensus has been reached, a transparency log is created for each build artifact.
 
+```
+INFO  pyrsia::artifact_service::service > Adding artifact to transparency log: AddArtifactRequest { package_type: Maven2, package_specific_id: "commons-codec:commons-codec:1.15", package_specific_artifact_id: "commons-codec/commons-codec/1.15/commons-codec-1.15.jar", artifact_hash: "7da8e6b90125463c26c950a97fd14143c2f39cd5d488748b265d83e8b124fa7c" }
+DEBUG pyrsia::transparency_log::log     > Transparency log inserted into database with id: 2f30167e-e40f-4831-9197-11fc0b5450e3
+INFO  pyrsia::artifact_service::service > Transparency Log for build with ID 0a6f2128-7410-4098-bd39-59dc05230464 successfully added. Adding artifact locally: TransparencyLog { id: "2f30167e-e40f-4831-9197-11fc0b5450e3", package_type: Maven2, package_specific_id: "commons-codec:commons-codec:1.15", package_specific_artifact_id: "commons-codec/commons-codec/1.15/commons-codec-1.15.jar", artifact_hash: "7da8e6b90125463c26c950a97fd14143c2f39cd5d488748b265d83e8b124fa7c", source_hash: "", artifact_id: "6eb90399-24cd-4aef-a78f-ef95d64b53fa", source_id: "77ea0ea3-2eb7-4aac-9fdb-f43664ce62a4", timestamp: 1658132836, operation: AddArtifact, node_id: "5a04ba4d-9c8f-445a-bcb7-5c91a610d03c", node_public_key: "9c6ab508-1b86-47bb-87e9-6b99c18e4a73" }
+```
+
 Example for `commons-codec-1.15.jar`:
 ```json
 {
@@ -227,11 +233,10 @@ As a final step in the build from source scenario, the artifacts are stored loca
 and provided on the p2p network.
 
 ```
- INFO  pyrsia::artifact_service::service > put_artifact artifact_id: c6c299af-6580-4e79-8e2c-861ae19af5b3
- INFO  pyrsia::artifact_service::storage > An artifact is being pushed to the artifact manager with id c6c299af-6580-4e79-8e2c-861ae19af5b3
- DEBUG pyrsia::artifact_service::storage > Pushing artifact to /private/tmp/pyrsia/c6c299af-6580-4e79-8e2c-861ae19af5b3.file
- DEBUG pyrsia::network::client           > p2p::Client::provide "c6c299af-6580-4e79-8e2c-861ae19af5b3"
-```
+ INFO  pyrsia::artifact_service::service > put_artifact with id: da341557-9150-4208-9474-f5884f799338
+ INFO  pyrsia::artifact_service::storage > An artifact is being pushed to the artifact manager da341557-9150-4208-9474-f5884f799338
+ DEBUG pyrsia::network::client           > p2p::Client::provide "da341557-9150-4208-9474-f5884f799338"
+ ```
 
 ## Use Pyrsia in a Maven project
 
