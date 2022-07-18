@@ -16,8 +16,8 @@
 
 use crate::artifact_service::model::PackageType;
 use crate::artifact_service::service::ArtifactService;
-use crate::cli_commands::config::get_config;
-use crate::docker::error_util::{RegistryError, RegistryErrorCode};
+use crate::build_service::service::BuildService;
+use crate::docker::error_util::RegistryError;
 use crate::node_api::model::cli::{RequestDockerBuild, RequestMavenBuild, Status};
 
 use log::debug;
@@ -27,12 +27,12 @@ use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_build_docker(
     request_docker_build: RequestDockerBuild,
-    artifact_service: Arc<Mutex<ArtifactService>>,
+    build_service: Arc<Mutex<BuildService>>,
 ) -> Result<impl Reply, Rejection> {
-    let build_info = artifact_service
+    let build_info = build_service
         .lock()
         .await
-        .request_build(PackageType::Docker, &request_docker_build.manifest)
+        .start_build(PackageType::Docker, request_docker_build.manifest)
         .await
         .map_err(RegistryError::from)?;
 
@@ -46,12 +46,12 @@ pub async fn handle_build_docker(
 
 pub async fn handle_build_maven(
     request_maven_build: RequestMavenBuild,
-    artifact_service: Arc<Mutex<ArtifactService>>,
+    build_service: Arc<Mutex<BuildService>>,
 ) -> Result<impl Reply, Rejection> {
-    let build_info = artifact_service
+    let build_info = build_service
         .lock()
         .await
-        .request_build(PackageType::Maven2, &request_maven_build.gav)
+        .start_build(PackageType::Maven2, request_maven_build.gav)
         .await
         .map_err(RegistryError::from)?;
 
@@ -94,13 +94,6 @@ pub async fn handle_get_status(
         .list_peers()
         .await
         .map_err(RegistryError::from)?;
-
-    let cli_config = get_config();
-    if cli_config.is_err() {
-        return Err(warp::reject::custom(RegistryError {
-            code: RegistryErrorCode::Unknown(cli_config.err().unwrap().to_string()),
-        }));
-    }
 
     let status = Status {
         peers_count: peers.len(),

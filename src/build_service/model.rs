@@ -15,6 +15,9 @@
 */
 
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+use crate::artifact_service::model::PackageType;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum BuildStatus {
@@ -29,4 +32,17 @@ pub struct BuildInfo {
     pub status: BuildStatus,
 }
 
-pub struct BuildResult {}
+#[derive(Debug)]
+pub struct BuildResultArtifact {
+    pub artifact_specific_id: String,
+    pub artifact_location: PathBuf,
+    pub artifact_hash: String,
+}
+
+#[derive(Debug)]
+pub struct BuildResult {
+    pub build_id: String,
+    pub package_type: PackageType,
+    pub package_specific_id: String,
+    pub artifacts: Vec<BuildResultArtifact>,
+}
