@@ -66,7 +66,6 @@ fn get_package_specific_artifact_id(name: &str, tag: &str) -> String {
 mod tests {
     use super::*;
     use crate::artifact_service::storage::ArtifactStorage;
-    use crate::build_service::service::BuildService;
     use crate::network::client::Client;
     use crate::transparency_log::log::AddArtifactRequest;
     use crate::util::test_util;
@@ -96,14 +95,14 @@ mod tests {
         let name = "name_manifests";
         let tag = "tag_fetch_manifest_unknown_in_artifact_service";
 
-        let (sender, _) = mpsc::channel(1);
+        let (command_sender, _command_receiver) = mpsc::channel(1);
         let p2p_client = Client {
-            sender,
+            sender: command_sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
-        let artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
+        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
+        let artifact_service = ArtifactService::new(&tmp_dir, build_command_sender, p2p_client)
             .expect("Creating ArtifactService failed");
 
         let result = fetch_manifest(
@@ -138,14 +137,14 @@ mod tests {
         let package_specific_artifact_id = get_package_specific_artifact_id(name, tag);
 
         let (add_artifact_sender, add_artifact_receiver) = oneshot::channel();
-        let (sender, _) = mpsc::channel(1);
+        let (command_sender, _command_receiver) = mpsc::channel(1);
         let p2p_client = Client {
-            sender,
+            sender: command_sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let build_service = BuildService::new(&tmp_dir, "", "").unwrap();
-        let mut artifact_service = ArtifactService::new(&tmp_dir, p2p_client, build_service)
+        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
+        let mut artifact_service = ArtifactService::new(&tmp_dir, build_command_sender, p2p_client)
             .expect("Creating ArtifactService failed");
 
         artifact_service
@@ -156,7 +155,6 @@ mod tests {
                     package_specific_id: package_specific_id.to_owned(),
                     package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: hash.to_owned(),
-                    source_hash: hash.to_owned(),
                 },
                 add_artifact_sender,
             )

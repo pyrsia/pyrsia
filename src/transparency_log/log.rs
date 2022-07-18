@@ -90,12 +90,12 @@ pub struct TransparencyLog {
     node_public_key: String,
 }
 
+#[derive(Debug)]
 pub struct AddArtifactRequest {
     pub package_type: PackageType,
     pub package_specific_id: String,
     pub package_specific_artifact_id: String,
     pub artifact_hash: String,
-    pub source_hash: String,
 }
 
 pub struct AuthorizedNode {
@@ -146,7 +146,7 @@ impl TransparencyLogService {
             package_specific_id: add_artifact_request.package_specific_id.clone(),
             package_specific_artifact_id: add_artifact_request.package_specific_artifact_id.clone(),
             artifact_hash: add_artifact_request.artifact_hash,
-            source_hash: add_artifact_request.source_hash,
+            source_hash: "".to_owned(),
             artifact_id: Uuid::new_v4().to_string(),
             source_id: Uuid::new_v4().to_string(),
             timestamp: SystemTime::now()
@@ -684,7 +684,6 @@ mod tests {
                     package_specific_id: "package_specific_id".to_owned(),
                     package_specific_artifact_id: "package_specific_artifact_id".to_owned(),
                     artifact_hash: "artifact_hash".to_owned(),
-                    source_hash: "source_hash".to_owned(),
                 },
                 sender,
             )
