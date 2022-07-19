@@ -64,6 +64,16 @@ impl Block {
     pub fn verify(&self) -> bool {
         true
     }
+
+    pub fn fetch_payload(&self) -> Vec<Vec<u8>> {
+        let mut result = vec![];
+
+        for trans in self.transactions.clone() {
+            result.push(trans.payload());
+        }
+
+        result
+    }
 }
 
 impl PartialOrd for Block {
@@ -102,6 +112,26 @@ mod tests {
 
         assert_eq!(1, block.header.ordinal);
         assert_eq!(expected_signature, block.signature());
+        Ok(())
+    }
+
+    #[test]
+    fn test_fetch_payload() -> Result<(), String> {
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
+
+        let transactions = vec![Transaction::new(
+            TransactionType::Create,
+            local_id,
+            b"Hello First Transaction".to_vec(),
+            &keypair,
+        )];
+        let block = Block::new(HashDigest::new(b""), 1, transactions.to_vec(), &keypair);
+
+        assert_eq!(
+            b"Hello First Transaction".to_vec(),
+            block.fetch_payload()[0]
+        );
         Ok(())
     }
 }

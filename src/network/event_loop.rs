@@ -472,8 +472,9 @@ mod tests {
     use libp2p::core::Transport;
     use libp2p::identity::Keypair;
     use libp2p::swarm::SwarmBuilder;
+    use libp2p::tcp::{self, GenTcpConfig};
     use libp2p::yamux::YamuxConfig;
-    use libp2p::{autonat, dns, kad, noise, request_response, tcp};
+    use libp2p::{autonat, dns, kad, noise, request_response};
     use std::iter;
     use std::time::Duration;
 
@@ -486,7 +487,7 @@ mod tests {
             .into_authentic(&id_keys)
             .expect("Signing libp2p-noise static DH keypair failed.");
 
-        let transport = tcp::TokioTcpConfig::new().nodelay(true);
+        let transport = tcp::TokioTcpTransport::new(GenTcpConfig::default().nodelay(true));
         let dns = dns::TokioDnsConfig::system(transport).unwrap();
 
         let mem_transport = dns

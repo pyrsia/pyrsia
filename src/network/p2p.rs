@@ -27,7 +27,8 @@ use crate::util::keypair_util;
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
 use libp2p::swarm::{Swarm, SwarmBuilder};
-use libp2p::{autonat, core, dns, identity, kad, mplex, noise, tcp, yamux, Transport};
+use libp2p::tcp::{self, GenTcpConfig};
+use libp2p::{autonat, core, dns, identity, kad, mplex, noise, yamux, Transport};
 use std::error::Error;
 use std::iter;
 use std::path::PathBuf;
@@ -146,7 +147,7 @@ fn create_transport(
         .into_authentic(&keypair)
         .expect("Signing libp2p-noise static DH keypair failed.");
 
-    let transport = tcp::TokioTcpConfig::new().nodelay(true);
+    let transport = tcp::TokioTcpTransport::new(GenTcpConfig::default().nodelay(true));
     let dns = dns::TokioDnsConfig::system(transport)?;
 
     Ok(dns
