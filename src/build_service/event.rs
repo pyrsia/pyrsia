@@ -14,24 +14,105 @@
    limitations under the License.
 */
 
+use crate::artifact_service::model::PackageType;
 use crate::artifact_service::service::ArtifactService;
 use crate::build_service::error::BuildError;
-use crate::build_service::model::BuildResult;
+use crate::build_service::model::{BuildInfo, BuildResult};
 use crate::build_service::service::BuildService;
 use log::{debug, error, warn};
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, oneshot, Mutex};
 
 #[derive(Debug)]
 pub enum BuildEvent {
-    BuildCleanup {
+    CleanUp {
         build_id: String,
     },
-    BuildFailed {
+    Failed {
         build_id: String,
         build_error: BuildError,
     },
-    BuildSucceeded(BuildResult),
+    Start {
+        package_type: PackageType,
+        package_specific_id: String,
+        sender: oneshot::Sender<Result<BuildInfo, BuildError>>,
+    },
+    Succeeded(BuildResult),
+}
+
+#[derive(Clone)]
+pub struct BuildEventClient {
+    build_event_sender: mpsc::Sender<BuildEvent>,
+}
+
+impl BuildEventClient {
+    pub fn new(build_event_sender: mpsc::Sender<BuildEvent>) -> Self {
+        Self { build_event_sender }
+    }
+
+    pub async fn clean_up(&self, build_id: String) {
+        let _ = self
+            .build_event_sender
+            .send(BuildEvent::CleanUp { build_id })
+            .await;
+    }
+
+    pub async fn send_build_success(&self, build_result: BuildResult) {
+        let _ = self
+            .build_event_sender
+            .send(BuildEvent::Succeeded(build_result))
+            .await;
+    }
+
+    pub async fn send_build_failure(&self, build_id: String, build_error: BuildError) {
+        let _ = self
+            .build_event_sender
+            .send(BuildEvent::Failed {
+                build_id,
+                build_error,
+            })
+            .await;
+    }
+
+    pub async fn start_build(
+        &self,
+        package_type: PackageType,
+        package_specific_id: String,
+    ) -> Result<BuildInfo, BuildError> {
+        let (sender, receiver) = oneshot::channel();
+        let _ = self
+            .build_event_sender
+            .send(BuildEvent::Start {
+                package_type,
+                package_specific_id,
+                sender,
+            })
+            .await;
+        receiver
+            .await
+            .map_err(|e| BuildError::InitializationFailed(e.to_string()))?
+    }
+
+    pub async fn verify_build(
+        &self,
+        package_type: PackageType,
+        package_specific_id: String,
+        _package_specific_artifact_id: String,
+        _artifact_hash: String,
+    ) -> Result<BuildInfo, BuildError> {
+        let (sender, receiver) = oneshot::channel();
+        let _ = self
+            .build_event_sender
+            .send(BuildEvent::Start {
+                package_type,
+                package_specific_id,
+                sender,
+            })
+            .await;
+        receiver
+            .await
+            .map_err(|e| BuildError::InitializationFailed(e.to_string()))?
+    }
 }
 
 pub struct BuildEventLoop {
@@ -72,18 +153,31 @@ impl BuildEventLoop {
     async fn handle_build_event(&self, build_event: BuildEvent) {
         debug!("Handle BuildEvent: {:?}", build_event);
         match build_event {
-            BuildEvent::BuildCleanup { build_id } => {
-                self.build_service.lock().await.cleanup_build(&build_id);
+            BuildEvent::CleanUp { build_id } => {
+                self.build_service.lock().await.clean_up_build(&build_id);
             }
-            BuildEvent::BuildFailed {
+            BuildEvent::Failed {
                 build_id,
                 build_error,
             } => {
                 error!("{}", build_error.to_string());
 
-                self.build_service.lock().await.cleanup_build(&build_id);
+                self.build_service.lock().await.clean_up_build(&build_id);
             }
-            BuildEvent::BuildSucceeded(build_result) => {
+            BuildEvent::Start {
+                package_type,
+                package_specific_id,
+                sender,
+            } => {
+                let result = self
+                    .build_service
+                    .lock()
+                    .await
+                    .start_build(package_type, package_specific_id)
+                    .await;
+                let _ = sender.send(result);
+            }
+            BuildEvent::Succeeded(build_result) => {
                 self.artifact_service
                     .lock()
                     .await

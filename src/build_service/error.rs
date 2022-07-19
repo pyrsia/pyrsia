@@ -22,6 +22,8 @@ use thiserror::Error;
 pub enum BuildError {
     #[error("Build with ID {0} failed with error: {1}")]
     Failure(String, String),
+    #[error("Failed to initialize a build: {0}")]
+    InitializationFailed(String),
     #[error("Invalid response from mapping service endpoint: {0}")]
     InvalidMappingResponse(String),
     #[error("Invalid response from pipeline service endpoint: {0}")]

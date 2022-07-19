@@ -112,8 +112,13 @@ impl Transaction {
     pub fn hash(&self) -> HashDigest {
         self.hash
     }
+
     pub fn signature(&self) -> TransactionSignature {
         self.signature.clone()
+    }
+
+    pub fn payload(&self) -> Vec<u8> {
+        self.payload.clone()
     }
 }
 

@@ -22,7 +22,7 @@ use args::parser::PyrsiaNodeArgs;
 use network::handlers;
 use pyrsia::artifact_service::service::ArtifactService;
 use pyrsia::artifact_service::storage::ARTIFACTS_DIR;
-use pyrsia::build_service::event::{BuildEvent, BuildEventLoop};
+use pyrsia::build_service::event::{BuildEventClient, BuildEventLoop};
 use pyrsia::build_service::service::BuildService;
 use pyrsia::docker::error_util::*;
 use pyrsia::docker::v2::routes::make_docker_routes;
@@ -62,6 +62,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     debug!("Create pyrsia services");
     let artifact_service = setup_pyrsia_services(p2p_client.clone(), &args)?;
+
+    debug!("Setup HTTP server");
+    setup_http(&args, artifact_service.clone());
 
     debug!("Start p2p components");
     setup_p2p(p2p_client.clone(), &args).await?;
@@ -148,46 +151,44 @@ fn setup_pyrsia_services(
 ) -> Result<Arc<Mutex<ArtifactService>>> {
     let artifact_path = PathBuf::from(ARTIFACTS_DIR.as_str());
     let (build_event_sender, build_event_receiver) = mpsc::channel(32);
+    let build_event_client = BuildEventClient::new(build_event_sender);
 
     debug!("Create artifact service");
     let artifact_service =
-        setup_artifact_service(&artifact_path, build_event_sender.clone(), p2p_client)?;
+        setup_artifact_service(&artifact_path, build_event_client.clone(), p2p_client)?;
 
     debug!("Create build service");
-    let build_service = setup_build_service(&artifact_path, build_event_sender, args)?;
+    let build_service = setup_build_service(&artifact_path, build_event_client, args)?;
 
     debug!("Start build event loop");
     let build_event_loop = BuildEventLoop::new(
         artifact_service.clone(),
-        build_service.clone(),
+        build_service,
         build_event_receiver,
     );
     tokio::spawn(build_event_loop.run());
-
-    debug!("Setup HTTP server");
-    setup_http(args, artifact_service.clone(), build_service);
 
     Ok(artifact_service)
 }
 
 fn setup_artifact_service(
     artifact_path: &Path,
-    build_event_sender: mpsc::Sender<BuildEvent>,
+    build_event_client: BuildEventClient,
     p2p_client: Client,
 ) -> Result<Arc<Mutex<ArtifactService>>> {
-    let artifact_service = ArtifactService::new(artifact_path, build_event_sender, p2p_client)?;
+    let artifact_service = ArtifactService::new(artifact_path, build_event_client, p2p_client)?;
 
     Ok(Arc::new(Mutex::new(artifact_service)))
 }
 
 fn setup_build_service(
     artifact_path: &Path,
-    build_event_sender: mpsc::Sender<BuildEvent>,
+    build_event_client: BuildEventClient,
     args: &PyrsiaNodeArgs,
 ) -> Result<Arc<Mutex<BuildService>>> {
     let build_service = BuildService::new(
         &artifact_path,
-        build_event_sender,
+        build_event_client,
         &args.mapping_service_endpoint,
         &args.pipeline_service_endpoint,
     )?;
@@ -195,11 +196,7 @@ fn setup_build_service(
     Ok(Arc::new(Mutex::new(build_service)))
 }
 
-fn setup_http(
-    args: &PyrsiaNodeArgs,
-    artifact_service: Arc<Mutex<ArtifactService>>,
-    build_service: Arc<Mutex<BuildService>>,
-) {
+fn setup_http(args: &PyrsiaNodeArgs, artifact_service: Arc<Mutex<ArtifactService>>) {
     // Get host and port from the settings. Defaults to DEFAULT_HOST and DEFAULT_PORT
     debug!(
         "Pyrsia Docker Node will bind to host = {}, port = {}",
@@ -214,7 +211,7 @@ fn setup_http(
     debug!("Setup HTTP routing");
     let docker_routes = make_docker_routes(artifact_service.clone());
     let maven_routes = make_maven_routes(artifact_service.clone());
-    let node_api_routes = make_node_routes(artifact_service, build_service);
+    let node_api_routes = make_node_routes(artifact_service);
     let all_routes = docker_routes.or(maven_routes).or(node_api_routes);
 
     debug!("Setup HTTP server");

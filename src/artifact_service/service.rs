@@ -16,8 +16,9 @@
 
 use super::model::PackageType;
 use super::storage::ArtifactStorage;
-use crate::build_service::event::BuildEvent;
-use crate::build_service::model::BuildResult;
+use crate::build_service::error::BuildError;
+use crate::build_service::event::BuildEventClient;
+use crate::build_service::model::{BuildInfo, BuildResult};
 use crate::network::client::Client;
 use crate::transparency_log::log::{
     AddArtifactRequest, TransparencyLog, TransparencyLogError, TransparencyLogService,
@@ -30,14 +31,14 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::str;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::oneshot;
 
 /// The artifact service is the component that handles everything related to
 /// pyrsia artifacts. It allows artifacts to be retrieved and added to the
 /// pyrsia network by requesting a build from source.
 pub struct ArtifactService {
     pub artifact_storage: ArtifactStorage,
-    build_event_sender: mpsc::Sender<BuildEvent>,
+    build_event_client: BuildEventClient,
     pub transparency_log_service: TransparencyLogService,
     pub p2p_client: Client,
 }
@@ -45,17 +46,27 @@ pub struct ArtifactService {
 impl ArtifactService {
     pub fn new<P: AsRef<Path>>(
         artifact_path: P,
-        build_event_sender: mpsc::Sender<BuildEvent>,
+        build_event_client: BuildEventClient,
         p2p_client: Client,
     ) -> anyhow::Result<Self> {
         let artifact_storage = ArtifactStorage::new(&artifact_path)?;
         let transparency_log_service = TransparencyLogService::new(&artifact_path)?;
         Ok(ArtifactService {
             artifact_storage,
-            build_event_sender,
+            build_event_client,
             transparency_log_service,
             p2p_client,
         })
+    }
+
+    pub async fn request_build(
+        &self,
+        package_type: PackageType,
+        package_specific_id: String,
+    ) -> Result<BuildInfo, BuildError> {
+        self.build_event_client
+            .start_build(package_type, package_specific_id)
+            .await
     }
 
     pub async fn handle_build_result(&mut self, build_result: BuildResult) {
@@ -66,11 +77,9 @@ impl ArtifactService {
             )
         }
 
-        let _ = self
-            .build_event_sender
-            .send(BuildEvent::BuildCleanup {
-                build_id: build_result.build_id,
-            })
+        self
+            .build_event_client
+            .clean_up(build_result.build_id)
             .await;
     }
 
@@ -270,9 +279,10 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
+        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let build_event_client = BuildEventClient::new(build_event_sender);
         let mut artifact_service =
-            ArtifactService::new(&tmp_dir, build_command_sender, p2p_client).unwrap();
+            ArtifactService::new(&tmp_dir, build_event_client, p2p_client).unwrap();
 
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
@@ -357,9 +367,10 @@ mod tests {
             }
         });
 
-        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
+        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let build_event_client = BuildEventClient::new(build_event_sender);
         let mut artifact_service =
-            ArtifactService::new(&tmp_dir, build_command_sender, p2p_client).unwrap();
+            ArtifactService::new(&tmp_dir, build_event_client, p2p_client).unwrap();
 
         let mut hasher = Sha256::new();
         hasher.update(b"SAMPLE_DATA");
@@ -406,9 +417,10 @@ mod tests {
             local_peer_id: peer_id,
         };
 
-        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
+        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let build_event_client = BuildEventClient::new(build_event_sender);
         let mut artifact_service =
-            ArtifactService::new(&tmp_dir, build_command_sender, p2p_client).unwrap();
+            ArtifactService::new(&tmp_dir, build_event_client, p2p_client).unwrap();
 
         tokio::spawn(async move {
             tokio::select! {
@@ -447,9 +459,10 @@ mod tests {
             local_peer_id,
         };
 
-        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
+        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let build_event_client = BuildEventClient::new(build_event_sender);
         let mut artifact_service =
-            ArtifactService::new(&tmp_dir, build_command_sender, p2p_client).unwrap();
+            ArtifactService::new(&tmp_dir, build_event_client, p2p_client).unwrap();
 
         let mut hasher1 = Sha256::new();
         hasher1.update(b"SAMPLE_DATA");
@@ -497,9 +510,10 @@ mod tests {
             local_peer_id,
         };
 
-        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
+        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let build_event_client = BuildEventClient::new(build_event_sender);
         let mut artifact_service =
-            ArtifactService::new(&tmp_dir, build_command_sender, p2p_client).unwrap();
+            ArtifactService::new(&tmp_dir, build_event_client, p2p_client).unwrap();
 
         let mut hasher1 = Sha256::new();
         hasher1.update(b"SAMPLE_DATA");

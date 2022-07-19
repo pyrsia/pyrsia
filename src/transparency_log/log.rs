@@ -77,15 +77,15 @@ pub enum Operation {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TransparencyLog {
     id: String,
-    package_type: PackageType,
-    package_specific_id: String,
+    pub package_type: PackageType,
+    pub package_specific_id: String,
     pub package_specific_artifact_id: String,
     pub artifact_hash: String,
     source_hash: String,
     pub artifact_id: String,
     source_id: String,
     timestamp: u64,
-    operation: Operation,
+    pub operation: Operation,
     node_id: String,
     node_public_key: String,
 }

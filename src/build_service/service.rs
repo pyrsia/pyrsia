@@ -15,7 +15,7 @@
 */
 
 use super::error::BuildError;
-use super::event::BuildEvent;
+use super::event::BuildEventClient;
 use super::mapping::service::MappingService;
 use super::model::{BuildInfo, BuildResult, BuildResultArtifact, BuildStatus};
 use super::pipeline::service::PipelineService;
@@ -26,13 +26,12 @@ use multihash::Hasher;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use tokio::sync::mpsc;
 
 /// The build service is a component used by authorized nodes only. It is
 /// the entrypoint to the authorized node's build pipeline infrastructure.
 pub struct BuildService {
     repository_path: PathBuf,
-    build_event_sender: mpsc::Sender<BuildEvent>,
+    build_event_client: BuildEventClient,
     mapping_service: MappingService,
     pipeline_service: PipelineService,
 }
@@ -40,14 +39,14 @@ pub struct BuildService {
 impl BuildService {
     pub fn new<P: AsRef<Path>>(
         repository_path: P,
-        build_event_sender: mpsc::Sender<BuildEvent>,
+        build_event_client: BuildEventClient,
         mapping_service_endpoint: &str,
         pipeline_service_endpoint: &str,
     ) -> Result<Self, anyhow::Error> {
         let repository_path = repository_path.as_ref().to_path_buf().canonicalize()?;
         Ok(BuildService {
             repository_path,
-            build_event_sender,
+            build_event_client,
             mapping_service: MappingService::new(mapping_service_endpoint),
             pipeline_service: PipelineService::new(pipeline_service_endpoint),
         })
@@ -75,7 +74,7 @@ impl BuildService {
             let build_path = self.get_build_path(&build_id);
             let pipeline_service = self.pipeline_service.clone();
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
-            let build_event_sender = self.build_event_sender.clone();
+            let build_event_client = self.build_event_client.clone();
             tokio::spawn(async move {
                 loop {
                     interval.tick().await;
@@ -98,8 +97,8 @@ impl BuildService {
                                     {
                                         Ok(build_result) => {
                                             debug!("Successfully handled build {}.", build_id);
-                                            let _ = build_event_sender
-                                                .send(BuildEvent::BuildSucceeded(build_result))
+                                            build_event_client
+                                                .send_build_success(build_result)
                                                 .await;
                                         }
                                         Err(build_error) => {
@@ -107,25 +106,19 @@ impl BuildService {
                                                 "Handling of build {} resulted in an error.",
                                                 build_id
                                             );
-                                            let _ = build_event_sender
-                                                .send(BuildEvent::BuildFailed {
-                                                    build_id: build_id.clone(),
-                                                    build_error,
-                                                })
+                                            build_event_client
+                                                .send_build_failure(build_id, build_error)
                                                 .await;
                                         }
                                     }
                                     break;
                                 }
                                 BuildStatus::Failure(error) => {
-                                    let _ = build_event_sender
-                                        .send(BuildEvent::BuildFailed {
-                                            build_id: build_id.clone(),
-                                            build_error: BuildError::Failure(
-                                                latest_build_info.id,
-                                                error,
-                                            ),
-                                        })
+                                    build_event_client
+                                        .send_build_failure(
+                                            build_id,
+                                            BuildError::Failure(latest_build_info.id, error),
+                                        )
                                         .await;
                                     break;
                                 }
@@ -133,11 +126,8 @@ impl BuildService {
                             };
                         }
                         Err(build_error) => {
-                            let _ = build_event_sender
-                                .send(BuildEvent::BuildFailed {
-                                    build_id: build_id.clone(),
-                                    build_error,
-                                })
+                            build_event_client
+                                .send_build_failure(build_id.clone(), build_error)
                                 .await;
                         }
                     }
@@ -148,7 +138,7 @@ impl BuildService {
         Ok(build_info)
     }
 
-    pub fn cleanup_build(&self, build_id: &str) {
+    pub fn clean_up_build(&self, build_id: &str) {
         let build_path = self.get_build_path(build_id);
         if let Err(error) = fs::remove_dir_all(&build_path) {
             warn!(
@@ -244,6 +234,7 @@ mod tests {
     use crate::build_service::mapping::model::MappingInfo;
     use crate::util::test_util;
     use httptest::{matchers, responders, Expectation, Server};
+    use tokio::sync::mpsc;
 
     #[tokio::test]
     async fn test_start_build() {
@@ -253,6 +244,8 @@ mod tests {
         let package_specific_id = "alpine:3.15.2";
 
         let (sender, _) = mpsc::channel(1);
+
+        let build_event_client = BuildEventClient::new(sender);
 
         let mapping_info = MappingInfo {
             package_type: PackageType::Docker,
@@ -282,7 +275,7 @@ mod tests {
 
         let build_service = BuildService::new(
             &tmp_dir,
-            sender,
+            build_event_client,
             mapping_service_endpoint,
             pipeline_service_endpoint,
         )

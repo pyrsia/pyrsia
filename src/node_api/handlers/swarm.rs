@@ -16,7 +16,6 @@
 
 use crate::artifact_service::model::PackageType;
 use crate::artifact_service::service::ArtifactService;
-use crate::build_service::service::BuildService;
 use crate::docker::error_util::RegistryError;
 use crate::node_api::model::cli::{RequestDockerBuild, RequestMavenBuild, Status};
 
@@ -27,12 +26,12 @@ use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_build_docker(
     request_docker_build: RequestDockerBuild,
-    build_service: Arc<Mutex<BuildService>>,
+    artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> Result<impl Reply, Rejection> {
-    let build_info = build_service
+    let build_info = artifact_service
         .lock()
         .await
-        .start_build(PackageType::Docker, request_docker_build.manifest)
+        .request_build(PackageType::Docker, request_docker_build.manifest)
         .await
         .map_err(RegistryError::from)?;
 
@@ -46,12 +45,12 @@ pub async fn handle_build_docker(
 
 pub async fn handle_build_maven(
     request_maven_build: RequestMavenBuild,
-    build_service: Arc<Mutex<BuildService>>,
+    artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> Result<impl Reply, Rejection> {
-    let build_info = build_service
+    let build_info = artifact_service
         .lock()
         .await
-        .start_build(PackageType::Maven2, request_maven_build.gav)
+        .request_build(PackageType::Maven2, request_maven_build.gav)
         .await
         .map_err(RegistryError::from)?;
 
