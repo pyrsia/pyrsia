@@ -48,6 +48,15 @@ cd $PYRSIA_HOME
 cargo build --workspace
 ```
 
+Note:
+- (Ubuntu) In case the build fails because of "openssl-sys" dependencies please run the following command:
+
+`sudo apt install libssl-dev`
+
+- (Ubuntu) In case the build fails because of "cmake" or "prost-build" dependencies please run the following command: 
+
+`sudo apt install cmake`
+
 ## Run the Pyrsia node
 
 Run the Pyrsia node using `cargo run`. We set the following env vars:
@@ -124,7 +133,7 @@ host or port, make sure to specify its location when starting the Pyrsia node
 with `--pipeline-service-endpoint` (see above).
 
 Because we will be using this prototype for building Maven artifacts, make sure
-you have installed a JDK11 and configured JAVA_HOME before running `cargo run`.
+JDK11 and Apache Maven are installed and configured before running `cargo run`.
 
 ## Trigger a build from source for a given artifact
 
