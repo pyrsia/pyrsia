@@ -109,6 +109,7 @@ impl Transaction {
             .convert_to_transaction(ed25519_keypair)
             .unwrap()
     }
+
     pub fn hash(&self) -> HashDigest {
         self.hash
     }
@@ -144,5 +145,20 @@ mod tests {
 
         assert_eq!(expected_hash, transaction.hash());
         assert_eq!(expected_signature, transaction.signature());
+    }
+
+    #[test]
+    fn test_payload() {
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
+
+        let transaction = Transaction::new(
+            TransactionType::Create,
+            local_id,
+            b"Hello First Transaction".to_vec(),
+            &keypair,
+        );
+
+        assert_eq!(b"Hello First Transaction".to_vec(), transaction.payload());
     }
 }
