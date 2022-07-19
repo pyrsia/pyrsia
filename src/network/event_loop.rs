@@ -328,6 +328,16 @@ impl PyrsiaEventLoop {
     async fn handle_command(&mut self, command: Command) {
         trace!("Handle Command: {}", command);
         match command {
+            Command::AddProbe {
+                peer_id,
+                probe_addr,
+                sender: _,
+            } => {
+                self.swarm
+                    .behaviour_mut()
+                    .auto_nat
+                    .add_server(peer_id, Some(probe_addr));
+            }
             Command::Listen { addr, sender } => {
                 let _ = match self.swarm.listen_on(addr) {
                     Ok(_) => sender.send(Ok(())),
