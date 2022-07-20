@@ -17,7 +17,7 @@
 use crate::artifact_service::model::PackageType;
 use crate::artifact_service::service::ArtifactService;
 use crate::build_service::error::BuildError;
-use crate::build_service::model::{BuildInfo, BuildResult, BuildTrigger};
+use crate::build_service::model::{BuildResult, BuildTrigger};
 use crate::build_service::service::BuildService;
 use crate::verification_service::service::VerificationService;
 use log::{debug, error, warn};
@@ -36,14 +36,14 @@ pub enum BuildEvent {
     Start {
         package_type: PackageType,
         package_specific_id: String,
-        sender: oneshot::Sender<Result<BuildInfo, BuildError>>,
+        sender: oneshot::Sender<Result<String, BuildError>>,
     },
     Succeeded(BuildResult),
     Verified(BuildResult),
     Verify {
         package_type: PackageType,
         package_specific_id: String,
-        sender: oneshot::Sender<Result<BuildInfo, BuildError>>,
+        sender: oneshot::Sender<Result<String, BuildError>>,
     },
 }
 
@@ -92,7 +92,7 @@ impl BuildEventClient {
         &self,
         package_type: PackageType,
         package_specific_id: String,
-    ) -> Result<BuildInfo, BuildError> {
+    ) -> Result<String, BuildError> {
         let (sender, receiver) = oneshot::channel();
         let _ = self
             .build_event_sender
@@ -113,7 +113,7 @@ impl BuildEventClient {
         package_specific_id: String,
         _package_specific_artifact_id: String,
         _artifact_hash: String,
-    ) -> Result<BuildInfo, BuildError> {
+    ) -> Result<String, BuildError> {
         let (sender, receiver) = oneshot::channel();
         let _ = self
             .build_event_sender

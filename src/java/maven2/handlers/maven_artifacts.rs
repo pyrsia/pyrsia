@@ -140,6 +140,7 @@ mod tests {
                 AddArtifactRequest {
                     package_type: PackageType::Maven2,
                     package_specific_id: VALID_MAVEN_ID.to_owned(),
+                    num_artifacts: 8,
                     package_specific_artifact_id: VALID_MAVEN_ARTIFACT_ID.to_owned(),
                     artifact_hash: VALID_ARTIFACT_HASH.to_owned(),
                 },

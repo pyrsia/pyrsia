@@ -14,9 +14,10 @@
    limitations under the License.
 */
 
+use crate::artifact_service::model::PackageType;
 use crate::build_service::error::BuildError;
 use crate::build_service::event::BuildEventClient;
-use crate::build_service::model::{BuildResult, BuildStatus};
+use crate::build_service::model::BuildResult;
 use crate::transparency_log::log::{Operation, TransparencyLog};
 use log::{error, info};
 use pyrsia_blockchain_network::structures::transaction::Transaction;
@@ -38,22 +39,30 @@ impl From<BuildError> for VerificationError {
     }
 }
 
-pub struct VerificationResult {}
+#[derive(Eq, Hash, PartialEq)]
+struct Package {
+    package_type: PackageType,
+    package_specific_id: String,
+}
 
-type PendingVerifyTransactionMap =
-    HashMap<String, oneshot::Sender<Result<VerificationResult, VerificationError>>>;
+struct VerificationInfo {
+    sender: oneshot::Sender<Result<(), VerificationError>>,
+    artifacts: Vec<(String, String)>,
+}
 
 /// The verification service is a component used by authorized nodes only.
 /// It implements all necessary logic to verify blockchain transactions.
 pub struct VerificationService {
     build_event_client: BuildEventClient,
-    pending_verify_transaction: PendingVerifyTransactionMap,
+    pending_verify_transaction_init: HashMap<Package, VerificationInfo>,
+    pending_verify_transaction: HashMap<String, VerificationInfo>,
 }
 
 impl VerificationService {
     pub fn new(build_event_client: BuildEventClient) -> Result<Self, anyhow::Error> {
         Ok(VerificationService {
             build_event_client,
+            pending_verify_transaction_init: Default::default(),
             pending_verify_transaction: Default::default(),
         })
     }
@@ -64,24 +73,59 @@ impl VerificationService {
     pub async fn verify_transaction(
         &mut self,
         transaction: Transaction,
-        sender: oneshot::Sender<Result<VerificationResult, VerificationError>>,
+        sender: oneshot::Sender<Result<(), VerificationError>>,
     ) -> Result<(), VerificationError> {
         let transparency_log: TransparencyLog = serde_json::from_slice(&transaction.payload())
             .map_err(|e| VerificationError::Failure(e.to_string()))?;
 
         if transparency_log.operation == Operation::AddArtifact {
-            let build_info = self
-                .build_event_client
-                .verify_build(
-                    transparency_log.package_type,
-                    transparency_log.package_specific_id,
-                    transparency_log.package_specific_artifact_id,
-                    transparency_log.artifact_hash,
-                )
-                .await?;
-            if build_info.status == BuildStatus::Running {
-                self.pending_verify_transaction
-                    .insert(build_info.id.to_owned(), sender);
+            let package = Package {
+                package_type: transparency_log.package_type,
+                package_specific_id: transparency_log.package_specific_id.clone(),
+            };
+            let num_artifacts = match self.pending_verify_transaction_init.get_mut(&package) {
+                Some(verification_info) => {
+                    verification_info.artifacts.push((
+                        transparency_log.package_specific_artifact_id.clone(),
+                        transparency_log.artifact_hash.clone(),
+                    ));
+                    verification_info.artifacts.len() as u32
+                }
+                None => {
+                    let verification_info = VerificationInfo {
+                        sender, // todo: keep senders per verify_artifact request
+                        artifacts: vec![(
+                            transparency_log.package_specific_artifact_id.clone(),
+                            transparency_log.artifact_hash.clone(),
+                        )],
+                    };
+                    self.pending_verify_transaction_init
+                        .insert(package, verification_info);
+                    1
+                }
+            };
+
+            if num_artifacts == transparency_log.num_artifacts {
+                let package = Package {
+                    package_type: transparency_log.package_type,
+                    package_specific_id: transparency_log.package_specific_id.clone(),
+                };
+                if let Some(verification_info) =
+                    self.pending_verify_transaction_init.remove(&package)
+                {
+                    let build_id = self
+                        .build_event_client
+                        .verify_build(
+                            transparency_log.package_type,
+                            transparency_log.package_specific_id.clone(),
+                            transparency_log.package_specific_artifact_id.clone(),
+                            transparency_log.artifact_hash.clone(),
+                        )
+                        .await?;
+
+                    self.pending_verify_transaction
+                        .insert(build_id, verification_info);
+                }
             }
         }
 
@@ -112,6 +156,14 @@ impl VerificationService {
             build_result.build_id, build_result.package_type, package_specific_id
         );
 
+        if let Some(verification_info) = self
+            .pending_verify_transaction
+            .remove(&build_result.build_id)
+        {
+            let _ = verification_info.sender.send(Ok(()));
+            todo!("Verify hashes!");
+        }
+
         Ok(())
     }
 }
@@ -121,7 +173,6 @@ mod tests {
     use super::*;
     use crate::artifact_service::model::PackageType;
     use crate::build_service::event::BuildEvent;
-    use crate::build_service::model::{BuildInfo, BuildStatus};
     use crate::transparency_log::log::{AddArtifactRequest, TransparencyLogService};
     use crate::util::test_util;
     use libp2p::identity;
@@ -142,6 +193,7 @@ mod tests {
                 AddArtifactRequest {
                     package_type: PackageType::Docker,
                     package_specific_id: "alpine:3.15.1".to_owned(),
+                    num_artifacts: 1,
                     package_specific_artifact_id: "".to_owned(),
                     artifact_hash: uuid::Uuid::new_v4().to_string(),
                 },
@@ -172,11 +224,8 @@ mod tests {
             loop {
                 match build_event_receiver.recv().await {
                     Some(BuildEvent::Verify { sender, .. }) => {
-                        let build_info = BuildInfo {
-                            id: uuid::Uuid::new_v4().to_string(),
-                            status: BuildStatus::Running,
-                        };
-                        let _ = sender.send(Ok(build_info));
+                        let build_id = uuid::Uuid::new_v4().to_string();
+                        let _ = sender.send(Ok(build_id));
                     }
                     _ => panic!("BuildEvent must match BuildEvent::Verify"),
                 }

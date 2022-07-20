@@ -18,7 +18,7 @@ use super::model::PackageType;
 use super::storage::ArtifactStorage;
 use crate::build_service::error::BuildError;
 use crate::build_service::event::BuildEventClient;
-use crate::build_service::model::{BuildInfo, BuildResult};
+use crate::build_service::model::BuildResult;
 use crate::network::client::Client;
 use crate::transparency_log::log::{
     AddArtifactRequest, TransparencyLog, TransparencyLogError, TransparencyLogService,
@@ -63,7 +63,7 @@ impl ArtifactService {
         &self,
         package_type: PackageType,
         package_specific_id: String,
-    ) -> Result<BuildInfo, BuildError> {
+    ) -> Result<String, BuildError> {
         self.build_event_client
             .start_build(package_type, package_specific_id)
             .await
@@ -97,6 +97,7 @@ impl ArtifactService {
             let add_artifact_request = AddArtifactRequest {
                 package_type: build_result.package_type,
                 package_specific_id: package_specific_id.to_owned(),
+                num_artifacts: build_result.artifacts.len() as u32,
                 package_specific_artifact_id: artifact.artifact_specific_id.clone(),
                 artifact_hash: artifact.artifact_hash.clone(),
             };
@@ -292,6 +293,7 @@ mod tests {
                 AddArtifactRequest {
                     package_type,
                     package_specific_id: package_specific_id.to_owned(),
+                    num_artifacts: 8,
                     package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: hex::encode(VALID_ARTIFACT_HASH),
                 },
@@ -384,6 +386,7 @@ mod tests {
                 AddArtifactRequest {
                     package_type,
                     package_specific_id: package_specific_id.to_owned(),
+                    num_artifacts: 8,
                     package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: random_hash.clone(),
                 },
@@ -476,6 +479,7 @@ mod tests {
                 AddArtifactRequest {
                     package_type,
                     package_specific_id: package_specific_id.to_owned(),
+                    num_artifacts: 8,
                     package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: random_hash,
                 },
@@ -531,6 +535,7 @@ mod tests {
                 AddArtifactRequest {
                     package_type,
                     package_specific_id: package_specific_id.to_owned(),
+                    num_artifacts: 8,
                     package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: random_hash.clone(),
                 },

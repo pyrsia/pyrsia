@@ -17,7 +17,7 @@
 use super::error::BuildError;
 use super::event::BuildEventClient;
 use super::mapping::service::MappingService;
-use super::model::{BuildInfo, BuildResult, BuildResultArtifact, BuildStatus, BuildTrigger};
+use super::model::{BuildResult, BuildResultArtifact, BuildStatus, BuildTrigger};
 use super::pipeline::service::PipelineService;
 use crate::artifact_service::model::PackageType;
 use bytes::Buf;
@@ -58,7 +58,7 @@ impl BuildService {
         package_type: PackageType,
         package_specific_id: String,
         trigger: BuildTrigger,
-    ) -> Result<BuildInfo, BuildError> {
+    ) -> Result<String, BuildError> {
         debug!(
             "Starting build for package type {:?} and specific ID {:}",
             package_type, package_specific_id
@@ -69,83 +69,81 @@ impl BuildService {
             .get_mapping(package_type, &package_specific_id)
             .await?;
 
-        let build_info = self.pipeline_service.start_build(mapping_info).await?;
-        if build_info.status == BuildStatus::Running {
-            let build_id = build_info.id.clone();
-            let build_path = self.get_build_path(&build_id);
-            let pipeline_service = self.pipeline_service.clone();
-            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
-            let build_event_client = self.build_event_client.clone();
-            tokio::spawn(async move {
-                loop {
-                    interval.tick().await;
+        let build_id = self.pipeline_service.start_build(mapping_info).await?;
+        let build_path = self.get_build_path(&build_id);
+        let pipeline_service = self.pipeline_service.clone();
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
+        let build_event_client = self.build_event_client.clone();
+        let build_id_result = build_id.clone();
+        tokio::spawn(async move {
+            loop {
+                interval.tick().await;
 
-                    match pipeline_service.get_build_status(&build_id).await {
-                        Ok(latest_build_info) => {
-                            debug!("Updated build info: {:?}", &latest_build_info);
+                match pipeline_service.get_build_status(&build_id).await {
+                    Ok(latest_build_info) => {
+                        debug!("Updated build info: {:?}", &latest_build_info);
 
-                            match latest_build_info.status {
-                                BuildStatus::Success { artifact_urls } => {
-                                    match handle_successful_build(
-                                        package_type,
-                                        &package_specific_id,
-                                        &build_path,
-                                        &pipeline_service,
-                                        &latest_build_info.id,
-                                        artifact_urls,
-                                    )
-                                    .await
-                                    {
-                                        Ok(build_result) => {
-                                            debug!("Successfully handled build {}.", build_id);
-                                            match trigger {
-                                                BuildTrigger::FromSource => {
-                                                    build_event_client
-                                                        .send_build_success(build_result)
-                                                        .await
-                                                }
-                                                BuildTrigger::Verification => {
-                                                    build_event_client
-                                                        .send_build_verified(build_result)
-                                                        .await
-                                                }
+                        match latest_build_info.status {
+                            BuildStatus::Success { artifact_urls } => {
+                                match handle_successful_build(
+                                    package_type,
+                                    &package_specific_id,
+                                    &build_path,
+                                    &pipeline_service,
+                                    &latest_build_info.id,
+                                    artifact_urls,
+                                )
+                                .await
+                                {
+                                    Ok(build_result) => {
+                                        debug!("Successfully handled build {}.", build_id);
+                                        match trigger {
+                                            BuildTrigger::FromSource => {
+                                                build_event_client
+                                                    .send_build_success(build_result)
+                                                    .await
+                                            }
+                                            BuildTrigger::Verification => {
+                                                build_event_client
+                                                    .send_build_verified(build_result)
+                                                    .await
                                             }
                                         }
-                                        Err(build_error) => {
-                                            debug!(
-                                                "Handling of build {} resulted in an error.",
-                                                build_id
-                                            );
-                                            build_event_client
-                                                .send_build_failure(build_id, build_error)
-                                                .await;
-                                        }
                                     }
-                                    break;
+                                    Err(build_error) => {
+                                        debug!(
+                                            "Handling of build {} resulted in an error.",
+                                            build_id
+                                        );
+                                        build_event_client
+                                            .send_build_failure(build_id, build_error)
+                                            .await;
+                                    }
                                 }
-                                BuildStatus::Failure(error) => {
-                                    build_event_client
-                                        .send_build_failure(
-                                            build_id,
-                                            BuildError::Failure(latest_build_info.id, error),
-                                        )
-                                        .await;
-                                    break;
-                                }
-                                _ => continue,
-                            };
-                        }
-                        Err(build_error) => {
-                            build_event_client
-                                .send_build_failure(build_id.clone(), build_error)
-                                .await;
-                        }
+                                break;
+                            }
+                            BuildStatus::Failure(error) => {
+                                build_event_client
+                                    .send_build_failure(
+                                        build_id,
+                                        BuildError::Failure(latest_build_info.id, error),
+                                    )
+                                    .await;
+                                break;
+                            }
+                            _ => continue,
+                        };
+                    }
+                    Err(build_error) => {
+                        build_event_client
+                            .send_build_failure(build_id.clone(), build_error)
+                            .await;
                     }
                 }
-            });
-        }
+            }
+        });
 
-        Ok(build_info)
+        Ok(build_id_result)
     }
 
     pub fn clean_up_build(&self, build_id: &str) {
@@ -264,10 +262,7 @@ mod tests {
             build_spec_url: None,
         };
 
-        let build_info = BuildInfo {
-            id: uuid::Uuid::new_v4().to_string(),
-            status: BuildStatus::Running,
-        };
+        let build_id = uuid::Uuid::new_v4().to_string();
 
         let http_server = Server::run();
         http_server.expect(
@@ -277,7 +272,7 @@ mod tests {
                     &mapping_info
                 ))))
             ))
-            .respond_with(responders::json_encoded(&build_info)),
+            .respond_with(responders::json_encoded(&build_id)),
         );
 
         let mapping_service_endpoint = "https://mapping-service.pyrsia.io/";
@@ -290,7 +285,7 @@ mod tests {
             pipeline_service_endpoint,
         )
         .unwrap();
-        let build_info_result = build_service
+        let build_id_result = build_service
             .start_build(
                 package_type,
                 package_specific_id.to_owned(),
@@ -299,7 +294,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(build_info_result, build_info);
+        assert_eq!(build_id_result, build_id);
 
         test_util::tests::teardown(tmp_dir);
     }

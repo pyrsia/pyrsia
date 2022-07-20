@@ -156,6 +156,7 @@ mod tests {
                 AddArtifactRequest {
                     package_type,
                     package_specific_id: package_specific_id.to_owned(),
+                    num_artifacts: 8,
                     package_specific_artifact_id: package_specific_artifact_id.to_owned(),
                     artifact_hash: hash.to_owned(),
                 },

@@ -61,7 +61,6 @@ pub fn make_node_routes(
 mod tests {
     use super::*;
     use crate::build_service::event::{BuildEvent, BuildEventClient};
-    use crate::build_service::model::{BuildInfo, BuildStatus};
     use crate::network::client::command::Command;
     use crate::network::client::Client;
     use crate::node_api::model::cli::Status;
@@ -86,15 +85,12 @@ mod tests {
         let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
             .expect("Creating ArtifactService failed");
 
+        let build_id = uuid::Uuid::new_v4();
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
                     Some(BuildEvent::Start { sender, .. }) => {
-                        let build_info = BuildInfo {
-                            id: uuid::Uuid::new_v4().to_string(),
-                            status: BuildStatus::Running,
-                        };
-                        let _ = sender.send(Ok(build_info));
+                        let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => panic!("BuildEvent must match BuildEvent::Start"),
                 }
@@ -114,8 +110,8 @@ mod tests {
 
         assert_eq!(response.status(), 200);
 
-        let build_info: BuildInfo = serde_json::from_slice(response.body()).unwrap();
-        assert_eq!(build_info.status, BuildStatus::Running);
+        let build_id_result: String = serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(build_id_result, build_id.to_string());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -135,15 +131,12 @@ mod tests {
         let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
             .expect("Creating ArtifactService failed");
 
+        let build_id = uuid::Uuid::new_v4();
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
                     Some(BuildEvent::Start { sender, .. }) => {
-                        let build_info = BuildInfo {
-                            id: uuid::Uuid::new_v4().to_string(),
-                            status: BuildStatus::Running,
-                        };
-                        let _ = sender.send(Ok(build_info));
+                        let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => panic!("BuildEvent must match BuildEvent::Start"),
                 }
@@ -163,8 +156,8 @@ mod tests {
 
         assert_eq!(response.status(), 200);
 
-        let build_info: BuildInfo = serde_json::from_slice(response.body()).unwrap();
-        assert_eq!(build_info.status, BuildStatus::Running);
+        let build_id_result: String = serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(build_id_result, build_id.to_string());
 
         test_util::tests::teardown(tmp_dir);
     }
