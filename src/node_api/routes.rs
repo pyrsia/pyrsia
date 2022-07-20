@@ -60,7 +60,7 @@ pub fn make_node_routes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::build_service::event::BuildEventClient;
+    use crate::build_service::event::{BuildEvent, BuildEventClient};
     use crate::build_service::model::{BuildInfo, BuildStatus};
     use crate::network::client::command::Command;
     use crate::network::client::Client;
@@ -81,10 +81,25 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
         let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
             .expect("Creating ArtifactService failed");
+
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::Start { sender, .. }) => {
+                        let build_info = BuildInfo {
+                            id: uuid::Uuid::new_v4().to_string(),
+                            status: BuildStatus::Running,
+                        };
+                        let _ = sender.send(Ok(build_info));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::Start"),
+                }
+            }
+        });
 
         let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let request = RequestDockerBuild {
@@ -115,10 +130,25 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
         let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
             .expect("Creating ArtifactService failed");
+
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::Start { sender, .. }) => {
+                        let build_info = BuildInfo {
+                            id: uuid::Uuid::new_v4().to_string(),
+                            status: BuildStatus::Running,
+                        };
+                        let _ = sender.send(Ok(build_info));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::Start"),
+                }
+            }
+        });
 
         let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let request = RequestMavenBuild {

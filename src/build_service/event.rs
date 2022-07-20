@@ -17,8 +17,9 @@
 use crate::artifact_service::model::PackageType;
 use crate::artifact_service::service::ArtifactService;
 use crate::build_service::error::BuildError;
-use crate::build_service::model::{BuildInfo, BuildResult};
+use crate::build_service::model::{BuildInfo, BuildResult, BuildTrigger};
 use crate::build_service::service::BuildService;
+use crate::verification_service::service::VerificationService;
 use log::{debug, error, warn};
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot, Mutex};
@@ -38,6 +39,12 @@ pub enum BuildEvent {
         sender: oneshot::Sender<Result<BuildInfo, BuildError>>,
     },
     Succeeded(BuildResult),
+    Verified(BuildResult),
+    Verify {
+        package_type: PackageType,
+        package_specific_id: String,
+        sender: oneshot::Sender<Result<BuildInfo, BuildError>>,
+    },
 }
 
 #[derive(Clone)]
@@ -61,6 +68,13 @@ impl BuildEventClient {
         let _ = self
             .build_event_sender
             .send(BuildEvent::Succeeded(build_result))
+            .await;
+    }
+
+    pub async fn send_build_verified(&self, build_result: BuildResult) {
+        let _ = self
+            .build_event_sender
+            .send(BuildEvent::Verified(build_result))
             .await;
     }
 
@@ -103,7 +117,7 @@ impl BuildEventClient {
         let (sender, receiver) = oneshot::channel();
         let _ = self
             .build_event_sender
-            .send(BuildEvent::Start {
+            .send(BuildEvent::Verify {
                 package_type,
                 package_specific_id,
                 sender,
@@ -118,6 +132,7 @@ impl BuildEventClient {
 pub struct BuildEventLoop {
     artifact_service: Arc<Mutex<ArtifactService>>,
     build_service: Arc<Mutex<BuildService>>,
+    verification_service: Arc<Mutex<VerificationService>>,
     build_event_receiver: mpsc::Receiver<BuildEvent>,
 }
 
@@ -125,11 +140,13 @@ impl BuildEventLoop {
     pub fn new(
         artifact_service: Arc<Mutex<ArtifactService>>,
         build_service: Arc<Mutex<BuildService>>,
+        verification_service: Arc<Mutex<VerificationService>>,
         build_event_receiver: mpsc::Receiver<BuildEvent>,
     ) -> Self {
         Self {
             artifact_service,
             build_service,
+            verification_service,
             build_event_receiver,
         }
     }
@@ -173,7 +190,7 @@ impl BuildEventLoop {
                     .build_service
                     .lock()
                     .await
-                    .start_build(package_type, package_specific_id)
+                    .start_build(package_type, package_specific_id, BuildTrigger::FromSource)
                     .await;
                 let _ = sender.send(result);
             }
@@ -183,6 +200,30 @@ impl BuildEventLoop {
                     .await
                     .handle_build_result(build_result)
                     .await;
+            }
+            BuildEvent::Verified(build_result) => {
+                self.verification_service
+                    .lock()
+                    .await
+                    .handle_build_result(build_result)
+                    .await;
+            }
+            BuildEvent::Verify {
+                package_type,
+                package_specific_id,
+                sender,
+            } => {
+                let result = self
+                    .build_service
+                    .lock()
+                    .await
+                    .start_build(
+                        package_type,
+                        package_specific_id,
+                        BuildTrigger::Verification,
+                    )
+                    .await;
+                let _ = sender.send(result);
             }
         }
     }

@@ -77,8 +77,7 @@ impl ArtifactService {
             )
         }
 
-        self
-            .build_event_client
+        self.build_event_client
             .clean_up(build_result.build_id)
             .await;
     }

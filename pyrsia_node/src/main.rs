@@ -32,6 +32,7 @@ use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
 use pyrsia::util::keypair_util;
+use pyrsia::verification_service::service::VerificationService;
 use pyrsia_blockchain_network::blockchain::Blockchain;
 
 use clap::Parser;
@@ -158,12 +159,16 @@ fn setup_pyrsia_services(
         setup_artifact_service(&artifact_path, build_event_client.clone(), p2p_client)?;
 
     debug!("Create build service");
-    let build_service = setup_build_service(&artifact_path, build_event_client, args)?;
+    let build_service = setup_build_service(&artifact_path, build_event_client.clone(), args)?;
+
+    debug!("Create verification service");
+    let verification_service = setup_verification_service(build_event_client)?;
 
     debug!("Start build event loop");
     let build_event_loop = BuildEventLoop::new(
         artifact_service.clone(),
         build_service,
+        verification_service,
         build_event_receiver,
     );
     tokio::spawn(build_event_loop.run());
@@ -194,6 +199,14 @@ fn setup_build_service(
     )?;
 
     Ok(Arc::new(Mutex::new(build_service)))
+}
+
+fn setup_verification_service(
+    build_event_client: BuildEventClient,
+) -> Result<Arc<Mutex<VerificationService>>> {
+    let verification_service = VerificationService::new(build_event_client)?;
+
+    Ok(Arc::new(Mutex::new(verification_service)))
 }
 
 fn setup_http(args: &PyrsiaNodeArgs, artifact_service: Arc<Mutex<ArtifactService>>) {

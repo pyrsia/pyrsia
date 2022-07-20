@@ -16,8 +16,11 @@
 
 use crate::build_service::error::BuildError;
 use crate::build_service::event::BuildEventClient;
+use crate::build_service::model::{BuildResult, BuildStatus};
 use crate::transparency_log::log::{Operation, TransparencyLog};
+use log::{error, info};
 use pyrsia_blockchain_network::structures::transaction::Transaction;
+use std::collections::HashMap;
 use thiserror::Error;
 use tokio::sync::oneshot;
 
@@ -37,30 +40,38 @@ impl From<BuildError> for VerificationError {
 
 pub struct VerificationResult {}
 
+type PendingVerifyTransactionMap =
+    HashMap<String, oneshot::Sender<Result<VerificationResult, VerificationError>>>;
+
 /// The verification service is a component used by authorized nodes only.
 /// It implements all necessary logic to verify blockchain transactions.
 pub struct VerificationService {
     build_event_client: BuildEventClient,
+    pending_verify_transaction: PendingVerifyTransactionMap,
 }
 
 impl VerificationService {
     pub fn new(build_event_client: BuildEventClient) -> Result<Self, anyhow::Error> {
-        Ok(VerificationService { build_event_client })
+        Ok(VerificationService {
+            build_event_client,
+            pending_verify_transaction: Default::default(),
+        })
     }
 
     /// Verify a build for the specified transaction. This method is
     /// used to be able to reach consensus about a transaction that
     /// is a candidate to be committed to the blockchain.
     pub async fn verify_transaction(
-        &self,
+        &mut self,
         transaction: Transaction,
-        _sender: oneshot::Sender<Result<VerificationResult, VerificationError>>,
+        sender: oneshot::Sender<Result<VerificationResult, VerificationError>>,
     ) -> Result<(), VerificationError> {
         let transparency_log: TransparencyLog = serde_json::from_slice(&transaction.payload())
             .map_err(|e| VerificationError::Failure(e.to_string()))?;
 
         if transparency_log.operation == Operation::AddArtifact {
-            self.build_event_client
+            let build_info = self
+                .build_event_client
                 .verify_build(
                     transparency_log.package_type,
                     transparency_log.package_specific_id,
@@ -68,7 +79,38 @@ impl VerificationService {
                     transparency_log.artifact_hash,
                 )
                 .await?;
+            if build_info.status == BuildStatus::Running {
+                self.pending_verify_transaction
+                    .insert(build_info.id.to_owned(), sender);
+            }
         }
+
+        Ok(())
+    }
+
+    pub async fn handle_build_result(&mut self, build_result: BuildResult) {
+        if let Err(error) = self.handle_actual_build_result(&build_result).await {
+            error!(
+                "Build with ID {} failed to handle build result: {:?}",
+                build_result.build_id, error
+            )
+        }
+
+        self.build_event_client
+            .clean_up(build_result.build_id)
+            .await;
+    }
+
+    async fn handle_actual_build_result(
+        &mut self,
+        build_result: &BuildResult,
+    ) -> Result<(), anyhow::Error> {
+        let package_specific_id = build_result.package_specific_id.as_str();
+
+        info!(
+            "Build with ID {} completed successfully for package type {} and package specific ID {}",
+            build_result.build_id, build_result.package_type, package_specific_id
+        );
 
         Ok(())
     }
@@ -78,11 +120,10 @@ impl VerificationService {
 mod tests {
     use super::*;
     use crate::artifact_service::model::PackageType;
-    use crate::build_service::mapping::model::MappingInfo;
+    use crate::build_service::event::BuildEvent;
     use crate::build_service::model::{BuildInfo, BuildStatus};
     use crate::transparency_log::log::{AddArtifactRequest, TransparencyLogService};
     use crate::util::test_util;
-    use httptest::{matchers, responders, Expectation, Server};
     use libp2p::identity;
     use pyrsia_blockchain_network::structures::header::Address;
     use pyrsia_blockchain_network::structures::transaction::TransactionType;
@@ -121,38 +162,30 @@ mod tests {
             &keypair,
         );
 
-        let (sender, _) = oneshot::channel();
+        let (verification_result_sender, _verification_result_receiver) = oneshot::channel();
 
-        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
 
         let build_event_client = BuildEventClient::new(build_event_sender);
 
-        let mapping_info = MappingInfo {
-            package_type: PackageType::Docker,
-            package_specific_id: "alpine:3.15.2".to_owned(),
-            source_repository: None,
-            build_spec_url: None,
-        };
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::Verify { sender, .. }) => {
+                        let build_info = BuildInfo {
+                            id: uuid::Uuid::new_v4().to_string(),
+                            status: BuildStatus::Running,
+                        };
+                        let _ = sender.send(Ok(build_info));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::Verify"),
+                }
+            }
+        });
 
-        let build_info = BuildInfo {
-            id: uuid::Uuid::new_v4().to_string(),
-            status: BuildStatus::Running,
-        };
-
-        let http_server = Server::run();
-        http_server.expect(
-            Expectation::matching(matchers::all_of!(
-                matchers::request::method_path("PUT", "/build"),
-                matchers::request::body(matchers::json_decoded(matchers::eq(serde_json::json!(
-                    &mapping_info
-                ))))
-            ))
-            .respond_with(responders::json_encoded(&build_info)),
-        );
-
-        let verification_service = VerificationService::new(build_event_client).unwrap();
+        let mut verification_service = VerificationService::new(build_event_client).unwrap();
         let verification_result = verification_service
-            .verify_transaction(transaction, sender)
+            .verify_transaction(transaction, verification_result_sender)
             .await;
 
         assert!(verification_result.is_ok());

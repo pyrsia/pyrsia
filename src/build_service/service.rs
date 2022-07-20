@@ -17,7 +17,7 @@
 use super::error::BuildError;
 use super::event::BuildEventClient;
 use super::mapping::service::MappingService;
-use super::model::{BuildInfo, BuildResult, BuildResultArtifact, BuildStatus};
+use super::model::{BuildInfo, BuildResult, BuildResultArtifact, BuildStatus, BuildTrigger};
 use super::pipeline::service::PipelineService;
 use crate::artifact_service::model::PackageType;
 use bytes::Buf;
@@ -57,6 +57,7 @@ impl BuildService {
         &self,
         package_type: PackageType,
         package_specific_id: String,
+        trigger: BuildTrigger,
     ) -> Result<BuildInfo, BuildError> {
         debug!(
             "Starting build for package type {:?} and specific ID {:}",
@@ -97,9 +98,18 @@ impl BuildService {
                                     {
                                         Ok(build_result) => {
                                             debug!("Successfully handled build {}.", build_id);
-                                            build_event_client
-                                                .send_build_success(build_result)
-                                                .await;
+                                            match trigger {
+                                                BuildTrigger::FromSource => {
+                                                    build_event_client
+                                                        .send_build_success(build_result)
+                                                        .await
+                                                }
+                                                BuildTrigger::Verification => {
+                                                    build_event_client
+                                                        .send_build_verified(build_result)
+                                                        .await
+                                                }
+                                            }
                                         }
                                         Err(build_error) => {
                                             debug!(
@@ -281,7 +291,11 @@ mod tests {
         )
         .unwrap();
         let build_info_result = build_service
-            .start_build(package_type, package_specific_id.to_owned())
+            .start_build(
+                package_type,
+                package_specific_id.to_owned(),
+                BuildTrigger::FromSource,
+            )
             .await
             .unwrap();
 

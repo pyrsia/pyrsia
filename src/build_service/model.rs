@@ -46,3 +46,8 @@ pub struct BuildResult {
     pub package_specific_id: String,
     pub artifacts: Vec<BuildResultArtifact>,
 }
+
+pub enum BuildTrigger {
+    FromSource,
+    Verification,
+}
