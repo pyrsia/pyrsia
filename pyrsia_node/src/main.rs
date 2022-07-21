@@ -120,8 +120,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 async fn setup_p2p(mut p2p_client: Client, args: &PyrsiaNodeArgs) -> Result<()> {
     p2p_client.listen(&args.listen_address).await?;
-
-    if let Some(to_dial) = &args.peer {
+    if let Some(to_probe) = &args.probe {
+        handlers::probe_other_peer(p2p_client.clone(), to_probe).await
+    } else if let Some(to_dial) = &args.peer {
         handlers::dial_other_peer(p2p_client.clone(), to_dial).await
     } else {
         Ok(())
