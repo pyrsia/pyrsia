@@ -37,7 +37,7 @@ pub enum SignatureAlgorithm {
 pub struct Blockchain {
     // this should actually be a Map<Transaction,Vec<OnTransactionSettled>> but that's later
     trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
-    block_observers: Vec<Box<dyn FnMut(Block)>>,
+    payload_observers: Vec<Box<dyn FnMut(&Vec<u8>)>>,
     chain: Chain,
 }
 
@@ -46,7 +46,7 @@ impl Debug for Blockchain {
         f.debug_struct("Blockchain")
             .field("chain", &self.chain)
             .field("trans_observers", &self.trans_observers.len())
-            .field("block_observers", &self.block_observers.len())
+            .field("block_observers", &self.payload_observers.len())
             .finish()
     }
 }
@@ -66,7 +66,7 @@ impl Blockchain {
         chain.blocks.push(block);
         Self {
             trans_observers: Default::default(),
-            block_observers: vec![],
+            payload_observers: vec![],
             chain,
         }
     }
@@ -100,18 +100,18 @@ impl Blockchain {
         }
     }
 
-    pub fn add_block_listener<CallBack: 'static + FnMut(Block)>(
+    pub fn add_block_listener<CallBack: 'static + FnMut(&Vec<u8>)>(
         &mut self,
         on_block: CallBack,
     ) -> &mut Self {
-        self.block_observers.push(Box::new(on_block));
+        self.payload_observers.push(Box::new(on_block));
         self
     }
 
-    pub fn notify_block_event(&mut self, block: Block) -> &mut Self {
-        self.block_observers
+    pub async fn notify_payload_event(&mut self, payload: &Vec<u8>) -> &mut Self {
+        self.payload_observers
             .iter_mut()
-            .for_each(|notify| notify(block.clone()));
+            .for_each(|notify| notify(payload));
         self
     }
 
@@ -158,9 +158,12 @@ impl Blockchain {
     }
 
     /// Commit block and notify block listeners
-    fn commit_block(&mut self, block: Block) {
-        self.chain.blocks.push(block);
-        self.notify_block_event(self.chain.blocks.last().expect("block must exist").clone());
+    async fn commit_block(&mut self, block: Block) {
+        self.chain.blocks.push(block.clone());
+
+        for trans in block.transactions {
+            self.notify_payload_event(&trans.payload()).await;
+        }
     }
 }
 
@@ -239,9 +242,8 @@ mod tests {
         chain
             .add_block_listener({
                 let called = called.clone();
-                let block = block.clone();
-                move |b: Block| {
-                    assert_eq!(block, b);
+                move |b: &Vec<u8>| {
+                    let _ = b;
                     called.set(true);
                 }
             })
