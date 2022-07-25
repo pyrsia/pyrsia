@@ -116,7 +116,7 @@ impl Blockchain {
     }
 
     /// Add block after receiving payload and keypair
-    pub fn add_block(
+    pub async fn add_block(
         &mut self,
         payload: Vec<u8>,
         local_key: identity::Keypair,
@@ -153,7 +153,7 @@ impl Blockchain {
         );
 
         // TODO: Consensus algorithm will be refactored
-        self.commit_block(block);
+        self.commit_block(block).await;
         Ok(())
     }
 
@@ -171,11 +171,12 @@ impl Blockchain {
 mod tests {
     use std::cell::Cell;
     use std::rc::Rc;
+    use std::sync::Arc;
 
     use super::*;
 
-    #[test]
-    fn test_build_blockchain() -> Result<(), String> {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_build_blockchain() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let mut chain = Blockchain::new(&keypair);
@@ -189,12 +190,14 @@ mod tests {
             &keypair,
         );
         transactions.push(transaction);
-        chain.commit_block(Block::new(
-            chain.blocks()[0].header.hash(),
-            chain.blocks()[0].header.ordinal + 1,
-            transactions,
-            &keypair,
-        ));
+        chain
+            .commit_block(Block::new(
+                chain.blocks()[0].header.hash(),
+                chain.blocks()[0].header.ordinal + 1,
+                transactions,
+                &keypair,
+            ))
+            .await;
         assert_eq!(true, chain.blocks().last().unwrap().verify());
         assert_eq!(2, chain.blocks().len());
         Ok(())
@@ -227,8 +230,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_add_block_listener() -> Result<(), String> {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_add_block_listener() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
         let block = Block::new(
             HashDigest::new(b"Hello World!"),
@@ -237,24 +240,26 @@ mod tests {
             &keypair,
         );
         let mut chain = Blockchain::new(&keypair);
-        let called = Rc::new(Cell::new(false));
+        let called = Arc::new(Cell::new(false));
 
         chain
             .add_block_listener({
                 let called = called.clone();
+                let data: Vec<u8> = Vec::new();
+                called.set(true);
                 move |b: &Vec<u8>| {
-                    let _ = b;
-                    called.set(true);
+                    assert_eq!(data, *b);
                 }
             })
-            .commit_block(block);
+            .commit_block(block)
+            .await;
 
-        assert!(called.get()); // called is still false
+        assert!(called.get());
         Ok(())
     }
 
-    #[test]
-    fn test_block() -> Result<(), String> {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_block() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let mut chain = Blockchain::new(&keypair);
@@ -268,18 +273,20 @@ mod tests {
             &keypair,
         );
         transactions.push(transaction);
-        chain.commit_block(Block::new(
-            chain.blocks()[0].header.hash(),
-            chain.blocks()[0].header.ordinal + 1,
-            transactions,
-            &keypair,
-        ));
+        chain
+            .commit_block(Block::new(
+                chain.blocks()[0].header.hash(),
+                chain.blocks()[0].header.ordinal + 1,
+                transactions,
+                &keypair,
+            ))
+            .await;
         assert_eq!(2, chain.blocks().len());
         Ok(())
     }
 
-    #[test]
-    fn test_last_block() -> Result<(), String> {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_last_block() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
         let mut chain = Blockchain::new(&keypair);
@@ -293,18 +300,20 @@ mod tests {
             &keypair,
         );
         transactions.push(transaction);
-        chain.commit_block(Block::new(
-            chain.blocks()[0].header.hash(),
-            chain.blocks()[0].header.ordinal + 1,
-            transactions,
-            &keypair,
-        ));
+        chain
+            .commit_block(Block::new(
+                chain.blocks()[0].header.hash(),
+                chain.blocks()[0].header.ordinal + 1,
+                transactions,
+                &keypair,
+            ))
+            .await;
         assert_ne!(None, chain.last_block());
         Ok(())
     }
 
-    #[test]
-    fn test_add_block() -> Result<(), String> {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_add_block() -> Result<(), String> {
         let keypair = identity::Keypair::generate_ed25519();
         let ed25519_key = match keypair.clone() {
             Ed25519(some) => some,
@@ -315,7 +324,7 @@ mod tests {
 
         let data = "Hello First Transaction";
 
-        let result = chain.add_block(data.as_bytes().to_vec(), keypair);
+        let result = chain.add_block(data.as_bytes().to_vec(), keypair).await;
         assert_eq!(result.is_ok(), true);
         assert_eq!(
             b"Hello First Transaction".to_vec(),
