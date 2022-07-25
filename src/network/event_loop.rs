@@ -331,12 +331,16 @@ impl PyrsiaEventLoop {
             Command::AddProbe {
                 peer_id,
                 probe_addr,
-                sender: _,
+                sender,
             } => {
                 self.swarm
                     .behaviour_mut()
                     .auto_nat
                     .add_server(peer_id, Some(probe_addr));
+                match sender.send(()) {
+                    Ok(_) => log::trace!("Handled probe for AutoNAT"),
+                    Err(e) => log::error!("Could not handle probe for AutoNAT: {:?}", e),
+                }
             }
             Command::Listen { addr, sender } => {
                 let _ = match self.swarm.listen_on(addr) {
