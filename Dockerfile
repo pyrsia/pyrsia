@@ -43,3 +43,26 @@ RUN <<EOT bash
     rm -rf /var/lib/apt/lists/*
 EOT
 COPY --from=dbuild /out/pyrsia_node /usr/local/bin/
+
+FROM debian:buster-slim AS node-it
+ARG P2P_KEYPAIR
+ENTRYPOINT ["pyrsia_node"]
+ENV RUST_LOG=info
+RUN <<EOT bash
+    set -e
+    apt-get update
+    apt-get install -y \
+        ca-certificates
+    rm -rf /var/lib/apt/lists/*
+    mkdir /pyrsia
+EOT
+COPY tests/${P2P_KEYPAIR} /pyrsia/p2p_keypair.ser
+COPY --from=dbuild /out/pyrsia_node /usr/local/bin/
+
+FROM debian:buster-slim AS it-test
+RUN apt update && apt install -y apt-transport-https ca-certificates curl gnupg2 software-properties-common
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list
+RUN apt update && apt install -y docker-ce docker-ce-cli containerd.io
+COPY tests/pyrsia-it.sh /pyrsia-it.sh
+CMD [ "./pyrsia-it.sh" ]
