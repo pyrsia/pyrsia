@@ -53,6 +53,9 @@ cd $PYRSIA_HOME
 cargo build --workspace
 ```
 
+See the [Getting Started](../local_dev_setup.md)
+document for more information.
+
 ## Run the Pyrsia node
 
 Now we will set the following env vars and start a pyrsia node:
