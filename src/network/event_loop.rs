@@ -328,6 +328,20 @@ impl PyrsiaEventLoop {
     async fn handle_command(&mut self, command: Command) {
         trace!("Handle Command: {}", command);
         match command {
+            Command::AddProbe {
+                peer_id,
+                probe_addr,
+                sender,
+            } => {
+                self.swarm
+                    .behaviour_mut()
+                    .auto_nat
+                    .add_server(peer_id, Some(probe_addr));
+                match sender.send(()) {
+                    Ok(_) => log::trace!("Handled probe for AutoNAT"),
+                    Err(e) => log::error!("Could not handle probe for AutoNAT: {:?}", e),
+                }
+            }
             Command::Listen { addr, sender } => {
                 let _ = match self.swarm.listen_on(addr) {
                     Ok(_) => sender.send(Ok(())),
@@ -470,15 +484,13 @@ mod tests {
     };
     use libp2p::core::upgrade;
     use libp2p::core::Transport;
-    use libp2p::dns;
     use libp2p::identity::Keypair;
-    use libp2p::kad;
-    use libp2p::noise;
-    use libp2p::request_response;
     use libp2p::swarm::SwarmBuilder;
     use libp2p::tcp::{self, GenTcpConfig};
     use libp2p::yamux::YamuxConfig;
+    use libp2p::{autonat, dns, kad, noise, request_response};
     use std::iter;
+    use std::time::Duration;
 
     fn create_test_swarm() -> (Client, PyrsiaEventLoop) {
         let id_keys = Keypair::generate_ed25519();
@@ -489,8 +501,8 @@ mod tests {
             .into_authentic(&id_keys)
             .expect("Signing libp2p-noise static DH keypair failed.");
 
-        let tcp = tcp::TokioTcpTransport::new(GenTcpConfig::default().nodelay(true));
-        let dns = dns::TokioDnsConfig::system(tcp).unwrap();
+        let transport = tcp::TokioTcpTransport::new(GenTcpConfig::default().nodelay(true));
+        let dns = dns::TokioDnsConfig::system(transport).unwrap();
 
         let mem_transport = dns
             .upgrade(upgrade::Version::V1)
@@ -500,6 +512,16 @@ mod tests {
             .boxed();
 
         let behaviour = PyrsiaNetworkBehaviour {
+            auto_nat: autonat::Behaviour::new(
+                peer_id,
+                autonat::Config {
+                    retry_interval: Duration::from_secs(10),
+                    refresh_interval: Duration::from_secs(30),
+                    boot_delay: Duration::from_secs(5),
+                    throttle_server_period: Duration::ZERO,
+                    ..Default::default()
+                },
+            ),
             kademlia: kad::Kademlia::new(peer_id, kad::record::store::MemoryStore::new(peer_id)),
             request_response: request_response::RequestResponse::new(
                 ArtifactExchangeCodec(),

@@ -30,23 +30,18 @@ use futures::{
     Future, FutureExt, StreamExt,
 };
 use libp2p::core::identity::ed25519::PublicKey;
+use libp2p::tcp::{self, GenTcpConfig};
 use libp2p::{
     core::upgrade,
     identity,
     mdns::{Mdns, MdnsEvent},
-    mplex,
-    noise,
+    mplex, noise,
     request_response::{
         ProtocolSupport, RequestResponse, RequestResponseCodec, RequestResponseConfig,
         RequestResponseEvent, RequestResponseMessage,
     },
     swarm::{NetworkBehaviourEventProcess, SwarmBuilder},
-    // `TokioTcpTransport` is available through the `tcp-tokio` feature.
-    tcp::{GenTcpConfig, TokioTcpTransport},
-    NetworkBehaviour,
-    PeerId,
-    Swarm,
-    Transport,
+    NetworkBehaviour, PeerId, Swarm, Transport,
 };
 use log::{debug, info, trace, warn};
 use std::{collections::HashMap, error::Error, io, iter, time::Duration};
@@ -373,7 +368,7 @@ impl Network {
 
         // Create a tokio-based TCP transport use noise for authenticated
         // encryption and Mplex for multiplexing of substreams on a TCP stream.
-        let transport = TokioTcpTransport::new(GenTcpConfig::default().nodelay(true))
+        let transport = tcp::TokioTcpTransport::new(GenTcpConfig::default().nodelay(true))
             .upgrade(upgrade::Version::V1)
             .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
             .multiplex(mplex::MplexConfig::new())
