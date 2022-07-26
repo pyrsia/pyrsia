@@ -107,9 +107,17 @@ impl PyrsiaEventLoop {
 
     // Handles events from the `AutoNat` network behaviour.
     async fn handle_autonat_event(&mut self, event: AutonatEvent) {
+        println!("Handle AutonatEvent: {:?}", event);
         match event {
-            AutonatEvent::InboundProbe { .. } => {}
-            AutonatEvent::OutboundProbe { .. } => {}
+            AutonatEvent::InboundProbe(evt) => {
+                debug!("AutonatEvent::InboundProbe {:?}", evt);
+                // let peer = evt.Request.ge
+                // let address = evt.get_address();
+                // self.swarm.behaviour_mut().auto_nat.add_server(peer, address);
+            }
+            AutonatEvent::OutboundProbe(evt) => {
+                debug!("AutonatEvent::OutboundProbe {:?}", evt);
+            }
             AutonatEvent::StatusChanged { old, new } => {
                 info!("State changed from {:?} to {:?}", old, new);
             }
