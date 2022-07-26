@@ -29,6 +29,11 @@ network, we can run a final step to show the build from source worked:
 
 - Use Pyrsia in a Maven project
 
+## Prerequisites
+
+The following steps rely on JDK11 and maven being correctly installed.
+Please find and install the appropriate [JDK11](https://www.openlogic.com/openjdk-downloads) and [mvn](https://maven.apache.org/install.html) before proceeding.
+
 ## Compile Pyrsia
 
 Download a fresh copy of the codebase by cloning the repo or updating to the
@@ -48,9 +53,12 @@ cd $PYRSIA_HOME
 cargo build --workspace
 ```
 
+See the [Getting Started](../local_dev_setup.md)
+document for more information.
+
 ## Run the Pyrsia node
 
-Run the Pyrsia node using `cargo run`. We set the following env vars:
+Now we will set the following env vars and start a pyrsia node:
 
 - RUST_LOG: to make sure we can see all the debug logs
 - DEV_MODE: to make sure all non-existing directories are created on-the-fly

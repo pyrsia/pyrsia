@@ -47,7 +47,7 @@ use warp::Filter;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    pretty_env_logger::init();
+    pretty_env_logger::init_timed();
 
     debug!("Parse CLI arguments");
     let args = PyrsiaNodeArgs::parse();
