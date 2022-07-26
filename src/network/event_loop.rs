@@ -21,6 +21,7 @@ use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
 use libp2p::core::PeerId;
 use libp2p::futures::StreamExt;
+use libp2p::identify::IdentifyEvent;
 use libp2p::kad::{GetClosestPeersOk, GetProvidersOk, KademliaEvent, QueryId, QueryResult};
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{
@@ -84,6 +85,7 @@ impl PyrsiaEventLoop {
         loop {
             tokio::select! {
                 event = self.swarm.select_next_some() => match event {
+                    SwarmEvent::Behaviour(PyrsiaNetworkEvent::Identify(identify_event)) => self.handle_identify_event(identify_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Kademlia(kademlia_event)) => self.handle_kademlia_event(kademlia_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::RequestResponse(request_response_event)) => self.handle_request_response_event(request_response_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::IdleMetricRequestResponse(request_response_event)) => self.handle_idle_metric_request_response_event(request_response_event).await,
@@ -98,6 +100,30 @@ impl PyrsiaEventLoop {
                     None => { warn!("Got empty command"); return },
                 },
             }
+        }
+    }
+
+    // Handles events from the `Identify` network behaviour.
+    async fn handle_identify_event(&mut self, event: IdentifyEvent) {
+        println!("Handle IdentifyEvent: {:?}", event);
+        match event {
+            IdentifyEvent::Pushed { .. } => {}
+            IdentifyEvent::Received { peer_id, info } => {
+                debug!("Identify::Received: {}; {:?}", peer_id, info);
+                if let Some(addr) = info.listen_addrs.get(0) {
+                    debug!(
+                        "Identify::Received: adding address {:?} for peer {}",
+                        addr.clone(),
+                        peer_id
+                    );
+                    self.swarm
+                        .behaviour_mut()
+                        .kademlia
+                        .add_address(&peer_id, addr.clone());
+                }
+            }
+            IdentifyEvent::Sent { .. } => {}
+            IdentifyEvent::Error { .. } => {}
         }
     }
 
@@ -340,11 +366,6 @@ impl PyrsiaEventLoop {
                 sender,
             } => {
                 if let Entry::Vacant(_) = self.pending_dial.entry(peer_id) {
-                    self.swarm
-                        .behaviour_mut()
-                        .kademlia
-                        .add_address(&peer_id, peer_addr.clone());
-
                     match self
                         .swarm
                         .dial(peer_addr.with(Protocol::P2p(peer_id.into())))
@@ -471,6 +492,7 @@ mod tests {
     use libp2p::core::upgrade;
     use libp2p::core::Transport;
     use libp2p::dns;
+    use libp2p::identify;
     use libp2p::identity::Keypair;
     use libp2p::kad;
     use libp2p::noise;
@@ -479,6 +501,7 @@ mod tests {
     use libp2p::tcp::{self, GenTcpConfig};
     use libp2p::yamux::YamuxConfig;
     use std::iter;
+    use std::time::Duration;
 
     fn create_test_swarm() -> (Client, PyrsiaEventLoop) {
         let id_keys = Keypair::generate_ed25519();
@@ -500,6 +523,10 @@ mod tests {
             .boxed();
 
         let behaviour = PyrsiaNetworkBehaviour {
+            identify: identify::Identify::new(identify::IdentifyConfig::new(
+                "ipfs/1.0.0".to_owned(),
+                id_keys.public(),
+            )),
             kademlia: kad::Kademlia::new(peer_id, kad::record::store::MemoryStore::new(peer_id)),
             request_response: request_response::RequestResponse::new(
                 ArtifactExchangeCodec(),
@@ -557,7 +584,7 @@ mod tests {
             .listen(&"/ip4/127.0.0.1/tcp/44120".parse().unwrap())
             .await
             .unwrap();
-        p2p_client_1
+        p2p_client_2
             .listen(&"/ip4/127.0.0.1/tcp/44121".parse().unwrap())
             .await
             .unwrap();
@@ -565,7 +592,7 @@ mod tests {
         let result = p2p_client_2
             .dial(
                 &p2p_client_1.local_peer_id,
-                &"/ip4/127.0.0.1/tcp/44121".parse().unwrap(),
+                &"/ip4/127.0.0.1/tcp/44120".parse().unwrap(),
             )
             .await;
         assert!(result.is_ok());
@@ -583,7 +610,7 @@ mod tests {
             .listen(&"/ip4/127.0.0.1/tcp/44125".parse().unwrap())
             .await
             .unwrap();
-        p2p_client_1
+        p2p_client_2
             .listen(&"/ip4/127.0.0.1/tcp/44126".parse().unwrap())
             .await
             .unwrap();
@@ -595,5 +622,41 @@ mod tests {
             )
             .await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_dial_discovers_both_nodes() {
+        pretty_env_logger::init_timed();
+
+        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
+        let (mut p2p_client_2, event_loop_2) = create_test_swarm();
+
+        tokio::spawn(event_loop_1.run());
+        tokio::spawn(event_loop_2.run());
+
+        p2p_client_1
+            .listen(&"/ip4/127.0.0.1/tcp/44130".parse().unwrap())
+            .await
+            .unwrap();
+        p2p_client_2
+            .listen(&"/ip4/127.0.0.1/tcp/44131".parse().unwrap())
+            .await
+            .unwrap();
+
+        let result = p2p_client_1
+            .dial(
+                &p2p_client_2.local_peer_id,
+                &"/ip4/127.0.0.1/tcp/44131".parse().unwrap(),
+            )
+            .await;
+        assert!(result.is_ok());
+
+        // wait a few seconds for identify negotiation to finish
+        tokio::time::sleep(Duration::from_millis(5000)).await;
+
+        let peers_in_client_1 = p2p_client_1.list_peers().await.unwrap();
+        let peers_in_client_2 = p2p_client_2.list_peers().await.unwrap();
+        assert!(peers_in_client_1.contains(&p2p_client_2.local_peer_id));
+        assert!(peers_in_client_2.contains(&p2p_client_1.local_peer_id));
     }
 }
