@@ -505,13 +505,11 @@ mod tests {
     };
     use libp2p::core::upgrade;
     use libp2p::core::Transport;
-    use libp2p::dns;
-    use libp2p::identify;
     use libp2p::identity::Keypair;
     use libp2p::swarm::SwarmBuilder;
     use libp2p::tcp::{self, GenTcpConfig};
     use libp2p::yamux::YamuxConfig;
-    use libp2p::{autonat, dns, kad, noise, request_response};
+    use libp2p::{autonat, dns, identify, kad, noise, request_response};
     use std::iter;
     use std::time::Duration;
 

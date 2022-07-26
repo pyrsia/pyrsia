@@ -23,16 +23,11 @@ use crate::network::event_loop::{PyrsiaEvent, PyrsiaEventLoop};
 use crate::network::idle_metric_protocol::{IdleMetricExchangeCodec, IdleMetricExchangeProtocol};
 use crate::util::keypair_util;
 
-use libp2p::core;
-use libp2p::dns;
-use libp2p::identify;
-use libp2p::identity;
-use libp2p::kad;
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
 use libp2p::swarm::{Swarm, SwarmBuilder};
 use libp2p::tcp::{self, GenTcpConfig};
-use libp2p::{autonat, core, dns, identity, kad, mplex, noise, yamux, Transport};
+use libp2p::{autonat, core, dns, identify, identity, kad, mplex, noise, yamux, Transport};
 use std::error::Error;
 use std::iter;
 use std::path::PathBuf;
