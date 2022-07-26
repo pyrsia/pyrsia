@@ -23,6 +23,11 @@ use crate::network::event_loop::{PyrsiaEvent, PyrsiaEventLoop};
 use crate::network::idle_metric_protocol::{IdleMetricExchangeCodec, IdleMetricExchangeProtocol};
 use crate::util::keypair_util;
 
+use libp2p::core;
+use libp2p::dns;
+use libp2p::identify;
+use libp2p::identity;
+use libp2p::kad;
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
 use libp2p::swarm::{Swarm, SwarmBuilder};
@@ -150,6 +155,8 @@ fn create_swarm(
 ) -> Result<(Swarm<PyrsiaNetworkBehaviour>, core::PeerId), Box<dyn Error>> {
     let peer_id = keypair.public().to_peer_id();
 
+    let identify_config = identify::IdentifyConfig::new("ipfs/1.0.0".to_owned(), keypair.public());
+
     let memory_store_config = MemoryStoreConfig {
         max_provided_keys,
         ..Default::default()
@@ -169,6 +176,7 @@ fn create_swarm(
                         ..Default::default()
                     },
                 ),
+                identify: identify::Identify::new(identify_config),
                 kademlia: kad::Kademlia::new(
                     peer_id,
                     MemoryStore::with_config(peer_id, memory_store_config),
