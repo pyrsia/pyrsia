@@ -19,6 +19,7 @@ use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::blockchain_protocol::{BlockUpdateRequest, BlockUpdateResponse};
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
+use libp2p::autonat::Event as AutonatEvent;
 use libp2p::core::PeerId;
 use libp2p::futures::StreamExt;
 use libp2p::identify::IdentifyEvent;
@@ -85,6 +86,7 @@ impl PyrsiaEventLoop {
         loop {
             tokio::select! {
                 event = self.swarm.select_next_some() => match event {
+                    SwarmEvent::Behaviour(PyrsiaNetworkEvent::AutoNat(autonat_event)) => self.handle_autonat_event(autonat_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Identify(identify_event)) => self.handle_identify_event(identify_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Kademlia(kademlia_event)) => self.handle_kademlia_event(kademlia_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::RequestResponse(request_response_event)) => self.handle_request_response_event(request_response_event).await,
@@ -99,6 +101,17 @@ impl PyrsiaEventLoop {
                     // Command channel closed, thus shutting down the network event loop.
                     None => { warn!("Got empty command"); return },
                 },
+            }
+        }
+    }
+
+    // Handles events from the `AutoNat` network behaviour.
+    async fn handle_autonat_event(&mut self, event: AutonatEvent) {
+        match event {
+            AutonatEvent::InboundProbe { .. } => {}
+            AutonatEvent::OutboundProbe { .. } => {}
+            AutonatEvent::StatusChanged { old, new } => {
+                info!("State changed from {:?} to {:?}", old, new);
             }
         }
     }
@@ -364,7 +377,7 @@ impl PyrsiaEventLoop {
                     .auto_nat
                     .add_server(peer_id, Some(probe_addr));
                 match sender.send(()) {
-                    Ok(_) => log::trace!("Handled probe for AutoNAT"),
+                    Ok(_) => log::info!("Handled probe for AutoNAT"),
                     Err(e) => log::error!("Could not handle probe for AutoNAT: {:?}", e),
                 }
             }
