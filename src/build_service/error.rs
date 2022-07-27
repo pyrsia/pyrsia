@@ -18,7 +18,7 @@ use crate::artifact_service::model::PackageType;
 use hyper::StatusCode;
 use thiserror::Error;
 
-#[derive(Debug, Error, PartialEq)]
+#[derive(Clone, Debug, Error, PartialEq)]
 pub enum BuildError {
     #[error("Build with ID {0} failed with error: {1}")]
     Failure(String, String),

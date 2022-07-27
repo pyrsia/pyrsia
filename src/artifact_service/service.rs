@@ -25,7 +25,7 @@ use crate::transparency_log::log::{
 };
 use anyhow::{bail, Context};
 use libp2p::PeerId;
-use log::{error, info};
+use log::info;
 use multihash::Hasher;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -69,28 +69,16 @@ impl ArtifactService {
             .await
     }
 
-    pub async fn handle_build_result(&mut self, build_result: BuildResult) {
-        if let Err(error) = self.handle_actual_build_result(&build_result).await {
-            error!(
-                "Build with ID {} failed to handle build result: {:?}",
-                build_result.build_id, error
-            )
-        }
-
-        self.build_event_client
-            .clean_up(build_result.build_id)
-            .await;
-    }
-
-    async fn handle_actual_build_result(
+    pub async fn handle_build_result(
         &mut self,
-        build_result: &BuildResult,
+        build_id: &str,
+        build_result: BuildResult,
     ) -> Result<(), anyhow::Error> {
         let package_specific_id = build_result.package_specific_id.as_str();
 
         info!(
             "Build with ID {} completed successfully for package type {} and package specific ID {}",
-            build_result.build_id, build_result.package_type, package_specific_id
+            build_id, build_result.package_type, package_specific_id
         );
 
         for artifact in build_result.artifacts.iter() {
@@ -116,7 +104,7 @@ impl ArtifactService {
             let add_artifact_transparency_log = tp_log_receiver.await??;
             info!(
                 "Transparency Log for build with ID {} successfully added. Adding artifact locally: {:?}",
-                build_result.build_id, add_artifact_transparency_log
+                build_id, add_artifact_transparency_log
             );
 
             self.put_artifact_from_build_result(

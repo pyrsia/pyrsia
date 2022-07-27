@@ -21,7 +21,7 @@ use super::model::{BuildResult, BuildResultArtifact, BuildStatus, BuildTrigger};
 use super::pipeline::service::PipelineService;
 use crate::artifact_service::model::PackageType;
 use bytes::Buf;
-use log::{debug, warn};
+use log::{debug, error, warn};
 use multihash::Hasher;
 use std::fs;
 use std::io;
@@ -57,7 +57,7 @@ impl BuildService {
         &self,
         package_type: PackageType,
         package_specific_id: String,
-        trigger: BuildTrigger,
+        build_trigger: BuildTrigger,
     ) -> Result<String, BuildError> {
         debug!(
             "Starting build for package type {:?} and specific ID {:}",
@@ -70,9 +70,8 @@ impl BuildService {
             .await?;
 
         let build_id = self.pipeline_service.start_build(mapping_info).await?;
-        let build_path = self.get_build_path(&build_id);
-        let pipeline_service = self.pipeline_service.clone();
         let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
+        let pipeline_service = self.pipeline_service.clone();
         let build_event_client = self.build_event_client.clone();
         let build_id_result = build_id.clone();
         tokio::spawn(async move {
@@ -84,66 +83,141 @@ impl BuildService {
                         debug!("Updated build info: {:?}", &latest_build_info);
 
                         match latest_build_info.status {
+                            BuildStatus::Running => continue,
                             BuildStatus::Success { artifact_urls } => {
-                                match handle_successful_build(
-                                    package_type,
-                                    &package_specific_id,
-                                    &build_path,
-                                    &pipeline_service,
-                                    &latest_build_info.id,
-                                    artifact_urls,
-                                )
-                                .await
-                                {
-                                    Ok(build_result) => {
-                                        debug!("Successfully handled build {}.", build_id);
-                                        match trigger {
-                                            BuildTrigger::FromSource => {
-                                                build_event_client
-                                                    .send_build_success(build_result)
-                                                    .await
-                                            }
-                                            BuildTrigger::Verification => {
-                                                build_event_client
-                                                    .send_build_verified(build_result)
-                                                    .await
-                                            }
-                                        }
-                                    }
-                                    Err(build_error) => {
-                                        debug!(
-                                            "Handling of build {} resulted in an error.",
-                                            build_id
-                                        );
-                                        build_event_client
-                                            .send_build_failure(build_id, build_error)
-                                            .await;
-                                    }
-                                }
-                                break;
-                            }
-                            BuildStatus::Failure(error) => {
                                 build_event_client
-                                    .send_build_failure(
-                                        build_id,
-                                        BuildError::Failure(latest_build_info.id, error),
+                                    .build_succeeded(
+                                        &build_id,
+                                        package_type,
+                                        package_specific_id,
+                                        build_trigger,
+                                        artifact_urls,
                                     )
                                     .await;
                                 break;
                             }
-                            _ => continue,
-                        };
+                            BuildStatus::Failure(build_error) => {
+                                build_event_client
+                                    .build_failed(
+                                        &build_id,
+                                        BuildError::Failure(latest_build_info.id, build_error),
+                                    )
+                                    .await;
+                                break;
+                            }
+                        }
                     }
                     Err(build_error) => {
                         build_event_client
-                            .send_build_failure(build_id.clone(), build_error)
+                            .build_failed(&build_id, build_error)
                             .await;
+                        break;
                     }
                 }
             }
         });
 
         Ok(build_id_result)
+    }
+
+    pub async fn handle_successful_build(
+        &self,
+        build_id: &str,
+        package_type: PackageType,
+        package_specific_id: String,
+        build_trigger: BuildTrigger,
+        artifact_urls: Vec<String>,
+    ) {
+        let build_path = &self.get_build_path(build_id);
+        if let Err(build_error) = fs::create_dir_all(build_path)
+            .map_err(|e| BuildError::Failure(build_id.to_owned(), e.to_string()))
+        {
+            self.build_event_client
+                .build_failed(build_id, build_error)
+                .await;
+        } else {
+            match self
+                .process_artifact_urls(
+                    build_id,
+                    package_type,
+                    package_specific_id,
+                    artifact_urls,
+                    build_path,
+                )
+                .await
+            {
+                Ok(build_result) => {
+                    debug!("Successfully handled build {}.", build_id);
+
+                    self.build_event_client
+                        .build_result(build_id, build_trigger, build_result)
+                        .await;
+                }
+                Err(build_error) => {
+                    error!("Failed to handle build {}: {:?}", build_id, build_error);
+                    self.build_event_client
+                        .build_failed(build_id, build_error)
+                        .await;
+                    self.clean_up_build(build_id);
+                }
+            }
+        }
+    }
+
+    async fn process_artifact_urls(
+        &self,
+        build_id: &str,
+        package_type: PackageType,
+        package_specific_id: String,
+        artifact_urls: Vec<String>,
+        build_path: &Path,
+    ) -> Result<BuildResult, BuildError> {
+        let mut artifacts = vec![];
+
+        for artifact_url in artifact_urls {
+            debug!("Handle built artifact with url: {}", artifact_url);
+            let artifact = self
+                .pipeline_service
+                .download_artifact(&artifact_url)
+                .await?;
+            let (artifact_location, artifact_hash) = hash_and_store_data(build_path, &artifact)
+                .map_err(|e| BuildError::Failure(build_id.to_owned(), e.to_string()))?;
+
+            let artifact_specific_id = match package_type {
+                PackageType::Docker => package_specific_id.to_owned(),
+                PackageType::Maven2 => {
+                    let prefix = package_specific_id.replace(':', "/");
+                    let artifact_filename = match artifact_url.rfind('/') {
+                        Some(position) => String::from(&artifact_url[position + 1..]),
+                        None => artifact_url,
+                    };
+                    format!("{}/{}", prefix, artifact_filename)
+                }
+            };
+
+            debug!(
+                "Handled artifact into artifact specific id {}",
+                artifact_specific_id
+            );
+
+            artifacts.push(BuildResultArtifact {
+                artifact_specific_id,
+                artifact_location,
+                artifact_hash,
+            });
+        }
+
+        debug!(
+            "Handling build {} resulted in {} artifacts.",
+            build_id,
+            artifacts.len()
+        );
+
+        Ok(BuildResult {
+            package_type,
+            package_specific_id,
+            artifacts,
+        })
     }
 
     pub fn clean_up_build(&self, build_id: &str) {
@@ -159,65 +233,6 @@ impl BuildService {
     fn get_build_path(&self, build_id: &str) -> PathBuf {
         self.repository_path.clone().join("builds").join(build_id)
     }
-}
-
-async fn handle_successful_build(
-    package_type: PackageType,
-    package_specific_id: &str,
-    build_path: &Path,
-    pipeline_service: &PipelineService,
-    build_id: &str,
-    build_artifact_urls: Vec<String>,
-) -> Result<BuildResult, BuildError> {
-    let mut artifacts = vec![];
-
-    fs::create_dir_all(build_path)
-        .map_err(|e| BuildError::Failure(build_id.to_owned(), e.to_string()))?;
-
-    for build_artifact_url in build_artifact_urls {
-        debug!("Handle built artifact with url: {}", build_artifact_url);
-        let artifact = pipeline_service
-            .download_artifact(&build_artifact_url)
-            .await?;
-        let (artifact_location, artifact_hash) = hash_and_store_data(build_path, &artifact)
-            .map_err(|e| BuildError::Failure(build_id.to_owned(), e.to_string()))?;
-
-        let artifact_specific_id = match package_type {
-            PackageType::Docker => package_specific_id.to_owned(),
-            PackageType::Maven2 => {
-                let prefix = package_specific_id.replace(':', "/");
-                let build_artifact_filename = match build_artifact_url.rfind('/') {
-                    Some(position) => String::from(&build_artifact_url[position + 1..]),
-                    None => build_artifact_url,
-                };
-                format!("{}/{}", prefix, build_artifact_filename)
-            }
-        };
-
-        debug!(
-            "Handled artifact into artifact specific id {}",
-            artifact_specific_id
-        );
-
-        artifacts.push(BuildResultArtifact {
-            artifact_specific_id,
-            artifact_location,
-            artifact_hash,
-        });
-    }
-
-    debug!(
-        "Handling build {} resulted in {} artifacts.",
-        build_id,
-        artifacts.len()
-    );
-
-    Ok(BuildResult {
-        build_id: build_id.to_owned(),
-        package_type,
-        package_specific_id: package_specific_id.to_owned(),
-        artifacts,
-    })
 }
 
 fn hash_and_store_data(build_path: &Path, bytes: &[u8]) -> Result<(PathBuf, String), io::Error> {

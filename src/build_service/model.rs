@@ -40,14 +40,14 @@ pub struct BuildResultArtifact {
 }
 
 #[derive(Debug)]
-pub struct BuildResult {
-    pub build_id: String,
-    pub package_type: PackageType,
-    pub package_specific_id: String,
-    pub artifacts: Vec<BuildResultArtifact>,
-}
-
 pub enum BuildTrigger {
     FromSource,
     Verification,
+}
+
+#[derive(Debug)]
+pub struct BuildResult {
+    pub package_type: PackageType,
+    pub package_specific_id: String,
+    pub artifacts: Vec<BuildResultArtifact>,
 }

@@ -26,9 +26,6 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 
 #[derive(Debug)]
 pub enum BuildEvent {
-    CleanUp {
-        build_id: String,
-    },
     Failed {
         build_id: String,
         build_error: BuildError,
@@ -38,8 +35,18 @@ pub enum BuildEvent {
         package_specific_id: String,
         sender: oneshot::Sender<Result<String, BuildError>>,
     },
-    Succeeded(BuildResult),
-    Verified(BuildResult),
+    Succeeded {
+        build_id: String,
+        package_type: PackageType,
+        package_specific_id: String,
+        build_trigger: BuildTrigger,
+        artifact_urls: Vec<String>,
+    },
+    Result {
+        build_id: String,
+        build_trigger: BuildTrigger,
+        build_result: BuildResult,
+    },
     Verify {
         package_type: PackageType,
         package_specific_id: String,
@@ -55,37 +62,6 @@ pub struct BuildEventClient {
 impl BuildEventClient {
     pub fn new(build_event_sender: mpsc::Sender<BuildEvent>) -> Self {
         Self { build_event_sender }
-    }
-
-    pub async fn clean_up(&self, build_id: String) {
-        let _ = self
-            .build_event_sender
-            .send(BuildEvent::CleanUp { build_id })
-            .await;
-    }
-
-    pub async fn send_build_success(&self, build_result: BuildResult) {
-        let _ = self
-            .build_event_sender
-            .send(BuildEvent::Succeeded(build_result))
-            .await;
-    }
-
-    pub async fn send_build_verified(&self, build_result: BuildResult) {
-        let _ = self
-            .build_event_sender
-            .send(BuildEvent::Verified(build_result))
-            .await;
-    }
-
-    pub async fn send_build_failure(&self, build_id: String, build_error: BuildError) {
-        let _ = self
-            .build_event_sender
-            .send(BuildEvent::Failed {
-                build_id,
-                build_error,
-            })
-            .await;
     }
 
     pub async fn start_build(
@@ -126,6 +102,52 @@ impl BuildEventClient {
         receiver
             .await
             .map_err(|e| BuildError::InitializationFailed(e.to_string()))?
+    }
+
+    pub async fn build_succeeded(
+        &self,
+        build_id: &str,
+        package_type: PackageType,
+        package_specific_id: String,
+        build_trigger: BuildTrigger,
+        artifact_urls: Vec<String>,
+    ) {
+        let _ = self
+            .build_event_sender
+            .send(BuildEvent::Succeeded {
+                build_id: build_id.to_owned(),
+                package_type,
+                package_specific_id,
+                build_trigger,
+                artifact_urls,
+            })
+            .await;
+    }
+
+    pub async fn build_failed(&self, build_id: &str, build_error: BuildError) {
+        let _ = self
+            .build_event_sender
+            .send(BuildEvent::Failed {
+                build_id: build_id.to_owned(),
+                build_error,
+            })
+            .await;
+    }
+
+    pub async fn build_result(
+        &self,
+        build_id: &str,
+        build_trigger: BuildTrigger,
+        build_result: BuildResult,
+    ) {
+        let _ = self
+            .build_event_sender
+            .send(BuildEvent::Result {
+                build_id: build_id.to_owned(),
+                build_trigger,
+                build_result,
+            })
+            .await;
     }
 }
 
@@ -170,17 +192,6 @@ impl BuildEventLoop {
     async fn handle_build_event(&self, build_event: BuildEvent) {
         debug!("Handle BuildEvent: {:?}", build_event);
         match build_event {
-            BuildEvent::CleanUp { build_id } => {
-                self.build_service.lock().await.clean_up_build(&build_id);
-            }
-            BuildEvent::Failed {
-                build_id,
-                build_error,
-            } => {
-                error!("{}", build_error.to_string());
-
-                self.build_service.lock().await.clean_up_build(&build_id);
-            }
             BuildEvent::Start {
                 package_type,
                 package_specific_id,
@@ -193,20 +204,6 @@ impl BuildEventLoop {
                     .start_build(package_type, package_specific_id, BuildTrigger::FromSource)
                     .await;
                 let _ = sender.send(result);
-            }
-            BuildEvent::Succeeded(build_result) => {
-                self.artifact_service
-                    .lock()
-                    .await
-                    .handle_build_result(build_result)
-                    .await;
-            }
-            BuildEvent::Verified(build_result) => {
-                self.verification_service
-                    .lock()
-                    .await
-                    .handle_build_result(build_result)
-                    .await;
             }
             BuildEvent::Verify {
                 package_type,
@@ -224,6 +221,65 @@ impl BuildEventLoop {
                     )
                     .await;
                 let _ = sender.send(result);
+            }
+            BuildEvent::Failed {
+                build_id,
+                build_error,
+            } => {
+                error!("{}", build_error.to_string());
+
+                self.verification_service
+                    .lock()
+                    .await
+                    .handle_build_failed(&build_id, build_error);
+            }
+            BuildEvent::Succeeded {
+                build_id,
+                package_type,
+                package_specific_id,
+                build_trigger,
+                artifact_urls,
+            } => {
+                self.build_service
+                    .lock()
+                    .await
+                    .handle_successful_build(
+                        &build_id,
+                        package_type,
+                        package_specific_id,
+                        build_trigger,
+                        artifact_urls,
+                    )
+                    .await;
+            }
+            BuildEvent::Result {
+                build_id,
+                build_trigger,
+                build_result,
+            } => {
+                if let Err(error) = match build_trigger {
+                    BuildTrigger::FromSource => {
+                        self.artifact_service
+                            .lock()
+                            .await
+                            .handle_build_result(&build_id, build_result)
+                            .await
+                    }
+                    BuildTrigger::Verification => {
+                        self.verification_service
+                            .lock()
+                            .await
+                            .handle_build_result(&build_id, build_result)
+                            .await
+                    }
+                } {
+                    error!(
+                        "Failed to handle build result for build with ID {}: {:?}",
+                        build_id, error
+                    )
+                }
+
+                self.build_service.lock().await.clean_up_build(&build_id);
             }
         }
     }
