@@ -27,7 +27,6 @@ jobs:
       - name: Moved issue to ${{ env.mvp }}
         uses: leonsteinhaeuser/project-beta-automations@v1.2.1
         with:
-          project: Pyrsia Development
           action: add
           status_value: ${{ env.mvp }}
           project_id: 3
@@ -45,8 +44,7 @@ jobs:
     steps:
       - uses: leonsteinhaeuser/project-beta-automations@v1.2.1
         with:
-          project: Pyrsia Development
-          column: In Progress
+          status_value: ${{ env.in_progress }}
           project_id: 3
           organization: pyrsia
           gh_token: ${{ secrets.ORG_ACCESS_TOKEN }}
@@ -72,7 +70,7 @@ jobs:
     steps:
       - uses: leonsteinhaeuser/project-beta-automations@v1.2.1
         with:
-          column: ${{ env.blocked }}
+          status_value: ${{ env.blocked }}
           project_id: 3
           organization: pyrsia
           gh_token: ${{ secrets.ORG_ACCESS_TOKEN }}
@@ -95,8 +93,7 @@ jobs:
     steps:
       - uses: leonsteinhaeuser/project-beta-automations@v1.2.1
         with:
-          project: Pyrsia Development
-          column: ${{ env.done }}
+          status_value: ${{ env.done }}
           project_id: 3
           organization: pyrsia
           gh_token: ${{ secrets.ORG_ACCESS_TOKEN }}
