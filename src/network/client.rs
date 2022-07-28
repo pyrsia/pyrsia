@@ -116,15 +116,9 @@ impl Client {
     }
 
     /// Get the status of the node including nearby peers cnt and my peer addrs
-<<<<<<< HEAD
     pub async fn status(&mut self) -> anyhow::Result<Status> {
         let (sender, receiver) = oneshot::channel();
         self.sender.send(Command::Status { sender }).await?;
-=======
-    pub async fn status(&mut self, peers: HashSet<PeerId>) -> anyhow::Result<Status> {
-        let (sender, receiver) = oneshot::channel();
-        self.sender.send(Command::Status { peers, sender }).await?;
->>>>>>> 54c97f3a1f0d3c18732febb232e900df829516de
         Ok(receiver.await?)
     }
 
