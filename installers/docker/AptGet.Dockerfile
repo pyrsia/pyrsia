@@ -8,12 +8,13 @@ EXPOSE 44000
 ENV RUST_LOG=info
 
 RUN apt-get update; \
-    apt-get -y install wget gnupg2; \
+    apt-get -y install wget gnupg2 jq curl; \
     wget -O - https://pyrsia.io/install.sh | sh; 
 
 # Need to run an entrypoint script that will determine if the docker container
-# is runnin under Kubernetes or not.  This is done to derive the external ip address
+# is running under Kubernetes or not.  This is done to derive the external ip address
 # assigned to the service/pod
 COPY installers/docker/node-entrypoint.sh /tmp/entrypoint.sh
+RUN chmod 755 /tmp/entrypoint.sh
 
 ENTRYPOINT [ "/tmp/entrypoint.sh", "--host", "0.0.0.0", "--listen", "/ip4/0.0.0.0/tcp/44000" ]

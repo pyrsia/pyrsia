@@ -90,16 +90,9 @@ pub async fn handle_get_status(
 ) -> Result<impl Reply, Rejection> {
     let mut artifact_service = artifact_service.lock().await;
 
-    // Make sure latest peer count is calculated.
-    let peers = artifact_service
-        .p2p_client
-        .list_peers()
-        .await
-        .map_err(RegistryError::from)?;
-
     let status = artifact_service
         .p2p_client
-        .status(peers)
+        .status()
         .await
         .map_err(RegistryError::from)?;
 

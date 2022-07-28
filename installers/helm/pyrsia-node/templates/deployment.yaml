@@ -5,6 +5,8 @@ metadata:
   name: {{ include "pyrsia-node.name" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  updateStrategy:
+    type: RollingUpdate
   serviceName: {{ include "pyrsia-node.name" . }}
   selector:
     matchLabels:

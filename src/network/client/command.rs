@@ -42,7 +42,6 @@ pub enum Command {
         sender: oneshot::Sender<HashSet<PeerId>>,
     },
     Status {
-        peers: HashSet<PeerId>,
         sender: oneshot::Sender<Status>,
     },
     Provide {

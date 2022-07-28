@@ -34,6 +34,7 @@ use libp2p::Swarm;
 use log::{debug, info, trace, warn};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::error::Error;
+use std::net::Ipv4Addr;
 use tokio::sync::{mpsc, oneshot};
 
 type PendingDialMap = HashMap<PeerId, oneshot::Sender<anyhow::Result<()>>>;
@@ -389,39 +390,33 @@ impl PyrsiaEventLoop {
                     .get_closest_peers(peer_id);
                 self.pending_list_peers.insert(query_id, sender);
             }
-            Command::Status { peers, sender } => {
+            Command::Status { sender } => {
                 let swarm = &self.swarm;
-                let listeners = swarm.listeners();
                 let local_peer_id = *swarm.local_peer_id();
+                let local_peer = Protocol::P2p(local_peer_id.into());
 
-                let mut addrs = Vec::new();
-
-                for addr in listeners {
-                    addrs.push(addr.clone());
-                }
-
-                let multiaddr = local_peer_id.into();
-                let local_peer = Protocol::P2p(multiaddr);
-
-                let externalip = read_var("PRYSIA_EXTERNAL_IP", "");
+                let externalip = read_var("PYRSIA_EXTERNAL_IP", "");
 
                 let mut addr_map = HashSet::new();
 
-                for addr in addrs {
-                    let addr_str = addr.to_string();
-                    let mut parts = addr_str.split('/').collect::<Vec<&str>>();
-
+                for addr in swarm.listeners() {
                     if !externalip.is_empty() {
-                        parts[2] = &externalip;
+                        let ipv4_addr: Ipv4Addr = externalip.parse().unwrap();
+                        let new_addr = addr.replace(0, |_| Some(Protocol::Ip4(ipv4_addr))).unwrap();
+                        addr_map.insert(format!(
+                            "{}{}",
+                            new_addr.to_string(),
+                            local_peer.to_string()
+                        ));
+                    } else {
+                        addr_map.insert(format!("{}{}", addr.to_string(), local_peer.to_string()));
                     }
-
-                    addr_map.insert(format!("{}{}", parts.join("/"), local_peer));
                 }
 
                 let peer_addrs = addr_map.into_iter().collect::<Vec<_>>();
 
                 let status = Status {
-                    peers_count: peers.len(),
+                    peers_count: swarm.connected_peers().count(),
                     peer_id: local_peer_id.to_string(),
                     peer_addrs,
                 };

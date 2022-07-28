@@ -116,9 +116,9 @@ impl Client {
     }
 
     /// Get the status of the node including nearby peers cnt and my peer addrs
-    pub async fn status(&mut self, peers: HashSet<PeerId>) -> anyhow::Result<Status> {
+    pub async fn status(&mut self) -> anyhow::Result<Status> {
         let (sender, receiver) = oneshot::channel();
-        self.sender.send(Command::Status { peers, sender }).await?;
+        self.sender.send(Command::Status { sender }).await?;
         Ok(receiver.await?)
     }
 
@@ -383,12 +383,11 @@ mod tests {
             local_peer_id,
         };
 
-        let peers = HashSet::new();
-        tokio::spawn(async move { client.status(peers).await });
+        tokio::spawn(async move { client.status().await });
 
         tokio::select! {
             command = receiver.recv() => match command {
-                Some(Command::Status { peers: _, sender }) => {
+                Some(Command::Status { sender }) => {
                     let _ = sender.send(Default::default());
                 },
                 _ => panic!("Command must match Command::Status")
