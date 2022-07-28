@@ -32,6 +32,7 @@ use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
 use pyrsia::util::keypair_util;
+use pyrsia::util::keypair_util::KEYPAIR_FILENAME;
 use pyrsia_blockchain_network::blockchain::Blockchain;
 
 use clap::Parser;
