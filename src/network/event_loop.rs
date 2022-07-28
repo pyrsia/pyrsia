@@ -403,11 +403,7 @@ impl PyrsiaEventLoop {
                     if !externalip.is_empty() {
                         let ipv4_addr: Ipv4Addr = externalip.parse().unwrap();
                         let new_addr = addr.replace(0, |_| Some(Protocol::Ip4(ipv4_addr))).unwrap();
-                        addr_map.insert(format!(
-                            "{}{}",
-                            new_addr,
-                            local_peer
-                        ));
+                        addr_map.insert(format!("{}{}", new_addr, local_peer));
                     } else {
                         addr_map.insert(format!("{}{}", addr, local_peer));
                     }
