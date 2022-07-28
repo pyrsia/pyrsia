@@ -405,11 +405,11 @@ impl PyrsiaEventLoop {
                         let new_addr = addr.replace(0, |_| Some(Protocol::Ip4(ipv4_addr))).unwrap();
                         addr_map.insert(format!(
                             "{}{}",
-                            new_addr.to_string(),
-                            local_peer.to_string()
+                            new_addr,
+                            local_peer
                         ));
                     } else {
-                        addr_map.insert(format!("{}{}", addr.to_string(), local_peer.to_string()));
+                        addr_map.insert(format!("{}{}", addr, local_peer));
                     }
                 }
 
