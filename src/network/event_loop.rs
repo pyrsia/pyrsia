@@ -416,11 +416,7 @@ impl PyrsiaEventLoop {
                 let peer_addrs = addr_map.into_iter().collect::<Vec<_>>();
 
                 let status = Status {
-<<<<<<< HEAD
                     peers_count: swarm.connected_peers().count(),
-=======
-                    peers_count: peers.len(),
->>>>>>> 54c97f3a1f0d3c18732febb232e900df829516de
                     peer_id: local_peer_id.to_string(),
                     peer_addrs,
                 };
