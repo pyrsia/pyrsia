@@ -28,7 +28,7 @@ Ready to start working? Then check out some of our guides
 
 <!-- markdown-link-check-disable -->
 
-- [Things to Know](things-to-know/)
-- [Getting Started](local_dev_setup/)
+- [Contributing Guidelines](contributing.md)
+- You also suggest a feature by following our [RFC Guidelines](../rfc/readme.md)
 
 <!-- markdown-link-check-enable -->
