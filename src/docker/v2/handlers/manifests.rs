@@ -88,7 +88,7 @@ mod tests {
 
         assert_eq!(
             get_package_specific_artifact_id(name, tag),
-            format!("{}:{}", name, tag)
+            format!("{}@{}", name, tag)
         );
     }
 
