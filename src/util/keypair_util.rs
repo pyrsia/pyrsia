@@ -14,25 +14,73 @@
    limitations under the License.
 */
 
+use crate::util::env_util::read_var;
+use anyhow::{Context, Result};
+use lazy_static::lazy_static;
 use libp2p::identity;
-use log::warn;
+use log::{error, warn};
 use std::error;
 use std::fs;
 use std::io::{self, Read, Write};
-use std::path::{Path, PathBuf};
+use std::panic::UnwindSafe;
+use std::path::Path;
 
-const KEYPAIR_FILENAME: &str = "p2p_keypair.ser";
+lazy_static! {
+    pub static ref KEYPAIR_FILENAME: String = {
+        let pyrsia_keypair_file = read_var("PYRSIA_KEYPAIR", "pyrsia/p2p_keypair.ser");
+        let pyrsia_keypair_path = Path::new(&pyrsia_keypair_file);
+        log_static_initialization_failure(
+            "Pyrsia Key Pair directory",
+            std::fs::create_dir_all(pyrsia_keypair_path.parent().unwrap()).with_context(|| {
+                format!(
+                    "Failed to create key pair directory {:?}",
+                    pyrsia_keypair_path.parent()
+                )
+            }),
+        );
+        pyrsia_keypair_path
+            .as_os_str()
+            .to_str()
+            .unwrap()
+            .to_string()
+    };
+}
+
+fn log_static_initialization_failure<T: UnwindSafe>(
+    label: &str,
+    result: Result<T, anyhow::Error>,
+) -> T {
+    let panic_wrapper = std::panic::catch_unwind(|| match result {
+        Ok(unwrapped) => unwrapped,
+        Err(error) => {
+            let msg = format!("Error initializing {}, error is: {}", label, error);
+            error!("{}", msg);
+            panic!("{}", msg)
+        }
+    });
+    match panic_wrapper {
+        Ok(normal) => normal,
+        Err(partially_unwound_panic) => {
+            error!("Initialization of {} panicked!", label);
+            std::panic::resume_unwind(partially_unwound_panic)
+        }
+    }
+}
 
 /// Load a ed25519 keypair from disk. If a keypair file does not yet exist,
 /// a new keypair is generated and then saved to disk.
 pub fn load_or_generate_ed25519<P: AsRef<Path>>(storage_path: P) -> identity::Keypair {
-    let keypair_path = get_keypair_path(storage_path.as_ref());
-    match load_ed25519(&keypair_path) {
+    let keypair_path = storage_path.as_ref();
+    match load_ed25519(keypair_path) {
         Ok(keypair) => identity::Keypair::Ed25519(keypair),
         Err(_) => {
             let keypair = identity::ed25519::Keypair::generate();
-            if let Err(e) = save_ed25519(&keypair, &keypair_path) {
-                warn!("Failed to persist newly generated keypair: {:?}", e);
+            if let Err(e) = save_ed25519(&keypair, keypair_path) {
+                warn!(
+                    "Failed to persist newly generated keypair: {} {:?}",
+                    keypair_path.display(),
+                    e
+                );
             }
             identity::Keypair::Ed25519(keypair)
         }
@@ -64,16 +112,12 @@ fn save_ed25519(
     keypair: &identity::ed25519::Keypair,
     keypair_path: &Path,
 ) -> Result<(), Box<dyn error::Error>> {
+    let parent = keypair_path.parent().unwrap();
+    std::fs::create_dir_all(&parent)
+        .unwrap_or_else(|e| panic!("Error creating dir {}: {}", parent.display(), e));
     let mut keypair_file = fs::File::create(&keypair_path)?;
     keypair_file.write_all(&keypair.encode())?;
     Ok(())
-}
-
-// Get the path on disk where the keypair is stored.
-fn get_keypair_path(storage_path: &Path) -> PathBuf {
-    let mut storage_path = storage_path.to_path_buf();
-    storage_path.push(KEYPAIR_FILENAME);
-    storage_path
 }
 
 #[cfg(test)]
@@ -82,21 +126,22 @@ mod tests {
 
     #[test]
     fn load_non_existing_keypair_generates_new_keypair_and_saves_it() {
-        let tmp_dir = tempfile::tempdir().unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap().path().join("p2p_keypair.ser");
+        let tmp_keypair = tmp_dir.as_path();
 
-        load_or_generate_ed25519(&tmp_dir);
-
-        assert!(tmp_dir.path().join(KEYPAIR_FILENAME).exists());
+        load_or_generate_ed25519(&tmp_keypair);
+        assert!(tmp_keypair.exists());
     }
 
     #[test]
-    fn load_non_existing_keypair_generates_new_keypair_but_does_not_save_it() {
+    fn keypair_generates_new_keypair_but_does_not_save_it() {
         let tmp_dir = tempfile::tempdir().unwrap();
-        let path = tmp_dir.path().join("load_non_existing_keypair_fails");
-
-        load_or_generate_ed25519(&path);
-
-        assert!(!path.join(KEYPAIR_FILENAME).exists());
+        let mut perms = fs::metadata(&tmp_dir).unwrap().permissions();
+        perms.set_readonly(true);
+        let _ = fs::set_permissions(&tmp_dir, perms);
+        let tmp_file = tmp_dir.path().join("keypair_fails");
+        load_or_generate_ed25519(&tmp_file.as_path());
+        assert!(!tmp_file.as_path().exists());
     }
 
     #[test]
@@ -111,13 +156,13 @@ mod tests {
     #[test]
     fn saved_keypair_can_be_loaded() {
         let tmp_dir = tempfile::tempdir().unwrap();
-        let path = tmp_dir.path().join(KEYPAIR_FILENAME);
+        let path = tmp_dir.path().join("p2p_keypair.ser");
 
         let saved_keypair = identity::ed25519::Keypair::generate();
         let save_result = save_ed25519(&saved_keypair, &path);
         assert!(save_result.is_ok());
 
-        let loaded_keypair = load_or_generate_ed25519(&tmp_dir.path());
+        let loaded_keypair = load_or_generate_ed25519(&path);
         assert_eq!(
             identity::Keypair::Ed25519(saved_keypair)
                 .to_protobuf_encoding()
