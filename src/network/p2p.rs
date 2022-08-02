@@ -30,7 +30,6 @@ use libp2p::tcp::{self, GenTcpConfig};
 use libp2p::{autonat, core, dns, identify, identity, kad, mplex, noise, yamux, Transport};
 use std::error::Error;
 use std::iter;
-use std::path::PathBuf;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
