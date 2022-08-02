@@ -20,10 +20,10 @@ Before continuing please make sure that you have cloned and compiled the Pyrsia 
 
 - Add the following vars to the `Environment Variables`:
 
-```
+```sh
 DEV_MODE=on;
 PYRSIA_ARTIFACT_PATH=/tmp/pyrsia/node;
-RUST_LOG=pyrsia=debug,info
+RUST_LOG=pyrsia=debug,info;
 ```
 
 - Point `Working Directory` to the `PYRSIA_HOME` folder.
