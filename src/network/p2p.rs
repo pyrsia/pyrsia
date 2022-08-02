@@ -14,7 +14,6 @@
    limitations under the License.
 */
 
-use crate::artifact_service::storage::ARTIFACTS_DIR;
 use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactExchangeProtocol};
 use crate::network::behaviour::PyrsiaNetworkBehaviour;
 use crate::network::blockchain_protocol::{BlockUpdateExchangeCodec, BlockUpdateExchangeProtocol};
@@ -22,6 +21,7 @@ use crate::network::client::Client;
 use crate::network::event_loop::{PyrsiaEvent, PyrsiaEventLoop};
 use crate::network::idle_metric_protocol::{IdleMetricExchangeCodec, IdleMetricExchangeProtocol};
 use crate::util::keypair_util;
+use crate::util::keypair_util::KEYPAIR_FILENAME;
 
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
@@ -104,8 +104,7 @@ use tokio_stream::Stream;
 pub fn setup_libp2p_swarm(
     max_provided_keys: usize,
 ) -> Result<(Client, impl Stream<Item = PyrsiaEvent>, PyrsiaEventLoop), Box<dyn Error>> {
-    let local_keypair =
-        keypair_util::load_or_generate_ed25519(PathBuf::from(ARTIFACTS_DIR.as_str()));
+    let local_keypair = keypair_util::load_or_generate_ed25519(KEYPAIR_FILENAME.as_str());
 
     let (swarm, local_peer_id) = create_swarm(local_keypair, max_provided_keys)?;
     let (command_sender, command_receiver) = mpsc::channel(32);
