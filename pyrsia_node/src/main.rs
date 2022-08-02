@@ -31,7 +31,7 @@ use pyrsia::logging::*;
 use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
-use pyrsia::util::keypair_util;
+use pyrsia::util::keypair_util::{self, KEYPAIR_FILENAME};
 use pyrsia::verification_service::service::VerificationService;
 use pyrsia_blockchain_network::blockchain::Blockchain;
 
@@ -134,7 +134,7 @@ async fn setup_p2p(mut p2p_client: Client, args: &PyrsiaNodeArgs) -> Result<()> 
 
 fn setup_blockchain() -> Result<Arc<Mutex<Blockchain>>> {
     let local_keypair =
-        keypair_util::load_or_generate_ed25519(PathBuf::from(ARTIFACTS_DIR.as_str()));
+        keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
 
     let ed25519_keypair = match local_keypair {
         libp2p::identity::Keypair::Ed25519(v) => v,
