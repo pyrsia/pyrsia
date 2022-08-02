@@ -29,6 +29,11 @@ network, we can run a final step to show the build from source worked:
 
 - Use Pyrsia in a Maven project
 
+## Prerequisites
+
+The following steps rely on JDK11 and maven being correctly installed.
+Please find and install the appropriate [JDK11](https://www.openlogic.com/openjdk-downloads) and [mvn](https://maven.apache.org/install.html) before proceeding.
+
 ## Compile Pyrsia
 
 Download a fresh copy of the codebase by cloning the repo or updating to the
@@ -48,9 +53,12 @@ cd $PYRSIA_HOME
 cargo build --workspace
 ```
 
+See the [Getting Started](../get_involved/local_dev_setup.md)
+document for more information.
+
 ## Run the Pyrsia node
 
-Run the Pyrsia node using `cargo run`. We set the following env vars:
+Now we will set the following env vars and start a pyrsia node:
 
 - RUST_LOG: to make sure we can see all the debug logs
 - DEV_MODE: to make sure all non-existing directories are created on-the-fly
@@ -114,6 +122,18 @@ build output as a download.
 Download or clone the [prototype repo](https://github.com/tiainen/pyrsia_build_pipeline_prototype)
 and run as follows:
 
+Ensure that JAVA_HOME is setup correctly
+
+```sh
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_45.jdk/Contents/Home
+```
+
+and maven is available on the PATH
+
+```sh
+export PATH=path to your maven download location/apache-maven-3.8.6/bin:$PATH
+```
+
 ```sh
 cd pyrsia_build_pipeline_prototype
 RUST_LOG=debug cargo run
@@ -125,6 +145,15 @@ with `--pipeline-service-endpoint` (see above).
 
 Because we will be using this prototype for building Maven artifacts, make sure
 you have installed a JDK11 and configured JAVA_HOME before running `cargo run`.
+
+You will see the following output indicating that the build pipeline is ready for use
+
+```text
+   Finished dev [unoptimized + debuginfo] target(s) in 1m 07s
+     Running `target/debug/pyrsia_build`
+ INFO  actix_server::builder > Starting 8 workers
+ INFO  actix_server::server  > Tokio runtime found; starting in existing Tokio runtime
+```
 
 ## Trigger a build from source for a given artifact
 
@@ -320,6 +349,19 @@ Create a `pom.xml` file:
             <version>1.15</version>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.10.1</version>
+                <configuration>
+                    <release>11</release>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
 ```
 
