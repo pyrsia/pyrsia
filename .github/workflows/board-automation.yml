@@ -5,9 +5,16 @@ on:
     types: [opened, reopened, labeled]
   pull_request_target:
     types: [opened, closed, reopened, labeled, ready_for_review, review_requested]
+env:
+  todo: Todo
+  done: Done
+  in_progress: In Progress
+  mvp: MVP
+  blocked: Blocked
 
 jobs:
   new-issues:
+    name: new-issues
     runs-on: ubuntu-latest
     if: |
       github.repository_owner == 'pyrsia' &&
@@ -17,25 +24,31 @@ jobs:
       - uses: actions-ecosystem/action-add-labels@v1
         with:
           labels: triage
-      - uses: alex-page/github-project-automation-plus@v0.8.1
+      - name: Moved issue to ${{ env.mvp }}
+        uses: leonsteinhaeuser/project-beta-automations@v1.2.1
         with:
-          project: Pyrsia Development
           action: add
-          column: MVP
-          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
+          status_value: ${{ env.mvp }}
+          project_id: 3
+          organization: pyrsia
+          gh_token: ${{ secrets.ORG_ACCESS_TOKEN }}
+          resource_node_id: ${{ github.event.issue.node_id }}
 
   new-prs:
+    name: new-prs
     runs-on: ubuntu-latest
     if: |
       github.repository_owner == 'pyrsia' &&
-      github.event_name == 'pull_request_target' &&
+      github.event_name == 'pull_request' &&
       (github.event.action == 'opened' || github.event.action == 'reopened')
     steps:
-      - uses: alex-page/github-project-automation-plus@v0.8.1
+      - uses: leonsteinhaeuser/project-beta-automations@v1.2.1
         with:
-          project: Pyrsia Development
-          column: In Progress
-          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
+          status_value: ${{ env.in_progress }}
+          project_id: 3
+          organization: pyrsia
+          gh_token: ${{ secrets.ORG_ACCESS_TOKEN }}
+          resource_node_id: ${{ github.event.issue.node_id }}
 
   pr-request-review:
     runs-on: ubuntu-latest
@@ -55,11 +68,13 @@ jobs:
       (github.event_name == 'issues' ||  github.event_name == 'pull_request_target') &&
       github.event.action == 'labeled' && github.event.label.name == 'blocked'
     steps:
-      - uses: alex-page/github-project-automation-plus@v0.8.1
+      - uses: leonsteinhaeuser/project-beta-automations@v1.2.1
         with:
-          project: Pyrsia Development
-          column: Blocked
-          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
+          status_value: ${{ env.blocked }}
+          project_id: 3
+          organization: pyrsia
+          gh_token: ${{ secrets.ORG_ACCESS_TOKEN }}
+          resource_node_id: ${{ github.event.issue.node_id }}
 
   assign-author:
     runs-on: ubuntu-latest
@@ -68,7 +83,7 @@ jobs:
       github.event_name == 'pull_request_target' &&
       (github.event.action == 'opened'  || github.event.action == 'reopened' || github.event.action == 'ready_for_review')
     steps:
-      - uses: toshimaru/auto-author-assign@v1.5.0
+      - uses: toshimaru/auto-author-assign@v1.5.1
 
   rm-closed-pr:
     runs-on: ubuntu-latest
@@ -76,9 +91,10 @@ jobs:
       github.repository_owner == 'pyrsia' &&
       github.event_name == 'pull_request_target' && github.event.action == 'closed'
     steps:
-      - uses: alex-page/github-project-automation-plus@v0.8.1
+      - uses: leonsteinhaeuser/project-beta-automations@v1.2.1
         with:
-          project: Pyrsia Development
-          action: delete
-          column: To do
-          repo-token: ${{ secrets.ORG_ACCESS_TOKEN }}
+          status_value: ${{ env.done }}
+          project_id: 3
+          organization: pyrsia
+          gh_token: ${{ secrets.ORG_ACCESS_TOKEN }}
+          resource_node_id: ${{ github.event.issue.node_id }}
