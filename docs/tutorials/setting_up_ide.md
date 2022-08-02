@@ -6,7 +6,7 @@ This tutorial describes how to start and debug Pyrsia using Microsoft Visual Cod
 
 Before continuing please make sure that you have cloned and compiled the Pyrsia sources. For more information please see [Getting Started](../get_involved/local_dev_setup.md). In this tutorial `PYRSIA_HOME` refers to the Pyrsia repository folder.
 
-## IntelliJ IDEA Run/Debug Node Configuration
+## IntelliJ IDEA Configuration
 
 - Open the IDE and install [Rust plugin](https://www.jetbrains.com/rust/). If you use IDEA Ultimate make sure [Native Debugging Support plugin](https://plugins.jetbrains.com/plugin/12775-native-debugging-support) is installed.
 - From the main menu select `File > Open`. Alternatively select `Open` in the `Welcome to IntelliJ IDEA` wizard and select the `PYRSIA_HOME` folder.
