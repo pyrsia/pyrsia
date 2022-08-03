@@ -34,7 +34,6 @@ use libp2p::Swarm;
 use log::{debug, info, trace, warn};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::error::Error;
-use std::net::Ipv4Addr;
 use tokio::sync::{mpsc, oneshot};
 
 type PendingDialMap = HashMap<PeerId, oneshot::Sender<anyhow::Result<()>>>;
@@ -401,9 +400,18 @@ impl PyrsiaEventLoop {
 
                 for addr in swarm.listeners() {
                     if !externalip.is_empty() {
-                        let ipv4_addr: Ipv4Addr = externalip.parse().unwrap();
-                        let new_addr = addr.replace(0, |_| Some(Protocol::Ip4(ipv4_addr))).unwrap();
-                        addr_map.insert(format!("{}{}", new_addr, local_peer));
+                        match externalip.parse() {
+                            Ok(ipv4_addr) => {
+                                let new_addr =
+                                    addr.replace(0, |_| Some(Protocol::Ip4(ipv4_addr))).unwrap();
+                                addr_map.insert(format!("{}{}", new_addr, local_peer));
+                            }
+                            Err(err) => {
+                                // don't map external ip, skip mapping and display error
+                                addr_map.insert(format!("{}{}", addr, local_peer));
+                                info!("Ipv4Addr parse error of {}: {}", externalip, err);
+                            }
+                        }
                     } else {
                         addr_map.insert(format!("{}{}", addr, local_peer));
                     }
