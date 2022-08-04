@@ -34,6 +34,9 @@ impl Chain {
         self.blocks.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.blocks.is_empty()
+    }
     pub fn add_block(&mut self, block: Block) {
         self.blocks.push(block);
     }
@@ -85,10 +88,22 @@ mod tests {
     }
 
     #[test]
-    fn test_initial_chain_length_equal_to_zero() -> Result<(), String> {
+    fn test_chain_is_empty() -> Result<(), String> {
         let chain: Chain = Default::default();
 
-        assert_eq!(0, chain.len());
+        assert!(chain.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_chain_is_not_empty() -> Result<(), String> {
+        let mut chain: Chain = Default::default();
+        let keypair = identity::ed25519::Keypair::generate();
+        let transactions = vec![];
+        let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
+        chain.add_block(block);
+        assert_eq!(false, chain.is_empty());
 
         Ok(())
     }
