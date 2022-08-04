@@ -1,4 +1,4 @@
-# Code Contribution Workflow
+# Submit a PR
 
 When developing new features for Pyrsia, we aim for the best quality code possible. Here's the steps with some "How To"s on getting there.
 

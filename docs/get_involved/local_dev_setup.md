@@ -25,10 +25,10 @@ if you are looking to make code changes.
     brew install openssl@1.1
     ```
 
-  - Linux (ubuntu): use `apt` to install Clang, OpenSSL and CMake
+  - Linux (ubuntu): use `apt` to install Clang, OpenSSL, CMake and pkg-config
 
     ```sh
-    apt install clang libssl-dev cmake
+    apt install clang libssl-dev cmake pkg-config
     ```
 
 ## Obtain the Source Code

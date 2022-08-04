@@ -50,7 +50,7 @@ All media assests should be external links since they will not be copied to the 
 ## Previewing Changes
 
 Currently it is only possible to preview your changes locally, you should be following the
-[contributing guidelines](https://pyrsia.io/docs/get_involved/contributing/#dev-flow) and have forked the repository.
+[contributing guidelines](contributing.md) and have forked the repository.
 To preview the changes:
 
 1. Fork the [website's repository](https://github.com/pyrsia/pyrsia.github.io) and clone your fork.
