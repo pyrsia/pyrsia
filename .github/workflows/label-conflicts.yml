@@ -9,7 +9,7 @@ jobs:
   auto-label:
     runs-on: ubuntu-latest
     steps:
-      - uses: prince-chrismc/label-merge-conflicts-action@v1
+      - uses: prince-chrismc/label-merge-conflicts-action@v2
         if: ${{ github.repository_owner == 'pyrsia' }}
         with:
           conflict_label_name: "has conflict"
