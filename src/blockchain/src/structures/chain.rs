@@ -21,6 +21,113 @@ use super::block::Block;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Decode, Encode, Hash, PartialEq, Eq)]
 pub struct Chain {
-    // TODO(prince-chrismc): This eventually needs to be an ordered set so block sequence is always sorted by ordinal
-    pub blocks: Vec<Block>,
+    // The block sequence is always sorted by the ordinal, guaranteed by the hash and parent hash
+    blocks: Vec<Block>,
+}
+
+impl Chain {
+    pub fn blocks(&self) -> Vec<Block> {
+        self.blocks.clone()
+    }
+
+    pub fn len(&self) -> usize {
+        self.blocks.len()
+    }
+
+    pub fn add_block(&mut self, block: Block) {
+        self.blocks.push(block);
+    }
+
+    pub fn last_block(&self) -> Option<Block> {
+        let length = self.len();
+        if length == 0 {
+            None
+        } else {
+            Some(self.blocks()[length - 1].clone())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        crypto::hash_algorithm::HashDigest,
+        structures::{
+            block::Block,
+            chain::Chain,
+            header::Address,
+            transaction::{Transaction, TransactionType},
+        },
+    };
+    use libp2p::identity;
+
+    #[test]
+    fn test_add_block() -> Result<(), String> {
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
+
+        let mut chain: Chain = Default::default();
+
+        let mut transactions = vec![];
+        let data = "Hello First Transaction";
+        let transaction = Transaction::new(
+            TransactionType::Create,
+            local_id,
+            data.as_bytes().to_vec(),
+            &keypair,
+        );
+        transactions.push(transaction);
+        assert_eq!(0, chain.len());
+        let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
+        chain.add_block(block);
+        assert_eq!(1, chain.len());
+        Ok(())
+    }
+
+    #[test]
+    fn test_initial_chain_length_equal_to_zero() -> Result<(), String> {
+        let chain: Chain = Default::default();
+
+        assert_eq!(0, chain.len());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_blocks() -> Result<(), String> {
+        let mut chain: Chain = Default::default();
+        let keypair = identity::ed25519::Keypair::generate();
+        let transactions = vec![];
+        let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
+        chain.add_block(block);
+        assert_eq!(chain.len(), chain.blocks().len());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_chain_length() -> Result<(), String> {
+        let mut chain: Chain = Default::default();
+        let keypair = identity::ed25519::Keypair::generate();
+        let transactions = vec![];
+        let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
+        chain.add_block(block.clone());
+        chain.add_block(block);
+        assert_eq!(2, chain.len());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_last_block() -> Result<(), String> {
+        let mut chain: Chain = Default::default();
+        assert_eq!(None, chain.last_block());
+        let keypair = identity::ed25519::Keypair::generate();
+        let transactions = vec![];
+        let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
+        chain.add_block(block.clone());
+        assert_eq!(block, chain.last_block().unwrap());
+
+        Ok(())
+    }
 }
