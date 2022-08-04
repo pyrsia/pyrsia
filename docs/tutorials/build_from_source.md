@@ -53,7 +53,7 @@ cd $PYRSIA_HOME
 cargo build --workspace
 ```
 
-See the [Getting Started](../get_involved/local_dev_setup.md)
+See the [Development Environment](../community/get_involved/local_dev_setup.md)
 document for more information.
 
 ## Run the Pyrsia node
@@ -119,9 +119,6 @@ The current build pipeline prototype only supports Maven builds. It takes
 the artifact mapping as input (see above), starts a Maven build and provides the
 build output as a download.
 
-Download or clone the [prototype repo](https://github.com/tiainen/pyrsia_build_pipeline_prototype)
-and run as follows:
-
 Ensure that JAVA_HOME is setup correctly
 
 ```sh
@@ -133,6 +130,9 @@ and maven is available on the PATH
 ```sh
 export PATH=path to your maven download location/apache-maven-3.8.6/bin:$PATH
 ```
+
+Download or clone the [prototype repo](https://github.com/tiainen/pyrsia_build_pipeline_prototype)
+and run as follows:
 
 ```sh
 cd pyrsia_build_pipeline_prototype
