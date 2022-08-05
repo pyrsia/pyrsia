@@ -24,7 +24,7 @@ pub struct Status {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RequestDockerBuild {
-    pub manifest: String,
+    pub image: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

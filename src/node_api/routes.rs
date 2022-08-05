@@ -99,7 +99,7 @@ mod tests {
 
         let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let request = RequestDockerBuild {
-            manifest: "alpine:3.15.2".to_owned(),
+            image: "alpine:3.15.2".to_owned(),
         };
         let response = warp::test::request()
             .method("POST")

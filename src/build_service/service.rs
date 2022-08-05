@@ -184,7 +184,22 @@ impl BuildService {
                 .map_err(|e| BuildError::Failure(build_id.to_owned(), e.to_string()))?;
 
             let artifact_specific_id = match package_type {
-                PackageType::Docker => package_specific_id.to_owned(),
+                PackageType::Docker => {
+                    if artifact_url.ends_with("/manifest") {
+                        package_specific_id.to_owned()
+                    } else {
+                        let artifact_filename = match artifact_url.rfind('/') {
+                            Some(position_slash) => {
+                                String::from(&artifact_url[position_slash + 1..])
+                            }
+                            None => artifact_url,
+                        };
+                        match artifact_filename.rfind('.') {
+                            Some(position_dot) => String::from(&artifact_filename[..position_dot]),
+                            None => artifact_filename,
+                        }
+                    }
+                }
                 PackageType::Maven2 => {
                     let prefix = package_specific_id.replace(':', "/");
                     let artifact_filename = match artifact_url.rfind('/') {

@@ -31,7 +31,7 @@ pub async fn handle_build_docker(
     let build_info = artifact_service
         .lock()
         .await
-        .request_build(PackageType::Docker, request_docker_build.manifest)
+        .request_build(PackageType::Docker, request_docker_build.image)
         .await
         .map_err(RegistryError::from)?;
 

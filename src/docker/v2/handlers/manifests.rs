@@ -59,7 +59,11 @@ pub async fn fetch_manifest(
 }
 
 fn get_package_specific_artifact_id(name: &str, tag: &str) -> String {
-    format!("{}::{}", name, tag)
+    if tag.starts_with("sha256:") {
+        format!("{}@{}", name, tag)
+    } else {
+        format!("{}:{}", name, tag)
+    }
 }
 
 #[cfg(test)]
@@ -79,13 +83,24 @@ mod tests {
     use tokio::sync::{mpsc, oneshot};
 
     #[test]
-    fn test_get_package_specific_artifact_id() {
-        let name = "name_manifests";
-        let tag = "tag";
+    fn test_get_package_specific_artifact_id_from_digest() {
+        let name = "alpine";
+        let tag = "sha256:1e014f84205d569a5cc3be4e108ca614055f7e21d11928946113ab3f36054801";
 
         assert_eq!(
             get_package_specific_artifact_id(name, tag),
-            format!("{}::{}", name, tag)
+            format!("{}@{}", name, tag)
+        );
+    }
+
+    #[test]
+    fn test_get_package_specific_artifact_id_from_tag() {
+        let name = "alpine";
+        let tag = "3.15.3";
+
+        assert_eq!(
+            get_package_specific_artifact_id(name, tag),
+            format!("{}:{}", name, tag)
         );
     }
 

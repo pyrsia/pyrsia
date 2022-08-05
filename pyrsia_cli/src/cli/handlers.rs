@@ -57,9 +57,9 @@ pub fn config_show() {
     };
 }
 
-pub async fn request_docker_build(manifest: &str) {
+pub async fn request_docker_build(image: &str) {
     let build_result = node::request_docker_build(RequestDockerBuild {
-        manifest: manifest.to_owned(),
+        image: image.to_owned(),
     })
     .await;
     handle_request_build_result(build_result);
