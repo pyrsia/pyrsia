@@ -37,7 +37,7 @@ async fn main() {
         }
         Some(("build", build_matches)) => match build_matches.subcommand() {
             Some(("docker", docker_matches)) => {
-                request_docker_build(docker_matches.get_one::<String>("manifest").unwrap()).await;
+                request_docker_build(docker_matches.get_one::<String>("image").unwrap()).await;
             }
             Some(("maven", maven_matches)) => {
                 request_maven_build(maven_matches.get_one::<String>("gav").unwrap()).await;
