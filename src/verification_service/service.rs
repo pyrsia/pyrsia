@@ -20,7 +20,6 @@ use crate::build_service::event::BuildEventClient;
 use crate::build_service::model::BuildResult;
 use crate::transparency_log::log::{Operation, TransparencyLog};
 use log::{error, info};
-use pyrsia_blockchain_network::structures::transaction::Transaction;
 use std::collections::HashMap;
 use thiserror::Error;
 use tokio::sync::oneshot;
@@ -99,10 +98,10 @@ impl VerificationService {
     /// is a candidate to be committed to the blockchain.
     pub async fn verify_transaction(
         &mut self,
-        transaction: &Transaction,
+        transaction_payload: &[u8],
         sender: oneshot::Sender<Result<(), VerificationError>>,
     ) -> Result<Option<String>, VerificationError> {
-        let transparency_log: TransparencyLog = serde_json::from_slice(&transaction.payload())
+        let transparency_log: TransparencyLog = serde_json::from_slice(transaction_payload)
             .map_err(|e| VerificationError::Failure(e.to_string()))?;
 
         match transparency_log.operation {
@@ -242,9 +241,6 @@ mod tests {
     use crate::build_service::model::BuildResultArtifact;
     use crate::transparency_log::log::{AddArtifactRequest, TransparencyLogService};
     use crate::util::test_util;
-    use libp2p::identity;
-    use pyrsia_blockchain_network::structures::header::Address;
-    use pyrsia_blockchain_network::structures::transaction::TransactionType;
     use std::path::PathBuf;
     use tokio::sync::mpsc;
 
@@ -275,15 +271,6 @@ mod tests {
         let transparency_log = receiver.await.unwrap().unwrap();
         let payload = serde_json::to_string(&transparency_log).unwrap();
 
-        let keypair = identity::ed25519::Keypair::generate();
-        let submitter = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let transaction = Transaction::new(
-            TransactionType::Create,
-            submitter,
-            payload.as_bytes().to_vec(),
-            &keypair,
-        );
-
         let (verification_result_sender, _verification_result_receiver) = oneshot::channel();
 
         let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
@@ -310,7 +297,7 @@ mod tests {
 
         let mut verification_service = VerificationService::new(build_event_client).unwrap();
         let verification_result = verification_service
-            .verify_transaction(&transaction, verification_result_sender)
+            .verify_transaction(payload.as_bytes(), verification_result_sender)
             .await;
 
         assert!(verification_result.is_ok());
@@ -346,18 +333,6 @@ mod tests {
             payloads.push(payload);
         }
 
-        let keypair = identity::ed25519::Keypair::generate();
-        let submitter = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let mut transactions = vec![];
-        for payload in payloads {
-            transactions.push(Transaction::new(
-                TransactionType::Create,
-                submitter,
-                payload.as_bytes().to_vec(),
-                &keypair,
-            ));
-        }
-
         let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
 
         let build_event_client = BuildEventClient::new(build_event_sender);
@@ -378,21 +353,21 @@ mod tests {
 
         let (verification_result_sender_1, _verification_result_receiver) = oneshot::channel();
         let verification_result_1 = verification_service
-            .verify_transaction(&transactions[0], verification_result_sender_1)
+            .verify_transaction(payloads[0].as_bytes(), verification_result_sender_1)
             .await;
         assert!(verification_result_1.is_ok());
         assert!(verification_result_1.unwrap().is_none());
 
         let (verification_result_sender_2, _verification_result_receiver) = oneshot::channel();
         let verification_result_2 = verification_service
-            .verify_transaction(&transactions[1], verification_result_sender_2)
+            .verify_transaction(payloads[1].as_bytes(), verification_result_sender_2)
             .await;
         assert!(verification_result_2.is_ok());
         assert!(verification_result_2.unwrap().is_none());
 
         let (verification_result_sender_3, _verification_result_receiver) = oneshot::channel();
         let verification_result_3 = verification_service
-            .verify_transaction(&transactions[2], verification_result_sender_3)
+            .verify_transaction(payloads[2].as_bytes(), verification_result_sender_3)
             .await;
         assert!(verification_result_3.is_ok());
         assert_eq!(
@@ -432,15 +407,6 @@ mod tests {
         let transparency_log = receiver.await.unwrap().unwrap();
         let payload = serde_json::to_string(&transparency_log).unwrap();
 
-        let keypair = identity::ed25519::Keypair::generate();
-        let submitter = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let transaction = Transaction::new(
-            TransactionType::Create,
-            submitter,
-            payload.as_bytes().to_vec(),
-            &keypair,
-        );
-
         let (verification_result_sender, verification_result_receiver) = oneshot::channel();
 
         let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
@@ -461,7 +427,7 @@ mod tests {
 
         let mut verification_service = VerificationService::new(build_event_client).unwrap();
         let verification_result = verification_service
-            .verify_transaction(&transaction, verification_result_sender)
+            .verify_transaction(payload.as_bytes(), verification_result_sender)
             .await;
 
         assert!(verification_result.is_ok());
@@ -515,15 +481,6 @@ mod tests {
         let transparency_log = receiver.await.unwrap().unwrap();
         let payload = serde_json::to_string(&transparency_log).unwrap();
 
-        let keypair = identity::ed25519::Keypair::generate();
-        let submitter = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let transaction = Transaction::new(
-            TransactionType::Create,
-            submitter,
-            payload.as_bytes().to_vec(),
-            &keypair,
-        );
-
         let (verification_result_sender, verification_result_receiver) = oneshot::channel();
 
         let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
@@ -544,7 +501,7 @@ mod tests {
 
         let mut verification_service = VerificationService::new(build_event_client).unwrap();
         let verification_result = verification_service
-            .verify_transaction(&transaction, verification_result_sender)
+            .verify_transaction(payload.as_bytes(), verification_result_sender)
             .await;
 
         assert!(verification_result.is_ok());
@@ -606,15 +563,6 @@ mod tests {
         let transparency_log = receiver.await.unwrap().unwrap();
         let payload = serde_json::to_string(&transparency_log).unwrap();
 
-        let keypair = identity::ed25519::Keypair::generate();
-        let submitter = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let transaction = Transaction::new(
-            TransactionType::Create,
-            submitter,
-            payload.as_bytes().to_vec(),
-            &keypair,
-        );
-
         let (verification_result_sender, verification_result_receiver) = oneshot::channel();
 
         let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
@@ -635,7 +583,7 @@ mod tests {
 
         let mut verification_service = VerificationService::new(build_event_client).unwrap();
         let verification_result = verification_service
-            .verify_transaction(&transaction, verification_result_sender)
+            .verify_transaction(payload.as_bytes(), verification_result_sender)
             .await;
 
         assert!(verification_result.is_ok());
@@ -697,15 +645,6 @@ mod tests {
         let transparency_log = receiver.await.unwrap().unwrap();
         let payload = serde_json::to_string(&transparency_log).unwrap();
 
-        let keypair = identity::ed25519::Keypair::generate();
-        let submitter = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let transaction = Transaction::new(
-            TransactionType::Create,
-            submitter,
-            payload.as_bytes().to_vec(),
-            &keypair,
-        );
-
         let (verification_result_sender, verification_result_receiver) = oneshot::channel();
 
         let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
@@ -726,7 +665,7 @@ mod tests {
 
         let mut verification_service = VerificationService::new(build_event_client).unwrap();
         let verify_transaction_result = verification_service
-            .verify_transaction(&transaction, verification_result_sender)
+            .verify_transaction(payload.as_bytes(), verification_result_sender)
             .await;
         assert!(verify_transaction_result.is_ok());
 
