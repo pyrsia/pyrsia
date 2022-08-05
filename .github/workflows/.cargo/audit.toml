@@ -2,4 +2,4 @@
 # A good example is at https://docs.rs/crate/cargo-audit/0.10.0/source/audit.toml.example
 
 [advisories]
-ignore = [] # advisory IDs to ignore
+ignore = ["RUSTSEC-2022-0040"] # advisory IDs to ignore

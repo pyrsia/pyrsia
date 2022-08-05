@@ -53,7 +53,7 @@ cd $PYRSIA_HOME
 cargo build --workspace
 ```
 
-See the [Getting Started](../local_dev_setup.md)
+See the [Development Environment](../community/get_involved/local_dev_setup.md)
 document for more information.
 
 ## Run the Pyrsia node
@@ -119,6 +119,18 @@ The current build pipeline prototype only supports Maven builds. It takes
 the artifact mapping as input (see above), starts a Maven build and provides the
 build output as a download.
 
+Ensure that JAVA_HOME is setup correctly
+
+```sh
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_45.jdk/Contents/Home
+```
+
+and maven is available on the PATH
+
+```sh
+export PATH=path to your maven download location/apache-maven-3.8.6/bin:$PATH
+```
+
 Download or clone the [prototype repo](https://github.com/tiainen/pyrsia_build_pipeline_prototype)
 and run as follows:
 
@@ -133,6 +145,15 @@ with `--pipeline-service-endpoint` (see above).
 
 Because we will be using this prototype for building Maven artifacts, make sure
 you have installed a JDK11 and configured JAVA_HOME before running `cargo run`.
+
+You will see the following output indicating that the build pipeline is ready for use
+
+```text
+   Finished dev [unoptimized + debuginfo] target(s) in 1m 07s
+     Running `target/debug/pyrsia_build`
+ INFO  actix_server::builder > Starting 8 workers
+ INFO  actix_server::server  > Tokio runtime found; starting in existing Tokio runtime
+```
 
 ## Trigger a build from source for a given artifact
 
@@ -328,6 +349,19 @@ Create a `pom.xml` file:
             <version>1.15</version>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.10.1</version>
+                <configuration>
+                    <release>11</release>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
 ```
 
