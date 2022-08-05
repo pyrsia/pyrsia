@@ -91,9 +91,9 @@ impl Blockchain {
 
     pub fn add_payload_listener<CallBack: 'static + FnMut(&Vec<u8>)>(
         &mut self,
-        on_block: CallBack,
+        on_payload: CallBack,
     ) -> &mut Self {
-        self.payload_observers.push(Box::new(on_block));
+        self.payload_observers.push(Box::new(on_payload));
         self
     }
 
@@ -160,7 +160,6 @@ impl Blockchain {
 mod tests {
     use std::cell::Cell;
     use std::rc::Rc;
-    use std::sync::Arc;
 
     use super::*;
 
@@ -229,22 +228,15 @@ mod tests {
             Vec::new(),
             &keypair,
         );
-        let mut chain = Blockchain::new(&keypair);
-        let called = Arc::new(Cell::new(false));
+        let mut blockchain = Blockchain::new(&keypair);
+        let called = move |b: &Vec<u8>| println!("data is {:?}", b);
 
-        chain
-            .add_payload_listener({
-                let called = called.clone();
-                let data: Vec<u8> = Vec::new();
-                called.set(true);
-                move |b: &Vec<u8>| {
-                    assert_eq!(data, *b);
-                }
-            })
+        blockchain
+            .add_payload_listener(called)
             .commit_block(block)
             .await;
 
-        assert!(called.get());
+        assert_eq!(1, blockchain.payload_observers.len());
         Ok(())
     }
 
