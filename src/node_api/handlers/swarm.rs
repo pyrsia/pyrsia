@@ -28,38 +28,38 @@ pub async fn handle_build_docker(
     request_docker_build: RequestDockerBuild,
     artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> Result<impl Reply, Rejection> {
-    let build_info = artifact_service
+    let build_id = artifact_service
         .lock()
         .await
         .request_build(PackageType::Docker, request_docker_build.image)
         .await
         .map_err(RegistryError::from)?;
 
-    let build_info_as_json = serde_json::to_string(&build_info).map_err(RegistryError::from)?;
+    let build_id_as_json = serde_json::to_string(&build_id).map_err(RegistryError::from)?;
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/json")
         .status(StatusCode::OK)
-        .body(build_info_as_json))
+        .body(build_id_as_json))
 }
 
 pub async fn handle_build_maven(
     request_maven_build: RequestMavenBuild,
     artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> Result<impl Reply, Rejection> {
-    let build_info = artifact_service
+    let build_id = artifact_service
         .lock()
         .await
         .request_build(PackageType::Maven2, request_maven_build.gav)
         .await
         .map_err(RegistryError::from)?;
 
-    let build_info_as_json = serde_json::to_string(&build_info).map_err(RegistryError::from)?;
+    let build_id_as_json = serde_json::to_string(&build_id).map_err(RegistryError::from)?;
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/json")
         .status(StatusCode::OK)
-        .body(build_info_as_json))
+        .body(build_id_as_json))
 }
 
 pub async fn handle_get_peers(
