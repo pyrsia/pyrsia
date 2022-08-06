@@ -185,7 +185,24 @@ async fn handle_successful_build(
             .map_err(|e| BuildError::Failure(build_id.to_owned(), e.to_string()))?;
 
         let artifact_specific_id = match package_type {
-            PackageType::Docker => package_specific_id.to_owned(),
+            PackageType::Docker => {
+                if build_artifact_url.ends_with("/manifest") {
+                    package_specific_id.to_owned()
+                } else {
+                    let build_artifact_filename = match build_artifact_url.rfind('/') {
+                        Some(position_slash) => {
+                            String::from(&build_artifact_url[position_slash + 1..])
+                        }
+                        None => build_artifact_url,
+                    };
+                    match build_artifact_filename.rfind('.') {
+                        Some(position_dot) => {
+                            String::from(&build_artifact_filename[..position_dot])
+                        }
+                        None => build_artifact_filename,
+                    }
+                }
+            }
             PackageType::Maven2 => {
                 let prefix = package_specific_id.replace(':', "/");
                 let build_artifact_filename = match build_artifact_url.rfind('/') {

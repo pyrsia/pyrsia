@@ -32,7 +32,7 @@ pub async fn handle_build_docker(
     let build_info = build_service
         .lock()
         .await
-        .start_build(PackageType::Docker, request_docker_build.manifest)
+        .start_build(PackageType::Docker, request_docker_build.image)
         .await
         .map_err(RegistryError::from)?;
 

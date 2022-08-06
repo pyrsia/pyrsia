@@ -44,7 +44,7 @@ pub fn cli_parser() -> ArgMatches {
                         .about("Request a new build for a Docker image")
                         .arg_required_else_help(true)
                         .args(&[
-                            arg!(--manifest <MANIFEST> "The SHA256 checksum of the manifest of the image"),
+                            arg!(--image <IMAGE> "The docker image to download (e.g. alpine:3.15.3 or alpine@sha256:1e014f84205d569a5cc3be4e108ca614055f7e21d11928946113ab3f36054801"),
                         ]),
                     Command::new("maven")
                         .about("Request a new build for a maven artifact")
