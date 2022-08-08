@@ -87,6 +87,7 @@ fn get_package_specific_artifact_id(full_path: &str) -> Result<String, anyhow::E
 mod tests {
     use super::*;
     use crate::artifact_service::storage::ArtifactStorage;
+    use crate::build_service::event::BuildEventClient;
     use crate::network::client::Client;
     use crate::transparency_log::log::AddArtifactRequest;
     use crate::util::test_util;
@@ -128,8 +129,9 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
-        let mut artifact_service = ArtifactService::new(&tmp_dir, build_command_sender, p2p_client)
+        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let build_event_client = BuildEventClient::new(build_event_sender);
+        let mut artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
             .expect("Creating ArtifactService failed");
 
         artifact_service
@@ -138,6 +140,7 @@ mod tests {
                 AddArtifactRequest {
                     package_type: PackageType::Maven2,
                     package_specific_id: VALID_MAVEN_ID.to_owned(),
+                    num_artifacts: 8,
                     package_specific_artifact_id: VALID_MAVEN_ARTIFACT_ID.to_owned(),
                     artifact_hash: VALID_ARTIFACT_HASH.to_owned(),
                 },

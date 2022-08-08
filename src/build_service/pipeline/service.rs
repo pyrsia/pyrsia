@@ -40,7 +40,7 @@ impl PipelineService {
         }
     }
 
-    pub async fn start_build(&self, mapping_info: MappingInfo) -> Result<BuildInfo, BuildError> {
+    pub async fn start_build(&self, mapping_info: MappingInfo) -> Result<String, BuildError> {
         let start_build_endpoint = format!("{}/build", self.pipeline_service_endpoint);
 
         let start_build_response = self
@@ -53,7 +53,7 @@ impl PipelineService {
 
         if start_build_response.status().is_success() {
             start_build_response
-                .json::<BuildInfo>()
+                .json::<String>()
                 .await
                 .map_err(|e| BuildError::InvalidPipelineResponse(e.to_string()))
         } else {
@@ -148,10 +148,7 @@ mod tests {
             build_spec_url: None,
         };
 
-        let build_info = BuildInfo {
-            id: uuid::Uuid::new_v4().to_string(),
-            status: BuildStatus::Running,
-        };
+        let build_id = uuid::Uuid::new_v4().to_string();
 
         let http_server = Server::run();
         http_server.expect(
@@ -161,13 +158,13 @@ mod tests {
                     &mapping_info
                 ))))
             ))
-            .respond_with(responders::json_encoded(&build_info)),
+            .respond_with(responders::json_encoded(&build_id)),
         );
 
         let pipeline_service = PipelineService::new(&http_server.url("/").to_string());
 
-        let build_info_result = pipeline_service.start_build(mapping_info).await.unwrap();
-        assert_eq!(build_info_result, build_info);
+        let build_id_result = pipeline_service.start_build(mapping_info).await.unwrap();
+        assert_eq!(build_id_result, build_id);
     }
 
     #[tokio::test]
@@ -189,12 +186,13 @@ mod tests {
                     &mapping_info
                 ))))
             ))
-            .respond_with(responders::json_encoded("{}")),
+            .respond_with(responders::status_code(200).body(bytes::Bytes::from("{}"))),
         );
 
         let pipeline_service = PipelineService::new(&http_server.url("/").to_string());
 
-        pipeline_service.start_build(mapping_info).await.unwrap();
+        let a = pipeline_service.start_build(mapping_info).await.unwrap();
+        println!("ID: {:?}", a);
     }
 
     #[tokio::test]
