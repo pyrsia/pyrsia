@@ -16,6 +16,7 @@
 
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
+use crate::node_api::model::cli::Status;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
 use std::collections::HashSet;
@@ -44,6 +45,9 @@ pub enum Command {
     ListPeers {
         peer_id: PeerId,
         sender: oneshot::Sender<HashSet<PeerId>>,
+    },
+    Status {
+        sender: oneshot::Sender<Status>,
     },
     Provide {
         artifact_id: String,

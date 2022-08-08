@@ -43,6 +43,7 @@ pub fn make_maven_routes(
 mod tests {
     use super::*;
     use crate::artifact_service::model::PackageType;
+    use crate::build_service::event::BuildEventClient;
     use crate::docker::error_util::RegistryError;
     use crate::network::client::Client;
     use crate::transparency_log::log::TransparencyLogError;
@@ -61,8 +62,9 @@ mod tests {
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
-        let artifact_service = ArtifactService::new(&tmp_dir, build_command_sender, p2p_client)
+        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let build_event_client = BuildEventClient::new(build_event_sender);
+        let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
             .expect("Creating ArtifactService failed");
 
         let filter = make_maven_routes(Arc::new(Mutex::new(artifact_service)));

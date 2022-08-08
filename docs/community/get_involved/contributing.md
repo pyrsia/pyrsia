@@ -12,7 +12,7 @@ If your organization would like to become a contributing organization, please ha
 
 ## Read the Code of Conduct
 
-Please make sure to read and observe the [Code of Conduct and Community Values](code-of-conduct.md).
+Please make sure to read and observe the [Code of Conduct and Community Values](../code-of-conduct.md).
 
 ## Understand PRs
 
