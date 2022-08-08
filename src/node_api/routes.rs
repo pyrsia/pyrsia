@@ -222,7 +222,16 @@ mod tests {
                         set.insert(local_peer_id);
                         let _ = sender.send(set);
                     }
-                    _ => panic!("Command must match Command::ListPeers"),
+                    Some(Command::Status { sender, .. }) => {
+                        let status = Status {
+                            peers_count: 0,
+                            peer_addrs: Vec::new(),
+                            peer_id: local_peer_id.to_string(),
+                        };
+
+                        let _ = sender.send(status);
+                    }
+                    _ => panic!("Command must match Command::ListPeers or Command::Status"),
                 }
             }
         });
@@ -236,8 +245,9 @@ mod tests {
         let response = warp::test::request().path("/status").reply(&filter).await;
 
         let expected_status = Status {
-            peers_count: 1,
+            peers_count: 0,
             peer_id: local_peer_id.to_string(),
+            peer_addrs: Vec::new(),
         };
 
         let expected_body = bytes::Bytes::from(serde_json::to_string(&expected_status).unwrap());

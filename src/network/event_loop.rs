@@ -19,6 +19,8 @@ use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::blockchain_protocol::{BlockUpdateRequest, BlockUpdateResponse};
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
+use crate::node_api::model::cli::Status;
+use crate::util::env_util::read_var;
 use libp2p::core::PeerId;
 use libp2p::futures::StreamExt;
 use libp2p::identify::IdentifyEvent;
@@ -386,6 +388,44 @@ impl PyrsiaEventLoop {
                     .kademlia
                     .get_closest_peers(peer_id);
                 self.pending_list_peers.insert(query_id, sender);
+            }
+            Command::Status { sender } => {
+                let swarm = &self.swarm;
+                let local_peer_id = *swarm.local_peer_id();
+                let local_peer = Protocol::P2p(local_peer_id.into());
+
+                let externalip = read_var("PYRSIA_EXTERNAL_IP", "");
+
+                let mut addr_map = HashSet::new();
+
+                for addr in swarm.listeners() {
+                    if !externalip.is_empty() {
+                        match externalip.parse() {
+                            Ok(ipv4_addr) => {
+                                let new_addr =
+                                    addr.replace(0, |_| Some(Protocol::Ip4(ipv4_addr))).unwrap();
+                                addr_map.insert(format!("{}{}", new_addr, local_peer));
+                            }
+                            Err(err) => {
+                                // don't map external ip, skip mapping and display error
+                                addr_map.insert(format!("{}{}", addr, local_peer));
+                                info!("Ipv4Addr parse error of {}: {}", externalip, err);
+                            }
+                        }
+                    } else {
+                        addr_map.insert(format!("{}{}", addr, local_peer));
+                    }
+                }
+
+                let peer_addrs = addr_map.into_iter().collect::<Vec<_>>();
+
+                let status = Status {
+                    peers_count: swarm.connected_peers().count(),
+                    peer_id: local_peer_id.to_string(),
+                    peer_addrs,
+                };
+
+                sender.send(status).unwrap();
             }
             Command::Provide {
                 artifact_id,

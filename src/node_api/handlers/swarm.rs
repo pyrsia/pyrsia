@@ -17,7 +17,7 @@
 use crate::artifact_service::model::PackageType;
 use crate::artifact_service::service::ArtifactService;
 use crate::docker::error_util::RegistryError;
-use crate::node_api::model::cli::{RequestDockerBuild, RequestMavenBuild, Status};
+use crate::node_api::model::cli::{RequestDockerBuild, RequestMavenBuild};
 
 use log::debug;
 use std::sync::Arc;
@@ -88,16 +88,12 @@ pub async fn handle_get_status(
     artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> Result<impl Reply, Rejection> {
     let mut artifact_service = artifact_service.lock().await;
-    let peers = artifact_service
+
+    let status = artifact_service
         .p2p_client
-        .list_peers()
+        .status()
         .await
         .map_err(RegistryError::from)?;
-
-    let status = Status {
-        peers_count: peers.len(),
-        peer_id: artifact_service.p2p_client.local_peer_id.to_string(),
-    };
 
     let status_as_json = serde_json::to_string(&status).unwrap();
 

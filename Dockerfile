@@ -1,11 +1,12 @@
 # syntax=docker/dockerfile:1.3-labs
 
-FROM rust:1.57-buster AS builder
+FROM rust:1.62-buster AS builder
 ENV CARGO_TARGET_DIR=/target
 WORKDIR /src
 RUN apt-get update && apt-get install -y \
     clang \
-    libclang-dev
+    libclang-dev \
+    cmake
 
 FROM builder AS debug
 COPY . .
@@ -33,13 +34,23 @@ RUN --mount=target=/src \
     cargo build --profile=release --package=pyrsia_node && cp /target/release/pyrsia_node /out/
 
 FROM debian:buster-slim AS node
-ENTRYPOINT ["pyrsia_node"]
+
 ENV RUST_LOG=info
 RUN <<EOT bash
     set -e
     apt-get update
     apt-get install -y \
-        ca-certificates
+        ca-certificates jq curl
     rm -rf /var/lib/apt/lists/*
 EOT
-COPY --from=dbuild /out/pyrsia_node /usr/local/bin/
+COPY --from=dbuild /out/pyrsia_node /usr/bin/
+
+COPY installers/docker/node-entrypoint.sh /tmp/entrypoint.sh
+RUN chmod 755 /tmp/entrypoint.sh; mkdir -p /usr/local/var/pyrsia
+
+WORKDIR /usr/local/var
+
+ENV PYRSIA_ARTIFACT_PATH /usr/local/var/pyrsia
+ENV RUST_LOG debug
+
+ENTRYPOINT [ "/tmp/entrypoint.sh", "--host", "0.0.0.0", "--listen", "/ip4/0.0.0.0/tcp/44000" ]
