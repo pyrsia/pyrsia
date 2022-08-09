@@ -31,7 +31,7 @@ use libp2p::request_response::{
 };
 use libp2p::swarm::SwarmEvent;
 use libp2p::Swarm;
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::error::Error;
 use tokio::sync::{mpsc, oneshot};
@@ -138,11 +138,14 @@ impl PyrsiaEventLoop {
                 result: QueryResult::GetClosestPeers(Ok(GetClosestPeersOk { key: _key, peers })),
                 ..
             } => {
-                let _ = self
-                    .pending_list_peers
+                self.pending_list_peers
                     .remove(&id)
                     .expect("Completed query to be previously pending.")
-                    .send(HashSet::from_iter(peers));
+                    .send(HashSet::from_iter(peers))
+                    .unwrap_or_else(|_e| {
+                        let err_msg = "error at sender.send";
+                        error!("{}", err_msg);
+                    });
             }
             KademliaEvent::OutboundQueryCompleted {
                 id,
@@ -153,7 +156,11 @@ impl PyrsiaEventLoop {
                     .pending_start_providing
                     .remove(&id)
                     .expect("Completed query to be previously pending.");
-                let _ = sender.send(());
+
+                sender.send(()).unwrap_or_else(|_e| {
+                    let err_msg = "error at sender.send";
+                    error!("{}", err_msg);
+                });
             }
             KademliaEvent::OutboundQueryCompleted {
                 id,
@@ -165,11 +172,14 @@ impl PyrsiaEventLoop {
                     })),
                 ..
             } => {
-                let _ = self
-                    .pending_list_providers
+                self.pending_list_providers
                     .remove(&id)
                     .expect("Completed query to be previously pending.")
-                    .send(providers);
+                    .send(providers)
+                    .unwrap_or_else(|_e| {
+                        let err_msg = "error at sender.send";
+                        error!("{}", err_msg);
+                    });
             }
             _ => {}
         }
@@ -199,22 +209,28 @@ impl PyrsiaEventLoop {
                     request_id,
                     response,
                 } => {
-                    let _ = self
-                        .pending_request_artifact
+                    self.pending_request_artifact
                         .remove(&request_id)
                         .expect("Request to still be pending.")
-                        .send(Ok(response.0));
+                        .send(Ok(response.0))
+                        .unwrap_or_else(|_e| {
+                            let err_msg = "error at sender.send";
+                            error!("{}", err_msg);
+                        });
                 }
             },
             RequestResponseEvent::InboundFailure { .. } => {}
             RequestResponseEvent::OutboundFailure {
                 request_id, error, ..
             } => {
-                let _ = self
-                    .pending_request_artifact
+                self.pending_request_artifact
                     .remove(&request_id)
                     .expect("Request to still be pending.")
-                    .send(Err(error.into()));
+                    .send(Err(error.into()))
+                    .unwrap_or_else(|_e| {
+                        let err_msg = "error at sender.send";
+                        error!("{}", err_msg);
+                    });
             }
             RequestResponseEvent::ResponseSent { .. } => {}
         }
@@ -239,22 +255,28 @@ impl PyrsiaEventLoop {
                     request_id,
                     response,
                 } => {
-                    let _ = self
-                        .pending_idle_metric_requests
+                    self.pending_idle_metric_requests
                         .remove(&request_id)
                         .expect("Request to still be pending.")
-                        .send(Ok(response.0));
+                        .send(Ok(response.0))
+                        .unwrap_or_else(|_e| {
+                            let err_msg = "error at sender.send";
+                            error!("{}", err_msg);
+                        });
                 }
             },
             RequestResponseEvent::InboundFailure { .. } => {}
             RequestResponseEvent::OutboundFailure {
                 request_id, error, ..
             } => {
-                let _ = self
-                    .pending_idle_metric_requests
+                self.pending_idle_metric_requests
                     .remove(&request_id)
                     .expect("Request to still be pending.")
-                    .send(Err(error.into()));
+                    .send(Err(error.into()))
+                    .unwrap_or_else(|_e| {
+                        let err_msg = "error at sender.send";
+                        error!("{}", err_msg);
+                    });
             }
             RequestResponseEvent::ResponseSent { .. } => {}
         }
@@ -285,8 +307,7 @@ impl PyrsiaEventLoop {
                     request_id,
                     response: _,
                 } => {
-                    let _ = self
-                        .pending_block_update_requests
+                    self.pending_block_update_requests
                         .remove(&request_id)
                         .expect("Request to still be pending.");
                 }
@@ -295,11 +316,14 @@ impl PyrsiaEventLoop {
             RequestResponseEvent::OutboundFailure {
                 request_id, error, ..
             } => {
-                let _ = self
-                    .pending_block_update_requests
+                self.pending_block_update_requests
                     .remove(&request_id)
                     .expect("Request to still be pending.")
-                    .send(Err(From::from(error)));
+                    .send(Err(From::from(error)))
+                    .unwrap_or_else(|_e| {
+                        let err_msg = "error at sender.send";
+                        error!("{}", err_msg);
+                    });
             }
             RequestResponseEvent::ResponseSent { .. } => {}
         }
@@ -324,7 +348,10 @@ impl PyrsiaEventLoop {
             } => {
                 if endpoint.is_dialer() {
                     if let Some(sender) = self.pending_dial.remove(&peer_id) {
-                        let _ = sender.send(Ok(()));
+                        sender.send(Ok(())).unwrap_or_else(|_e| {
+                            let err_msg = "error at sender.send";
+                            error!("{}", err_msg);
+                        });
                     }
                 }
             }
@@ -332,7 +359,10 @@ impl PyrsiaEventLoop {
             SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
                 if let Some(peer_id) = peer_id {
                     if let Some(sender) = self.pending_dial.remove(&peer_id) {
-                        let _ = sender.send(Err(error.into()));
+                        sender.send(Err(error.into())).unwrap_or_else(|_e| {
+                            let err_msg = "error at sender.send";
+                            error!("{}", err_msg);
+                        });
                     }
                 }
             }
@@ -357,10 +387,14 @@ impl PyrsiaEventLoop {
         trace!("Handle Command: {}", command);
         match command {
             Command::Listen { addr, sender } => {
-                let _ = match self.swarm.listen_on(addr) {
+                match self.swarm.listen_on(addr) {
                     Ok(_) => sender.send(Ok(())),
                     Err(e) => sender.send(Err(e.into())),
-                };
+                }
+                .unwrap_or_else(|_e| {
+                    let err_msg = "error at sender.send";
+                    error!("{}", err_msg);
+                });
             }
             Command::Dial {
                 peer_id,
@@ -376,7 +410,10 @@ impl PyrsiaEventLoop {
                             self.pending_dial.insert(peer_id, sender);
                         }
                         Err(e) => {
-                            let _ = sender.send(Err(e.into()));
+                            sender.send(Err(e.into())).unwrap_or_else(|_e| {
+                                let err_msg = "error at sender.send";
+                                error!("{}", err_msg);
+                            });
                         }
                     }
                 }
@@ -559,7 +596,7 @@ mod tests {
             .upgrade(upgrade::Version::V1)
             .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
             .multiplex(YamuxConfig::default())
-            .timeout(std::time::Duration::from_secs(20))
+            .timeout(Duration::from_secs(20))
             .boxed();
 
         let behaviour = PyrsiaNetworkBehaviour {
