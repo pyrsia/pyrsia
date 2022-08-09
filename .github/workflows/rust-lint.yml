@@ -3,6 +3,7 @@ on:
   pull_request:
     paths: # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint-skipped.yml#L8
       - .github/workflows/rust-lint.yml
+      - .github/workflows/.cargo/audit.toml
       - '**/*.rs'
       - '**/Cargo.toml'
       - Cargo.lock
@@ -13,6 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: mkdir -p $HOME/.cargo
+      - run: rustup update && cargo --version
       - run: cp .github/workflows/.cargo/audit.toml $HOME/.cargo
       - uses: actions-rs/audit-check@v1
         with:

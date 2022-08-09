@@ -77,15 +77,16 @@ pub enum Operation {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TransparencyLog {
     id: String,
-    package_type: PackageType,
-    package_specific_id: String,
+    pub package_type: PackageType,
+    pub package_specific_id: String,
+    pub num_artifacts: u32,
     pub package_specific_artifact_id: String,
     pub artifact_hash: String,
     source_hash: String,
     pub artifact_id: String,
     source_id: String,
     timestamp: u64,
-    operation: Operation,
+    pub operation: Operation,
     node_id: String,
     node_public_key: String,
 }
@@ -94,6 +95,7 @@ pub struct TransparencyLog {
 pub struct AddArtifactRequest {
     pub package_type: PackageType,
     pub package_specific_id: String,
+    pub num_artifacts: u32,
     pub package_specific_artifact_id: String,
     pub artifact_hash: String,
 }
@@ -144,6 +146,7 @@ impl TransparencyLogService {
             id: Uuid::new_v4().to_string(),
             package_type: add_artifact_request.package_type,
             package_specific_id: add_artifact_request.package_specific_id.clone(),
+            num_artifacts: add_artifact_request.num_artifacts,
             package_specific_artifact_id: add_artifact_request.package_specific_artifact_id.clone(),
             artifact_hash: add_artifact_request.artifact_hash,
             source_hash: "".to_owned(),
@@ -213,6 +216,7 @@ impl TransparencyLogService {
                 id TEXT PRIMARY KEY,
                 package_type TEXT NOT NULL,
                 package_specific_id TEXT NOT NULL,
+                num_artifacts INTEGER,
                 package_specific_artifact_id TEXT NOT NULL,
                 artifact_hash TEXT NOT NULL,
                 source_hash TEXT,
@@ -240,11 +244,12 @@ impl TransparencyLogService {
         let conn = self.open_db()?;
 
         match conn.execute(
-            "INSERT INTO TRANSPARENCYLOG (id, package_type, package_specific_id, package_specific_artifact_id, artifact_hash, source_hash, artifact_id, source_id, timestamp, operation, node_id, node_public_key) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            "INSERT INTO TRANSPARENCYLOG (id, package_type, package_specific_id, num_artifacts, package_specific_artifact_id, artifact_hash, source_hash, artifact_id, source_id, timestamp, operation, node_id, node_public_key) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             [
                 transparency_log.id.to_string(),
                 transparency_log.package_type.to_string(),
                 transparency_log.package_specific_id.clone(),
+                transparency_log.num_artifacts.to_string(),
                 transparency_log.package_specific_artifact_id.clone(),
                 transparency_log.artifact_hash.to_string(),
                 transparency_log.source_hash.to_string(),
@@ -291,18 +296,19 @@ impl TransparencyLogService {
                         PackageType::from_str(&pt).unwrap()
                     },
                     package_specific_id: row.get(2)?,
-                    package_specific_artifact_id: row.get(3)?,
-                    artifact_hash: row.get(4)?,
-                    source_hash: row.get(5)?,
-                    artifact_id: row.get(6)?,
-                    source_id: row.get(7)?,
-                    timestamp: row.get(8)?,
+                    num_artifacts: row.get(3)?,
+                    package_specific_artifact_id: row.get(4)?,
+                    artifact_hash: row.get(5)?,
+                    source_hash: row.get(6)?,
+                    artifact_id: row.get(7)?,
+                    source_id: row.get(8)?,
+                    timestamp: row.get(9)?,
                     operation: {
-                        let op: String = row.get(9)?;
+                        let op: String = row.get(10)?;
                         Operation::from_str(&op).unwrap()
                     },
-                    node_id: row.get(10)?,
-                    node_public_key: row.get(11)?,
+                    node_id: row.get(11)?,
+                    node_public_key: row.get(12)?,
                 })
             },
         )?;
@@ -353,18 +359,19 @@ impl TransparencyLogService {
                         PackageType::from_str(&pt).unwrap()
                     },
                     package_specific_id: row.get(2)?,
-                    package_specific_artifact_id: row.get(3)?,
-                    artifact_hash: row.get(4)?,
-                    source_hash: row.get(5)?,
-                    artifact_id: row.get(6)?,
-                    source_id: row.get(7)?,
-                    timestamp: row.get(8)?,
+                    num_artifacts: row.get(3)?,
+                    package_specific_artifact_id: row.get(4)?,
+                    artifact_hash: row.get(5)?,
+                    source_hash: row.get(6)?,
+                    artifact_id: row.get(7)?,
+                    source_id: row.get(8)?,
+                    timestamp: row.get(9)?,
                     operation: {
-                        let op: String = row.get(9)?;
+                        let op: String = row.get(10)?;
                         Operation::from_str(&op).unwrap()
                     },
-                    node_id: row.get(10)?,
-                    node_public_key: row.get(11)?,
+                    node_id: row.get(11)?,
+                    node_public_key: row.get(12)?,
                 })
             },
         )?;
@@ -397,6 +404,7 @@ mod tests {
         let id = "id";
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
+        let num_artifacts = 10;
         let package_specific_artifact_id = "package_specific_artifact_id";
         let artifact_hash = "artifact_hash";
         let source_hash = "source_hash";
@@ -410,6 +418,7 @@ mod tests {
             id: id.to_string(),
             package_type,
             package_specific_id: package_specific_id.to_string(),
+            num_artifacts,
             package_specific_artifact_id: package_specific_artifact_id.to_owned(),
             artifact_hash: artifact_hash.to_owned(),
             source_hash: source_hash.to_owned(),
@@ -424,6 +433,7 @@ mod tests {
         assert_eq!(transparency_log.id, id);
         assert_eq!(transparency_log.package_type, package_type);
         assert_eq!(transparency_log.package_specific_id, package_specific_id);
+        assert_eq!(transparency_log.num_artifacts, num_artifacts);
         assert_eq!(
             transparency_log.package_specific_artifact_id,
             package_specific_artifact_id
@@ -465,6 +475,7 @@ mod tests {
             id: String::from("id"),
             package_type: PackageType::Maven2,
             package_specific_id: String::from("package_specific_id"),
+            num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
             artifact_hash: String::from("artifact_hash"),
             source_hash: String::from("source_hash"),
@@ -492,6 +503,7 @@ mod tests {
             id: String::from("id"),
             package_type: PackageType::Maven2,
             package_specific_id: String::from("package_specific_id"),
+            num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
             artifact_hash: String::from("artifact_hash"),
             source_hash: String::from("source_hash"),
@@ -521,6 +533,7 @@ mod tests {
             id: String::from("id"),
             package_type: PackageType::Maven2,
             package_specific_id: String::from("package_specific_id"),
+            num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
             artifact_hash: String::from("artifact_hash"),
             source_hash: String::from("source_hash"),
@@ -552,6 +565,7 @@ mod tests {
             id: String::from("id"),
             package_type: PackageType::Maven2,
             package_specific_id: String::from("package_specific_id"),
+            num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
             artifact_hash: String::from("artifact_hash"),
             source_hash: String::from("source_hash"),
@@ -591,6 +605,7 @@ mod tests {
             id: String::from("id1"),
             package_type: PackageType::Maven2,
             package_specific_id: String::from("package_specific_id"),
+            num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
             artifact_hash: String::from("artifact_hash1"),
             source_hash: String::from("source_hash1"),
@@ -609,6 +624,7 @@ mod tests {
             id: String::from("id2"),
             package_type: PackageType::Maven2,
             package_specific_id: String::from("package_specific_id2"),
+            num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id2"),
             artifact_hash: String::from("artifact_hash2"),
             source_hash: String::from("source_hash2"),
@@ -640,6 +656,7 @@ mod tests {
             id: String::from("id"),
             package_type: PackageType::Maven2,
             package_specific_id: String::from("package_specific_id"),
+            num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
             artifact_hash: String::from("artifact_hash"),
             source_hash: String::from("source_hash"),
@@ -682,6 +699,7 @@ mod tests {
                 AddArtifactRequest {
                     package_type: PackageType::Docker,
                     package_specific_id: "package_specific_id".to_owned(),
+                    num_artifacts: 8,
                     package_specific_artifact_id: "package_specific_artifact_id".to_owned(),
                     artifact_hash: "artifact_hash".to_owned(),
                 },
@@ -716,6 +734,7 @@ mod tests {
             id: String::from("id"),
             package_type: PackageType::Maven2,
             package_specific_id: String::from("package_specific_id"),
+            num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
             artifact_hash: String::from("artifact_hash"),
             source_hash: String::from("source_hash"),
@@ -749,6 +768,7 @@ mod tests {
             id: String::from("id1"),
             package_type: PackageType::Maven2,
             package_specific_id: String::from("package_specific_id1"),
+            num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id1"),
             artifact_hash: String::from("artifact_hash1"),
             source_hash: String::from("source_hash1"),
@@ -767,6 +787,7 @@ mod tests {
             id: String::from("id2"),
             package_type: PackageType::Maven2,
             package_specific_id: String::from("package_specific_id2"),
+            num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id2"),
             artifact_hash: String::from("artifact_hash2"),
             source_hash: String::from("source_hash2"),
@@ -785,6 +806,7 @@ mod tests {
             id: String::from("id3"),
             package_type: PackageType::Maven2,
             package_specific_id: String::from("package_specific_id3"),
+            num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id3"),
             artifact_hash: String::from("artifact_hash3"),
             source_hash: String::from("source_hash3"),
