@@ -21,6 +21,8 @@ use serde::{Deserialize, Serialize};
     Copy,
     Debug,
     Deserialize,
+    Eq,
+    Hash,
     PartialEq,
     Serialize,
     strum_macros::Display,

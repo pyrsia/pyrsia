@@ -17,24 +17,21 @@
 use super::handlers::swarm::*;
 use super::model::cli::{RequestDockerBuild, RequestMavenBuild};
 use crate::artifact_service::service::ArtifactService;
-use crate::build_service::service::BuildService;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use warp::Filter;
 
 pub fn make_node_routes(
     artifact_service: Arc<Mutex<ArtifactService>>,
-    build_service: Arc<Mutex<BuildService>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let artifact_service_filter = warp::any().map(move || artifact_service.clone());
-    let build_service_filter = warp::any().map(move || build_service.clone());
 
     let build_docker = warp::path!("build" / "docker")
         .and(warp::post())
         .and(warp::path::end())
         .and(warp::body::content_length_limit(1024 * 8))
         .and(warp::body::json::<RequestDockerBuild>())
-        .and(build_service_filter.clone())
+        .and(artifact_service_filter.clone())
         .and_then(handle_build_docker);
 
     let build_maven = warp::path!("build" / "maven")
@@ -42,7 +39,7 @@ pub fn make_node_routes(
         .and(warp::path::end())
         .and(warp::body::content_length_limit(1024 * 8))
         .and(warp::body::json::<RequestMavenBuild>())
-        .and(build_service_filter)
+        .and(artifact_service_filter.clone())
         .and_then(handle_build_maven);
 
     let peers = warp::path!("peers")
@@ -63,15 +60,11 @@ pub fn make_node_routes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artifact_service::model::PackageType;
-    use crate::build_service::mapping::model::{MappingInfo, SourceRepository};
-    use crate::build_service::model::{BuildInfo, BuildStatus};
-    use crate::build_service::service::BuildService;
+    use crate::build_service::event::{BuildEvent, BuildEventClient};
     use crate::network::client::command::Command;
     use crate::network::client::Client;
     use crate::node_api::model::cli::Status;
     use crate::util::test_util;
-    use httptest::{matchers, responders, Expectation, Server};
     use libp2p::identity::Keypair;
     use std::collections::HashSet;
     use std::str;
@@ -81,54 +74,30 @@ mod tests {
     async fn node_routes_build_docker() {
         let tmp_dir = test_util::tests::setup();
 
-        let mapping_info = MappingInfo {
-            package_type: PackageType::Docker,
-            package_specific_id: "alpine:3.15.2".to_owned(),
-            source_repository: None,
-            build_spec_url: None,
-        };
-
-        let build_info = BuildInfo {
-            id: uuid::Uuid::new_v4().to_string(),
-            status: BuildStatus::Running,
-        };
-
-        let http_server = Server::run();
-        http_server.expect(
-            Expectation::matching(matchers::all_of!(
-                matchers::request::method_path("PUT", "/build"),
-                matchers::request::body(matchers::json_decoded(matchers::eq(serde_json::json!(
-                    &mapping_info
-                ))))
-            ))
-            .respond_with(responders::json_encoded(&build_info)),
-        );
-
-        let http_server_url = &http_server.url_str("/");
-
         let (command_sender, _command_receiver) = mpsc::channel(1);
         let p2p_client = Client {
             sender: command_sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
-        let artifact_service =
-            ArtifactService::new(&tmp_dir, build_command_sender.clone(), p2p_client)
-                .expect("Creating ArtifactService failed");
+        let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
+        let build_event_client = BuildEventClient::new(build_event_sender);
+        let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
+            .expect("Creating ArtifactService failed");
 
-        let build_service = BuildService::new(
-            &tmp_dir,
-            build_command_sender,
-            http_server_url,
-            http_server_url,
-        )
-        .expect("Creating BuildService failed");
+        let build_id = uuid::Uuid::new_v4();
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::Start { sender, .. }) => {
+                        let _ = sender.send(Ok(build_id.to_string()));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::Start"),
+                }
+            }
+        });
 
-        let filter = make_node_routes(
-            Arc::new(Mutex::new(artifact_service)),
-            Arc::new(Mutex::new(build_service)),
-        );
+        let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let request = RequestDockerBuild {
             image: "alpine:3.15.2".to_owned(),
         };
@@ -141,8 +110,8 @@ mod tests {
 
         assert_eq!(response.status(), 200);
 
-        let build_info: BuildInfo = serde_json::from_slice(response.body()).unwrap();
-        assert_eq!(build_info.status, BuildStatus::Running);
+        let build_id_result: String = serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(build_id_result, build_id.to_string());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -151,64 +120,30 @@ mod tests {
     async fn node_routes_build_maven() {
         let tmp_dir = test_util::tests::setup();
 
-        let mapping_info = MappingInfo {
-            package_type: PackageType::Maven2,
-            package_specific_id: "commons-codec:commons-codec:1.15".to_owned(),
-            source_repository: Some(SourceRepository::Git {
-                url: "https://github.com/apache/commons-codec".to_owned(),
-                tag: "rel/commons-codec-1.15".to_owned()
-            }),
-            build_spec_url: Some("https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.buildspec".to_owned()),
-        };
-
-        let build_info = BuildInfo {
-            id: uuid::Uuid::new_v4().to_string(),
-            status: BuildStatus::Running,
-        };
-
-        let http_server = Server::run();
-        http_server.expect(
-            Expectation::matching(matchers::request::method_path(
-                "GET",
-                "/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.mapping",
-            ))
-            .respond_with(responders::json_encoded(&mapping_info)),
-        );
-        http_server.expect(
-            Expectation::matching(matchers::all_of!(
-                matchers::request::method_path("PUT", "/build"),
-                matchers::request::body(matchers::json_decoded(matchers::eq(serde_json::json!(
-                    &mapping_info
-                ))))
-            ))
-            .respond_with(responders::json_encoded(&build_info)),
-        );
-
-        let http_server_url = &http_server.url_str("/");
-
         let (command_sender, _command_receiver) = mpsc::channel(1);
         let p2p_client = Client {
             sender: command_sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
         };
 
-        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
-        let artifact_service =
-            ArtifactService::new(&tmp_dir, build_command_sender.clone(), p2p_client)
-                .expect("Creating ArtifactService failed");
+        let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
+        let build_event_client = BuildEventClient::new(build_event_sender);
+        let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
+            .expect("Creating ArtifactService failed");
 
-        let build_service = BuildService::new(
-            &tmp_dir,
-            build_command_sender,
-            http_server_url,
-            http_server_url,
-        )
-        .expect("Creating BuildService failed");
+        let build_id = uuid::Uuid::new_v4();
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::Start { sender, .. }) => {
+                        let _ = sender.send(Ok(build_id.to_string()));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::Start"),
+                }
+            }
+        });
 
-        let filter = make_node_routes(
-            Arc::new(Mutex::new(artifact_service)),
-            Arc::new(Mutex::new(build_service)),
-        );
+        let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let request = RequestMavenBuild {
             gav: "commons-codec:commons-codec:1.15".to_owned(),
         };
@@ -221,8 +156,8 @@ mod tests {
 
         assert_eq!(response.status(), 200);
 
-        let build_info: BuildInfo = serde_json::from_slice(response.body()).unwrap();
-        assert_eq!(build_info.status, BuildStatus::Running);
+        let build_id_result: String = serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(build_id_result, build_id.to_string());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -251,18 +186,12 @@ mod tests {
             }
         });
 
-        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
-        let artifact_service =
-            ArtifactService::new(&tmp_dir, build_command_sender.clone(), p2p_client)
-                .expect("Creating ArtifactService failed");
+        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let build_event_client = BuildEventClient::new(build_event_sender);
+        let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
+            .expect("Creating ArtifactService failed");
 
-        let build_service = BuildService::new(&tmp_dir, build_command_sender, "", "")
-            .expect("Creating BuildService failed");
-
-        let filter = make_node_routes(
-            Arc::new(Mutex::new(artifact_service)),
-            Arc::new(Mutex::new(build_service)),
-        );
+        let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let response = warp::test::request().path("/peers").reply(&filter).await;
 
         let expected_body =
@@ -293,28 +222,32 @@ mod tests {
                         set.insert(local_peer_id);
                         let _ = sender.send(set);
                     }
-                    _ => panic!("Command must match Command::ListPeers"),
+                    Some(Command::Status { sender, .. }) => {
+                        let status = Status {
+                            peers_count: 0,
+                            peer_addrs: Vec::new(),
+                            peer_id: local_peer_id.to_string(),
+                        };
+
+                        let _ = sender.send(status);
+                    }
+                    _ => panic!("Command must match Command::ListPeers or Command::Status"),
                 }
             }
         });
 
-        let (build_command_sender, _build_command_receiver) = mpsc::channel(1);
-        let artifact_service =
-            ArtifactService::new(&tmp_dir, build_command_sender.clone(), p2p_client)
-                .expect("Creating ArtifactService failed");
+        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let build_event_client = BuildEventClient::new(build_event_sender);
+        let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
+            .expect("Creating ArtifactService failed");
 
-        let build_service = BuildService::new(&tmp_dir, build_command_sender, "", "")
-            .expect("Creating BuildService failed");
-
-        let filter = make_node_routes(
-            Arc::new(Mutex::new(artifact_service)),
-            Arc::new(Mutex::new(build_service)),
-        );
+        let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let response = warp::test::request().path("/status").reply(&filter).await;
 
         let expected_status = Status {
-            peers_count: 1,
+            peers_count: 0,
             peer_id: local_peer_id.to_string(),
+            peer_addrs: Vec::new(),
         };
 
         let expected_body = bytes::Bytes::from(serde_json::to_string(&expected_status).unwrap());

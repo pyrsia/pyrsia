@@ -16,9 +16,8 @@
 
 use crate::artifact_service::model::PackageType;
 use crate::artifact_service::service::ArtifactService;
-use crate::build_service::service::BuildService;
 use crate::docker::error_util::RegistryError;
-use crate::node_api::model::cli::{RequestDockerBuild, RequestMavenBuild, Status};
+use crate::node_api::model::cli::{RequestDockerBuild, RequestMavenBuild};
 
 use log::debug;
 use std::sync::Arc;
@@ -27,40 +26,40 @@ use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_build_docker(
     request_docker_build: RequestDockerBuild,
-    build_service: Arc<Mutex<BuildService>>,
+    artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> Result<impl Reply, Rejection> {
-    let build_info = build_service
+    let build_id = artifact_service
         .lock()
         .await
-        .start_build(PackageType::Docker, request_docker_build.image)
+        .request_build(PackageType::Docker, request_docker_build.image)
         .await
         .map_err(RegistryError::from)?;
 
-    let build_info_as_json = serde_json::to_string(&build_info).map_err(RegistryError::from)?;
+    let build_id_as_json = serde_json::to_string(&build_id).map_err(RegistryError::from)?;
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/json")
         .status(StatusCode::OK)
-        .body(build_info_as_json))
+        .body(build_id_as_json))
 }
 
 pub async fn handle_build_maven(
     request_maven_build: RequestMavenBuild,
-    build_service: Arc<Mutex<BuildService>>,
+    artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> Result<impl Reply, Rejection> {
-    let build_info = build_service
+    let build_id = artifact_service
         .lock()
         .await
-        .start_build(PackageType::Maven2, request_maven_build.gav)
+        .request_build(PackageType::Maven2, request_maven_build.gav)
         .await
         .map_err(RegistryError::from)?;
 
-    let build_info_as_json = serde_json::to_string(&build_info).map_err(RegistryError::from)?;
+    let build_id_as_json = serde_json::to_string(&build_id).map_err(RegistryError::from)?;
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/json")
         .status(StatusCode::OK)
-        .body(build_info_as_json))
+        .body(build_id_as_json))
 }
 
 pub async fn handle_get_peers(
@@ -89,16 +88,12 @@ pub async fn handle_get_status(
     artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> Result<impl Reply, Rejection> {
     let mut artifact_service = artifact_service.lock().await;
-    let peers = artifact_service
+
+    let status = artifact_service
         .p2p_client
-        .list_peers()
+        .status()
         .await
         .map_err(RegistryError::from)?;
-
-    let status = Status {
-        peers_count: peers.len(),
-        peer_id: artifact_service.p2p_client.local_peer_id.to_string(),
-    };
 
     let status_as_json = serde_json::to_string(&status).unwrap();
 
