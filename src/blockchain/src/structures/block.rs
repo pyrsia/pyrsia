@@ -39,7 +39,7 @@ pub struct Block {
     pub header: Header,
     // TODO(fishseabowl): Should be a Merkle Tree to speed up validation with root hash
     pub transactions: Vec<Transaction>,
-    signature: BlockSignature,
+    block_signature: BlockSignature,
 }
 
 impl Block {
@@ -59,7 +59,7 @@ impl Block {
         Self {
             header,
             transactions,
-            signature: BlockSignature {
+            block_signature: BlockSignature {
                 signature: Signature::new(
                     &bincode::serialize(&header.hash()).unwrap(),
                     signing_key,
@@ -70,7 +70,7 @@ impl Block {
     }
 
     pub fn signature(&self) -> BlockSignature {
-        self.signature.clone()
+        self.block_signature.clone()
     }
 
     pub fn verify(&self) -> bool {
