@@ -42,6 +42,8 @@ use libp2p::{
     },
     swarm::{NetworkBehaviourEventProcess, SwarmBuilder},
     NetworkBehaviour, PeerId, Swarm, Transport,
+    // NOTE: `TokioTcpTransport` is available through the `tcp-tokio` feature.
+    // tcp::{GenTcpConfig, TokioTcpTransport},
 };
 use log::{debug, info, trace, warn};
 use std::{collections::HashMap, error::Error, io, iter, time::Duration};
