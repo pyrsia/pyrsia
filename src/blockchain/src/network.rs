@@ -35,13 +35,17 @@ use libp2p::{
     core::upgrade,
     identity,
     mdns::{Mdns, MdnsEvent},
-    mplex, noise,
+    mplex,
+    noise,
     request_response::{
         ProtocolSupport, RequestResponse, RequestResponseCodec, RequestResponseConfig,
         RequestResponseEvent, RequestResponseMessage,
     },
     swarm::{NetworkBehaviourEventProcess, SwarmBuilder},
-    NetworkBehaviour, PeerId, Swarm, Transport,
+    NetworkBehaviour,
+    PeerId,
+    Swarm,
+    Transport,
     // NOTE: `TokioTcpTransport` is available through the `tcp-tokio` feature.
     // tcp::{GenTcpConfig, TokioTcpTransport},
 };
