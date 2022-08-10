@@ -183,10 +183,18 @@ impl BuildService {
             let (artifact_location, artifact_hash) = hash_and_store_data(build_path, &artifact)
                 .map_err(|e| BuildError::Failure(build_id.to_owned(), e.to_string()))?;
 
-            let artifact_specific_id = match package_type {
+            let artifact_specific_ids = match package_type {
                 PackageType::Docker => {
                     if artifact_url.ends_with("/manifest") {
-                        package_specific_id.to_owned()
+                        if package_specific_id.contains('@') {
+                            vec![package_specific_id.to_owned()]
+                        } else {
+                            let docker_image_name = get_docker_image_name(&package_specific_id);
+                            vec![
+                                package_specific_id.to_owned(),
+                                format!("{}@sha256:{}", docker_image_name, artifact_hash),
+                            ]
+                        }
                     } else {
                         let artifact_filename = match artifact_url.rfind('/') {
                             Some(position_slash) => {
@@ -194,10 +202,12 @@ impl BuildService {
                             }
                             None => artifact_url,
                         };
-                        match artifact_filename.rfind('.') {
+                        let blob_digest = match artifact_filename.rfind('.') {
                             Some(position_dot) => String::from(&artifact_filename[..position_dot]),
                             None => artifact_filename,
-                        }
+                        };
+                        let docker_image_name = get_docker_image_name(&package_specific_id);
+                        vec![format!("{}@{}", docker_image_name, blob_digest)]
                     }
                 }
                 PackageType::Maven2 => {
@@ -206,20 +216,22 @@ impl BuildService {
                         Some(position) => String::from(&artifact_url[position + 1..]),
                         None => artifact_url,
                     };
-                    format!("{}/{}", prefix, artifact_filename)
+                    vec![format!("{}/{}", prefix, artifact_filename)]
                 }
             };
 
             debug!(
-                "Handled artifact into artifact specific id {}",
-                artifact_specific_id
+                "Handled artifact into artifact specific id {:?}",
+                artifact_specific_ids
             );
 
-            artifacts.push(BuildResultArtifact {
-                artifact_specific_id,
-                artifact_location,
-                artifact_hash,
-            });
+            for artifact_specific_id in artifact_specific_ids {
+                artifacts.push(BuildResultArtifact {
+                    artifact_specific_id,
+                    artifact_location: artifact_location.clone(),
+                    artifact_hash: artifact_hash.clone(),
+                });
+            }
         }
 
         debug!(
@@ -264,6 +276,17 @@ fn calculate_hash(bytes: &[u8]) -> String {
     let mut sha256 = multihash::Sha2_256::default();
     sha256.update(bytes);
     hex::encode(sha256.finalize())
+}
+
+fn get_docker_image_name(package_specific_id: &str) -> String {
+    let docker_image_name = match package_specific_id.rfind('@') {
+        Some(position_at) => &package_specific_id[..position_at],
+        None => match package_specific_id.rfind(':') {
+            Some(position_colon) => &package_specific_id[..position_colon],
+            None => package_specific_id,
+        },
+    };
+    String::from(docker_image_name)
 }
 
 #[cfg(test)]
