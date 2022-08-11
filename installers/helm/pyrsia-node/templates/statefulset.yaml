@@ -1,8 +1,10 @@
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: {{ include "pyrsia-node.name" . }}
+  annotations:
+    service-per-pod-label: "pod-name"
+    service-per-pod-ports: "80:8080"
 spec:
   replicas: {{ .Values.replicaCount }}
   updateStrategy:
@@ -15,6 +17,8 @@ spec:
       track: stable
   template:
     metadata:
+      annotations:
+        pod-name-label: "pod-name"
       labels:
         app: pyrsia-node
         tier: frontend
@@ -26,9 +30,9 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}        
           ports:
             - name: pyrsia
-              containerPort: 80
+              containerPort: {{.Values.pyrsia.ports.pyrsia}}
             - name: p2p
-              containerPort: 44000
+              containerPort: {{ .Values.pyrsia.ports.p2p}}
           env:
             - name: PYRSIA_ARTIFACT_PATH
               value: "/usr/local/var/pyrsia"
@@ -46,12 +50,4 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 1500Gi
-    - metadata:
-        name: pyrsia-storage
-      spec:
-        storageClassName: standard
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 1500Gi
+            storage: {{.Values.pyrsia.storage.size}}
