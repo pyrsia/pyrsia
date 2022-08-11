@@ -42,12 +42,7 @@ impl Chain {
     }
 
     pub fn last_block(&self) -> Option<Block> {
-        let length = self.len();
-        if length == 0 {
-            None
-        } else {
-            Some(self.blocks()[length - 1].clone())
-        }
+        self.blocks().last().cloned()
     }
 }
 
