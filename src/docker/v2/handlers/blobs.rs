@@ -24,16 +24,19 @@ use tokio::sync::Mutex;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_blobs(
-    _name: String,
-    hash: String,
+    name: String,
+    digest: String,
     artifact_service: Arc<Mutex<ArtifactService>>,
 ) -> Result<impl Reply, Rejection> {
-    debug!("Getting blob with hash : {:?}", hash);
+    debug!("Getting blob with digest: {:?}", digest);
 
     let blob_content = artifact_service
         .lock()
         .await
-        .get_artifact(PackageType::Docker, &hash)
+        .get_artifact(
+            PackageType::Docker,
+            &get_package_specific_artifact_id(&name, &digest),
+        )
         .await
         .map_err(|_| {
             warp::reject::custom(RegistryError {
@@ -46,6 +49,10 @@ pub async fn handle_get_blobs(
         .status(StatusCode::OK)
         .body(blob_content.to_vec())
         .unwrap())
+}
+
+fn get_package_specific_artifact_id(name: &str, digest: &str) -> String {
+    format!("{}@{}", name, digest)
 }
 
 #[cfg(test)]
@@ -63,6 +70,17 @@ mod tests {
     use std::fs::File;
     use std::path::PathBuf;
     use tokio::sync::{mpsc, oneshot};
+
+    #[test]
+    fn test_get_package_specific_artifact_id_from_digest() {
+        let name = "alpine";
+        let tag = "sha256:1e014f84205d569a5cc3be4e108ca614055f7e21d11928946113ab3f36054801";
+
+        assert_eq!(
+            get_package_specific_artifact_id(name, tag),
+            format!("{}@{}", name, tag)
+        );
+    }
 
     #[tokio::test]
     async fn test_handle_get_blobs_unknown_in_artifact_service() {
@@ -108,9 +126,10 @@ mod tests {
 
         let name = "alpine";
         let hash = "865c8d988be4669f3e48f73b98f9bc2507be0246ea35e0098cf6054d3644c14f";
+        let digest = format!("sha256:{}", hash);
         let package_type = PackageType::Docker;
-        let package_specific_id = hash;
-        let package_specific_artifact_id = hash;
+        let package_specific_id = format!("{}:latest", name);
+        let package_specific_artifact_id = get_package_specific_artifact_id(name, &digest);
 
         let (add_artifact_sender, add_artifact_receiver) = oneshot::channel();
         let (command_sender, _command_receiver) = mpsc::channel(1);
@@ -129,9 +148,9 @@ mod tests {
             .add_artifact(
                 AddArtifactRequest {
                     package_type,
-                    package_specific_id: package_specific_id.to_owned(),
+                    package_specific_id,
                     num_artifacts: 8,
-                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
+                    package_specific_artifact_id,
                     artifact_hash: hash.to_owned(),
                 },
                 add_artifact_sender,
@@ -149,7 +168,7 @@ mod tests {
 
         let result = handle_get_blobs(
             name.to_owned(),
-            hash.to_owned(),
+            digest,
             Arc::new(Mutex::new(artifact_service)),
         )
         .await;

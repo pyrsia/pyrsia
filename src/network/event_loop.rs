@@ -331,6 +331,9 @@ impl PyrsiaEventLoop {
             SwarmEvent::ConnectionClosed { .. } => {}
             SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
                 if let Some(peer_id) = peer_id {
+                    if peer_id == *self.swarm.local_peer_id() {
+                        warn!("The dialed node has the same peer ID as the current node: '{}'. Please make sure that every node has a unique peer ID.", peer_id);
+                    }
                     if let Some(sender) = self.pending_dial.remove(&peer_id) {
                         let _ = sender.send(Err(error.into()));
                     }
@@ -346,7 +349,9 @@ impl PyrsiaEventLoop {
             }
             SwarmEvent::ExpiredListenAddr { .. } => {}
             SwarmEvent::IncomingConnection { .. } => {}
-            SwarmEvent::IncomingConnectionError { .. } => {}
+            SwarmEvent::IncomingConnectionError { error, .. } => {
+                warn!("{}", error);
+            }
             SwarmEvent::ListenerClosed { .. } => {}
             SwarmEvent::ListenerError { .. } => {}
         }
