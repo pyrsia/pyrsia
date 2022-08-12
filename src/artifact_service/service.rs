@@ -242,6 +242,7 @@ mod tests {
     use crate::util::test_util;
     use anyhow::Context;
     use libp2p::identity::Keypair;
+    use log::error;
     use sha2::{Digest, Sha256};
     use std::collections::HashSet;
     use std::env;
@@ -341,15 +342,21 @@ mod tests {
                     Some(Command::ListProviders { sender, .. }) => {
                         let mut set = HashSet::new();
                         set.insert(local_peer_id);
-                        let _ = sender.send(set);
+                        sender.send(set).unwrap_or_else(|e| {
+                            error!("receiver.recv().await match arm: Command::ListProviders. PeerIds: {:?}", e);
+                        });
                     },
                     Some(Command::RequestIdleMetric { sender, .. }) => {
-                        let _ = sender.send(Ok(PeerMetrics {
+                        sender.send(Ok(PeerMetrics {
                             idle_metric: (0.1_f64).to_le_bytes()
-                        }));
+                        })).unwrap_or_else(|e| {
+                            error!("receiver.recv().await match arm: Command::RequestIdleMetric. PeerMetrics: {:?}", e);
+                        });
                     },
                     Some(Command::RequestArtifact { sender, .. }) => {
-                        let _ = sender.send(Ok(b"SAMPLE_DATA".to_vec()));
+                        sender.send(Ok(b"SAMPLE_DATA".to_vec())).unwrap_or_else(|e| {
+                            error!("receiver.recv().await match arm: Command::RequestArtifact. RequestArtifact: {:?}", e);
+                        });
                     },
                     _ => panic!("Command must match Command::ListProviders, Command::RequestIdleMetric, Command::RequestArtifact"),
                 }
@@ -417,7 +424,9 @@ mod tests {
                 command = receiver.recv() => {
                     match command {
                         Some(Command::ListProviders { sender, .. }) => {
-                            let _ = sender.send(Default::default());
+                            sender.send(Default::default()).unwrap_or_else(|e| {
+                              error!("Command match arm: Command::ListProviders. PeerIds: {:?}", e);
+                            });
                         },
                         _ => panic!("Command must match Command::ListProviders"),
                     }

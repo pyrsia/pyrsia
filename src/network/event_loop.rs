@@ -132,6 +132,7 @@ impl PyrsiaEventLoop {
     // Handles events from the `Kademlia` network behaviour.
     async fn handle_kademlia_event(&mut self, event: KademliaEvent) {
         trace!("Handle KademliaEvent: {:?}", event);
+        let event_str = format!("{:#?}", event);
         match event {
             KademliaEvent::OutboundQueryCompleted {
                 id,
@@ -142,9 +143,11 @@ impl PyrsiaEventLoop {
                     .remove(&id)
                     .expect("Completed query to be previously pending.")
                     .send(HashSet::from_iter(peers))
-                    .unwrap_or_else(|_e| {
-                        let err_msg = "error at sender.send";
-                        error!("{}", err_msg);
+                    .unwrap_or_else(|e| {
+                        error!(
+                            "Handle KademliaEvent match arm: {}. Peers: {:?}",
+                            event_str, e
+                        );
                     });
             }
             KademliaEvent::OutboundQueryCompleted {
@@ -158,8 +161,7 @@ impl PyrsiaEventLoop {
                     .expect("Completed query to be previously pending.");
 
                 sender.send(()).unwrap_or_else(|_e| {
-                    let err_msg = "error at sender.send";
-                    error!("{}", err_msg);
+                    error!("Handle KademliaEvent match arm: {}.", event_str);
                 });
             }
             KademliaEvent::OutboundQueryCompleted {
@@ -176,9 +178,11 @@ impl PyrsiaEventLoop {
                     .remove(&id)
                     .expect("Completed query to be previously pending.")
                     .send(providers)
-                    .unwrap_or_else(|_e| {
-                        let err_msg = "error at sender.send";
-                        error!("{}", err_msg);
+                    .unwrap_or_else(|e| {
+                        error!(
+                            "Handle KademliaEvent match arm: {}. Providers: {:?}",
+                            event_str, e
+                        );
                     });
             }
             _ => {}
@@ -192,6 +196,7 @@ impl PyrsiaEventLoop {
         event: RequestResponseEvent<ArtifactRequest, ArtifactResponse>,
     ) {
         trace!("Handle RequestResponseEvent: {:?}", event);
+        let event_str = format!("{:#?}", event);
         match event {
             RequestResponseEvent::Message { message, .. } => match message {
                 RequestResponseMessage::Request {
@@ -213,9 +218,11 @@ impl PyrsiaEventLoop {
                         .remove(&request_id)
                         .expect("Request to still be pending.")
                         .send(Ok(response.0))
-                        .unwrap_or_else(|_e| {
-                            let err_msg = "error at sender.send";
-                            error!("{}", err_msg);
+                        .unwrap_or_else(|e| {
+                            error!(
+                                "Handle RequestResponseEvent match arm: {}. Error: {:?}",
+                                event_str, e
+                            );
                         });
                 }
             },
@@ -227,9 +234,8 @@ impl PyrsiaEventLoop {
                     .remove(&request_id)
                     .expect("Request to still be pending.")
                     .send(Err(error.into()))
-                    .unwrap_or_else(|_e| {
-                        let err_msg = "error at sender.send";
-                        error!("{}", err_msg);
+                    .unwrap_or_else(|e| {
+                        error!("Handle RequestResponseEvent match arm: {}. pending_request_artifact: {:?}", event_str, e);
                     });
             }
             RequestResponseEvent::ResponseSent { .. } => {}
@@ -243,6 +249,7 @@ impl PyrsiaEventLoop {
         event: RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>,
     ) {
         trace!("Handle RequestResponseEvent: {:?}", event);
+        let event_str = format!("{:#?}", event);
         match event {
             RequestResponseEvent::Message { message, .. } => match message {
                 RequestResponseMessage::Request { channel, .. } => {
@@ -259,9 +266,8 @@ impl PyrsiaEventLoop {
                         .remove(&request_id)
                         .expect("Request to still be pending.")
                         .send(Ok(response.0))
-                        .unwrap_or_else(|_e| {
-                            let err_msg = "error at sender.send";
-                            error!("{}", err_msg);
+                        .unwrap_or_else(|e| {
+                            error!("Handle RequestResponseEvent match arm: {}. pending_idle_metric_requests: {:?}", event_str, e);
                         });
                 }
             },
@@ -273,9 +279,8 @@ impl PyrsiaEventLoop {
                     .remove(&request_id)
                     .expect("Request to still be pending.")
                     .send(Err(error.into()))
-                    .unwrap_or_else(|_e| {
-                        let err_msg = "error at sender.send";
-                        error!("{}", err_msg);
+                    .unwrap_or_else(|e| {
+                        error!("Handle RequestResponseEvent match arm: {}. pending_idle_metric_requests: {:?}", event_str, e);
                     });
             }
             RequestResponseEvent::ResponseSent { .. } => {}
@@ -288,6 +293,7 @@ impl PyrsiaEventLoop {
         event: RequestResponseEvent<BlockUpdateRequest, BlockUpdateResponse>,
     ) {
         trace!("Handle RequestResponseEvent: {:?}", event);
+        let event_str = format!("{:#?}", event);
         match event {
             RequestResponseEvent::Message { message, .. } => match message {
                 RequestResponseMessage::Request {
@@ -320,9 +326,8 @@ impl PyrsiaEventLoop {
                     .remove(&request_id)
                     .expect("Request to still be pending.")
                     .send(Err(From::from(error)))
-                    .unwrap_or_else(|_e| {
-                        let err_msg = "error at sender.send";
-                        error!("{}", err_msg);
+                    .unwrap_or_else(|e| {
+                        error!("Handle RequestResponseEvent match arm: {}. pending_block_update_requests: {:?}", event_str, e);
                     });
             }
             RequestResponseEvent::ResponseSent { .. } => {}
@@ -332,6 +337,7 @@ impl PyrsiaEventLoop {
     // Handles all other events from the libp2p `Swarm`.
     async fn handle_swarm_event(&mut self, event: SwarmEvent<PyrsiaNetworkEvent, impl Error>) {
         trace!("Handle SwarmEvent: {:?}", event);
+        let event_str = format!("{:#?}", event);
         match event {
             SwarmEvent::Behaviour(_) => {
                 debug!("Unmatched Behaviour swarm event found: {:?}", event);
@@ -349,8 +355,7 @@ impl PyrsiaEventLoop {
                 if endpoint.is_dialer() {
                     if let Some(sender) = self.pending_dial.remove(&peer_id) {
                         sender.send(Ok(())).unwrap_or_else(|_e| {
-                            let err_msg = "error at sender.send";
-                            error!("{}", err_msg);
+                            error!("Handle SwarmEvent match arm: {}", event_str);
                         });
                     }
                 }
@@ -363,8 +368,7 @@ impl PyrsiaEventLoop {
                     }
                     if let Some(sender) = self.pending_dial.remove(&peer_id) {
                         sender.send(Err(error.into())).unwrap_or_else(|_e| {
-                            let err_msg = "error at sender.send";
-                            error!("{}", err_msg);
+                            error!("Handle SwarmEvent match arm: {}", event_str);
                         });
                     }
                 }
@@ -390,6 +394,7 @@ impl PyrsiaEventLoop {
     // Handle incoming commands that are sent by the [`Client`].
     async fn handle_command(&mut self, command: Command) {
         trace!("Handle Command: {}", command);
+        let command_str = format!("{:#?}", command);
         match command {
             Command::Listen { addr, sender } => {
                 match self.swarm.listen_on(addr) {
@@ -397,8 +402,7 @@ impl PyrsiaEventLoop {
                     Err(e) => sender.send(Err(e.into())),
                 }
                 .unwrap_or_else(|_e| {
-                    let err_msg = "error at sender.send";
-                    error!("{}", err_msg);
+                    error!("Handle Command match arm: {}.", command_str);
                 });
             }
             Command::Dial {
@@ -416,8 +420,7 @@ impl PyrsiaEventLoop {
                         }
                         Err(e) => {
                             sender.send(Err(e.into())).unwrap_or_else(|_e| {
-                                let err_msg = "error at sender.send";
-                                error!("{}", err_msg);
+                                error!("Handle Command match arm: {}.", command_str);
                             });
                         }
                     }
