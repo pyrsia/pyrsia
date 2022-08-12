@@ -4,7 +4,7 @@ This tutorial describes how to start and debug Pyrsia using Microsoft Visual Cod
 
 ## Prerequisites
 
-Before continuing please make sure that you have cloned and compiled the Pyrsia sources. For more information please see [Getting Started](../get_involved/local_dev_setup.md). In this tutorial `PYRSIA_HOME` refers to the Pyrsia repository folder.
+Before continuing please make sure that you have cloned and compiled the Pyrsia sources. For more information please see [Developer Environment Setup](../get_involved/local_dev_setup.md). In this tutorial `PYRSIA_HOME` refers to the Pyrsia repository folder.
 
 ## IntelliJ IDEA Configuration
 

@@ -10,7 +10,7 @@ With that in mind, what should authors do to make this process as smooth as poss
 ## What makes a good Pull Request
 
 * Link to an issue that has clear description so reviewers know what to expect.
-* Keep the changes small, limit the scope of the PR to make it clear an concise.
+* Keep the changes small, limit the scope of the PR to make it clear and concise.
 * Fill in the PR template to give the most information as possible.
   * Clear title
   * Detailed description
@@ -27,11 +27,11 @@ With that in mind, what should authors do to make this process as smooth as poss
 ### Possible solutions
 
 * Open new issues for the extra work you spot in the code if it takes more then 30 minutes.
-  * Focus on the issue at hand!
-  * Clearly call out changes in the description of code comments to inform the reviewer.
-* Document design decision in the `docs/` folder of write a blog for the website.
-  * Share the link to a Google Docs describing the decision and choices made.
-  * Include any meeting records where the issue was discussed
+* Focus on the issue at hand!
+* Clearly call out changes in the description of code comments to inform the reviewer.
+* Document design decision in the `docs/` folder.
+* Share the link to a Google Docs describing the decision and choices made.
+* Include any meeting records where the issue was discussed
 
 ## Test cases
 
