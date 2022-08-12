@@ -32,3 +32,8 @@ pub struct RequestDockerBuild {
 pub struct RequestMavenBuild {
     pub gav: String,
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RequestMavenLog {
+    pub gav: String,
+}

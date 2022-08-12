@@ -16,7 +16,7 @@
 
 use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::node;
-use pyrsia::node_api::model::cli::{RequestDockerBuild, RequestMavenBuild};
+use pyrsia::node_api::model::cli::{RequestDockerBuild, RequestMavenBuild, RequestMavenLog};
 use std::collections::HashSet;
 use std::io;
 use std::io::BufRead;
@@ -129,4 +129,19 @@ pub async fn node_list() {
             println!("Error: {}. {}", error, CONF_REMINDER_MESSAGE);
         }
     }
+}
+
+pub async fn inspect_maven_transparency_log(gav: &str) {
+    let result = node::inspect_maven_transparency_log(RequestMavenLog {
+        gav: gav.to_owned(),
+    })
+    .await;
+    match result {
+        Ok(logs) => {
+            println!("Inspect log request returns the following logs: {}", logs);
+        }
+        Err(error) => {
+            println!("Inspect log request failed with error: {:?}", error);
+        }
+    };
 }

@@ -17,6 +17,7 @@
 use super::handlers::swarm::*;
 use super::model::cli::{RequestDockerBuild, RequestMavenBuild};
 use crate::artifact_service::service::ArtifactService;
+use crate::node_api::model::cli::RequestMavenLog;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use warp::Filter;
@@ -51,10 +52,24 @@ pub fn make_node_routes(
     let status = warp::path!("status")
         .and(warp::get())
         .and(warp::path::end())
-        .and(artifact_service_filter)
+        .and(artifact_service_filter.clone())
         .and_then(handle_get_status);
 
-    warp::any().and(build_docker.or(build_maven).or(peers).or(status))
+    let inspect_maven = warp::path!("inspect" / "maven")
+        .and(warp::post())
+        .and(warp::path::end())
+        .and(warp::body::content_length_limit(1024 * 8))
+        .and(warp::body::json::<RequestMavenLog>())
+        .and(artifact_service_filter)
+        .and_then(handle_inspect_log_maven);
+
+    warp::any().and(
+        build_docker
+            .or(build_maven)
+            .or(peers)
+            .or(status)
+            .or(inspect_maven),
+    )
 }
 
 #[cfg(test)]

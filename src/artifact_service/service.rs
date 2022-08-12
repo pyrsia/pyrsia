@@ -179,6 +179,19 @@ impl ArtifactService {
         Ok(blob_content)
     }
 
+    /// Retrieve the artifact logs for the specified package.
+    pub async fn get_logs_for_artifact(
+        &mut self,
+        package_type: PackageType,
+        package_specific_id: &str,
+    ) -> anyhow::Result<Vec<TransparencyLog>> {
+        let transparency_logs = self
+            .transparency_log_service
+            .search_transparency_logs(&package_type, package_specific_id)?;
+
+        Ok(transparency_logs)
+    }
+
     async fn get_artifact_from_peers(
         &mut self,
         artifact_id: &str,
@@ -549,6 +562,54 @@ mod tests {
                 actual_hash: random_hash
             }
         );
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_get_artifact_logs() {
+        let tmp_dir = test_util::tests::setup();
+
+        let (add_artifact_sender, _receiver) = oneshot::channel();
+        let (sender, _receiver) = mpsc::channel(1);
+        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+        let p2p_client = Client {
+            sender,
+            local_peer_id,
+        };
+
+        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let build_event_client = BuildEventClient::new(build_event_sender);
+        let mut artifact_service =
+            ArtifactService::new(&tmp_dir, build_event_client, p2p_client).unwrap();
+
+        let hasher1 = Sha256::new();
+        let random_hash = hex::encode(hasher1.finalize());
+
+        let package_type = PackageType::Maven2;
+        let package_specific_id = "package_specific_id";
+        let package_specific_artifact_id = "package_specific_artifact_id";
+        artifact_service
+            .transparency_log_service
+            .add_artifact(
+                AddArtifactRequest {
+                    package_type,
+                    package_specific_id: package_specific_id.to_owned(),
+                    num_artifacts: 8,
+                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
+                    artifact_hash: random_hash,
+                },
+                add_artifact_sender,
+            )
+            .await
+            .unwrap();
+
+        let result = artifact_service
+            .transparency_log_service
+            .search_transparency_logs(&package_type, package_specific_id);
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 1);
 
         test_util::tests::teardown(tmp_dir);
     }

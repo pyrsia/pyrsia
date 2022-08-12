@@ -60,6 +60,16 @@ pub fn cli_parser() -> ArgMatches {
             Command::new("status")
                 .short_flag('s')
                 .about("Shows node information"),
+            Command::new("inspect-log")
+                .about("Shows transparency logs")
+                .subcommands(vec![
+                    Command::new("maven")
+                        .about("Shows transparency logs for a maven artifact")
+                        .arg_required_else_help(true)
+                        .args(&[
+                            arg!(--gav <GAV> "The maven GAV (e.g. org.myorg:my-artifact:1.1.0)"),
+                        ]),
+                ]),
         ])
         .version(version_string)
         .get_matches()
