@@ -26,7 +26,7 @@ With that in mind, what should authors do to make this process as smooth as poss
 
 ### Possible solutions
 
-* Open new issues for the extra work you spot in the code if it takes more then 30 minutes.
+* Open new issues for the extra work you spot in the code if it takes more than 30 minutes.
 * Focus on the issue at hand!
 * Clearly call out changes in the description of code comments to inform the reviewer.
 * Document design decision in the `docs/` folder.
