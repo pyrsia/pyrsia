@@ -140,6 +140,27 @@ jobs:
         .github/workflows/aptly.sh target/debian/pyrsia_0.1.0+${{ github.run_number }}_amd64.deb stable 
       env: 
         GPG_KEY: ${{ secrets.GPG_KEY }}
+    
+    # Update the helm chart values with the image tag
+    - name: Add Build to Version Number in Chart and Values files
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+      run: |
+        sudo go install github.com/mikefarah/yq/v4@latest
+        yq e '.image.tag |= "0.1.0-${{ github.run_number }}"' -i installers/helm/pyrsia-node/values.yaml  
+        yq e '.version |= "0.1.0-${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
+        yq e '.appVersion |= "0.1.0-${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
+
+    # Add the updated helm chart to the helm NIGHTLY repo
+    - name: Add the updated helm chart to the helm NIGHTLY repo
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+      run: |
+        .github/workflows/chartmuseum.sh nightly 
+
+    # Add the updated helm chart to the helm STABLE repo
+    - name: Add the updated helm chart to the helm STABLE repo
+      if: github.repository_owner == 'pyrsia' && github.event_name == 'release' 
+      run: |
+        .github/workflows/chartmuseum.sh stable        
   
   # Coverage wipes the cache in order to instrument the code.  No need to wait for other jobs to run it.
   coverage:

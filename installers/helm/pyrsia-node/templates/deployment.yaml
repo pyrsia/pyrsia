@@ -33,11 +33,13 @@ spec:
             - name: PYRSIA_ARTIFACT_PATH
               value: "/usr/local/var/pyrsia"
             - name: PYRSIA_KEYPAIR
-              value: "/usr/local/var/prysia_ed25519"
+              value: /usr/local/var/pyrsia-p2p-keys/ed25516.ser
           volumeMounts:
             # name must match the volume name below
             - name: pyrsia-storage
               mountPath: "/usr/local/var/pyrsia"
+            - name: pyrsia-p2p-keys
+              mountPath: /usr/local/var/pyrsia-p2p-keys
   volumeClaimTemplates:
     - metadata:
         name: pyrsia-storage
@@ -48,10 +50,10 @@ spec:
           requests:
             storage: 1500Gi
     - metadata:
-        name: pyrsia-storage
+        name: pyrsia-p2p-keys
       spec:
-        storageClassName: standard
+        storageClassName: csi-gce-pd
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 1500Gi
+            storage: 10M      
