@@ -13,7 +13,7 @@ pyrsia_blockchain_network = { path = "../src/blockchain" }
 
 anyhow = "1.0.58"
 clap = { version = "3.2.16", features= [ "cargo", "derive" ] }
-futures = "0.3.19"
+futures = "0.3.23"
 hex = "0.4.3"
 libp2p = { version = "0.46.1", features=["dns-tokio", "tcp-tokio"]}
 log = "0.4.17"
