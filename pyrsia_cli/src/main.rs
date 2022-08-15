@@ -54,6 +54,10 @@ async fn main() {
             node_status().await;
         }
         Some(("inspect-log", build_matches)) => match build_matches.subcommand() {
+            Some(("docker", docker_matches)) => {
+                inspect_docker_transparency_log(docker_matches.get_one::<String>("image").unwrap())
+                    .await;
+            }
             Some(("maven", maven_matches)) => {
                 inspect_maven_transparency_log(maven_matches.get_one::<String>("gav").unwrap())
                     .await;

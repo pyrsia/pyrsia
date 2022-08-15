@@ -17,7 +17,9 @@
 use crate::artifact_service::model::PackageType;
 use crate::artifact_service::service::ArtifactService;
 use crate::docker::error_util::RegistryError;
-use crate::node_api::model::cli::{RequestDockerBuild, RequestMavenBuild, RequestMavenLog};
+use crate::node_api::model::cli::{
+    RequestDockerBuild, RequestDockerLog, RequestMavenBuild, RequestMavenLog,
+};
 
 use log::debug;
 use std::sync::Arc;
@@ -101,6 +103,26 @@ pub async fn handle_get_status(
         .header("Content-Type", "application/json")
         .status(StatusCode::OK)
         .body(status_as_json)
+        .unwrap())
+}
+
+pub async fn handle_inspect_log_docker(
+    request_docker_log: RequestDockerLog,
+    artifact_service: Arc<Mutex<ArtifactService>>,
+) -> Result<impl Reply, Rejection> {
+    let result = artifact_service
+        .lock()
+        .await
+        .get_logs_for_artifact(PackageType::Docker, &request_docker_log.image)
+        .await
+        .map_err(RegistryError::from)?;
+
+    let result_as_json = serde_json::to_string(&result).map_err(RegistryError::from)?;
+
+    Ok(warp::http::response::Builder::new()
+        .header("Content-Type", "application/json")
+        .status(StatusCode::OK)
+        .body(result_as_json)
         .unwrap())
 }
 
