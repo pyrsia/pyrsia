@@ -30,6 +30,11 @@ use tokio::sync::oneshot;
 /// defined in `Client`.
 #[derive(Debug, Display)]
 pub enum Command {
+    AddProbe {
+        peer_id: PeerId,
+        probe_addr: Multiaddr,
+        sender: oneshot::Sender<()>,
+    },
     Listen {
         addr: Multiaddr,
         sender: oneshot::Sender<anyhow::Result<()>>,

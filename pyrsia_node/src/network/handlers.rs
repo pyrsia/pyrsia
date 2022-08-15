@@ -41,6 +41,17 @@ pub async fn dial_other_peer(mut p2p_client: Client, to_dial: &Multiaddr) -> any
     }
 }
 
+/// AutoNAT probe another node with the specified address
+pub async fn probe_other_peer(mut p2p_client: Client, to_probe: &Multiaddr) -> anyhow::Result<()> {
+    match to_probe.iter().last() {
+        Some(Protocol::P2p(hash)) => match PeerId::from_multihash(hash) {
+            Ok(peer_id) => p2p_client.add_probe_address(&peer_id, to_probe).await,
+            Err(_) => anyhow::bail!("Invalid hash provided for Peer ID."),
+        },
+        _ => anyhow::bail!("Expect peer address to contain Peer ID."),
+    }
+}
+
 /// Respond to a RequestArtifact event by getting the artifact
 /// based on the provided artifact id.
 pub async fn handle_request_artifact(

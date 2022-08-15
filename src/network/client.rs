@@ -76,6 +76,28 @@ pub struct Client {
 }
 
 impl Client {
+    // Add a probe address for AutoNAT discovery
+    pub async fn add_probe_address(
+        &mut self,
+        peer_id: &PeerId,
+        probe_addr: &Multiaddr,
+    ) -> anyhow::Result<()> {
+        debug!(
+            "p2p::Client::add_probe_address {:?} {:?}",
+            peer_id, probe_addr
+        );
+
+        let (sender, receiver) = oneshot::channel();
+        self.sender
+            .send(Command::AddProbe {
+                peer_id: *peer_id,
+                probe_addr: probe_addr.clone(),
+                sender,
+            })
+            .await?;
+        Ok(receiver.await?)
+    }
+
     /// Instruct the swarm to start listening on the specified address.
     pub async fn listen(&mut self, addr: &Multiaddr) -> anyhow::Result<()> {
         debug!("p2p::Client::listen {:?}", addr);
