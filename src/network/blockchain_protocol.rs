@@ -21,6 +21,8 @@ use libp2p::core::upgrade::{
 };
 use libp2p::request_response::RequestResponseCodec;
 use log::debug;
+use pyrsia_blockchain_network::structures::block::Block;
+use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::io;
 
 #[derive(Debug, Clone)]
@@ -29,7 +31,7 @@ pub struct BlockUpdateExchangeProtocol();
 #[derive(Clone)]
 pub struct BlockUpdateExchangeCodec();
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BlockUpdateRequest(pub u64, pub Vec<u8>);
+pub struct BlockUpdateRequest(pub Ordinal, pub Block);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockUpdateResponse();
 
@@ -54,7 +56,7 @@ impl RequestResponseCodec for BlockUpdateExchangeCodec {
         T: AsyncRead + Unpin + Send,
     {
         debug!("prysia::blobkchain_protocol::BlockUpdate::read_request received from peer.");
-        let mut buff: [u8; 8] = [0; 8];
+        let mut buff: [u8; 16] = [0; 16];
         let mut size = read_varint(io).await?;
         if size != 8 {
             return Err(io::ErrorKind::InvalidData.into());
@@ -71,8 +73,8 @@ impl RequestResponseCodec for BlockUpdateExchangeCodec {
         }
 
         debug!("Read Blockchain Request: block is {:?}", block_vec);
-
-        Ok(BlockUpdateRequest(u64::from_be_bytes(buff), block_vec))
+        let block: Block = bincode::deserialize(&block_vec[..]).unwrap();
+        Ok(BlockUpdateRequest(u128::from_be_bytes(buff), block))
     }
 
     //reads blockchain response from the peer
@@ -103,7 +105,8 @@ impl RequestResponseCodec for BlockUpdateExchangeCodec {
         io.write_all(data.as_ref()).await?;
         io.flush().await?;
 
-        write_length_prefixed(io, block).await?;
+        let block_data = bincode::serialize(&block).unwrap();
+        write_length_prefixed(io, block_data).await?;
         io.close().await?;
 
         Ok(())

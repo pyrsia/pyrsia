@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 
-use super::header::{Address, Header};
+use super::header::{Address, Header, Ordinal};
 use super::transaction::Transaction;
 use crate::crypto::hash_algorithm::HashDigest;
 use crate::signature::Signature;
@@ -38,7 +38,7 @@ pub struct Block {
 impl Block {
     pub fn new(
         parent_hash: HashDigest,
-        ordinal: u128,
+        ordinal: Ordinal,
         transactions: Vec<Transaction>,
         signing_key: &identity::ed25519::Keypair,
     ) -> Self {

@@ -38,7 +38,7 @@ pub struct Blockchain {
     // trans_observers may be only used internally by blockchain service
     trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
     // payload_observers used by transparency_log service
-    payload_observers: Vec<Box<dyn FnMut(&Vec<u8>)>>,
+    payload_observers: Vec<Box<dyn FnMut(Vec<u8>)>>,
     // chain is the blocks of the blockchain
     chain: Chain,
 }
@@ -89,7 +89,7 @@ impl Blockchain {
         }
     }
 
-    pub fn add_payload_listener<CallBack: 'static + FnMut(&Vec<u8>)>(
+    pub fn add_payload_listener<CallBack: 'static + FnMut(Vec<u8>)>(
         &mut self,
         on_payload: CallBack,
     ) -> &mut Self {
@@ -97,10 +97,10 @@ impl Blockchain {
         self
     }
 
-    pub async fn notify_payload_event(&mut self, payload: &Vec<u8>) -> &mut Self {
+    pub async fn notify_payload_event(&mut self, payload: Vec<u8>) -> &mut Self {
         self.payload_observers
             .iter_mut()
-            .for_each(|notify| notify(payload));
+            .for_each(|notify| notify(payload.clone()));
         self
     }
 
@@ -108,7 +108,7 @@ impl Blockchain {
     pub async fn add_block(
         &mut self,
         payload: Vec<u8>,
-        local_key: identity::Keypair,
+        local_key: &identity::Keypair,
     ) -> anyhow::Result<()> {
         let submitter = Address::from(local_key.public());
         let ed25519_key = match local_key {
@@ -127,7 +127,7 @@ impl Blockchain {
             &ed25519_key,
         )];
 
-        let last_block = match self.chain.last_block() {
+        let last_block = match self.last_block() {
             Some(block) => block,
             None => {
                 anyhow::bail!("Blockchain: Local blockchain does non exist!!");
@@ -151,8 +151,12 @@ impl Blockchain {
         self.chain.add_block(block.clone());
 
         for trans in block.transactions {
-            self.notify_payload_event(&trans.payload()).await;
+            self.notify_payload_event(trans.payload()).await;
         }
+    }
+
+    pub fn last_block(&self) -> Option<Block> {
+        self.chain.last_block()
     }
 }
 
@@ -229,7 +233,7 @@ mod tests {
             &keypair,
         );
         let mut blockchain = Blockchain::new(&keypair);
-        let called = move |b: &Vec<u8>| println!("data is {:?}", b);
+        let called = move |b: Vec<u8>| println!("data is {:?}", b);
 
         blockchain
             .add_payload_listener(called)
@@ -281,7 +285,7 @@ mod tests {
         let data = "Hello First Transaction";
 
         let result = blockchain
-            .add_block(data.as_bytes().to_vec(), keypair)
+            .add_block(data.as_bytes().to_vec(), &keypair)
             .await;
         assert_eq!(result.is_ok(), true);
         assert_eq!(
