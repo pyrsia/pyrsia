@@ -23,21 +23,14 @@ use crate::network::idle_metric_protocol::{IdleMetricExchangeCodec, IdleMetricEx
 use crate::util::keypair_util;
 use crate::util::keypair_util::KEYPAIR_FILENAME;
 
-use libp2p::core;
-use libp2p::dns;
-use libp2p::identify;
-use libp2p::identity;
-use libp2p::kad;
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
-use libp2p::mplex;
-use libp2p::noise;
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
 use libp2p::swarm::{Swarm, SwarmBuilder};
 use libp2p::tcp::{self, GenTcpConfig};
-use libp2p::yamux;
-use libp2p::Transport;
+use libp2p::{autonat, core, dns, identify, identity, kad, mplex, noise, yamux, Transport};
 use std::error::Error;
 use std::iter;
+use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::Stream;
@@ -55,6 +48,7 @@ use tokio_stream::Stream;
 /// [`PyrsiaNetworkBehaviour`]. The PyrsiaNetworkBehaviour contains the following
 /// components:
 ///
+/// * autonat: a protocol for establishing Network Address Translation function
 /// * Identify: a protocol for exchanging identity information between peers
 /// * Kademlia: a DHT to share information over the libp2p network
 /// * RequestResponse: a generic request/response protocol implementation for
@@ -112,7 +106,6 @@ pub fn setup_libp2p_swarm(
     let local_keypair = keypair_util::load_or_generate_ed25519(KEYPAIR_FILENAME.as_str());
 
     let (swarm, local_peer_id) = create_swarm(local_keypair, max_provided_keys)?;
-
     let (command_sender, command_receiver) = mpsc::channel(32);
     let (event_sender, event_receiver) = mpsc::channel(32);
 
@@ -134,8 +127,8 @@ fn create_transport(
         .into_authentic(&keypair)
         .expect("Signing libp2p-noise static DH keypair failed.");
 
-    let tcp = tcp::TokioTcpTransport::new(GenTcpConfig::default().nodelay(true));
-    let dns = dns::TokioDnsConfig::system(tcp)?;
+    let transport = tcp::TokioTcpTransport::new(GenTcpConfig::default().nodelay(true));
+    let dns = dns::TokioDnsConfig::system(transport)?;
 
     Ok(dns
         .upgrade(core::upgrade::Version::V1)
@@ -166,6 +159,16 @@ fn create_swarm(
         SwarmBuilder::new(
             create_transport(keypair)?,
             PyrsiaNetworkBehaviour {
+                auto_nat: autonat::Behaviour::new(
+                    peer_id,
+                    autonat::Config {
+                        retry_interval: Duration::from_secs(10),
+                        refresh_interval: Duration::from_secs(30),
+                        boot_delay: Duration::from_secs(5),
+                        throttle_server_period: Duration::ZERO,
+                        ..Default::default()
+                    },
+                ),
                 identify: identify::Identify::new(identify_config),
                 kademlia: kad::Kademlia::new(
                     peer_id,
