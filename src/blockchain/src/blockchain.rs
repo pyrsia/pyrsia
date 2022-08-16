@@ -120,11 +120,12 @@ impl Blockchain {
                 );
             }
         };
+
         let trans_vec = vec![Transaction::new(
             TransactionType::Create,
             submitter,
             payload,
-            &ed25519_key,
+            ed25519_key,
         )];
 
         let last_block = match self.last_block() {
@@ -138,7 +139,7 @@ impl Blockchain {
             last_block.header.hash(),
             last_block.header.ordinal + 1,
             trans_vec,
-            &ed25519_key,
+            ed25519_key,
         );
 
         // TODO: Consensus algorithm will be refactored

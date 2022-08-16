@@ -78,7 +78,7 @@ pub enum Command {
     },
     RequestBlockUpdate {
         block_ordinal: Ordinal,
-        block: Block,
+        block: Box<Block>,
         peer: PeerId,
         sender: oneshot::Sender<anyhow::Result<Option<u64>>>,
     },

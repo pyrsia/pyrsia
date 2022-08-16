@@ -31,7 +31,7 @@ pub struct BlockUpdateExchangeProtocol();
 #[derive(Clone)]
 pub struct BlockUpdateExchangeCodec();
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BlockUpdateRequest(pub Ordinal, pub Block);
+pub struct BlockUpdateRequest(pub Ordinal, pub Box<Block>);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockUpdateResponse();
 
@@ -73,7 +73,7 @@ impl RequestResponseCodec for BlockUpdateExchangeCodec {
         }
 
         debug!("Read Blockchain Request: block is {:?}", block_vec);
-        let block: Block = bincode::deserialize(&block_vec[..]).unwrap();
+        let block: Box<Block> = Box::new(bincode::deserialize(&block_vec[..]).unwrap());
         Ok(BlockUpdateRequest(u128::from_be_bytes(buff), block))
     }
 

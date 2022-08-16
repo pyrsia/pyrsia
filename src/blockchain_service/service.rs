@@ -22,8 +22,8 @@ use std::fmt::{self, Debug, Formatter};
 use crate::network::client::Client;
 
 pub struct BlockchainService {
-    blockchain: Blockchain,
-    p2p_client: Client,
+    pub blockchain: Blockchain,
+    pub p2p_client: Client,
 }
 
 impl Debug for BlockchainService {
@@ -50,14 +50,14 @@ impl BlockchainService {
         local_key: &identity::Keypair) {
             let _ = self.blockchain.add_block(payload, local_key).await;
 
-            self.notify_block_update(self.blockchain.last_block().unwrap()).await;
+            self.notify_block_update(Box::new(self.blockchain.last_block().unwrap())).await;
     }
 
-    pub async fn notify_block_update(&mut self, block:Block) {
+    pub async fn notify_block_update(&mut self, block:Box<Block>) {
         let peer_list =  self.p2p_client.list_peers().await.unwrap();
-        let block_ordinal = block.header.ordinal.clone();
+        let block_ordinal = block.header.ordinal;
         for peer_id in peer_list.iter(){
-            let _ = self.p2p_client.request_block_update(&peer_id, block_ordinal, block.clone() ).await;
+            let _ = self.p2p_client.request_block_update(peer_id, block_ordinal, block.clone() ).await;
 
             
         }

@@ -556,7 +556,7 @@ pub enum PyrsiaEvent {
     },
     BlockUpdateRequest {
         block_ordinal: Ordinal,
-        block: Block,
+        block: Box<Block>,
     },
 }
 

@@ -20,11 +20,11 @@ use libp2p::{Multiaddr, PeerId};
 use log::debug;
 
 use pyrsia::artifact_service::service::ArtifactService;
+use pyrsia::blockchain_service::service::BlockchainService;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
 use pyrsia::network::client::Client;
 use pyrsia::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use pyrsia::peer_metrics;
-use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::sync::Arc;
@@ -83,16 +83,17 @@ pub async fn handle_request_idle_metric(
 }
 
 pub async fn handle_request_block_update(
-    mut p2p_client: Client,
-    blockchain: Arc<Mutex<Blockchain>>,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
     block_ordinal: Ordinal,
-    block: Block,
+    block: Box<Block>,
 ) -> anyhow::Result<()> {
     debug!(
         "Handling request blockchain: {:?}={:?}",
         block_ordinal, block
     );
 
-    let _ = blockchain; // TODO!
-    p2p_client.respond_block_update().await
+    let mut blockchain_service = blockchain_service.lock().await;
+
+    let _ = blockchain_service.blockchain;
+    blockchain_service.p2p_client.respond_block_update().await
 }

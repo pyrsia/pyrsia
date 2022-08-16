@@ -291,7 +291,7 @@ impl Client {
         &mut self,
         peer: &PeerId,
         block_ordinal: Ordinal,
-        block: Block,
+        block: Box<Block>,
     ) -> anyhow::Result<Option<u64>> {
         debug!(
             "p2p::Client::request_blockchain {:?}: {:?}={:?}",
@@ -551,7 +551,7 @@ mod tests {
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
-        let block = Block::new(HashDigest::new(b""), 0, vec![], &local_key);
+        let block = Box::new(Block::new(HashDigest::new(b""), 0, vec![], &local_key));
         tokio::spawn(async move { client.request_block_update(&other_peer_id, 1, block).await });
 
         tokio::select! {
