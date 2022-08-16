@@ -41,6 +41,9 @@ pub struct PyrsiaNodeArgs {
     /// An address to connect with another Pyrsia Node (eg /ip4/127.0.0.1/tcp/45153/p2p/12D3KooWKsHbKbcVgyiRRgeXGCK4bp3MngnSU7ioeKTfQzd18B2v)
     #[clap(long, short = 'P')]
     pub peer: Option<Multiaddr>,
+    /// An address to use for probing AutoNAT connections
+    #[clap(long, short = 'R')]
+    pub probe: Option<Multiaddr>,
     /// The maximum number of keys that can be provided on the network by this Pyrsia Node.
     #[clap(long, default_value = DEFAULT_MAX_PROVIDED_KEYS)]
     pub max_provided_keys: usize,
