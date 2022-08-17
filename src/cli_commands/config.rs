@@ -69,7 +69,7 @@ pub fn get_config() -> Result<CliConfig> {
     Ok(cfg)
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(tarpaulin_include)))]
 mod tests {
     use super::*;
 

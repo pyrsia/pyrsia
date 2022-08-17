@@ -46,7 +46,7 @@ impl Chain {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(tarpaulin_include)))]
 mod tests {
     use crate::{
         crypto::hash_algorithm::HashDigest,

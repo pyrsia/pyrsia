@@ -40,7 +40,7 @@ impl AuthorityPen {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(tarpaulin_include)))]
 mod tests {
     use super::*;
 

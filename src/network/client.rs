@@ -315,7 +315,7 @@ impl Client {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(tarpaulin_include)))]
 mod tests {
     use super::*;
     use libp2p::identity::Keypair;

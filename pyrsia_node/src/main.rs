@@ -248,7 +248,7 @@ fn setup_http(args: &PyrsiaNodeArgs, artifact_service: Arc<Mutex<ArtifactService
     tokio::spawn(server);
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(tarpaulin_include)))]
 mod tests {
     use crate::setup_blockchain;
 

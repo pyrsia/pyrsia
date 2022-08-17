@@ -156,7 +156,7 @@ impl Blockchain {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(tarpaulin_include)))]
 mod tests {
     use std::cell::Cell;
     use std::rc::Rc;

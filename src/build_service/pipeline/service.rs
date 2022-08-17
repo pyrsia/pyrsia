@@ -110,7 +110,7 @@ impl PipelineService {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(tarpaulin_include)))]
 mod tests {
     use super::*;
     use crate::artifact_service::model::PackageType;

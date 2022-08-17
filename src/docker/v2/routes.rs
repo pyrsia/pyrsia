@@ -56,7 +56,7 @@ pub fn make_docker_routes(
     warp::any().and(v2_base.or(v2_manifests).or(v2_blobs))
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(tarpaulin_include)))]
 mod tests {
     use super::*;
     use crate::build_service::event::BuildEventClient;

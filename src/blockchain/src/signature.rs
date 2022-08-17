@@ -61,7 +61,7 @@ impl Encode for Signature {
 
 pub type MultiSignature = SignatureSet<Signature>;
 
-#[cfg(test)]
+#[cfg(all(test, not(tarpaulin_include)))]
 mod tests {
     use super::*;
 
