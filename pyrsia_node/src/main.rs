@@ -122,7 +122,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-async fn setup_p2p(mut p2p_client: Client, args: &PyrsiaNodeArgs) -> Result<()> {
+async fn setup_p2p(mut p2p_client: Client, args: &PyrsiaNodeArgs) -> anyhow::Result<()> {
     p2p_client.listen(&args.listen_address).await?;
     if let Some(to_probe) = &args.probe {
         info!("Invoking probe");
