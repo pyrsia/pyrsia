@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.3-labs
+# syntax=docker/dockerfile:1.4.1
 
 FROM rust:1.62-buster AS builder
 ENV CARGO_TARGET_DIR=/target
