@@ -48,7 +48,7 @@ jobs:
           project_id: 3
           organization: pyrsia
           gh_token: ${{ secrets.ORG_ACCESS_TOKEN }}
-          resource_node_id: ${{ github.event.issue.node_id }}
+          resource_node_id: ${{ github.event.pull_request.node_id }}
 
   pr-request-review:
     runs-on: ubuntu-latest
@@ -97,4 +97,4 @@ jobs:
           project_id: 3
           organization: pyrsia
           gh_token: ${{ secrets.ORG_ACCESS_TOKEN }}
-          resource_node_id: ${{ github.event.issue.node_id }}
+          resource_node_id: ${{ github.event.pull_request.node_id }}
