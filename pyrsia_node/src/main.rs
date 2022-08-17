@@ -132,21 +132,11 @@ async fn setup_p2p(mut p2p_client: Client, args: &PyrsiaNodeArgs) -> Result<()> 
         handlers::dial_other_peer(p2p_client.clone(), to_dial).await
     } else {
         info!("Looking up bootstrap node");
-        let peer_addrs = load_peer_addrs(&args.bootstrap_url).await;
-        match peer_addrs {
-            Ok(addr) => {
-                // Turbofish! https://doc.rust-lang.org/std/primitive.str.html#method.parse
-                let probe_addr = addr.parse::<libp2p::Multiaddr>();
-                match probe_addr {
-                    Ok(pa) => {
-                        info!("Probing {:?}", pa);
-                        handlers::probe_other_peer(p2p_client.clone(), &pa).await
-                    }
-                    _ => Err(anyhow::anyhow!("Could not resolve bootstrap node")),
-                }
-            }
-            Err(msg) => Err(msg),
-        }
+        let peer_addrs = load_peer_addrs(&args.bootstrap_url).await?;
+        // Turbofish! https://doc.rust-lang.org/std/primitive.str.html#method.parse
+        let pa = peer_addrs.parse::<libp2p::Multiaddr>()?;
+        info!("Probing {:?}", pa);
+        handlers::probe_other_peer(p2p_client.clone(), &pa).await
     }
 }
 
