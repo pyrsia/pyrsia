@@ -66,7 +66,6 @@ mod tests {
     use crate::node_api::model::cli::Status;
     use crate::util::test_util;
     use libp2p::identity::Keypair;
-    use log::error;
     use std::collections::HashSet;
     use std::str;
     use tokio::sync::mpsc;
@@ -91,12 +90,7 @@ mod tests {
             loop {
                 match build_event_receiver.recv().await {
                     Some(BuildEvent::Start { sender, .. }) => {
-                        sender.send(Ok(build_id.to_string())).unwrap_or_else(|e| {
-                            error!(
-                                "BuildEvent match arm: BuildEvent::Start. BuildError {:#?}",
-                                e
-                            );
-                        });
+                        let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => panic!("BuildEvent must match BuildEvent::Start"),
                 }
@@ -142,12 +136,7 @@ mod tests {
             loop {
                 match build_event_receiver.recv().await {
                     Some(BuildEvent::Start { sender, .. }) => {
-                        sender.send(Ok(build_id.to_string())).unwrap_or_else(|e| {
-                            error!(
-                                "BuildEvent match arm: BuildEvent::Start. BuildError {:#?}",
-                                e
-                            );
-                        });
+                        let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => panic!("BuildEvent must match BuildEvent::Start"),
                 }
@@ -190,9 +179,7 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let mut set = HashSet::new();
                         set.insert(local_peer_id);
-                        sender.send(set).unwrap_or_else(|e| {
-                            error!("Command match arm: Command::ListPeers. PeerIds {:#?}", e);
-                        });
+                        let _ = sender.send(set);
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
@@ -233,9 +220,7 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let mut set = HashSet::new();
                         set.insert(local_peer_id);
-                        sender.send(set).unwrap_or_else(|e| {
-                            error!("Command match arm: Command::ListPeers. PeerIds {:#?}", e);
-                        });
+                        let _ = sender.send(set);
                     }
                     Some(Command::Status { sender, .. }) => {
                         let status = Status {
@@ -244,9 +229,7 @@ mod tests {
                             peer_id: local_peer_id.to_string(),
                         };
 
-                        sender.send(status).unwrap_or_else(|e| {
-                            error!("Command match arm: Command::Status. Status {:#?}", e);
-                        });
+                        let _ = sender.send(status);
                     }
                     _ => panic!("Command must match Command::ListPeers or Command::Status"),
                 }

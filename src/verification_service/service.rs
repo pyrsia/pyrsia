@@ -302,9 +302,7 @@ mod tests {
                         let build_id = uuid::Uuid::new_v4().to_string();
                         assert_eq!(sent_package_type, package_type);
                         assert_eq!(sent_package_specific_id, package_specific_id);
-                        sender.send(Ok(build_id)).unwrap_or_else(|_e| {
-                            error!("build_event_receiver match arm: BuildEvent::Verify")
-                        });
+                        let _ = sender.send(Ok(build_id));
                     }
                     _ => panic!("BuildEvent must match BuildEvent::Verify"),
                 }
@@ -358,13 +356,7 @@ mod tests {
             loop {
                 match build_event_receiver.recv().await {
                     Some(BuildEvent::Verify { sender, .. }) => {
-                        sender.send(Ok(build_id.to_string()))
-                            .unwrap_or_else(|e| {
-                            error!(
-                                "build_event_receiver match arm: BuildEvent::Verify. BuildError {:#?}",
-                                e
-                            )
-                        });
+                        let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => panic!("BuildEvent must match BuildEvent::Verify"),
                 }
@@ -440,12 +432,7 @@ mod tests {
             loop {
                 match build_event_receiver.recv().await {
                     Some(BuildEvent::Verify { sender, .. }) => {
-                        sender.send(Ok(build_id.to_string())).unwrap_or_else(|e|{
-                            error!(
-                                "build_event_receiver match arm: BuildEvent::Verify. BuildError {:#?}",
-                                e
-                            )
-                        });
+                        let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => panic!("BuildEvent must match BuildEvent::Verify"),
                 }
@@ -519,12 +506,7 @@ mod tests {
             loop {
                 match build_event_receiver.recv().await {
                     Some(BuildEvent::Verify { sender, .. }) => {
-                        sender.send(Ok(build_id.to_string())).unwrap_or_else(|e|{
-                            error!(
-                                "build_event_receiver match arm: BuildEvent::Verify. BuildError {:#?}",
-                                e
-                            )
-                        });
+                        let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => panic!("BuildEvent must match BuildEvent::Verify"),
                 }
@@ -606,12 +588,7 @@ mod tests {
             loop {
                 match build_event_receiver.recv().await {
                     Some(BuildEvent::Verify { sender, .. }) => {
-                        sender.send(Ok(build_id.to_string())).unwrap_or_else(|e|{
-                            error!(
-                                "build_event_receiver match arm: BuildEvent::Verify. BuildError {:#?}",
-                                e
-                            )
-                        });
+                        let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => panic!("BuildEvent must match BuildEvent::Verify"),
                 }
@@ -693,12 +670,7 @@ mod tests {
             loop {
                 match build_event_receiver.recv().await {
                     Some(BuildEvent::Verify { sender, .. }) => {
-                        sender.send(Ok(build_id.to_string())).unwrap_or_else(|e|{
-                            error!(
-                                "build_event_receiver match arm: BuildEvent::Verify. BuildError {:#?}",
-                                e
-                            )
-                        });
+                        let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => panic!("BuildEvent must match BuildEvent::Verify"),
                 }

@@ -138,9 +138,7 @@ mod tests {
         let tmp_dir = tempfile::tempdir().unwrap();
         let mut perms = fs::metadata(&tmp_dir).unwrap().permissions();
         perms.set_readonly(true);
-        fs::set_permissions(&tmp_dir, perms).unwrap_or_else(|_e| {
-            error!("set_permissions: tmp_dir:{:#?}", &tmp_dir);
-        });
+        let _ = fs::set_permissions(&tmp_dir, perms);
         let tmp_file = tmp_dir.path().join("keypair_fails");
         load_or_generate_ed25519(&tmp_file.as_path());
         assert!(!tmp_file.as_path().exists());

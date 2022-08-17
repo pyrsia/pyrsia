@@ -297,7 +297,6 @@ impl Client {
 mod tests {
     use super::*;
     use libp2p::identity::Keypair;
-    use log::error;
     use rand::distributions::Alphanumeric;
     use rand::{thread_rng, Rng};
 
@@ -318,9 +317,7 @@ mod tests {
             command = receiver.recv() => match command {
                 Some(Command::Listen { addr, sender }) => {
                     assert_eq!(addr, cloned_address);
-                    sender.send(Ok(())).unwrap_or_else(|_e| {
-                        error!("Command match arm: Command::Listen");
-                    });
+                    let _ = sender.send(Ok(()));
                 },
                 _ => panic!("Command must match Command::Listen")
             }
@@ -346,9 +343,7 @@ mod tests {
                 Some(Command::Dial { peer_id, peer_addr, sender }) => {
                     assert_eq!(peer_id, local_peer_id);
                     assert_eq!(peer_addr, cloned_address);
-                    sender.send(Ok(())).unwrap_or_else(|_e| {
-                        error!("Command match arm: Command::Dial");
-                    });
+                    let _ = sender.send(Ok(()));
                 },
                 _ => panic!("Command must match Command::Dial")
             }
@@ -371,9 +366,7 @@ mod tests {
             command = receiver.recv() => match command {
                 Some(Command::ListPeers { peer_id, sender }) => {
                     assert_eq!(peer_id, local_peer_id);
-                    sender.send(Default::default()).unwrap_or_else(|e| {
-                        error!("Command match arm: Command::ListPeers. PeerIds: {:#?}", e);
-                    });
+                    let _ = sender.send(Default::default());
                 },
                 _ => panic!("Command must match Command::ListPeers")
             }
@@ -395,9 +388,7 @@ mod tests {
         tokio::select! {
             command = receiver.recv() => match command {
                 Some(Command::Status { sender }) => {
-                    sender.send(Default::default()).unwrap_or_else(|e| {
-                        error!("Command match arm: Command::Status. Status: {:#?}", e);
-                    });
+                    let _ = sender.send(Default::default());
                 },
                 _ => panic!("Command must match Command::Status")
             }
@@ -425,9 +416,7 @@ mod tests {
                     let peer_metric = PeerMetrics {
                         idle_metric: 8675309f64.to_le_bytes(),
                     };
-                    sender.send(Ok(peer_metric)).unwrap_or_else(|e| {
-                        error!("Command match arm: Command::RequestIdleMetric. PeerMetrics {:#?}", e);
-                    })
+                    let _ = sender.send(Ok(peer_metric));
                 },
                 None => {},
                 _ => panic!("Command must match Command::RequestIdleMetric")
@@ -456,9 +445,7 @@ mod tests {
             command = receiver.recv() => match command {
                 Some(Command::Provide { artifact_id, sender }) => {
                     assert_eq!(artifact_id, cloned_random_artifact_id);
-                    sender.send(()).unwrap_or_else(|_e| {
-                        error!("Command match arm: Command::Provide");
-                    });
+                    let _ = sender.send(());
                 },
                 _ => panic!("Command must match Command::Provide")
             }
@@ -486,9 +473,7 @@ mod tests {
             command = receiver.recv() => match command {
                 Some(Command::ListProviders { artifact_id, sender }) => {
                     assert_eq!(artifact_id, cloned_random_artifact_id);
-                    sender.send(Default::default()).unwrap_or_else(|e| {
-                        error!("Command match arm: Command::ListProviders. PeerIds {:#?}", e);
-                    });
+                    let _ = sender.send(Default::default());
                 },
                 _ => panic!("Command must match Command::ListProviders")
             }
@@ -522,9 +507,7 @@ mod tests {
                 Some(Command::RequestArtifact { peer, artifact_id, sender }) => {
                     assert_eq!(peer, other_peer_id);
                     assert_eq!(artifact_id, cloned_random_artifact_id);
-                    sender.send(Ok(vec![])).unwrap_or_else(|e|{
-                        error!("Command match arm: Command::RequestArtifact {:#?}", e);
-                    });
+                    let _ = sender.send(Ok(vec![]));
                 },
                 _ => panic!("Command must match Command::RequestArtifact")
             }
