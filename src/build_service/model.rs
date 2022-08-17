@@ -26,7 +26,7 @@ pub enum BuildStatus {
     Failure(String),
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct BuildInfo {
     pub id: String,
     pub status: BuildStatus,
