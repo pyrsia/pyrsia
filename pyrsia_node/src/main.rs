@@ -131,7 +131,64 @@ async fn setup_p2p(mut p2p_client: Client, args: &PyrsiaNodeArgs) -> Result<()> 
         info!("Invoking dial");
         handlers::dial_other_peer(p2p_client.clone(), to_dial).await
     } else {
-        Ok(())
+        info!("Looking up bootstrap node");
+        let peer_addrs = load_peer_addrs(&args.bootstrap_url).await;
+        match peer_addrs {
+            Ok(addr) => {
+                // Turbofish! https://doc.rust-lang.org/std/primitive.str.html#method.parse
+                let probe_addr = addr.parse::<libp2p::Multiaddr>();
+                match probe_addr {
+                    Ok(pa) => {
+                        info!("Probing {:?}", pa);
+                        handlers::probe_other_peer(p2p_client.clone(), &pa).await
+                    }
+                    _ => Err(anyhow::anyhow!("Could not resolve bootstrap node")),
+                }
+            }
+            Err(msg) => Err(msg),
+        }
+    }
+}
+
+async fn load_peer_addrs(peer_url: &str) -> anyhow::Result<String> {
+    use anyhow::anyhow;
+
+    let client = reqwest::Client::new();
+    let response = client.get(peer_url).send().await;
+    match response {
+        Ok(body) => {
+            let text: String = body.text().await?;
+            let jv: json::JsonValue = json::parse(&text)?;
+            let arr = &jv["peer_addrs"];
+            match arr {
+                json::JsonValue::Array(vec_jv) => {
+                    if vec_jv.len() < 1 {
+                        return Err(anyhow!(
+                            "Could not read status from {} error {:?}",
+                            peer_url,
+                            "did not receive a valid array of peer_addrs in JSON"
+                        ));
+                    }
+                    let peer_addrs: String = vec_jv[0].to_string();
+                    info!("Found bootstrap peer_addr {:?}", peer_addrs);
+                    if peer_addrs.len() > 0 {
+                        Ok(peer_addrs)
+                    } else {
+                        Err(anyhow!("Could not read peer_addrs from {}", peer_url))
+                    }
+                }
+                _ => Err(anyhow!(
+                    "Could not read status from {} error {:?}",
+                    peer_url,
+                    "did not receive an array of peer_addrs in JSON"
+                )),
+            }
+        }
+        Err(err) => Err(anyhow!(
+            "Could not read status from {} error {:?}",
+            peer_url,
+            err
+        )),
     }
 }
 
