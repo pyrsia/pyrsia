@@ -19,7 +19,7 @@ use std::path::PathBuf;
 
 use crate::artifact_service::model::PackageType;
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub enum BuildStatus {
     Running,
     Success { artifact_urls: Vec<String> },

@@ -28,7 +28,7 @@ use thiserror::Error;
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Error, PartialEq)]
+#[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum TransparencyLogError {
     #[error(
         "ID {package_specific_artifact_id} for type {package_type} not found in transparency log"

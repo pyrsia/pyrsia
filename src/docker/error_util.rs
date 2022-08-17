@@ -42,7 +42,7 @@ pub enum RegistryErrorCode {
     Unknown(String),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct RegistryError {
     pub code: RegistryErrorCode,
 }
