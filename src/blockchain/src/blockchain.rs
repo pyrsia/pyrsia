@@ -14,12 +14,6 @@
    limitations under the License.
 */
 
-use libp2p::identity;
-use libp2p::identity::Keypair::Ed25519;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fmt::{self, Debug, Formatter};
-
 use super::crypto::hash_algorithm::HashDigest;
 use super::structures::{
     block::Block,
@@ -27,6 +21,11 @@ use super::structures::{
     header::Address,
     transaction::{Transaction, TransactionType},
 };
+use libp2p::identity;
+use libp2p::identity::Keypair::Ed25519;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt::{self, Debug, Formatter};
 
 /// Define Supported Signature Algorithm
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -145,6 +144,11 @@ impl Blockchain {
         // TODO: Consensus algorithm will be refactored
         self.commit_block(block).await;
         Ok(())
+    }
+
+    /// Update block after receiving the new block from other peers
+    pub async fn update_block_from_peers(&mut self, block: Box<Block>) {
+        self.commit_block(*block).await;
     }
 
     /// Commit block and notify block listeners

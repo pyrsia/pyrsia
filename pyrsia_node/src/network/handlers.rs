@@ -94,6 +94,6 @@ pub async fn handle_request_block_update(
 
     let mut blockchain_service = blockchain_service.lock().await;
 
-    let _ = blockchain_service.blockchain;
+    blockchain_service.add_block(block_ordinal, block).await;
     blockchain_service.p2p_client.respond_block_update().await
 }
