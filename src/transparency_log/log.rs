@@ -65,7 +65,14 @@ impl From<rusqlite::Error> for TransparencyLogError {
 }
 
 #[derive(
-    Debug, Clone, strum_macros::Display, strum_macros::EnumString, Deserialize, Serialize, PartialEq,
+    Debug,
+    Clone,
+    strum_macros::Display,
+    strum_macros::EnumString,
+    Deserialize,
+    Serialize,
+    Eq,
+    PartialEq,
 )]
 pub enum Operation {
     AddArtifact,

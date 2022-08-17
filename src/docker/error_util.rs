@@ -34,7 +34,7 @@ pub struct ErrorMessages {
     errors: Vec<ErrorMessage>,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub enum RegistryErrorCode {
     BlobUnknown,
     BlobDoesNotExist(String),

@@ -28,6 +28,8 @@ use super::structures::{
     transaction::{Transaction, TransactionType},
 };
 
+pub type PaylocalCallback = dyn FnMut(&Vec<u8>);
+
 /// Define Supported Signature Algorithm
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SignatureAlgorithm {
@@ -38,7 +40,7 @@ pub struct Blockchain {
     // trans_observers may be only used internally by blockchain service
     trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
     // payload_observers used by transparency_log service
-    payload_observers: Vec<Box<dyn FnMut(&Vec<u8>)>>,
+    payload_observers: Vec<Box<PaylocalCallback>>,
     // chain is the blocks of the blockchain
     chain: Chain,
 }
