@@ -1813,6 +1813,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "json"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "078e285eafdfb6c4b434e0d31e8cfcb5115b651496faca5749b88fafd4f23bfd"
+
+[[package]]
 name = "keccak"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3350,11 +3356,13 @@ dependencies = [
  "clap",
  "futures",
  "hex",
+ "json",
  "libp2p",
  "log",
  "pretty_env_logger",
  "pyrsia",
  "pyrsia_blockchain_network",
+ "reqwest",
  "test-log",
  "tokio",
  "tokio-stream",
