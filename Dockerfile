@@ -52,5 +52,3 @@ WORKDIR /usr/local/var
 
 ENV PYRSIA_ARTIFACT_PATH /usr/local/var/pyrsia
 ENV RUST_LOG debug
-
-ENTRYPOINT [ "/tmp/entrypoint.sh", "--host", "0.0.0.0", "--listen", "/ip4/0.0.0.0/tcp/44000" ]

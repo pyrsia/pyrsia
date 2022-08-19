@@ -45,19 +45,21 @@ cargo test --workspace
 
 These commands should run successfully. If you have issues with these please reach out to the team on slack and report an issue/submit a PR.
 
-## Build Docker image and start Pyrsia node
+## Pyrsia node docker image
 
-Make sure [Docker engine](https://docs.docker.com/engine/install/) is installed (18.09 or higher) then build the Docker image:
+Make sure [Docker engine](https://docs.docker.com/engine/install/) is installed (18.09 or higher):
+
+Build the Pyrsia node docker image:
 
 ```sh
 cd $PYRSIA_HOME
-DOCKER_BUILDKIT=1 docker build -t=${USER}/pyrsia-node .
+DOCKER_BUILDKIT=1 docker build -t=pyrsia/node .
 ```
 
-Create and start Docker container using the new image as shown below, the node starts once the container is up and running.
+Build the Pyrsia node docker image (if not present) and start the node.
 
 ```sh
-docker run -p 7888:7888 ${USER}/pyrsia-node
+docker compose up
 ```
 
 ## Simulate a network
