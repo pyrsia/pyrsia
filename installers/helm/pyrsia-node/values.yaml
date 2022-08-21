@@ -1,13 +1,14 @@
 replicaCount: 3
 
 image:
-  repository: sbtaylor15/pyrsia-node
-  tag: latest
-  pullPolicy: Always
+    repository: sbtaylor15/pyrsia-node
+    tag: latest
+    pullPolicy: Always
 
 pyrsia:
-  ports:
-    pyrsia: 80
-    p2p: 44000
-  storage:
-    size: "1500Gi"
+    ports:
+        pyrsia: 80
+        p2p: 44000
+    storage:
+        size: "1500Mi"
+    trafficPolicy: "Cluster"

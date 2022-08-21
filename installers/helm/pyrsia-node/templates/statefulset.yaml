@@ -3,8 +3,6 @@ kind: StatefulSet
 metadata:
   name: {{ include "pyrsia-node.name" . }}
   annotations:
-    service-per-pod-label: "pod-name"
-    service-per-pod-ports: "80:8080"
 spec:
   replicas: {{ .Values.replicaCount }}
   updateStrategy:
@@ -17,9 +15,7 @@ spec:
       track: stable
   template:
     metadata:
-      annotations:
-        pod-name-label: "pod-name"
-      labels:
+        labels:
         app: pyrsia-node
         tier: frontend
         track: stable

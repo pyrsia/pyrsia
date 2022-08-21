@@ -1,14 +1,14 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: pyrsia-node-0
+  name: pyrsia-node
   annotations:
-    kubernetes.io/ingress.global-static-ip-name: pyrsia-node-0
+    kubernetes.io/ingress.global-static-ip-name: pyrsia-node
 spec:
   type: LoadBalancer
-  externalTrafficPolicy: Local
+  externalTrafficPolicy: {{ .Values.pyrsia.trafficPolicy}}
   selector:
-    statefulset.kubernetes.io/pod-name: pyrsia-node-0
+    statefulset.kubernetes.io/pod-name: pyrsia-node
   ports:
     - port: {{ .Values.pyrsia.ports.pyrsia}}
       targetPort: 7888
