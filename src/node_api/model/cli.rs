@@ -29,6 +29,16 @@ pub struct RequestDockerBuild {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct RequestDockerLog {
+    pub image: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RequestMavenBuild {
+    pub gav: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RequestMavenLog {
     pub gav: String,
 }

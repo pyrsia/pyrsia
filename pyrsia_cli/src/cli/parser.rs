@@ -60,6 +60,22 @@ pub fn cli_parser() -> ArgMatches {
             Command::new("status")
                 .short_flag('s')
                 .about("Shows node information"),
+            Command::new("inspect-log")
+                .about("Shows transparency logs")
+                .subcommands(vec![
+                    Command::new("docker")
+                        .about("Shows transparency logs for a Docker image")
+                        .arg_required_else_help(true)
+                        .args(&[
+                            arg!(--image <IMAGE> "The docker image (e.g. alpine:3.15.3 or alpine@sha256:1e014f84205d569a5cc3be4e108ca614055f7e21d11928946113ab3f36054801"),
+                        ]),
+                    Command::new("maven")
+                        .about("Shows transparency logs for a maven artifact")
+                        .arg_required_else_help(true)
+                        .args(&[
+                            arg!(--gav <GAV> "The maven GAV (e.g. org.myorg:my-artifact:1.1.0)"),
+                        ]),
+                ]),
         ])
         .version(version_string)
         .get_matches()
