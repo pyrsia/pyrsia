@@ -197,8 +197,12 @@ impl TransparencyLogService {
 
     /// Search the transparency log database for a list of transparency logs using the
     /// specified filter.
-    pub fn search_transparency_logs(&self) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
-        Ok(vec![])
+    pub fn search_transparency_logs(
+        &self,
+        package_type: &PackageType,
+        package_specific_id: &str,
+    ) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
+        self.read_transparency_logs(package_type, package_specific_id)
     }
 
     /// Gets a list of transparency logs of which the operation is AddNode. Returns an error
@@ -277,45 +281,17 @@ impl TransparencyLogService {
         package_type: &PackageType,
         package_specific_artifact_id: &str,
     ) -> Result<TransparencyLog, TransparencyLogError> {
-        let conn = self.open_db()?;
-
-        let mut stmt = conn.prepare("SELECT * FROM TRANSPARENCYLOG WHERE package_type = :package_type AND package_specific_artifact_id = :package_specific_artifact_id;")?;
-        let transparency_log_records = stmt.query_map(
-            &[
-                (":package_type", &*package_type.to_string()),
-                (
-                    ":package_specific_artifact_id",
-                    package_specific_artifact_id,
-                ),
-            ],
-            |row| {
-                Ok(TransparencyLog {
-                    id: row.get(0)?,
-                    package_type: {
-                        let pt: String = row.get(1)?;
-                        PackageType::from_str(&pt).unwrap()
-                    },
-                    package_specific_id: row.get(2)?,
-                    num_artifacts: row.get(3)?,
-                    package_specific_artifact_id: row.get(4)?,
-                    artifact_hash: row.get(5)?,
-                    source_hash: row.get(6)?,
-                    artifact_id: row.get(7)?,
-                    source_id: row.get(8)?,
-                    timestamp: row.get(9)?,
-                    operation: {
-                        let op: String = row.get(10)?;
-                        Operation::from_str(&op).unwrap()
-                    },
-                    node_id: row.get(11)?,
-                    node_public_key: row.get(12)?,
-                })
-            },
-        )?;
+        let query = [
+            "SELECT * FROM TRANSPARENCYLOG WHERE package_type = '",
+            &*package_type.to_string(),
+            "' AND package_specific_artifact_id = '",
+            package_specific_artifact_id,
+            "';",
+        ];
+        let results = self.process_query(query.join("").as_str())?;
 
         let mut vector: Vec<TransparencyLog> = Vec::new();
-        for transparency_log_record in transparency_log_records {
-            let record = transparency_log_record?;
+        for record in results {
             if record.operation == Operation::AddArtifact
                 || record.operation == Operation::RemoveArtifact
             {
@@ -342,44 +318,47 @@ impl TransparencyLogService {
         Ok(latest_record)
     }
 
-    fn find_added_nodes(&self) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
-        let conn = self.open_db()?;
+    fn read_transparency_logs(
+        &self,
+        package_type: &PackageType,
+        package_specific_id: &str,
+    ) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
+        let query = [
+            "SELECT * FROM TRANSPARENCYLOG WHERE package_type = '",
+            &*package_type.to_string(),
+            "' AND package_specific_id = '",
+            package_specific_id,
+            "';",
+        ];
+        let results = self.process_query(query.join("").as_str())?;
 
-        let mut stmt = conn.prepare("SELECT * FROM TRANSPARENCYLOG WHERE operation = :operation_add_node OR operation = :operation_remove_node;")?;
-        let transparency_log_records = stmt.query_map(
-            &[
-                (":operation_add_node", &Operation::AddNode.to_string()),
-                (":operation_remove_node", &Operation::RemoveNode.to_string()),
-            ],
-            |row| {
-                Ok(TransparencyLog {
-                    id: row.get(0)?,
-                    package_type: {
-                        let pt: String = row.get(1)?;
-                        PackageType::from_str(&pt).unwrap()
-                    },
-                    package_specific_id: row.get(2)?,
-                    num_artifacts: row.get(3)?,
-                    package_specific_artifact_id: row.get(4)?,
-                    artifact_hash: row.get(5)?,
-                    source_hash: row.get(6)?,
-                    artifact_id: row.get(7)?,
-                    source_id: row.get(8)?,
-                    timestamp: row.get(9)?,
-                    operation: {
-                        let op: String = row.get(10)?;
-                        Operation::from_str(&op).unwrap()
-                    },
-                    node_id: row.get(11)?,
-                    node_public_key: row.get(12)?,
-                })
-            },
-        )?;
+        let mut vector: Vec<TransparencyLog> = Vec::new();
+        for record in results {
+            if record.operation == Operation::AddArtifact
+                || record.operation == Operation::RemoveArtifact
+            {
+                vector.push(record);
+            }
+        }
+
+        vector.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+
+        Ok(vector)
+    }
+
+    fn find_added_nodes(&self) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
+        let query = [
+            "SELECT * FROM TRANSPARENCYLOG WHERE operation = '",
+            &Operation::AddNode.to_string(),
+            "' OR operation = '",
+            &Operation::RemoveNode.to_string(),
+            "';",
+        ];
+        let results = self.process_query(query.join("").as_str())?;
 
         let mut vector_added: Vec<TransparencyLog> = Vec::new();
         let mut vector_removed: Vec<TransparencyLog> = Vec::new();
-        for transparency_log_record in transparency_log_records {
-            let record = transparency_log_record?;
+        for record in results {
             if record.operation == Operation::AddNode {
                 vector_added.push(record);
             } else if record.operation == Operation::RemoveNode {
@@ -391,6 +370,42 @@ impl TransparencyLogService {
         }
 
         Ok(vector_added)
+    }
+
+    fn process_query(&self, query: &str) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
+        let conn = self.open_db()?;
+        let mut stmt = conn.prepare(query)?;
+
+        let transparency_log_records = stmt.query_map([], |row| {
+            Ok(TransparencyLog {
+                id: row.get(0)?,
+                package_type: {
+                    let pt: String = row.get(1)?;
+                    PackageType::from_str(&pt).unwrap()
+                },
+                package_specific_id: row.get(2)?,
+                num_artifacts: row.get(3)?,
+                package_specific_artifact_id: row.get(4)?,
+                artifact_hash: row.get(5)?,
+                source_hash: row.get(6)?,
+                artifact_id: row.get(7)?,
+                source_id: row.get(8)?,
+                timestamp: row.get(9)?,
+                operation: {
+                    let op: String = row.get(10)?;
+                    Operation::from_str(&op).unwrap()
+                },
+                node_id: row.get(11)?,
+                node_public_key: row.get(12)?,
+            })
+        })?;
+
+        let mut vector: Vec<TransparencyLog> = Vec::new();
+        for transparency_log_record in transparency_log_records {
+            vector.push(transparency_log_record?);
+        }
+
+        Ok(vector)
     }
 }
 
@@ -642,6 +657,62 @@ mod tests {
         let result_read =
             log.read_transparency_log(&PackageType::Maven2, "package_specific_artifact_id2");
         assert!(result_read.is_ok());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_read_transparency_logs() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+
+        let transparency_log1 = TransparencyLog {
+            id: String::from("id1"),
+            package_type: PackageType::Maven2,
+            package_specific_id: String::from("package_specific_id"),
+            num_artifacts: 8,
+            package_specific_artifact_id: String::from("package_specific_artifact_id"),
+            artifact_hash: String::from("artifact_hash1"),
+            source_hash: String::from("source_hash1"),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
+            timestamp: 10000000,
+            operation: Operation::AddArtifact,
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        let result_write1 = log.write_transparency_log(&transparency_log1);
+        assert!(result_write1.is_ok());
+
+        let transparency_log2 = TransparencyLog {
+            id: String::from("id2"),
+            package_type: PackageType::Maven2,
+            package_specific_id: String::from("package_specific_id"),
+            num_artifacts: 8,
+            package_specific_artifact_id: String::from("package_specific_artifact_id2"),
+            artifact_hash: String::from("artifact_hash2"),
+            source_hash: String::from("source_hash2"),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
+            timestamp: 20000000,
+            operation: Operation::AddArtifact,
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        let result_write2 = log.write_transparency_log(&transparency_log2);
+        assert!(result_write2.is_ok());
+
+        let result_read1 = log.read_transparency_logs(&PackageType::Maven2, "package_specific_id");
+        assert!(result_read1.is_ok());
+        assert_eq!(result_read1.unwrap().len(), 2);
+
+        let result_read2 =
+            log.read_transparency_logs(&PackageType::Maven2, "other_package_specific_id");
+        assert!(result_read2.is_ok());
+        assert_eq!(result_read2.unwrap().len(), 0);
 
         test_util::tests::teardown(tmp_dir);
     }

@@ -24,6 +24,7 @@ const DEFAULT_MAPPING_SERVICE_ENDPOINT: &str =
     "https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/";
 const DEFAULT_PIPELINE_SERVICE_ENDPOINT: &str = "http://localhost:8080";
 const DEFAULT_PORT: &str = "7888";
+const DEFAULT_BOOTSTRAP_URL: &str = "http://boot.pyrsia.link/status";
 
 /// Application to connect to and participate in the Pyrsia network
 #[derive(Debug, Parser)]
@@ -44,6 +45,8 @@ pub struct PyrsiaNodeArgs {
     /// An address to use for probing AutoNAT connections
     #[clap(long, short = 'R')]
     pub probe: Option<Multiaddr>,
+    #[clap(long, short = 'B', default_value = DEFAULT_BOOTSTRAP_URL)]
+    pub bootstrap_url: String,
     /// The maximum number of keys that can be provided on the network by this Pyrsia Node.
     #[clap(long, default_value = DEFAULT_MAX_PROVIDED_KEYS)]
     pub max_provided_keys: usize,
