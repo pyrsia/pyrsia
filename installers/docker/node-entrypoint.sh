@@ -13,7 +13,7 @@ if [ -f /var/run/secrets/kubernetes.io/serviceaccount/namespace ]; then
     echo "PYRSIA_EXTERNAL_IP=$PYRSIA_EXTERNAL_IP"
 
     # detemine if I am node-0 if so be the primary boot node
-    if [ "$(hostname | rev | cut -c -2 | rev)" = "-1" ]; then
+    if [ "$(hostname | rev | cut -c -2 | rev)" = "-0" ]; then
         /usr/bin/pyrsia_node $* --listen-only true  
     else
         /usr/bin/pyrsia_node $* 
