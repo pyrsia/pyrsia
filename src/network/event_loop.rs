@@ -21,6 +21,7 @@ use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
 use crate::util::env_util::read_var;
+use libp2p::autonat::Event as AutonatEvent;
 use libp2p::core::PeerId;
 use libp2p::futures::StreamExt;
 use libp2p::identify::IdentifyEvent;
@@ -87,6 +88,7 @@ impl PyrsiaEventLoop {
         loop {
             tokio::select! {
                 event = self.swarm.select_next_some() => match event {
+                    SwarmEvent::Behaviour(PyrsiaNetworkEvent::AutoNat(autonat_event)) => self.handle_autonat_event(autonat_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Identify(identify_event)) => self.handle_identify_event(identify_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Kademlia(kademlia_event)) => self.handle_kademlia_event(kademlia_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::RequestResponse(request_response_event)) => self.handle_request_response_event(request_response_event).await,
@@ -101,6 +103,25 @@ impl PyrsiaEventLoop {
                     // Command channel closed, thus shutting down the network event loop.
                     None => { warn!("Got empty command"); return },
                 },
+            }
+        }
+    }
+
+    // Handles events from the `AutoNat` network behaviour.
+    async fn handle_autonat_event(&mut self, event: AutonatEvent) {
+        println!("Handle AutonatEvent: {:?}", event);
+        match event {
+            AutonatEvent::InboundProbe(evt) => {
+                debug!("AutonatEvent::InboundProbe {:?}", evt);
+                // let peer = evt.Request.ge
+                // let address = evt.get_address();
+                // self.swarm.behaviour_mut().auto_nat.add_server(peer, address);
+            }
+            AutonatEvent::OutboundProbe(evt) => {
+                debug!("AutonatEvent::OutboundProbe {:?}", evt);
+            }
+            AutonatEvent::StatusChanged { old, new } => {
+                info!("State changed from {:?} to {:?}", old, new);
             }
         }
     }
@@ -331,6 +352,9 @@ impl PyrsiaEventLoop {
             SwarmEvent::ConnectionClosed { .. } => {}
             SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
                 if let Some(peer_id) = peer_id {
+                    if peer_id == *self.swarm.local_peer_id() {
+                        warn!("The dialed node has the same peer ID as the current node: '{}'. Please make sure that every node has a unique peer ID.", peer_id);
+                    }
                     if let Some(sender) = self.pending_dial.remove(&peer_id) {
                         let _ = sender.send(Err(error.into()));
                     }
@@ -346,7 +370,9 @@ impl PyrsiaEventLoop {
             }
             SwarmEvent::ExpiredListenAddr { .. } => {}
             SwarmEvent::IncomingConnection { .. } => {}
-            SwarmEvent::IncomingConnectionError { .. } => {}
+            SwarmEvent::IncomingConnectionError { error, .. } => {
+                warn!("{}", error);
+            }
             SwarmEvent::ListenerClosed { .. } => {}
             SwarmEvent::ListenerError { .. } => {}
         }
@@ -356,6 +382,20 @@ impl PyrsiaEventLoop {
     async fn handle_command(&mut self, command: Command) {
         trace!("Handle Command: {}", command);
         match command {
+            Command::AddProbe {
+                peer_id,
+                probe_addr,
+                sender,
+            } => {
+                self.swarm
+                    .behaviour_mut()
+                    .auto_nat
+                    .add_server(peer_id, Some(probe_addr));
+                match sender.send(()) {
+                    Ok(_) => log::info!("Handled probe for AutoNAT"),
+                    Err(e) => log::error!("Could not handle probe for AutoNAT: {:?}", e),
+                }
+            }
             Command::Listen { addr, sender } => {
                 let _ = match self.swarm.listen_on(addr) {
                     Ok(_) => sender.send(Ok(())),
@@ -531,15 +571,11 @@ mod tests {
     };
     use libp2p::core::upgrade;
     use libp2p::core::Transport;
-    use libp2p::dns;
-    use libp2p::identify;
     use libp2p::identity::Keypair;
-    use libp2p::kad;
-    use libp2p::noise;
-    use libp2p::request_response;
     use libp2p::swarm::SwarmBuilder;
     use libp2p::tcp::{self, GenTcpConfig};
     use libp2p::yamux::YamuxConfig;
+    use libp2p::{autonat, dns, identify, kad, noise, request_response};
     use std::iter;
     use std::time::Duration;
 
@@ -552,8 +588,8 @@ mod tests {
             .into_authentic(&id_keys)
             .expect("Signing libp2p-noise static DH keypair failed.");
 
-        let tcp = tcp::TokioTcpTransport::new(GenTcpConfig::default().nodelay(true));
-        let dns = dns::TokioDnsConfig::system(tcp).unwrap();
+        let transport = tcp::TokioTcpTransport::new(GenTcpConfig::default().nodelay(true));
+        let dns = dns::TokioDnsConfig::system(transport).unwrap();
 
         let mem_transport = dns
             .upgrade(upgrade::Version::V1)
@@ -563,6 +599,16 @@ mod tests {
             .boxed();
 
         let behaviour = PyrsiaNetworkBehaviour {
+            auto_nat: autonat::Behaviour::new(
+                peer_id,
+                autonat::Config {
+                    retry_interval: Duration::from_secs(10),
+                    refresh_interval: Duration::from_secs(30),
+                    boot_delay: Duration::from_secs(5),
+                    throttle_server_period: Duration::ZERO,
+                    ..Default::default()
+                },
+            ),
             identify: identify::Identify::new(identify::IdentifyConfig::new(
                 "ipfs/1.0.0".to_owned(),
                 id_keys.public(),

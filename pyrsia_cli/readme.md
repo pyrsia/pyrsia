@@ -4,7 +4,7 @@ Parses command lines and subcommands, then communicates the parsed requests to a
 
 ## Building
 
-1. Follow our [Getting Started](https://pyrsia.io/docs/developer/local_dev_setup/) section
+1. Follow our [Developer Environment Setup](https://pyrsia.io/docs/developer/local_dev_setup/) section
 2. Run the build release command for package `pyrsia_cli` which generates an executable in `./target/release/pyrsia`
 
 ```sh

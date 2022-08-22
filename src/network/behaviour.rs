@@ -22,6 +22,7 @@ use crate::network::idle_metric_protocol::{
     IdleMetricExchangeCodec, IdleMetricRequest, IdleMetricResponse,
 };
 
+use libp2p::autonat;
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::kad::{Kademlia, KademliaEvent};
@@ -39,6 +40,7 @@ use libp2p::NetworkBehaviour;
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "PyrsiaNetworkEvent")]
 pub struct PyrsiaNetworkBehaviour {
+    pub auto_nat: autonat::Behaviour,
     pub identify: Identify,
     pub kademlia: Kademlia<MemoryStore>,
     pub request_response: RequestResponse<ArtifactExchangeCodec>,
@@ -50,11 +52,18 @@ pub struct PyrsiaNetworkBehaviour {
 /// `PyrsiaNetworkEvent`.
 #[derive(Debug)]
 pub enum PyrsiaNetworkEvent {
+    AutoNat(autonat::Event),
     Identify(IdentifyEvent),
     Kademlia(KademliaEvent),
     RequestResponse(RequestResponseEvent<ArtifactRequest, ArtifactResponse>),
     IdleMetricRequestResponse(RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>),
     BlockUpdateRequestResponse(RequestResponseEvent<BlockUpdateRequest, BlockUpdateResponse>),
+}
+
+impl From<autonat::Event> for PyrsiaNetworkEvent {
+    fn from(v: autonat::Event) -> Self {
+        PyrsiaNetworkEvent::AutoNat(v)
+    }
 }
 
 impl From<IdentifyEvent> for PyrsiaNetworkEvent {

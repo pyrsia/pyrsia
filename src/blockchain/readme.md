@@ -7,11 +7,9 @@ This will encompass:
 - recording new "transaction" accepting generic payload
 - returning finalized blocks
 
-## Getting started
+This can be built from the project root since it's a part of the workspace.
 
-This can be built from the project root since it's apart of the workspace.
-
-### Running the example Node
+## Running the example Node
 
 ```sh
 cargo build --examples
