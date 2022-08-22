@@ -121,10 +121,55 @@ mod tests {
         };
 
         let mut blockchain_service = BlockchainService::new(&keypair, client);
+
         let block = Block::new(HashDigest::new(b""), 0, vec![], &keypair);
 
         assert_eq!(blockchain_service.add_block(0, Box::new(block)).await, ());
 
+        let last_block = blockchain_service.blockchain.last_block().unwrap();
+
+        let block = Block::new(last_block.header.hash(), 1, vec![], &keypair);
+
+        assert_eq!(blockchain_service.add_block(1, Box::new(block)).await, ());
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_notify_block_update() -> Result<(), String> {
+        let (sender, _) = mpsc::channel(1);
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_peer_id = identity::PublicKey::Ed25519(keypair.public()).to_peer_id();
+        let client = Client {
+            sender,
+            local_peer_id,
+        };
+
+        let mut blockchain_service = BlockchainService::new(&keypair, client);
+
+        let block = Box::new(Block::new(HashDigest::new(b""), 1, vec![], &keypair));
+
+        assert_eq!(blockchain_service.notify_block_update(block).await, ());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_debug() -> Result<(), String> {
+        let (sender, _) = mpsc::channel(1);
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_peer_id = identity::PublicKey::Ed25519(keypair.public()).to_peer_id();
+        let client = Client {
+            sender,
+            local_peer_id,
+        };
+
+        let blockchain_service = BlockchainService::new(&keypair, client);
+
+        assert_ne!(
+            format!("This is blockchain service {blockchain_service:?}"),
+            "This is blockchain service"
+        );
         Ok(())
     }
 }

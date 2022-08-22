@@ -299,4 +299,22 @@ mod tests {
         );
         Ok(())
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_update_block_from_peer() -> Result<(), String> {
+        let keypair = identity::Keypair::generate_ed25519();
+        let ed25519_key = match keypair.clone() {
+            Ed25519(some) => some,
+            _ => return Err("Key format is wrong".to_string()),
+        };
+
+        let mut blockchain = Blockchain::new(&ed25519_key);
+
+        let block = Box::new(Block::new(HashDigest::new(b""), 1, vec![], &ed25519_key));
+
+        let result = blockchain.update_block_from_peers(block).await;
+        assert_eq!(result, ());
+
+        Ok(())
+    }
 }
