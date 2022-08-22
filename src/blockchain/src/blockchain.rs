@@ -27,6 +27,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
+pub type PayloadCallback = dyn FnMut(&Vec<u8>);
+
 /// Define Supported Signature Algorithm
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SignatureAlgorithm {
@@ -37,7 +39,7 @@ pub struct Blockchain {
     // trans_observers may be only used internally by blockchain service
     trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
     // payload_observers used by transparency_log service
-    payload_observers: Vec<Box<dyn FnMut(Vec<u8>)>>,
+    payload_observers: Vec<Box<PayloadCallback>>,
     // chain is the blocks of the blockchain
     chain: Chain,
 }
@@ -88,7 +90,7 @@ impl Blockchain {
         }
     }
 
-    pub fn add_payload_listener<CallBack: 'static + FnMut(Vec<u8>)>(
+    pub fn add_payload_listener<CallBack: 'static + FnMut(&Vec<u8>)>(
         &mut self,
         on_payload: CallBack,
     ) -> &mut Self {
@@ -96,11 +98,10 @@ impl Blockchain {
         self
     }
 
-    pub async fn notify_payload_event(&mut self, payload: Vec<u8>) -> &mut Self {
+    pub async fn notify_payload_event(&mut self, payload: &'_ Vec<u8>) {
         self.payload_observers
             .iter_mut()
-            .for_each(|notify| notify(payload.clone()));
-        self
+            .for_each(|notify| notify(payload))
     }
 
     /// Add block after receiving payload and keypair
@@ -156,7 +157,7 @@ impl Blockchain {
         self.chain.add_block(block.clone());
 
         for trans in block.transactions {
-            self.notify_payload_event(trans.payload()).await;
+            self.notify_payload_event(&trans.payload()).await;
         }
     }
 
@@ -238,7 +239,7 @@ mod tests {
             &keypair,
         );
         let mut blockchain = Blockchain::new(&keypair);
-        let called = move |b: Vec<u8>| println!("data is {:?}", b);
+        let called = move |b: &Vec<u8>| println!("data is {:?}", b);
 
         blockchain
             .add_payload_listener(called)
