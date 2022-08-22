@@ -92,7 +92,7 @@ What are the primary communications channels the project will adopt and manage?
 This can include Slack, mailing lists, an organized Stack Overflow topic, or exist only in GitHub issues and pull requests.
 
 * Mailing list: [groups.google.com/g/pyrsia](https://groups.google.com/g/pyrsia).
-* Slack: #pyrsia_bootstrap [slack channel](https://openssf.slack.com/archives/C02RC7Y5EUV) on the OpenSSF slack.
+* Slack: [#pyrsia](https://join.slack.com/t/cdeliveryfdn/shared_invite/zt-1eryue9cw-9YpgrfIfsTcDS~hGHchURg)
 
 Governance decisions, votes and questions should take place on the pyrsia@googlegroups.com mailing list.
 
