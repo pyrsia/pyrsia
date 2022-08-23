@@ -3,7 +3,7 @@ apiVersion: v2
 description: Pyrsia Decentralized Package Network
 name: pyrsia-node
 appVersion: 0.2.0
-version: 0.2.0
+version: 0.2.1
 home: https://pyrsia.io
 icon: https://raw.githubusercontent.com/pyrsia/pyrsia.github.io/main/static/img/icon-pyrsia-torch.svg
 keywords: 
