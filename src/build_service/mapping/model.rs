@@ -18,12 +18,12 @@ use crate::artifact_service::model::PackageType;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub enum SourceRepository {
     Git { url: String, tag: String },
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct MappingInfo {
     pub package_type: PackageType,
     pub package_specific_id: String,
