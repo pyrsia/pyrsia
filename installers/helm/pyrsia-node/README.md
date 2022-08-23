@@ -9,7 +9,7 @@ Microservice Configuration Management - Track, Version, Find, Share and Deploy M
 ```console
 gcloud projects add-iam-policy-binding <PROJECT> --member=serviceAccount:service-<PROJECT_NUMBER>@compute-system.iam.gserviceaccount.com --role=roles/cloudkms.cryptoKeyEncrypterDecrypter
 
-helm repo add pyrsiaoss https://helmrepo.pyrsia.io/
+helm repo add pyrsiaoss https://helmrepo.pyrsia.io/repos/nightly
 helm install my-release pyrsiaoss/pyrsia-node --set "p2pkeys.kms_key_id=projects/<PROJECT>locations/global/keyRings/<KEYRING>/cryptoKeys/<KEY>"
 ```
 
@@ -28,7 +28,7 @@ This chart deploys all of the required secrets, services, and deployments on a [
 To install the chart with the release name `my-release`:
 
 ```console
-helm repo add pyrsiaoss https://helmrepo.pyrsia.io/
+helm repo add pyrsiaoss https://helmrepo.pyrsia.io/repos/nightly
 helm install my-release pyrsiaoss/pyrsia-node --set "p2pkeys.kms_key_id=projects/<PROJECT>locations/global/keyRings/<KEYRING>/cryptoKeys/<KEY>"
 ```
 
