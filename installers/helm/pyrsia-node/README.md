@@ -10,7 +10,7 @@ Microservice Configuration Management - Track, Version, Find, Share and Deploy M
 gcloud projects add-iam-policy-binding <PROJECT> --member=serviceAccount:service-<PROJECT_NUMBER>@compute-system.iam.gserviceaccount.com --role=roles/cloudkms.cryptoKeyEncrypterDecrypter
 
 helm repo add pyrsiaoss https://helmrepo.pyrsia.io/repos/nightly
-helm install my-release pyrsiaoss/pyrsia-node --set "p2pkeys.kms_key_id=projects/<PROJECT>locations/global/keyRings/<KEYRING>/cryptoKeys/<KEY>"
+helm upgrade --install my-release pyrsiaoss/pyrsia-node --set "p2pkeys.kms_key_id=projects/<PROJECT>/locations/global/keyRings/<KEYRING>/cryptoKeys/<KEY>"
 ```
 
 ## Introduction
@@ -29,7 +29,7 @@ To install the chart with the release name `my-release`:
 
 ```console
 helm repo add pyrsiaoss https://helmrepo.pyrsia.io/repos/nightly
-helm install my-release pyrsiaoss/pyrsia-node --set "p2pkeys.kms_key_id=projects/<PROJECT>locations/global/keyRings/<KEYRING>/cryptoKeys/<KEY>"
+helm upgrade --install my-release pyrsiaoss/pyrsia-node --set "p2pkeys.kms_key_id=projects/<PROJECT>locations/global/keyRings/<KEYRING>/cryptoKeys/<KEY>"
 ```
 
 The command deploys Pyrsia on the Kubernetes cluster using the following parameters:
@@ -68,5 +68,5 @@ The command removes all the Kubernetes components associated with the chart and 
 Alternatively, a YAML file that specifies the values for the above parameters can be provided while installing the chart. For example,
 
 ```console
-helm install my-release -f values.yaml pyrsiaoss/pyrsia-node
+helm upgrade --install my-release -f values.yaml pyrsiaoss/pyrsia-node
 ```
