@@ -24,7 +24,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 use tokio::sync::oneshot;
 
-#[derive(Clone, Debug, Error, PartialEq)]
+#[derive(Clone, Debug, Error, Eq, PartialEq)]
 pub enum VerificationError {
     #[error("Artifact with specific id {artifact_specific_id} was not found in build {build_id}.")]
     ArtifactNotFound {

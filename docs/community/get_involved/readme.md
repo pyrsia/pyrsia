@@ -8,11 +8,11 @@ Looking to participate on the Pyrsia project? We are excited to have you!
 
 ## Join us on Google Groups and Slack
 
-Read the community meeting notes, watch meeting recordings and join the Pyrsia Slack channel on OpenSSF Slack. This is
+Read the community meeting notes, watch meeting recordings and join the Pyrsia Slack channel on CD Foundation Slack. This is
 the best way to get caught up and start a conversation with the team.
 
 - [Google Groups](https://groups.google.com/g/pyrsia)
-- [Join Slack](https://openssf.slack.com/archives/C02RC7Y5EUV)
+- [Join Slack](https://join.slack.com/t/cdeliveryfdn/shared_invite/zt-1eryue9cw-9YpgrfIfsTcDS~hGHchURg)
 
 ## Attend a Community Meeting
 
