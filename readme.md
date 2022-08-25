@@ -23,7 +23,7 @@ To get off the ground the focus is strictly on the peer-to-peer distribution of 
 Take a moment to review our [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md).
 You can join our community on [Slack](https://openssf.slack.com/archives/C02RC7Y5EUV) or participate in a [meeting](https://pyrsia.io/docs/social/#calendar) to pick up an issue. We also have our [Local Setup Guide](https://pyrsia.io/docs/get_involved/local_dev_setup/) to help.
 
-## Install Pyrsia and Joining the Network
+## Install Pyrsia and Join the Network
 
 There's a web script that will set everything up.
 
@@ -59,3 +59,7 @@ Artifacts Count:         3 {"manifests": 1, "blobs": 2} # Total number of artifa
 Total Disk Space Allocated:  5.84 GB
 Disk Space Used:             0.0002%
 ```
+
+### Cloud Deployment
+
+Pyrsia nodes can be deployed on the cloud using [pyrsia_node helmcharts](https://artifacthub.io/packages/helm/pyrsia-nightly/pyrsia-node). These nodes will act as the Authority nodes and participate as boot nodes on the network.
