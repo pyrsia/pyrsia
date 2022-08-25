@@ -6,7 +6,7 @@ Please refer to [mvn update scenarios](<https://lucid.app/lucidchart/d5254e8f-69
 
 - As a user I can use a Java build tool like Maven to download Maven artifacts from the Pyrsia network.
 
-- As a user of maven, I should be able to run `mvn update` and receive the dependencies for my java project from the Pyrsia network instead of the mavencentral repository.
+- As a user of maven, I should be able to run `mvn update` and receive the dependencies for my java project from the Pyrsia network instead of the maven central repository.
 
 - In case the dependencies are not yet available on the Pyrsia network, maven should fallback to retrieving those dependencies from mavencentral.
 
