@@ -47,20 +47,25 @@ These commands should run successfully. If you have issues with these please rea
 
 ## Pyrsia node docker image
 
-Make sure [Docker engine](https://docs.docker.com/engine/install/) is installed (18.09 or higher):
+Make sure [Docker engine](https://docs.docker.com/engine/install/) is installed (18.09 or higher) and running.
 
-Build the Pyrsia node docker image:
+### Build the Pyrsia node docker image
 
 ```sh
 cd $PYRSIA_HOME
 DOCKER_BUILDKIT=1 docker build -t=pyrsia/node .
 ```
 
-Build the Pyrsia node docker image (if not present) and start the node.
+If everything works as expected, after a while, a new image "pyrsia/node" should appear in the docker images list.
+
+### Build the Pyrsia node docker image (if not present) and start the node
 
 ```sh
+cd $PYRSIA_HOME
 docker compose up
 ```
+
+If everything works as expected, a new docker container should be started using the "node/pyrsia" image.
 
 ## Simulate a network
 
