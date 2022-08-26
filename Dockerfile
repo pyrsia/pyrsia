@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.3-labs
+# syntax=docker/dockerfile:1.4.1
 
 FROM rust:1.62-buster AS builder
 ENV CARGO_TARGET_DIR=/target
@@ -52,5 +52,3 @@ WORKDIR /usr/local/var
 
 ENV PYRSIA_ARTIFACT_PATH /usr/local/var/pyrsia
 ENV RUST_LOG debug
-
-ENTRYPOINT [ "/tmp/entrypoint.sh", "--host", "0.0.0.0", "--listen", "/ip4/0.0.0.0/tcp/44000" ]
