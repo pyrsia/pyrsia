@@ -108,12 +108,14 @@ impl Chain {
 
         match file {
             Ok(mut file) => {
-                let _ = file
-                    .write_all(&serde_json::to_vec(&self.blocks[start_pos..=end_pos]).unwrap())
-                    .await;
+                file.write_all(&serde_json::to_vec(&self.blocks[start_pos..=end_pos]).unwrap())
+                    .await?;
+
+                file.sync_all().await?;
             }
             Err(e) => return Err(BlockchainError::Error(e.to_string())),
         }
+
         Ok(())
     }
 }

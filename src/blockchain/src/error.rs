@@ -14,12 +14,15 @@
    limitations under the License.
 */
 
+use std::io;
 use thiserror::Error;
 
 use crate::structures::header::Ordinal;
 
-#[derive(Clone, Debug, Error, Eq, PartialEq)]
+#[derive(Debug, Error)]
 pub enum BlockchainError {
+    #[error("IO Error")]
+    IOError(#[from] io::Error),
     #[error("Blockchain Error: {0}")]
     Error(String),
     #[error("Invalid blockchain length: {0}")]
