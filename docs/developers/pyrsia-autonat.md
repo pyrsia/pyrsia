@@ -1,12 +1,12 @@
-# Pyrsia AutoNAT Implementation (ietf STUN)
+# Pyrsia AutoNAT Implementation (IETF STUN)
 
 > **Warning:** This document is a work-in-progress.
 
 ## Abbreviations used in this document
 
 - NAT: Network Address Translation. A mechanism for connecting and routing between private networks and the public internet.
-- STUN: Session Traversal Utilities for NAT. An ietf standard for connecting applications over the public internet originating from private networks.
-- IETF: Internet Engineering Taskforce. One of the groups that standardizes protocols on the Internet.
+- STUN: Session Traversal Utilities for NAT. An IETF standard for connecting applications over the public internet originating from private networks.
+- IETF: Internet Engineering Task Force. One of the groups that standardizes protocols on the Internet.
 - P2P: Peer-to-peer. A networking technology emphasizing decentralization and scalability.
 
 ## Dependencies
