@@ -13,11 +13,16 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-
 use codec::{Decode, Encode};
+use log::warn;
 use serde::{Deserialize, Serialize};
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
 
-use super::block::Block;
+use crate::error::BlockchainError;
+use crate::structures::block::Block;
+
+use super::header::Ordinal;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Decode, Encode, Hash, PartialEq, Eq)]
 pub struct Chain {
@@ -43,6 +48,69 @@ impl Chain {
 
     pub fn last_block(&self) -> Option<Block> {
         self.blocks().last().cloned()
+    }
+
+    pub fn get_block_position(&self, ordinal: Ordinal) -> Result<usize, BlockchainError> {
+        if ordinal >= self.len() as Ordinal {
+            return Err(BlockchainError::InvalidBlockchainLength(self.len()));
+        }
+
+        if ordinal > self.last_block().unwrap().header.ordinal {
+            return Err(BlockchainError::InvalidBlockchainLength(self.len()));
+        }
+
+        if ordinal >= usize::MAX as Ordinal - 1 {
+            return Err(BlockchainError::InvalidBlockchainOrdianl(ordinal));
+        }
+
+        if self.blocks[ordinal as usize + 1].header.ordinal != ordinal {
+            return Err(BlockchainError::InvalidBlockchainOrdianl(ordinal));
+        }
+
+        Ok(ordinal as usize + 1)
+    }
+
+    pub async fn save_block(
+        &self,
+        start: Ordinal,
+        mut end: Ordinal,
+        file_path: String,
+    ) -> Result<(), BlockchainError> {
+        match self.last_block() {
+            None => return Err(BlockchainError::InvalidBlockchainLength(self.len())),
+            Some(block) => {
+                if start > block.header.ordinal {
+                    return Err(BlockchainError::InvalidBlockchainLength(self.len()));
+                }
+
+                if end > block.header.ordinal {
+                    warn!("The end ordinal {:?} out of bounds ", end);
+                    end = block.header.ordinal;
+                }
+            }
+        }
+
+        let start_pos = match self.get_block_position(start) {
+            Ok(v) => v,
+            Err(e) => return Err(e),
+        };
+
+        let end_pos = match self.get_block_position(end) {
+            Ok(v) => v,
+            Err(e) => return Err(e),
+        };
+
+        let file = OpenOptions::new().append(true).open(file_path).await;
+
+        match file {
+            Ok(mut file) => {
+                let _ = file
+                    .write_all(&bincode::serialize(&self.blocks[start_pos..=end_pos]).unwrap())
+                    .await;
+            }
+            Err(e) => return Err(BlockchainError::Error(e.to_string())),
+        }
+        Ok(())
     }
 }
 

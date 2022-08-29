@@ -1,0 +1,33 @@
+/*
+   Copyright 2021 JFrog Ltd
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+use thiserror::Error;
+
+use crate::structures::header::Ordinal;
+
+#[derive(Clone, Debug, Error, Eq, PartialEq)]
+pub enum BlockchainError {
+    #[error("Blockchain Error: {0}")]
+    Error(String),
+    #[error("Invalid blockchain length: {0}")]
+    InvalidBlockchainLength(usize),
+    #[error("Invalid blockchain ordianl data: {0}")]
+    InvalidBlockchainOrdianl(Ordinal),
+    #[error("Failed to load from: {0}")]
+    LoadFailed(String),
+    #[error("Failed to save on : {0}")]
+    SaveFailed(String),
+}
