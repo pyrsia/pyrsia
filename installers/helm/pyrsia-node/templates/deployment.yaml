@@ -33,7 +33,7 @@ spec:
             - name: PYRSIA_ARTIFACT_PATH
               value: "/usr/local/var/pyrsia"
             - name: PYRSIA_KEYPAIR
-              value: /usr/local/var/pyrsia-p2p-keys/ed25516.ser
+              value: /usr/local/var/pyrsia-p2p-keys/ed25519.ser
           volumeMounts:
             # name must match the volume name below
             - name: pyrsia-storage
