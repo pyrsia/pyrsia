@@ -19,7 +19,7 @@
 libp2p-autonat (combined with libp2p-identify) correspond to [STUN](https://datatracker.ietf.org/doc/html/rfc8489).
 This is used to allow private networks to connect and participate in the pyrsia peer to peer network.
 
-### Implementation notes
+### Hole punching implementation notes
 
 A review of [Hole punching in libp2p - Overcoming Firewalls by Max Inden](https://blog.ipfs.tech/2022-01-20-libp2p-hole-punching/) is recommended, as that spells out the technical details of the libp2p implementation. Also note that [libp2p may advertise non-routable networks to peers](https://github.com/libp2p/go-libp2p/issues/436). We have implemented our own bootstrapping strategy. That is described in detail below.
 
@@ -29,6 +29,6 @@ We maintain a cluster of bootstrap servers behind the public url "http://boot.py
 
 ![Autonat Bootstrap diagram](pyrsia-autonat-bootstrap.png)
 
-### Implementation notes
+### Bootstrapping implementation notes
 
 The peers returned by the boot.pyrsia.link are currently implemented with a basic round robin algorithm. We are in the process of gathering peer metrics and may use those to inform this process in the future. Additional peers may be returned in the `peer_addr` array. Once an `AutonatEvent::InboundProbe` Request is received from the bootstrap node the client is fully connected to the Pyrsia p2p network.
