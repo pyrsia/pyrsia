@@ -13,14 +13,12 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+use crate::error::BlockchainError;
+use crate::structures::block::Block;
 use codec::{Decode, Encode};
 use log::warn;
 use serde::{Deserialize, Serialize};
-use tokio::fs::OpenOptions;
-use tokio::io::AsyncWriteExt;
-
-use crate::error::BlockchainError;
-use crate::structures::block::Block;
+use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 
 use super::header::Ordinal;
 
@@ -63,11 +61,11 @@ impl Chain {
             return Err(BlockchainError::InvalidBlockchainOrdianl(ordinal));
         }
 
-        if self.blocks[ordinal as usize + 1].header.ordinal != ordinal {
+        if self.blocks[ordinal as usize].header.ordinal != ordinal {
             return Err(BlockchainError::InvalidBlockchainOrdianl(ordinal));
         }
 
-        Ok(ordinal as usize + 1)
+        Ok(ordinal as usize)
     }
 
     pub async fn save_block(
@@ -100,12 +98,18 @@ impl Chain {
             Err(e) => return Err(e),
         };
 
-        let file = OpenOptions::new().append(true).open(file_path).await;
+        let file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .read(true)
+            .append(true)
+            .open(file_path)
+            .await;
 
         match file {
             Ok(mut file) => {
                 let _ = file
-                    .write_all(&bincode::serialize(&self.blocks[start_pos..=end_pos]).unwrap())
+                    .write_all(&serde_json::to_vec(&self.blocks[start_pos..=end_pos]).unwrap())
                     .await;
             }
             Err(e) => return Err(BlockchainError::Error(e.to_string())),
@@ -126,6 +130,7 @@ mod tests {
         },
     };
     use libp2p::identity;
+    use tokio::fs;
 
     #[test]
     fn test_add_block() -> Result<(), String> {
@@ -206,6 +211,20 @@ mod tests {
         chain.add_block(block.clone());
         assert_eq!(block, chain.last_block().unwrap());
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_save_last_block() -> Result<(), String> {
+        let temp_file = "./blockchain.json";
+        let mut chain: Chain = Default::default();
+        let keypair = identity::ed25519::Keypair::generate();
+        let transactions = vec![];
+        let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
+        chain.add_block(block.clone());
+        assert_eq!(1, chain.len());
+        assert!(chain.save_block(0, 0, temp_file.to_string()).await.is_ok());
+        assert!(fs::remove_file(temp_file).await.is_ok());
         Ok(())
     }
 }
