@@ -31,4 +31,4 @@ We maintain a cluster of bootstrap servers behind the public url "http://boot.py
 
 ### Implementation notes
 
-The peers returned by the boot.pyrsia.link are currently implemented with a basic round robin algorithm. We are in the process of gathering peer metrics and may use those to inform this process in the future. Additional peers may be returned in the `peer_addr` array. Once an `InboundEvent` Network Probe is received from the bootstrap node the client is fully connected to the Pyrsia p2p network.
+The peers returned by the boot.pyrsia.link are currently implemented with a basic round robin algorithm. We are in the process of gathering peer metrics and may use those to inform this process in the future. Additional peers may be returned in the `peer_addr` array. Once an `AutonatEvent::InboundProbe` Request is received from the bootstrap node the client is fully connected to the Pyrsia p2p network.
