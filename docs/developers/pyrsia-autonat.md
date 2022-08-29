@@ -14,7 +14,6 @@
 - [libp2p](https://crates.io/crates/libp2p) - The primary source of our p2p implementation.
 - [libp2p-autonat](https://crates.io/crates/libp2p-autonat) - NAT and firewall detection.
 
-
 ## Hole punching
 
 libp2p-autonat (combined with libp2p-identify) correspond to [STUN](https://datatracker.ietf.org/doc/html/rfc8489).
@@ -26,7 +25,7 @@ A review of [Hole punching in libp2p - Overcoming Firewalls by Max Inden](https:
 
 ## Bootstrapping an initial peer from boot.pyrsia.link
 
-We maintain a cluster of bootstrap servers behind the public url http://boot.pyrsia.link on that site, we return a round robin list of peer addresses through a JSON document. On startup, a pyrsia client performs a HTTP GET to "http://boot.pyrsia.link/status" and parses an array of peer multi addresses in the libp2p format. The client then begins an AutoNAT probe of the peer address.
+We maintain a cluster of bootstrap servers behind the public url "http://boot.pyrsia.link" on that site, we return a round robin list of peer addresses through a JSON document. On startup, a pyrsia client performs a HTTP GET to "http://boot.pyrsia.link/status" and parses an array of peer multi addresses in the libp2p format. The client then begins an AutoNAT probe of the peer address.
 
 ![Autonat Bootstrap diagram](pyrsia-autonat-bootstrap.png)
 
