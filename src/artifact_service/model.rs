@@ -29,6 +29,7 @@ use serde::{Deserialize, Serialize};
     strum_macros::EnumString,
 )]
 pub enum PackageType {
+    None,
     Docker,
     Maven2,
 }
