@@ -245,10 +245,7 @@ mod tests {
         let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
         chain.add_block(block.clone());
         assert_eq!(1, chain.len());
-        assert_eq!(
-            "Err(IOError(Os { code: 30, kind: ReadOnlyFilesystem, message: \"Read-only file system\" }))",
-            format!("{:?}", chain.save_block(0, 0, temp_file.to_string()).await)
-        );
+        assert!(chain.save_block(0, 0, temp_file.to_string()).await.is_err());
         Ok(())
     }
 
