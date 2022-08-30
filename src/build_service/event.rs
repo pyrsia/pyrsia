@@ -70,14 +70,16 @@ impl BuildEventClient {
         package_specific_id: String,
     ) -> Result<String, BuildError> {
         let (sender, receiver) = oneshot::channel();
-        let _ = self
-            .build_event_sender
+        self.build_event_sender
             .send(BuildEvent::Start {
                 package_type,
                 package_specific_id,
                 sender,
             })
-            .await;
+            .await
+            .unwrap_or_else(|e| {
+                error!("Error build_event_sender. {:#?}", e);
+            });
         receiver
             .await
             .map_err(|e| BuildError::InitializationFailed(e.to_string()))?
@@ -91,14 +93,16 @@ impl BuildEventClient {
         _artifact_hash: String,
     ) -> Result<String, BuildError> {
         let (sender, receiver) = oneshot::channel();
-        let _ = self
-            .build_event_sender
+        self.build_event_sender
             .send(BuildEvent::Verify {
                 package_type,
                 package_specific_id,
                 sender,
             })
-            .await;
+            .await
+            .unwrap_or_else(|e| {
+                error!("Error build_event_sender. {:#?}", e);
+            });
         receiver
             .await
             .map_err(|e| BuildError::InitializationFailed(e.to_string()))?
@@ -112,8 +116,7 @@ impl BuildEventClient {
         build_trigger: BuildTrigger,
         artifact_urls: Vec<String>,
     ) {
-        let _ = self
-            .build_event_sender
+        self.build_event_sender
             .send(BuildEvent::Succeeded {
                 build_id: build_id.to_owned(),
                 package_type,
@@ -121,17 +124,22 @@ impl BuildEventClient {
                 build_trigger,
                 artifact_urls,
             })
-            .await;
+            .await
+            .unwrap_or_else(|e| {
+                error!("Error build_event_sender. {:#?}", e);
+            });
     }
 
     pub async fn build_failed(&self, build_id: &str, build_error: BuildError) {
-        let _ = self
-            .build_event_sender
+        self.build_event_sender
             .send(BuildEvent::Failed {
                 build_id: build_id.to_owned(),
                 build_error,
             })
-            .await;
+            .await
+            .unwrap_or_else(|e| {
+                error!("Error build_event_sender. {:#?}", e);
+            });
     }
 
     pub async fn build_result(
@@ -140,14 +148,16 @@ impl BuildEventClient {
         build_trigger: BuildTrigger,
         build_result: BuildResult,
     ) {
-        let _ = self
-            .build_event_sender
+        self.build_event_sender
             .send(BuildEvent::Result {
                 build_id: build_id.to_owned(),
                 build_trigger,
                 build_result,
             })
-            .await;
+            .await
+            .unwrap_or_else(|e| {
+                error!("Error build_event_sender. {:#?}", e);
+            });
     }
 }
 
@@ -203,7 +213,9 @@ impl BuildEventLoop {
                     .await
                     .start_build(package_type, package_specific_id, BuildTrigger::FromSource)
                     .await;
-                let _ = sender.send(result);
+                sender.send(result).unwrap_or_else(|e| {
+                    error!("build error. {:#?}", e);
+                });
             }
             BuildEvent::Verify {
                 package_type,
@@ -220,7 +232,9 @@ impl BuildEventLoop {
                         BuildTrigger::Verification,
                     )
                     .await;
-                let _ = sender.send(result);
+                sender.send(result).unwrap_or_else(|e| {
+                    error!("build error. {:#?}", e);
+                });
             }
             BuildEvent::Failed {
                 build_id,
