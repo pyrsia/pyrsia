@@ -9,8 +9,8 @@ env:
   todo: Todo
   done: Done
   in_progress: In Progress
-  mvp: MVP
   blocked: Blocked
+  backlog: Backlog
 
 jobs:
   new-issues:
@@ -24,11 +24,11 @@ jobs:
       - uses: actions-ecosystem/action-add-labels@v1
         with:
           labels: triage
-      - name: Moved issue to ${{ env.mvp }}
+      - name: Moved issue to ${{ env.backlog }}
         uses: leonsteinhaeuser/project-beta-automations@v1.3.0
         with:
           action: add
-          status_value: ${{ env.mvp }}
+          status_value: ${{ env.backlog }}
           project_id: 3
           organization: pyrsia
           gh_token: ${{ secrets.ORG_ACCESS_TOKEN }}
