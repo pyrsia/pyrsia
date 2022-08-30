@@ -23,14 +23,8 @@ use crate::structures::header::Ordinal;
 pub enum BlockchainError {
     #[error("IO Error")]
     IOError(#[from] io::Error),
-    #[error("Blockchain Error: {0}")]
-    Error(String),
     #[error("Invalid blockchain length: {0}")]
     InvalidBlockchainLength(usize),
-    #[error("Invalid blockchain ordianl data: {0}")]
-    InvalidBlockchainOrdianl(Ordinal),
-    #[error("Failed to load from: {0}")]
-    LoadFailed(String),
-    #[error("Failed to save on : {0}")]
-    SaveFailed(String),
+    #[error("Invalid blockchain Ordinal: {0}")]
+    InvalidBlockchainOrdinal(Ordinal),
 }

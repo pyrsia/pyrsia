@@ -58,11 +58,11 @@ impl Chain {
         }
 
         if ordinal >= usize::MAX as Ordinal - 1 {
-            return Err(BlockchainError::InvalidBlockchainOrdianl(ordinal));
+            return Err(BlockchainError::InvalidBlockchainOrdinal(ordinal));
         }
 
         if self.blocks[ordinal as usize].header.ordinal != ordinal {
-            return Err(BlockchainError::InvalidBlockchainOrdianl(ordinal));
+            return Err(BlockchainError::InvalidBlockchainOrdinal(ordinal));
         }
 
         Ok(ordinal as usize)
@@ -113,7 +113,7 @@ impl Chain {
 
                 file.sync_all().await?;
             }
-            Err(e) => return Err(BlockchainError::Error(e.to_string())),
+            Err(e) => return Err(BlockchainError::IOError(e)),
         }
 
         Ok(())
@@ -212,12 +212,11 @@ mod tests {
         let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
         chain.add_block(block.clone());
         assert_eq!(block, chain.last_block().unwrap());
-
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_save_last_block() -> Result<(), String> {
+    async fn test_save_block_succeed() -> Result<(), String> {
         let temp_file = "./blockchain.json";
         let mut chain: Chain = Default::default();
         let keypair = identity::ed25519::Keypair::generate();
@@ -225,8 +224,66 @@ mod tests {
         let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
         chain.add_block(block.clone());
         assert_eq!(1, chain.len());
-        assert!(chain.save_block(0, 0, temp_file.to_string()).await.is_ok());
+        chain.add_block(block.clone());
+        assert!(chain.save_block(0, 1, temp_file.to_string()).await.is_ok());
+        let contents = fs::read(temp_file).await.unwrap();
+        assert_eq!(
+            "[{\"header\":{\"parent_h",
+            std::str::from_utf8(&contents[..=20]).unwrap()
+        );
         assert!(fs::remove_file(temp_file).await.is_ok());
+        Ok(())
+    }
+
+    #[tokio::test]
+    // Attempt to create file without permission, failed
+    async fn test_save_block_failed_for_ioerror() -> Result<(), String> {
+        let temp_file = "/blockchain.json";
+        let mut chain: Chain = Default::default();
+        let keypair = identity::ed25519::Keypair::generate();
+        let transactions = vec![];
+        let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
+        chain.add_block(block.clone());
+        assert_eq!(1, chain.len());
+        assert_eq!(
+            "Err(IOError(Os { code: 30, kind: ReadOnlyFilesystem, message: \"Read-only file system\" }))",
+            format!("{:?}", chain.save_block(0, 0, temp_file.to_string()).await)
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    // Attempt to save blocks whose starting ordinal exceeds the current blockchain length, failed
+    async fn test_save_block_failed_for_invalid_blockhain_length() -> Result<(), String> {
+        let temp_file = "./blockchain.json";
+        let mut chain: Chain = Default::default();
+        let keypair = identity::ed25519::Keypair::generate();
+        let transactions = vec![];
+        let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
+        chain.add_block(block.clone());
+        assert_eq!(1, chain.len());
+        assert_eq!(
+            "Err(InvalidBlockchainLength(1))",
+            format!("{:?}", chain.save_block(5, 0, temp_file.to_string()).await)
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    // Attempt to save blocks with invalid ordinal, failed
+    async fn test_save_block_failed_for_invalid_blockhain_ordinal() -> Result<(), String> {
+        let temp_file = "./blockchain.json";
+        let mut chain: Chain = Default::default();
+        let keypair = identity::ed25519::Keypair::generate();
+        let transactions = vec![];
+        let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
+        chain.add_block(block.clone());
+        assert_eq!(1, chain.len());
+        chain.blocks[0].header.ordinal = 3;
+        assert_eq!(
+            "Err(InvalidBlockchainOrdinal(0))",
+            format!("{:?}", chain.save_block(0, 0, temp_file.to_string()).await)
+        );
         Ok(())
     }
 }
