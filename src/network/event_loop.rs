@@ -785,4 +785,25 @@ mod tests {
         assert!(peers_in_client_1.contains(&p2p_client_2.local_peer_id));
         assert!(peers_in_client_2.contains(&p2p_client_1.local_peer_id));
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_dial_with_invalid_peer_id() {
+        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
+        let (p2p_client_2, _) = create_test_swarm();
+
+        tokio::spawn(event_loop_1.run());
+
+        p2p_client_1
+            .listen(&"/ip4/127.0.0.1/tcp/44132".parse().unwrap())
+            .await
+            .unwrap();
+
+        let result = p2p_client_1
+            .dial(
+                &p2p_client_2.local_peer_id,
+                &"/ip4/127.0.0.1/tcp/44133".parse().unwrap(),
+            )
+            .await;
+        assert!(result.is_err());
+    }
 }
