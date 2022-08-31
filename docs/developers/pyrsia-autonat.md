@@ -27,7 +27,19 @@ A review of [Hole punching in libp2p - Overcoming Firewalls by Max Inden](https:
 
 We maintain a cluster of bootstrap servers behind the public url "http://boot.pyrsia.link" on that site, we return a round robin list of peer addresses through a JSON document. On startup, a pyrsia client performs a HTTP GET to "http://boot.pyrsia.link/status" and parses an array of peer multi addresses in the libp2p format. The client then begins an AutoNAT probe of the peer address.
 
-![Autonat Bootstrap diagram](pyrsia-autonat-bootstrap.png)
+```mermaid 
+graph TD;
+node[Pyrsia Node] --HTTP GET /status--> boot[boot.pyrsia.link]
+boot --> boot1[Boot node 1<br>PeerId A]
+boot --> boot2[boot node 2<br>PeerId B]
+boot --> boot3[Boot node 3<br>PeerId C]
+boot --> boot4[Boot node 4<br>PeerId D]
+boot1 --> json[JSON<br>Containing peer<br>addresses and<br>basic metrics]
+boot2 --> json
+boot3 --> json
+boot4 --> json
+json ----> node
+```
 
 ### Bootstrapping implementation notes
 
