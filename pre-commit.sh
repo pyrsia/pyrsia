@@ -17,8 +17,6 @@ fi
 cargo install cargo-audit || exit_on_error "Could not install cargo audit."
 cargo audit --ignore RUSTSEC-2022-0040 || exit_on_error "Cargo audit failed."
 cargo clippy || exit_on_error "Cargo clippy failed."
-rustup update || exit_on_error "Could not update rust toolchain."
-rustup component add rustfmt || exit_on_error "Could not install rustfmt."
 cargo fmt --check || exit_on_error "Cargo format failed."
 cargo test --workspace || exit_on_error "Cargo test failed."
 cargo build --workspace --all-targets
