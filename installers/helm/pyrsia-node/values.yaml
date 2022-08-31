@@ -10,5 +10,5 @@ pyrsia:
         pyrsia: 80
         p2p: 44000
     storage:
-        size: "1500Mi"
+        size: "1500Gi"
     trafficPolicy: "Cluster"

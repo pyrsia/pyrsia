@@ -15,7 +15,7 @@ spec:
       track: stable
   template:
     metadata:
-        labels:
+      labels:
         app: pyrsia-node
         tier: frontend
         track: stable
