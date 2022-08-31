@@ -122,6 +122,8 @@ impl Chain {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+
     use crate::{
         crypto::hash_algorithm::HashDigest,
         structures::{
@@ -217,7 +219,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_save_block_succeed() -> Result<(), String> {
-        let temp_file = "./blockchain.json";
+        let temp_file: &str = &get_temp_file().unwrap();
         let mut chain: Chain = Default::default();
         let keypair = identity::ed25519::Keypair::generate();
         let transactions = vec![];
@@ -238,7 +240,7 @@ mod tests {
     #[tokio::test]
     // Attempt to create file without permission, failed
     async fn test_save_block_failed_for_ioerror() -> Result<(), String> {
-        let temp_file = "/blockchain.json";
+        let temp_file = "/tests/resources/blockchain.json";
         let mut chain: Chain = Default::default();
         let keypair = identity::ed25519::Keypair::generate();
         let transactions = vec![];
@@ -252,7 +254,7 @@ mod tests {
     #[tokio::test]
     // Attempt to save blocks whose starting ordinal exceeds the current blockchain length, failed
     async fn test_save_block_failed_for_invalid_blockhain_length() -> Result<(), String> {
-        let temp_file = "./blockchain.json";
+        let temp_file = get_temp_file().unwrap();
         let mut chain: Chain = Default::default();
         let keypair = identity::ed25519::Keypair::generate();
         let transactions = vec![];
@@ -269,7 +271,7 @@ mod tests {
     #[tokio::test]
     // Attempt to save blocks with invalid ordinal, failed
     async fn test_save_block_failed_for_invalid_blockhain_ordinal() -> Result<(), String> {
-        let temp_file = "./blockchain.json";
+        let temp_file = get_temp_file().unwrap();
         let mut chain: Chain = Default::default();
         let keypair = identity::ed25519::Keypair::generate();
         let transactions = vec![];
@@ -282,5 +284,12 @@ mod tests {
             format!("{:?}", chain.save_block(0, 0, temp_file.to_string()).await)
         );
         Ok(())
+    }
+
+    fn get_temp_file() -> Result<String, anyhow::Error> {
+        // test blockchain file in tests/resources/ dir
+        let mut curr_dir = env::temp_dir();
+        curr_dir.push("blockchain.json");
+        Ok(String::from(curr_dir.to_string_lossy()))
     }
 }
