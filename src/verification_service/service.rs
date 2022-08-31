@@ -176,9 +176,12 @@ impl VerificationService {
         if let Some(verification_artifacts) = self.verifying_info.remove(build_id) {
             let verification_error = VerificationError::from(build_error);
             for verification_artifact in verification_artifacts {
-                let _ = verification_artifact
+                verification_artifact
                     .sender
-                    .send(Err(verification_error.clone()));
+                    .send(Err(verification_error.clone()))
+                    .unwrap_or_else(|e| {
+                        error!("Verification Artifact verification_error send. Verification error {:#?}", e);
+                    });
             }
         }
     }
@@ -204,26 +207,37 @@ impl VerificationService {
                         if verification_artifact.artifact_hash
                             == build_result_artifact.artifact_hash
                         {
-                            let _ = verification_artifact.sender.send(Ok(()));
+                            verification_artifact
+                                .sender
+                                .send(Ok(()))
+                                .unwrap_or_else(|_e| {
+                                    error!("Verification Artifact Hash match send Ok.");
+                                });
                         } else {
-                            let _ = verification_artifact.sender.send(Err(
-                                VerificationError::NonMatchingHash {
+                            verification_artifact
+                                .sender
+                                .send(Err(VerificationError::NonMatchingHash {
                                     build_id: build_id.to_owned(),
                                     artifact_specific_id: verification_artifact
                                         .artifact_specific_id,
                                     expected_hash: verification_artifact.artifact_hash,
                                     hash_from_build: build_result_artifact.artifact_hash.clone(),
-                                },
-                            ));
+                                }))
+                                .unwrap_or_else(|e| {
+                                    error!("Verification Artifact Hash not matched send VerificationError {:#?}", e);
+                                });
                         }
                     }
                     None => {
-                        let _ = verification_artifact.sender.send(Err(
-                            VerificationError::ArtifactNotFound {
+                        verification_artifact
+                            .sender
+                            .send(Err(VerificationError::ArtifactNotFound {
                                 build_id: build_id.to_owned(),
                                 artifact_specific_id: verification_artifact.artifact_specific_id,
-                            },
-                        ));
+                            }))
+                            .unwrap_or_else(|e| {
+                                error!("build_result_artifact:None. VerificationError {:#?}", e);
+                            });
                     }
                 }
             }
