@@ -130,6 +130,9 @@ async fn setup_p2p(mut p2p_client: Client, args: &PyrsiaNodeArgs) -> anyhow::Res
     } else if let Some(to_dial) = &args.peer {
         info!("Invoking dial");
         handlers::dial_other_peer(p2p_client.clone(), to_dial).await
+    } else if args.listen_only {
+        info!("Pyrsia node will listen only. No attempt to connect to other nodes.");
+        Ok(())
     } else {
         info!("Looking up bootstrap node");
         let peer_addrs = load_peer_addrs(&args.bootstrap_url).await?;
