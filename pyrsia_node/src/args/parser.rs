@@ -45,6 +45,9 @@ pub struct PyrsiaNodeArgs {
     /// An address to use for probing AutoNAT connections
     #[clap(long, short = 'R')]
     pub probe: Option<Multiaddr>,
+    /// listen_only mode - don't try to connect to any peers at startup
+    #[clap(long, action = clap::ArgAction::Set, default_value = "false")]
+    pub listen_only: bool,
     #[clap(long, short = 'B', default_value = DEFAULT_BOOTSTRAP_URL)]
     pub bootstrap_url: String,
     /// The maximum number of keys that can be provided on the network by this Pyrsia Node.
