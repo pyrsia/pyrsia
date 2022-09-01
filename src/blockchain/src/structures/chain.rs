@@ -80,7 +80,7 @@ impl Chain {
                 if start > block.header.ordinal {
                     return Err(BlockchainError::InvalidBlockchainLength(self.len()));
                 }
-
+                // The end ordinal out of range is currently allowed, replacing it with the ordinal of the last block.
                 if end > block.header.ordinal {
                     warn!("The end ordinal {:?} out of bounds ", end);
                     end = block.header.ordinal;
@@ -88,15 +88,15 @@ impl Chain {
             }
         }
 
-        let start_pos = match self.get_block_position(start) {
-            Ok(v) => v,
-            Err(e) => return Err(e),
-        };
+        let start_pos = self.get_block_position(start)?;
 
-        let end_pos = match self.get_block_position(end) {
-            Ok(v) => v,
-            Err(e) => return Err(e),
-        };
+        let end_pos = self.get_block_position(end)?;
+
+        if start_pos > end_pos {
+            return Err(BlockchainError::InvalidBlockchainPosition(
+                start_pos, end_pos,
+            ));
+        }
 
         let file = OpenOptions::new()
             .create(true)
