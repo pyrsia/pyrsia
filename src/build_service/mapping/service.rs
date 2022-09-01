@@ -50,9 +50,6 @@ impl MappingService {
                 build_spec_url: None,
             }),
             PackageType::Maven2 => self.get_maven_mapping(package_specific_id).await,
-            PackageType::None => {
-                panic!("Unexpected call to get_mapping without a valid package type")
-            }
         }
     }
 
@@ -263,20 +260,6 @@ mod tests {
 
         let package_type = PackageType::Maven2;
         let package_specific_id = "commons-codec:commons-codec:1.14";
-
-        mapping_service
-            .get_mapping(package_type, package_specific_id)
-            .await
-            .unwrap();
-    }
-
-    #[tokio::test]
-    #[should_panic(expected = "Unexpected call to get_mapping without a valid package type")]
-    async fn package_type_none_mapping_unexpected() {
-        let mapping_service = MappingService::new("");
-
-        let package_type = PackageType::None;
-        let package_specific_id = "";
 
         mapping_service
             .get_mapping(package_type, package_specific_id)

@@ -218,9 +218,6 @@ impl BuildService {
                     };
                     vec![format!("{}/{}", prefix, artifact_filename)]
                 }
-                PackageType::None => {
-                    panic!("Unexpected call to process_artifact_urls without a valid package type")
-                }
             };
 
             debug!(

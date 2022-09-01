@@ -14,6 +14,8 @@
    limitations under the License.
 */
 
+use rusqlite::types::ToSqlOutput;
+use rusqlite::ToSql;
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -29,7 +31,12 @@ use serde::{Deserialize, Serialize};
     strum_macros::EnumString,
 )]
 pub enum PackageType {
-    None,
     Docker,
     Maven2,
+}
+
+impl ToSql for PackageType {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        Ok(ToSqlOutput::from(self.to_string()))
+    }
 }
