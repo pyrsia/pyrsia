@@ -17,7 +17,7 @@
 use crate::artifact_service::model::PackageType;
 use libp2p::PeerId;
 use log::debug;
-use rusqlite::types::ToSqlOutput;
+use rusqlite::types::{ToSqlOutput, Value};
 use rusqlite::{params, Connection, ToSql};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -394,13 +394,16 @@ impl TransparencyLogService {
             Ok(TransparencyLog {
                 id: row.get(0)?,
                 package_type: {
-                    match row
-                        .get(1)
-                        .map(|pt: String| PackageType::from_str(&pt).unwrap())
-                    {
-                        Ok(pt) => Some(pt),
-                        Err(_) => None,
-                    }
+                    let value: Value = row.get(1)?;
+                    match value {
+                        Value::Text(pt) => Ok(Some(PackageType::from_str(&pt).unwrap())),
+                        Value::Null => Ok(None),
+                        _ => Err(rusqlite::Error::InvalidColumnType(
+                            1,
+                            "package_type".to_owned(),
+                            value.data_type(),
+                        )),
+                    }?
                 },
                 package_specific_id: row.get(2)?,
                 num_artifacts: row.get(3)?,
