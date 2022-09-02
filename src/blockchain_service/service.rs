@@ -44,14 +44,15 @@ impl BlockchainService {
         }
     }
 
-    /// Add payload to blockchain
+    /// Add payload to blockchain. It will be called by other services (e.g. transparent logging service)
     pub async fn add_payload(&mut self, payload: Vec<u8>, local_key: &identity::Keypair) {
         let _ = self.blockchain.add_block(payload, local_key).await;
         self.notify_block_update(Box::new(self.blockchain.last_block().unwrap()))
             .await;
     }
 
-    pub async fn notify_block_update(&mut self, block: Box<Block>) {
+    /// Notify other nodes to add a new block. 
+    async fn notify_block_update(&mut self, block: Box<Block>) {
         let peer_list = self.p2p_client.list_peers().await.unwrap_or_default();
         let block_ordinal = block.header.ordinal;
         for peer_id in peer_list.iter() {
@@ -62,6 +63,7 @@ impl BlockchainService {
         }
     }
 
+    /// Add a new block to local blockchain.
     pub async fn add_block(&mut self, ordinal: Ordinal, block: Box<Block>) {
         let last_block = self.blockchain.last_block();
 
