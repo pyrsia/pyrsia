@@ -4,7 +4,7 @@ services:
     build:
       context: .
       target: node
-    command: ["-H" , "0.0.0.0", "-p", "7888"]
+    command: [ "/tmp/entrypoint.sh", "--host", "0.0.0.0", "--listen", "/ip4/0.0.0.0/tcp/44000" ]
     stdin_open: true
     ports:
       - "7888:7888"

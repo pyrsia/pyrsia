@@ -32,7 +32,7 @@ use libp2p::request_response::{
 };
 use libp2p::swarm::SwarmEvent;
 use libp2p::Swarm;
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::collections::{hash_map::Entry, HashMap, HashSet};
@@ -155,17 +155,23 @@ impl PyrsiaEventLoop {
     // Handles events from the `Kademlia` network behaviour.
     async fn handle_kademlia_event(&mut self, event: KademliaEvent) {
         trace!("Handle KademliaEvent: {:?}", event);
+        let event_str = format!("{:#?}", event);
         match event {
             KademliaEvent::OutboundQueryCompleted {
                 id,
                 result: QueryResult::GetClosestPeers(Ok(GetClosestPeersOk { key: _key, peers })),
                 ..
             } => {
-                let _ = self
-                    .pending_list_peers
+                self.pending_list_peers
                     .remove(&id)
                     .expect("Completed query to be previously pending.")
-                    .send(HashSet::from_iter(peers));
+                    .send(HashSet::from_iter(peers))
+                    .unwrap_or_else(|e| {
+                        error!(
+                            "Handle KademliaEvent match arm: {}. Peers: {:?}",
+                            event_str, e
+                        );
+                    });
             }
             KademliaEvent::OutboundQueryCompleted {
                 id,
@@ -176,7 +182,10 @@ impl PyrsiaEventLoop {
                     .pending_start_providing
                     .remove(&id)
                     .expect("Completed query to be previously pending.");
-                let _ = sender.send(());
+
+                sender.send(()).unwrap_or_else(|_e| {
+                    error!("Handle KademliaEvent match arm: {}.", event_str);
+                });
             }
             KademliaEvent::OutboundQueryCompleted {
                 id,
@@ -188,11 +197,16 @@ impl PyrsiaEventLoop {
                     })),
                 ..
             } => {
-                let _ = self
-                    .pending_list_providers
+                self.pending_list_providers
                     .remove(&id)
                     .expect("Completed query to be previously pending.")
-                    .send(providers);
+                    .send(providers)
+                    .unwrap_or_else(|e| {
+                        error!(
+                            "Handle KademliaEvent match arm: {}. Providers: {:?}",
+                            event_str, e
+                        );
+                    });
             }
             _ => {}
         }
@@ -205,6 +219,7 @@ impl PyrsiaEventLoop {
         event: RequestResponseEvent<ArtifactRequest, ArtifactResponse>,
     ) {
         trace!("Handle RequestResponseEvent: {:?}", event);
+        let event_str = format!("{:#?}", event);
         match event {
             RequestResponseEvent::Message { message, .. } => match message {
                 RequestResponseMessage::Request {
@@ -222,22 +237,29 @@ impl PyrsiaEventLoop {
                     request_id,
                     response,
                 } => {
-                    let _ = self
-                        .pending_request_artifact
+                    self.pending_request_artifact
                         .remove(&request_id)
                         .expect("Request to still be pending.")
-                        .send(Ok(response.0));
+                        .send(Ok(response.0))
+                        .unwrap_or_else(|e| {
+                            error!(
+                                "Handle RequestResponseEvent match arm: {}. Error: {:?}",
+                                event_str, e
+                            );
+                        });
                 }
             },
             RequestResponseEvent::InboundFailure { .. } => {}
             RequestResponseEvent::OutboundFailure {
                 request_id, error, ..
             } => {
-                let _ = self
-                    .pending_request_artifact
+                self.pending_request_artifact
                     .remove(&request_id)
                     .expect("Request to still be pending.")
-                    .send(Err(error.into()));
+                    .send(Err(error.into()))
+                    .unwrap_or_else(|e| {
+                        error!("Handle RequestResponseEvent match arm: {}. pending_request_artifact: {:?}", event_str, e);
+                    });
             }
             RequestResponseEvent::ResponseSent { .. } => {}
         }
@@ -250,6 +272,7 @@ impl PyrsiaEventLoop {
         event: RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>,
     ) {
         trace!("Handle RequestResponseEvent: {:?}", event);
+        let event_str = format!("{:#?}", event);
         match event {
             RequestResponseEvent::Message { message, .. } => match message {
                 RequestResponseMessage::Request { channel, .. } => {
@@ -262,22 +285,26 @@ impl PyrsiaEventLoop {
                     request_id,
                     response,
                 } => {
-                    let _ = self
-                        .pending_idle_metric_requests
+                    self.pending_idle_metric_requests
                         .remove(&request_id)
                         .expect("Request to still be pending.")
-                        .send(Ok(response.0));
+                        .send(Ok(response.0))
+                        .unwrap_or_else(|e| {
+                            error!("Handle RequestResponseEvent match arm: {}. pending_idle_metric_requests: {:?}", event_str, e);
+                        });
                 }
             },
             RequestResponseEvent::InboundFailure { .. } => {}
             RequestResponseEvent::OutboundFailure {
                 request_id, error, ..
             } => {
-                let _ = self
-                    .pending_idle_metric_requests
+                self.pending_idle_metric_requests
                     .remove(&request_id)
                     .expect("Request to still be pending.")
-                    .send(Err(error.into()));
+                    .send(Err(error.into()))
+                    .unwrap_or_else(|e| {
+                        error!("Handle RequestResponseEvent match arm: {}. pending_idle_metric_requests: {:?}", event_str, e);
+                    });
             }
             RequestResponseEvent::ResponseSent { .. } => {}
         }
@@ -289,6 +316,7 @@ impl PyrsiaEventLoop {
         event: RequestResponseEvent<BlockUpdateRequest, BlockUpdateResponse>,
     ) {
         trace!("Handle RequestResponseEvent: {:?}", event);
+        let event_str = format!("{:#?}", event);
         match event {
             RequestResponseEvent::Message { message, .. } => match message {
                 RequestResponseMessage::Request {
@@ -308,8 +336,7 @@ impl PyrsiaEventLoop {
                     request_id,
                     response: _,
                 } => {
-                    let _ = self
-                        .pending_block_update_requests
+                    self.pending_block_update_requests
                         .remove(&request_id)
                         .expect("Request to still be pending.");
                 }
@@ -318,11 +345,13 @@ impl PyrsiaEventLoop {
             RequestResponseEvent::OutboundFailure {
                 request_id, error, ..
             } => {
-                let _ = self
-                    .pending_block_update_requests
+                self.pending_block_update_requests
                     .remove(&request_id)
                     .expect("Request to still be pending.")
-                    .send(Err(From::from(error)));
+                    .send(Err(From::from(error)))
+                    .unwrap_or_else(|e| {
+                        error!("Handle RequestResponseEvent match arm: {}. pending_block_update_requests: {:?}", event_str, e);
+                    });
             }
             RequestResponseEvent::ResponseSent { .. } => {}
         }
@@ -331,6 +360,7 @@ impl PyrsiaEventLoop {
     // Handles all other events from the libp2p `Swarm`.
     async fn handle_swarm_event(&mut self, event: SwarmEvent<PyrsiaNetworkEvent, impl Error>) {
         trace!("Handle SwarmEvent: {:?}", event);
+        let event_str = format!("{:#?}", event);
         match event {
             SwarmEvent::Behaviour(_) => {
                 debug!("Unmatched Behaviour swarm event found: {:?}", event);
@@ -347,7 +377,9 @@ impl PyrsiaEventLoop {
             } => {
                 if endpoint.is_dialer() {
                     if let Some(sender) = self.pending_dial.remove(&peer_id) {
-                        let _ = sender.send(Ok(()));
+                        sender.send(Ok(())).unwrap_or_else(|_e| {
+                            error!("Handle SwarmEvent match arm: {}", event_str);
+                        });
                     }
                 }
             }
@@ -358,7 +390,9 @@ impl PyrsiaEventLoop {
                         warn!("The dialed node has the same peer ID as the current node: '{}'. Please make sure that every node has a unique peer ID.", peer_id);
                     }
                     if let Some(sender) = self.pending_dial.remove(&peer_id) {
-                        let _ = sender.send(Err(error.into()));
+                        sender.send(Err(error.into())).unwrap_or_else(|_e| {
+                            error!("Handle SwarmEvent match arm: {}", event_str);
+                        });
                     }
                 }
             }
@@ -383,6 +417,7 @@ impl PyrsiaEventLoop {
     // Handle incoming commands that are sent by the [`Client`].
     async fn handle_command(&mut self, command: Command) {
         trace!("Handle Command: {}", command);
+        let command_str = format!("{:#?}", command);
         match command {
             Command::AddProbe {
                 peer_id,
@@ -399,10 +434,13 @@ impl PyrsiaEventLoop {
                 }
             }
             Command::Listen { addr, sender } => {
-                let _ = match self.swarm.listen_on(addr) {
+                match self.swarm.listen_on(addr) {
                     Ok(_) => sender.send(Ok(())),
                     Err(e) => sender.send(Err(e.into())),
-                };
+                }
+                .unwrap_or_else(|_e| {
+                    error!("Handle Command match arm: {}.", command_str);
+                });
             }
             Command::Dial {
                 peer_id,
@@ -418,7 +456,9 @@ impl PyrsiaEventLoop {
                             self.pending_dial.insert(peer_id, sender);
                         }
                         Err(e) => {
-                            let _ = sender.send(Err(e.into()));
+                            sender.send(Err(e.into())).unwrap_or_else(|_e| {
+                                error!("Handle Command match arm: {}.", command_str);
+                            });
                         }
                     }
                 }
@@ -597,7 +637,7 @@ mod tests {
             .upgrade(upgrade::Version::V1)
             .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
             .multiplex(YamuxConfig::default())
-            .timeout(std::time::Duration::from_secs(20))
+            .timeout(Duration::from_secs(20))
             .boxed();
 
         let behaviour = PyrsiaNetworkBehaviour {
@@ -746,5 +786,26 @@ mod tests {
         let peers_in_client_2 = p2p_client_2.list_peers().await.unwrap();
         assert!(peers_in_client_1.contains(&p2p_client_2.local_peer_id));
         assert!(peers_in_client_2.contains(&p2p_client_1.local_peer_id));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_dial_with_invalid_peer_id() {
+        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
+        let (p2p_client_2, _) = create_test_swarm();
+
+        tokio::spawn(event_loop_1.run());
+
+        p2p_client_1
+            .listen(&"/ip4/127.0.0.1/tcp/44132".parse().unwrap())
+            .await
+            .unwrap();
+
+        let result = p2p_client_1
+            .dial(
+                &p2p_client_2.local_peer_id,
+                &"/ip4/127.0.0.1/tcp/44133".parse().unwrap(),
+            )
+            .await;
+        assert!(result.is_err());
     }
 }
