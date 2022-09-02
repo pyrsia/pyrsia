@@ -13,15 +13,11 @@ if [ -f /var/run/secrets/kubernetes.io/serviceaccount/namespace ]; then
     echo "PYRSIA_EXTERNAL_IP=$PYRSIA_EXTERNAL_IP"
 
     # detemine if I am node-0 if so be the primary boot node
-    if [ "$HOSTNAME" == "pyrsia-node-0" ]; then
-        /usr/bin/pyrsia_node $* 
+    if [ "$(hostname | rev | cut -c -2 | rev)" = "-0" ]; then
+        /usr/bin/pyrsia_node $* --listen-only true  
     else
-        # I am not node-0 so find node-0 boot address and connect to it
-        BOOTADDR=$(curl -s http://pyrsia-node-0.pyrsia.link/status | jq -r ".peer_addrs[0]")
-        /usr/bin/pyrsia_node $* -P $BOOTADDR
+        /usr/bin/pyrsia_node $* 
     fi
 else
-    # not running under k8s so just startup in default mode
-    BOOTADDR=$(curl -s http://boot.pyrsia.link/status | jq -r ".peer_addrs[0]")
-    /usr/bin/pyrsia_node $* -P $BOOTADDR
+    /usr/bin/pyrsia_node $* 
 fi
