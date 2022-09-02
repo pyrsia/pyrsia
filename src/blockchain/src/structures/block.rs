@@ -16,6 +16,7 @@
 
 use codec::{Decode, Encode};
 use libp2p::identity;
+use log::warn;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
@@ -25,14 +26,20 @@ use super::transaction::Transaction;
 use crate::crypto::hash_algorithm::HashDigest;
 use crate::signature::Signature;
 
-pub type BlockSignature = Signature;
+pub type PublicKey = [u8; 32];
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Decode, Encode, Hash)]
+pub struct BlockSignature {
+    signature: Signature,
+    #[codec(skip)]
+    public_key: PublicKey,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Decode, Encode, Hash)]
 pub struct Block {
     pub header: Header,
     // TODO(fishseabowl): Should be a Merkle Tree to speed up validation with root hash
     pub transactions: Vec<Transaction>,
-    signature: BlockSignature,
+    block_signature: BlockSignature,
 }
 
 impl Block {
@@ -52,17 +59,32 @@ impl Block {
         Self {
             header,
             transactions,
-            signature: Signature::new(&bincode::serialize(&header.hash()).unwrap(), signing_key),
+            block_signature: BlockSignature {
+                signature: Signature::new(
+                    &bincode::serialize(&header.hash()).unwrap(),
+                    signing_key,
+                ),
+                public_key: signing_key.public().encode(),
+            },
         }
     }
 
     pub fn signature(&self) -> BlockSignature {
-        self.signature.clone()
+        self.block_signature.clone()
     }
 
-    // After merging Aleph consensus algorithm, it would be implemented
     pub fn verify(&self) -> bool {
-        true
+        let public_key = identity::ed25519::PublicKey::decode(&self.signature().public_key);
+        match public_key {
+            Ok(pub_key) => pub_key.verify(
+                &bincode::serialize(&self.header.hash()).unwrap(),
+                &self.signature().signature.to_bytes(),
+            ),
+            Err(e) => {
+                warn!("Blockchain: Couldn't decode public key! Error is {:?}", e);
+                false
+            }
+        }
     }
 
     pub fn fetch_payload(&self) -> Vec<Vec<u8>> {
@@ -111,7 +133,7 @@ mod tests {
             Signature::new(&bincode::serialize(&block.header.hash()).unwrap(), &keypair);
 
         assert_eq!(1, block.header.ordinal);
-        assert_eq!(expected_signature, block.signature());
+        assert_eq!(expected_signature, block.signature().signature);
         Ok(())
     }
 
@@ -148,12 +170,12 @@ mod tests {
         )];
         let block = Block::new(HashDigest::new(b""), 1, transactions.to_vec(), &keypair);
 
-        assert_eq!(block.signature(), block.signature);
+        assert_eq!(block.signature(), block.block_signature);
         Ok(())
     }
 
     #[test]
-    fn test_verify() -> Result<(), String> {
+    fn test_block_verify() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
 
