@@ -51,7 +51,7 @@ impl BlockchainService {
             .await;
     }
 
-    /// Notify other nodes to add a new block. 
+    /// Notify other nodes to add a new block.
     async fn notify_block_update(&mut self, block: Box<Block>) {
         let peer_list = self.p2p_client.list_peers().await.unwrap_or_default();
         let block_ordinal = block.header.ordinal;
