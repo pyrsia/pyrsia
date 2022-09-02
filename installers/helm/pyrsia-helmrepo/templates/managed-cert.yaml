@@ -2,7 +2,7 @@
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
-  name: managed-cert-repo
+  name: managed-cert-helmrepo
 spec:
   domains:
-    - repo.pyrsia.io
+    - helmrepo.pyrsia.io

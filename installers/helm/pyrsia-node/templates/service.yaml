@@ -3,8 +3,6 @@ kind: Service
 apiVersion: v1
 metadata:
   name: pyrsia-node-0
-  annotations:
-    kubernetes.io/ingress.global-static-ip-name: pyrsia-node-0
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
@@ -24,8 +22,6 @@ kind: Service
 apiVersion: v1
 metadata:
   name: pyrsia-node-1
-  annotations:
-    kubernetes.io/ingress.global-static-ip-name: pyrsia-node-1
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
@@ -45,8 +41,6 @@ kind: Service
 apiVersion: v1
 metadata:
   name: pyrsia-node-2
-  annotations:
-    kubernetes.io/ingress.global-static-ip-name: pyrsia-node-2
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
