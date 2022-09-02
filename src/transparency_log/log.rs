@@ -15,17 +15,20 @@
 */
 
 use crate::artifact_service::model::PackageType;
+use libp2p::identity::Keypair;
 use libp2p::PeerId;
-use log::debug;
+use log::{debug, error};
+use pyrsia_blockchain_network::blockchain::Blockchain;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, Mutex};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
@@ -50,6 +53,8 @@ pub enum TransparencyLogError {
     },
     #[error("Failure while accessing underlying storage: {0}")]
     StorageFailure(String),
+    #[error("Failure while adding block to the blockchain: {0}")]
+    BlockchainFailure(String),
 }
 
 impl From<io::Error> for TransparencyLogError {
@@ -60,6 +65,12 @@ impl From<io::Error> for TransparencyLogError {
 
 impl From<rusqlite::Error> for TransparencyLogError {
     fn from(err: rusqlite::Error) -> TransparencyLogError {
+        TransparencyLogError::StorageFailure(err.to_string())
+    }
+}
+
+impl From<tokio::sync::oneshot::error::RecvError> for TransparencyLogError {
+    fn from(err: tokio::sync::oneshot::error::RecvError) -> TransparencyLogError {
         TransparencyLogError::StorageFailure(err.to_string())
     }
 }
@@ -122,14 +133,22 @@ pub struct AuthorizedNode {
 /// access.
 pub struct TransparencyLogService {
     storage_path: PathBuf,
+    local_keypair: Keypair,
+    blockchain: Arc<Mutex<Blockchain>>,
 }
 
 impl TransparencyLogService {
-    pub fn new<P: AsRef<Path>>(repository_path: P) -> Result<Self, TransparencyLogError> {
+    pub fn new<P: AsRef<Path>>(
+        repository_path: P,
+        local_keypair: Keypair,
+        blockchain: Arc<Mutex<Blockchain>>,
+    ) -> Result<Self, TransparencyLogError> {
         let mut absolute_path = repository_path.as_ref().to_path_buf().canonicalize()?;
         absolute_path.push("transparency_log");
         Ok(TransparencyLogService {
             storage_path: absolute_path,
+            local_keypair,
+            blockchain,
         })
     }
 
@@ -147,8 +166,7 @@ impl TransparencyLogService {
     pub async fn add_artifact(
         &mut self,
         add_artifact_request: AddArtifactRequest,
-        sender: oneshot::Sender<Result<TransparencyLog, TransparencyLogError>>,
-    ) -> Result<(), TransparencyLogError> {
+    ) -> Result<TransparencyLog, TransparencyLogError> {
         let transparency_log = TransparencyLog {
             id: Uuid::new_v4().to_string(),
             package_type: add_artifact_request.package_type,
@@ -168,18 +186,26 @@ impl TransparencyLogService {
             node_public_key: Uuid::new_v4().to_string(),
         };
 
-        // TODO: Blockchain::add_block(transaction(transparency_log))
-        // Wait for callback and resume
+        let (blockchain_sender, blockchain_receiver) = oneshot::channel();
+
+        let payload = serde_json::to_string(&transparency_log).unwrap();
+        self.blockchain
+            .lock()
+            .await
+            .add_block(
+                payload.into_bytes(),
+                self.local_keypair.clone(),
+                blockchain_sender,
+            )
+            .await
+            .map_err(|e| TransparencyLogError::BlockchainFailure(e.to_string()))?;
+
+        let payloads = blockchain_receiver.await?;
+        assert_eq!(payloads.len(), 1);
 
         self.write_transparency_log(&transparency_log)?;
 
-        sender.send(Ok(transparency_log)).map_err(|_| {
-            TransparencyLogError::StorageFailure(
-                "Receiver dropped. Could not send add_transaction result.".to_owned(),
-            )
-        })?;
-
-        Ok(())
+        Ok(transparency_log)
     }
 
     /// Adds a transparency log with the RemoveArtifact operation.
@@ -470,11 +496,30 @@ mod tests {
         assert_eq!(transparency_log.node_public_key, node_public_key);
     }
 
+    fn create_transparency_log_service<P: AsRef<Path>>(artifact_path: P) -> TransparencyLogService {
+        let local_keypair = Keypair::generate_ed25519();
+        let ed25519_keypair = match local_keypair {
+            libp2p::identity::Keypair::Ed25519(ref v) => v,
+            _ => {
+                panic!("Keypair Format Error");
+            }
+        };
+
+        let blockchain = Blockchain::new(ed25519_keypair);
+
+        TransparencyLogService::new(
+            &artifact_path,
+            local_keypair,
+            Arc::new(Mutex::new(blockchain)),
+        )
+        .unwrap()
+    }
+
     #[test]
     fn test_open_db() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+        let log = create_transparency_log_service(&tmp_dir);
 
         let result = log.open_db();
         assert!(result.is_ok());
@@ -491,7 +536,7 @@ mod tests {
     fn test_write_tranparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+        let log = create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -519,7 +564,7 @@ mod tests {
     fn test_write_twice_transparency_log_error() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+        let log = create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -549,7 +594,7 @@ mod tests {
     fn test_read_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+        let log = create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -581,7 +626,7 @@ mod tests {
     fn test_read_transparency_log_invalid_id() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+        let log = create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -621,7 +666,7 @@ mod tests {
     fn test_read_latest_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+        let log = create_transparency_log_service(&tmp_dir);
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),
@@ -672,7 +717,7 @@ mod tests {
     fn test_read_transparency_logs() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+        let log = create_transparency_log_service(&tmp_dir);
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),
@@ -728,7 +773,7 @@ mod tests {
     fn test_read_remove_artifact_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+        let log = create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -768,21 +813,16 @@ mod tests {
     async fn test_add_artifact() {
         let tmp_dir = test_util::tests::setup();
 
-        let (sender, _receiver) = oneshot::channel();
-
-        let mut log = TransparencyLogService::new(&tmp_dir).unwrap();
+        let mut log = create_transparency_log_service(&tmp_dir);
 
         let result = log
-            .add_artifact(
-                AddArtifactRequest {
-                    package_type: PackageType::Docker,
-                    package_specific_id: "package_specific_id".to_owned(),
-                    num_artifacts: 8,
-                    package_specific_artifact_id: "package_specific_artifact_id".to_owned(),
-                    artifact_hash: "artifact_hash".to_owned(),
-                },
-                sender,
-            )
+            .add_artifact(AddArtifactRequest {
+                package_type: PackageType::Docker,
+                package_specific_id: "package_specific_id".to_owned(),
+                num_artifacts: 8,
+                package_specific_artifact_id: "package_specific_artifact_id".to_owned(),
+                artifact_hash: "artifact_hash".to_owned(),
+            })
             .await;
         assert!(result.is_ok());
 
@@ -793,7 +833,7 @@ mod tests {
     fn test_get_authorized_nodes_empty() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+        let log = create_transparency_log_service(&tmp_dir);
 
         let result_read = log.get_authorized_nodes();
         assert!(result_read.is_ok());
@@ -806,7 +846,7 @@ mod tests {
     fn test_get_authorized_nodes_add() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+        let log = create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -840,7 +880,7 @@ mod tests {
     fn test_get_authorized_nodes_add_and_remove() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = TransparencyLogService::new(&tmp_dir).unwrap();
+        let log = create_transparency_log_service(&tmp_dir);
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),

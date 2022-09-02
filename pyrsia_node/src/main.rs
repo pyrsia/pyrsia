@@ -31,6 +31,7 @@ use pyrsia::logging::*;
 use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
+use pyrsia::transparency_log::log::{TransparencyLogError, TransparencyLogService};
 use pyrsia::util::keypair_util::{self, KEYPAIR_FILENAME};
 use pyrsia::verification_service::service::VerificationService;
 use pyrsia_blockchain_network::blockchain::Blockchain;
@@ -62,7 +63,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tokio::spawn(event_loop.run());
 
     debug!("Create pyrsia services");
-    let artifact_service = setup_pyrsia_services(p2p_client.clone(), &args)?;
+    let artifact_service =
+        setup_pyrsia_services(blockchain.clone(), p2p_client.clone(), &args).await?;
 
     debug!("Setup HTTP server");
     setup_http(&args, artifact_service.clone());
@@ -155,7 +157,7 @@ async fn load_peer_addrs(peer_url: &str) -> anyhow::Result<String> {
             let arr = &jv["peer_addrs"];
             match arr {
                 json::JsonValue::Array(vec_jv) => {
-                    if vec_jv.len() < 1 {
+                    if vec_jv.is_empty() {
                         return Err(anyhow!(
                             "Could not read status from {} error {:?}",
                             peer_url,
@@ -164,7 +166,7 @@ async fn load_peer_addrs(peer_url: &str) -> anyhow::Result<String> {
                     }
                     let peer_addrs: String = vec_jv[0].to_string();
                     info!("Found bootstrap peer_addr {:?}", peer_addrs);
-                    if peer_addrs.len() > 0 {
+                    if !peer_addrs.is_empty() {
                         Ok(peer_addrs)
                     } else {
                         Err(anyhow!("Could not read peer_addrs from {}", peer_url))
@@ -199,7 +201,8 @@ fn setup_blockchain() -> Result<Arc<Mutex<Blockchain>>> {
     Ok(Arc::new(Mutex::new(Blockchain::new(&ed25519_keypair))))
 }
 
-fn setup_pyrsia_services(
+async fn setup_pyrsia_services(
+    blockchain: Arc<Mutex<Blockchain>>,
     p2p_client: Client,
     args: &PyrsiaNodeArgs,
 ) -> Result<Arc<Mutex<ArtifactService>>> {
@@ -207,9 +210,17 @@ fn setup_pyrsia_services(
     let (build_event_sender, build_event_receiver) = mpsc::channel(32);
     let build_event_client = BuildEventClient::new(build_event_sender);
 
+    debug!("Create transparency log service");
+    let transparency_log_service =
+        setup_transparency_log_service(&artifact_path, blockchain)?;
+
     debug!("Create artifact service");
-    let artifact_service =
-        setup_artifact_service(&artifact_path, build_event_client.clone(), p2p_client)?;
+    let artifact_service = setup_artifact_service(
+        &artifact_path,
+        transparency_log_service,
+        build_event_client.clone(),
+        p2p_client,
+    )?;
 
     debug!("Create build service");
     let build_service = setup_build_service(&artifact_path, build_event_client.clone(), args)?;
@@ -229,12 +240,28 @@ fn setup_pyrsia_services(
     Ok(artifact_service)
 }
 
+fn setup_transparency_log_service(
+    artifact_path: &Path,
+    blockchain: Arc<Mutex<Blockchain>>,
+) -> Result<TransparencyLogService, TransparencyLogError> {
+    let local_keypair =
+        keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
+
+    TransparencyLogService::new(&artifact_path, local_keypair, blockchain)
+}
+
 fn setup_artifact_service(
     artifact_path: &Path,
+    transparency_log_service: TransparencyLogService,
     build_event_client: BuildEventClient,
     p2p_client: Client,
 ) -> Result<Arc<Mutex<ArtifactService>>> {
-    let artifact_service = ArtifactService::new(artifact_path, build_event_client, p2p_client)?;
+    let artifact_service = ArtifactService::new(
+        artifact_path,
+        transparency_log_service,
+        build_event_client,
+        p2p_client,
+    )?;
 
     Ok(Arc::new(Mutex::new(artifact_service)))
 }
