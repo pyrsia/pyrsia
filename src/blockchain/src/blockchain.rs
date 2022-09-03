@@ -14,12 +14,6 @@
    limitations under the License.
 */
 
-use libp2p::identity;
-use libp2p::identity::Keypair::Ed25519;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fmt::{self, Debug, Formatter};
-
 use super::crypto::hash_algorithm::HashDigest;
 use super::structures::{
     block::Block,
@@ -27,6 +21,11 @@ use super::structures::{
     header::Address,
     transaction::{Transaction, TransactionType},
 };
+use libp2p::identity;
+use libp2p::identity::Keypair::Ed25519;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt::{self, Debug, Formatter};
 
 pub type PayloadCallback = dyn FnMut(&Vec<u8>);
 
@@ -99,18 +98,17 @@ impl Blockchain {
         self
     }
 
-    pub async fn notify_payload_event(&mut self, payload: &Vec<u8>) -> &mut Self {
+    pub async fn notify_payload_event(&mut self, payload: &'_ Vec<u8>) {
         self.payload_observers
             .iter_mut()
-            .for_each(|notify| notify(payload));
-        self
+            .for_each(|notify| notify(payload))
     }
 
     /// Add block after receiving payload and keypair
     pub async fn add_block(
         &mut self,
         payload: Vec<u8>,
-        local_key: identity::Keypair,
+        local_key: &identity::Keypair,
     ) -> anyhow::Result<()> {
         let submitter = Address::from(local_key.public());
         let ed25519_key = match local_key {
@@ -122,14 +120,15 @@ impl Blockchain {
                 );
             }
         };
+
         let trans_vec = vec![Transaction::new(
             TransactionType::Create,
             submitter,
             payload,
-            &ed25519_key,
+            ed25519_key,
         )];
 
-        let last_block = match self.chain.last_block() {
+        let last_block = match self.last_block() {
             Some(block) => block,
             None => {
                 anyhow::bail!("Blockchain: Local blockchain does non exist!!");
@@ -140,12 +139,17 @@ impl Blockchain {
             last_block.header.hash(),
             last_block.header.ordinal + 1,
             trans_vec,
-            &ed25519_key,
+            ed25519_key,
         );
 
         // TODO: Consensus algorithm will be refactored
         self.commit_block(block).await;
         Ok(())
+    }
+
+    /// Update block after receiving the new block from other peers
+    pub async fn update_block_from_peers(&mut self, block: Box<Block>) {
+        self.commit_block(*block).await;
     }
 
     /// Commit block and notify block listeners
@@ -155,6 +159,10 @@ impl Blockchain {
         for trans in block.transactions {
             self.notify_payload_event(&trans.payload()).await;
         }
+    }
+
+    pub fn last_block(&self) -> Option<Block> {
+        self.chain.last_block()
     }
 }
 
@@ -283,13 +291,31 @@ mod tests {
         let data = "Hello First Transaction";
 
         let result = blockchain
-            .add_block(data.as_bytes().to_vec(), keypair)
+            .add_block(data.as_bytes().to_vec(), &keypair)
             .await;
         assert_eq!(result.is_ok(), true);
         assert_eq!(
             b"Hello First Transaction".to_vec(),
             blockchain.chain.last_block().unwrap().transactions[0].payload()
         );
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_update_block_from_peer() -> Result<(), String> {
+        let keypair = identity::Keypair::generate_ed25519();
+        let ed25519_key = match keypair.clone() {
+            Ed25519(some) => some,
+            _ => return Err("Key format is wrong".to_string()),
+        };
+
+        let mut blockchain = Blockchain::new(&ed25519_key);
+
+        let block = Box::new(Block::new(HashDigest::new(b""), 1, vec![], &ed25519_key));
+
+        let result = blockchain.update_block_from_peers(block).await;
+        assert_eq!(result, ());
+
         Ok(())
     }
 }
