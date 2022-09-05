@@ -14,18 +14,4 @@
    limitations under the License.
 */
 
-#![allow(mixed_script_confusables)] // This is to allow structs created by a derive macro to have private fields that begin with the grek letter π
-
-pub mod artifact_service;
-pub mod blockchain_service;
-pub mod build_service;
-pub mod cli_commands;
-pub mod docker;
-pub mod java;
-pub mod logging;
-pub mod network;
-pub mod node_api;
-pub mod peer_metrics;
-pub mod transparency_log;
-pub mod util;
-pub mod verification_service;
+pub mod service;

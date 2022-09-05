@@ -118,7 +118,9 @@ impl VerificationService {
         sender: oneshot::Sender<Result<(), VerificationError>>,
     ) -> Result<Option<String>, VerificationError> {
         let package = Package {
-            package_type: transparency_log.package_type,
+            package_type: transparency_log
+                .package_type
+                .expect("Package type should not be empty"),
             package_specific_id: transparency_log.package_specific_id.clone(),
         };
         let num_artifacts = match self.pending_info.get_mut(&package) {
@@ -143,14 +145,18 @@ impl VerificationService {
 
         if num_artifacts == transparency_log.num_artifacts {
             let package = Package {
-                package_type: transparency_log.package_type,
+                package_type: transparency_log
+                    .package_type
+                    .expect("Package type should not be empty"),
                 package_specific_id: transparency_log.package_specific_id.clone(),
             };
             if let Some(verification_artifacts) = self.pending_info.remove(&package) {
                 let build_id = self
                     .build_event_client
                     .verify_build(
-                        transparency_log.package_type,
+                        transparency_log
+                            .package_type
+                            .expect("Package type should not be empty"),
                         transparency_log.package_specific_id.clone(),
                         transparency_log.package_specific_artifact_id.clone(),
                         transparency_log.artifact_hash.clone(),
@@ -194,7 +200,7 @@ impl VerificationService {
         let package_specific_id = build_result.package_specific_id.as_str();
 
         info!(
-            "Build with ID {} completed successfully for package type {} and package specific ID {}",
+            "Build with ID {} completed successfully for package type {:?} and package specific ID {}",
             build_id, build_result.package_type, package_specific_id
         );
 

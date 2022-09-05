@@ -19,7 +19,8 @@ use libp2p::identity::Keypair;
 use libp2p::PeerId;
 use log::{debug, error};
 use pyrsia_blockchain_network::blockchain::Blockchain;
-use rusqlite::Connection;
+use rusqlite::types::{ToSqlOutput, Value};
+use rusqlite::{params, Connection, ToSql};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
@@ -92,10 +93,16 @@ pub enum Operation {
     RemoveNode,
 }
 
+impl ToSql for Operation {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        Ok(ToSqlOutput::from(self.to_string()))
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TransparencyLog {
     id: String,
-    pub package_type: PackageType,
+    pub package_type: Option<PackageType>,
     pub package_specific_id: String,
     pub num_artifacts: u32,
     pub package_specific_artifact_id: String,
@@ -169,7 +176,7 @@ impl TransparencyLogService {
     ) -> Result<TransparencyLog, TransparencyLogError> {
         let transparency_log = TransparencyLog {
             id: Uuid::new_v4().to_string(),
-            package_type: add_artifact_request.package_type,
+            package_type: Some(add_artifact_request.package_type),
             package_specific_id: add_artifact_request.package_specific_id.clone(),
             num_artifacts: add_artifact_request.num_artifacts,
             package_specific_artifact_id: add_artifact_request.package_specific_artifact_id.clone(),
@@ -251,11 +258,11 @@ impl TransparencyLogService {
         match conn.execute(
             "CREATE TABLE IF NOT EXISTS TRANSPARENCYLOG (
                 id TEXT PRIMARY KEY,
-                package_type TEXT NOT NULL,
-                package_specific_id TEXT NOT NULL,
+                package_type TEXT,
+                package_specific_id TEXT,
                 num_artifacts INTEGER,
-                package_specific_artifact_id TEXT NOT NULL,
-                artifact_hash TEXT NOT NULL,
+                package_specific_artifact_id TEXT,
+                artifact_hash TEXT,
                 source_hash TEXT,
                 artifact_id TEXT,
                 source_id TEXT,
@@ -282,20 +289,20 @@ impl TransparencyLogService {
 
         match conn.execute(
             "INSERT INTO TRANSPARENCYLOG (id, package_type, package_specific_id, num_artifacts, package_specific_artifact_id, artifact_hash, source_hash, artifact_id, source_id, timestamp, operation, node_id, node_public_key) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
-            [
-                transparency_log.id.to_string(),
-                transparency_log.package_type.to_string(),
-                transparency_log.package_specific_id.clone(),
-                transparency_log.num_artifacts.to_string(),
-                transparency_log.package_specific_artifact_id.clone(),
-                transparency_log.artifact_hash.to_string(),
-                transparency_log.source_hash.to_string(),
-                transparency_log.artifact_id.to_string(),
-                transparency_log.source_id.to_string(),
-                transparency_log.timestamp.to_string(),
-                transparency_log.operation.to_string(),
-                transparency_log.node_id.to_string(),
-                transparency_log.node_public_key.to_string(),
+            params![
+                transparency_log.id,
+                transparency_log.package_type,
+                transparency_log.package_specific_id,
+                transparency_log.num_artifacts,
+                transparency_log.package_specific_artifact_id,
+                transparency_log.artifact_hash,
+                transparency_log.source_hash,
+                transparency_log.artifact_id,
+                transparency_log.source_id,
+                transparency_log.timestamp,
+                transparency_log.operation,
+                transparency_log.node_id,
+                transparency_log.node_public_key,
             ],
         ) {
             Ok(_) => {
@@ -413,8 +420,16 @@ impl TransparencyLogService {
             Ok(TransparencyLog {
                 id: row.get(0)?,
                 package_type: {
-                    let pt: String = row.get(1)?;
-                    PackageType::from_str(&pt).unwrap()
+                    let value: Value = row.get(1)?;
+                    match value {
+                        Value::Text(pt) => Ok(Some(PackageType::from_str(&pt).unwrap())),
+                        Value::Null => Ok(None),
+                        _ => Err(rusqlite::Error::InvalidColumnType(
+                            1,
+                            "package_type".to_owned(),
+                            value.data_type(),
+                        )),
+                    }?
                 },
                 package_specific_id: row.get(2)?,
                 num_artifacts: row.get(3)?,
@@ -450,7 +465,7 @@ mod tests {
     #[test]
     fn create_transparency_log() {
         let id = "id";
-        let package_type = PackageType::Docker;
+        let package_type = Some(PackageType::Docker);
         let package_specific_id = "package_specific_id";
         let num_artifacts = 10;
         let package_specific_artifact_id = "package_specific_artifact_id";
@@ -540,7 +555,7 @@ mod tests {
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
-            package_type: PackageType::Maven2,
+            package_type: Some(PackageType::Maven2),
             package_specific_id: String::from("package_specific_id"),
             num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
@@ -568,7 +583,7 @@ mod tests {
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
-            package_type: PackageType::Maven2,
+            package_type: Some(PackageType::Maven2),
             package_specific_id: String::from("package_specific_id"),
             num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
@@ -598,7 +613,7 @@ mod tests {
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
-            package_type: PackageType::Maven2,
+            package_type: Some(PackageType::Maven2),
             package_specific_id: String::from("package_specific_id"),
             num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
@@ -630,7 +645,7 @@ mod tests {
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
-            package_type: PackageType::Maven2,
+            package_type: Some(PackageType::Maven2),
             package_specific_id: String::from("package_specific_id"),
             num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
@@ -670,7 +685,7 @@ mod tests {
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),
-            package_type: PackageType::Maven2,
+            package_type: Some(PackageType::Maven2),
             package_specific_id: String::from("package_specific_id"),
             num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
@@ -689,7 +704,7 @@ mod tests {
 
         let transparency_log2 = TransparencyLog {
             id: String::from("id2"),
-            package_type: PackageType::Maven2,
+            package_type: Some(PackageType::Maven2),
             package_specific_id: String::from("package_specific_id2"),
             num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id2"),
@@ -721,7 +736,7 @@ mod tests {
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),
-            package_type: PackageType::Maven2,
+            package_type: Some(PackageType::Maven2),
             package_specific_id: String::from("package_specific_id"),
             num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
@@ -740,7 +755,7 @@ mod tests {
 
         let transparency_log2 = TransparencyLog {
             id: String::from("id2"),
-            package_type: PackageType::Maven2,
+            package_type: Some(PackageType::Maven2),
             package_specific_id: String::from("package_specific_id"),
             num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id2"),
@@ -777,7 +792,7 @@ mod tests {
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
-            package_type: PackageType::Maven2,
+            package_type: Some(PackageType::Maven2),
             package_specific_id: String::from("package_specific_id"),
             num_artifacts: 8,
             package_specific_artifact_id: String::from("package_specific_artifact_id"),
@@ -850,14 +865,14 @@ mod tests {
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
-            package_type: PackageType::Maven2,
-            package_specific_id: String::from("package_specific_id"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id"),
-            artifact_hash: String::from("artifact_hash"),
-            source_hash: String::from("source_hash"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
+            package_type: None,
+            package_specific_id: String::from(""),
+            num_artifacts: 0,
+            package_specific_artifact_id: String::from(""),
+            artifact_hash: String::from(""),
+            source_hash: String::from(""),
+            artifact_id: String::from(""),
+            source_id: String::from(""),
             timestamp: 10000000,
             operation: Operation::AddNode,
             node_id: String::from("node_id"),
@@ -884,14 +899,14 @@ mod tests {
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),
-            package_type: PackageType::Maven2,
-            package_specific_id: String::from("package_specific_id1"),
+            package_type: None,
+            package_specific_id: String::from(""),
             num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id1"),
-            artifact_hash: String::from("artifact_hash1"),
-            source_hash: String::from("source_hash1"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
+            package_specific_artifact_id: String::from(""),
+            artifact_hash: String::from(""),
+            source_hash: String::from(""),
+            artifact_id: String::from(""),
+            source_id: String::from(""),
             timestamp: 10000000,
             operation: Operation::AddNode,
             node_id: String::from("node_id1"),
@@ -903,14 +918,14 @@ mod tests {
 
         let transparency_log2 = TransparencyLog {
             id: String::from("id2"),
-            package_type: PackageType::Maven2,
-            package_specific_id: String::from("package_specific_id2"),
+            package_type: None,
+            package_specific_id: String::from(""),
             num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id2"),
-            artifact_hash: String::from("artifact_hash2"),
-            source_hash: String::from("source_hash2"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
+            package_specific_artifact_id: String::from(""),
+            artifact_hash: String::from(""),
+            source_hash: String::from(""),
+            artifact_id: String::from(""),
+            source_id: String::from(""),
             timestamp: 20000000,
             operation: Operation::AddNode,
             node_id: String::from("node_id2"),
@@ -922,14 +937,14 @@ mod tests {
 
         let transparency_log3 = TransparencyLog {
             id: String::from("id3"),
-            package_type: PackageType::Maven2,
-            package_specific_id: String::from("package_specific_id3"),
+            package_type: None,
+            package_specific_id: String::from(""),
             num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id3"),
-            artifact_hash: String::from("artifact_hash3"),
-            source_hash: String::from("source_hash3"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
+            package_specific_artifact_id: String::from(""),
+            artifact_hash: String::from(""),
+            source_hash: String::from(""),
+            artifact_id: String::from(""),
+            source_id: String::from(""),
             timestamp: 30000000,
             operation: Operation::RemoveNode,
             node_id: String::from("node_id1"),

@@ -23,6 +23,8 @@ use crate::node_api::model::cli::Status;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
 use log::debug;
+use pyrsia_blockchain_network::structures::block::Block;
+use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::collections::HashSet;
 use tokio::sync::{mpsc, oneshot};
 
@@ -67,7 +69,7 @@ impl From<&str> for ArtifactHash {
 }
 
 /// The `Client` provides entry points to interact with the libp2p swarm.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Client {
     pub sender: mpsc::Sender<Command>,
     pub local_peer_id: PeerId,
@@ -288,8 +290,8 @@ impl Client {
     pub async fn request_block_update(
         &mut self,
         peer: &PeerId,
-        block_ordinal: u64,
-        block: Vec<u8>,
+        block_ordinal: Ordinal,
+        block: Box<Block>,
     ) -> anyhow::Result<Option<u64>> {
         debug!(
             "p2p::Client::request_blockchain {:?}: {:?}={:?}",
@@ -318,7 +320,8 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libp2p::identity::Keypair;
+    use libp2p::identity::{self, Keypair};
+    use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
     use rand::distributions::Alphanumeric;
     use rand::{thread_rng, Rng};
 
@@ -539,27 +542,25 @@ mod tests {
     #[tokio::test]
     async fn test_request_block_update() {
         let (sender, mut receiver) = mpsc::channel(1);
+        let local_key = identity::ed25519::Keypair::generate();
 
         let mut client = Client {
             sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+            local_peer_id: identity::PublicKey::Ed25519(local_key.public()).to_peer_id(),
         };
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
-        let block = vec![0, 1, 2, 3, 4];
-        tokio::spawn(async move {
-            client
-                .request_block_update(&other_peer_id, 1u64, block)
-                .await
-        });
+        let block = Box::new(Block::new(HashDigest::new(b""), 0, vec![], &local_key));
+        tokio::spawn(async move { client.request_block_update(&other_peer_id, 1, block).await });
 
         tokio::select! {
             command = receiver.recv() => match command {
                 Some(Command::RequestBlockUpdate { peer, block_ordinal, block, sender:_ }) => {
                     assert_eq!(peer, other_peer_id);
-                    assert_eq!(block_ordinal, 1u64 );
-                    assert_eq!(block, vec![0, 1, 2, 3, 4]);
+                    assert_eq!(block_ordinal, 1 );
+                    assert_eq!(block.header.parent_hash, HashDigest::new(b""))
+
                 },
                 _ => panic!("Command must match Command::RequestBlockUpdate")
             }

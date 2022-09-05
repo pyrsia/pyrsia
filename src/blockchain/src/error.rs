@@ -14,18 +14,19 @@
    limitations under the License.
 */
 
-#![allow(mixed_script_confusables)] // This is to allow structs created by a derive macro to have private fields that begin with the grek letter π
+use std::io;
+use thiserror::Error;
 
-pub mod artifact_service;
-pub mod blockchain_service;
-pub mod build_service;
-pub mod cli_commands;
-pub mod docker;
-pub mod java;
-pub mod logging;
-pub mod network;
-pub mod node_api;
-pub mod peer_metrics;
-pub mod transparency_log;
-pub mod util;
-pub mod verification_service;
+use crate::structures::header::Ordinal;
+
+#[derive(Debug, Error)]
+pub enum BlockchainError {
+    #[error("IO Error")]
+    IOError(#[from] io::Error),
+    #[error("Blockchain start postion: {0} is greater than end postion: {1} ")]
+    InvalidBlockchainPosition(usize, usize),
+    #[error("Invalid blockchain length: {0}")]
+    InvalidBlockchainLength(usize),
+    #[error("Invalid blockchain Ordinal: {0}")]
+    InvalidBlockchainOrdinal(Ordinal),
+}
