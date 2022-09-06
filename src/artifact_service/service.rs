@@ -245,6 +245,7 @@ impl ArtifactService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::blockchain_service::service::BlockchainService;
     use crate::build_service::event::BuildEvent;
     use crate::network::client::command::Command;
     use crate::network::idle_metric_protocol::PeerMetrics;
@@ -252,7 +253,6 @@ mod tests {
     use crate::util::test_util;
     use anyhow::Context;
     use libp2p::identity::Keypair;
-    use pyrsia_blockchain_network::blockchain::Blockchain;
     use sha2::{Digest, Sha256};
     use std::collections::HashSet;
     use std::env;
@@ -268,7 +268,10 @@ mod tests {
         0x4f,
     ];
 
-    fn create_transparency_log_service<P: AsRef<Path>>(artifact_path: P) -> TransparencyLogService {
+    fn create_transparency_log_service<P: AsRef<Path>>(
+        artifact_path: P,
+        p2p_client: Client,
+    ) -> TransparencyLogService {
         let local_keypair = Keypair::generate_ed25519();
         let ed25519_keypair = match local_keypair {
             libp2p::identity::Keypair::Ed25519(ref v) => v,
@@ -277,12 +280,12 @@ mod tests {
             }
         };
 
-        let blockchain = Blockchain::new(ed25519_keypair);
+        let blockchain_service = BlockchainService::new(ed25519_keypair, p2p_client);
 
         TransparencyLogService::new(
             &artifact_path,
             local_keypair,
-            Arc::new(Mutex::new(blockchain)),
+            Arc::new(Mutex::new(blockchain_service)),
         )
         .unwrap()
     }
@@ -301,7 +304,8 @@ mod tests {
         artifact_path: P,
         p2p_client: Client,
     ) -> (mpsc::Receiver<BuildEvent>, ArtifactService) {
-        let transparency_log_service = create_transparency_log_service(&artifact_path);
+        let transparency_log_service =
+            create_transparency_log_service(&artifact_path, p2p_client.clone());
 
         let (build_event_sender, build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
@@ -321,9 +325,20 @@ mod tests {
     async fn test_put_and_get_artifact() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_command_receiver, p2p_client) = create_p2p_client();
+        let (mut command_receiver, p2p_client) = create_p2p_client();
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, p2p_client);
+            create_artifact_service(&tmp_dir, p2p_client.clone());
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    }
+                    _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
 
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
@@ -382,6 +397,9 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    },
                     Some(Command::ListProviders { sender, .. }) => {
                         let mut set = HashSet::new();
                         set.insert(p2p_client.local_peer_id);
@@ -395,7 +413,7 @@ mod tests {
                     Some(Command::RequestArtifact { sender, .. }) => {
                         let _ = sender.send(Ok(b"SAMPLE_DATA".to_vec()));
                     },
-                    _ => panic!("Command must match Command::ListProviders, Command::RequestIdleMetric, Command::RequestArtifact"),
+                    _ => panic!("Command must match Command::ListPeers, Command::ListProviders, Command::RequestIdleMetric, Command::RequestArtifact"),
                 }
             }
         });
@@ -425,6 +443,7 @@ mod tests {
                 .await
         };
         let result = task::spawn_blocking(|| future).await.unwrap();
+        println!("RESULT: {:?}", result);
         assert!(result.is_ok());
 
         test_util::tests::teardown(tmp_dir);
@@ -467,9 +486,20 @@ mod tests {
     async fn test_verify_artifact_succeeds_when_hashes_same() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_command_receiver, p2p_client) = create_p2p_client();
+        let (mut command_receiver, p2p_client) = create_p2p_client();
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, p2p_client);
+            create_artifact_service(&tmp_dir, p2p_client.clone());
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    }
+                    _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
 
         let mut hasher1 = Sha256::new();
         hasher1.update(b"SAMPLE_DATA");
@@ -507,9 +537,20 @@ mod tests {
     async fn test_verify_artifact_fails_when_hashes_differ() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_command_receiver, p2p_client) = create_p2p_client();
+        let (mut command_receiver, p2p_client) = create_p2p_client();
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, p2p_client);
+            create_artifact_service(&tmp_dir, p2p_client.clone());
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    }
+                    _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
 
         let mut hasher1 = Sha256::new();
         hasher1.update(b"SAMPLE_DATA");
@@ -559,9 +600,20 @@ mod tests {
     async fn test_get_artifact_logs() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_command_receiver, p2p_client) = create_p2p_client();
+        let (mut command_receiver, p2p_client) = create_p2p_client();
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, p2p_client);
+            create_artifact_service(&tmp_dir, p2p_client.clone());
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    }
+                    _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
 
         let hasher1 = Sha256::new();
         let random_hash = hex::encode(hasher1.finalize());

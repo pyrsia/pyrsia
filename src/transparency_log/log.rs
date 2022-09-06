@@ -15,10 +15,10 @@
 */
 
 use crate::artifact_service::model::PackageType;
+use crate::blockchain_service::service::BlockchainService;
 use libp2p::identity::Keypair;
 use libp2p::PeerId;
 use log::{debug, error};
-use pyrsia_blockchain_network::blockchain::Blockchain;
 use rusqlite::types::{ToSqlOutput, Value};
 use rusqlite::{params, Connection, ToSql};
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
@@ -141,21 +141,21 @@ pub struct AuthorizedNode {
 pub struct TransparencyLogService {
     storage_path: PathBuf,
     local_keypair: Keypair,
-    blockchain: Arc<Mutex<Blockchain>>,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
 }
 
 impl TransparencyLogService {
     pub fn new<P: AsRef<Path>>(
         repository_path: P,
         local_keypair: Keypair,
-        blockchain: Arc<Mutex<Blockchain>>,
+        blockchain_service: Arc<Mutex<BlockchainService>>,
     ) -> Result<Self, TransparencyLogError> {
         let mut absolute_path = repository_path.as_ref().to_path_buf().canonicalize()?;
         absolute_path.push("transparency_log");
         Ok(TransparencyLogService {
             storage_path: absolute_path,
             local_keypair,
-            blockchain,
+            blockchain_service,
         })
     }
 
@@ -193,22 +193,12 @@ impl TransparencyLogService {
             node_public_key: Uuid::new_v4().to_string(),
         };
 
-        let (blockchain_sender, blockchain_receiver) = oneshot::channel();
-
         let payload = serde_json::to_string(&transparency_log).unwrap();
-        self.blockchain
+        self.blockchain_service
             .lock()
             .await
-            .add_block(
-                payload.into_bytes(),
-                self.local_keypair.clone(),
-                blockchain_sender,
-            )
-            .await
-            .map_err(|e| TransparencyLogError::BlockchainFailure(e.to_string()))?;
-
-        let payloads = blockchain_receiver.await?;
-        assert_eq!(payloads.len(), 1);
+            .add_payload(payload.into_bytes(), &self.local_keypair)
+            .await;
 
         self.write_transparency_log(&transparency_log)?;
 
@@ -460,7 +450,9 @@ impl TransparencyLogService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::network::client::Client;
     use crate::util::test_util;
+    use tokio::sync::mpsc;
 
     #[test]
     fn create_transparency_log() {
@@ -520,12 +512,19 @@ mod tests {
             }
         };
 
-        let blockchain = Blockchain::new(ed25519_keypair);
+        let (sender, _receiver) = mpsc::channel(1);
+
+        let p2p_client = Client {
+            sender,
+            local_peer_id: local_keypair.public().to_peer_id(),
+        };
+
+        let blockchain_service = BlockchainService::new(ed25519_keypair, p2p_client);
 
         TransparencyLogService::new(
             &artifact_path,
             local_keypair,
-            Arc::new(Mutex::new(blockchain)),
+            Arc::new(Mutex::new(blockchain_service)),
         )
         .unwrap()
     }

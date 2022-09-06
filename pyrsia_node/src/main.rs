@@ -60,12 +60,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     debug!("Start p2p event loop");
     tokio::spawn(event_loop.run());
 
-    debug!("Create pyrsia services");
-    let artifact_service =
-        setup_pyrsia_services(blockchain.clone(), p2p_client.clone(), &args).await?;
-
     debug!("Create blockchain service component");
     let blockchain_service = setup_blockchain_service(p2p_client.clone())?;
+
+    debug!("Create pyrsia services");
+    let artifact_service =
+        setup_pyrsia_services(blockchain_service.clone(), p2p_client.clone(), &args).await?;
 
     debug!("Setup HTTP server");
     setup_http(&args, artifact_service.clone());
@@ -205,7 +205,7 @@ fn setup_blockchain_service(p2p_client: Client) -> Result<Arc<Mutex<BlockchainSe
 }
 
 async fn setup_pyrsia_services(
-    blockchain: Arc<Mutex<Blockchain>>,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
     p2p_client: Client,
     args: &PyrsiaNodeArgs,
 ) -> Result<Arc<Mutex<ArtifactService>>> {
@@ -215,7 +215,7 @@ async fn setup_pyrsia_services(
 
     debug!("Create transparency log service");
     let transparency_log_service =
-        setup_transparency_log_service(&artifact_path, blockchain)?;
+        setup_transparency_log_service(&artifact_path, blockchain_service)?;
 
     debug!("Create artifact service");
     let artifact_service = setup_artifact_service(
@@ -245,12 +245,12 @@ async fn setup_pyrsia_services(
 
 fn setup_transparency_log_service(
     artifact_path: &Path,
-    blockchain: Arc<Mutex<Blockchain>>,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
 ) -> Result<TransparencyLogService, TransparencyLogError> {
     let local_keypair =
         keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
 
-    TransparencyLogService::new(&artifact_path, local_keypair, blockchain)
+    TransparencyLogService::new(&artifact_path, local_keypair, blockchain_service)
 }
 
 fn setup_artifact_service(

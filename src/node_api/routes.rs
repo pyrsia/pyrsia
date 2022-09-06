@@ -84,6 +84,7 @@ pub fn make_node_routes(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::blockchain_service::service::BlockchainService;
     use crate::build_service::event::{BuildEvent, BuildEventClient};
     use crate::network::client::command::Command;
     use crate::network::client::Client;
@@ -91,13 +92,15 @@ mod tests {
     use crate::transparency_log::log::TransparencyLogService;
     use crate::util::test_util;
     use libp2p::identity::Keypair;
-    use pyrsia_blockchain_network::blockchain::Blockchain;
     use std::collections::HashSet;
     use std::path::Path;
     use std::str;
     use tokio::sync::mpsc;
 
-    fn create_transparency_log_service<P: AsRef<Path>>(artifact_path: P) -> TransparencyLogService {
+    fn create_transparency_log_service<P: AsRef<Path>>(
+        artifact_path: P,
+        p2p_client: Client,
+    ) -> TransparencyLogService {
         let local_keypair = Keypair::generate_ed25519();
         let ed25519_keypair = match local_keypair {
             libp2p::identity::Keypair::Ed25519(ref v) => v,
@@ -106,12 +109,12 @@ mod tests {
             }
         };
 
-        let blockchain = Blockchain::new(ed25519_keypair);
+        let blockchain_service = BlockchainService::new(ed25519_keypair, p2p_client);
 
         TransparencyLogService::new(
             &artifact_path,
             local_keypair,
-            Arc::new(Mutex::new(blockchain)),
+            Arc::new(Mutex::new(blockchain_service)),
         )
         .unwrap()
     }
@@ -130,7 +133,8 @@ mod tests {
         artifact_path: P,
         p2p_client: Client,
     ) -> (mpsc::Receiver<BuildEvent>, ArtifactService) {
-        let transparency_log_service = create_transparency_log_service(&artifact_path);
+        let transparency_log_service =
+            create_transparency_log_service(&artifact_path, p2p_client.clone());
 
         let (build_event_sender, build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);

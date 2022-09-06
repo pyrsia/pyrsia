@@ -19,7 +19,6 @@ use libp2p::identity::Keypair::Ed25519;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
-use tokio::sync::oneshot;
 
 use super::crypto::hash_algorithm::HashDigest;
 use super::structures::{
@@ -28,14 +27,8 @@ use super::structures::{
     header::Address,
     transaction::{Transaction, TransactionType},
 };
-use libp2p::identity;
-use libp2p::identity::Keypair::Ed25519;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fmt::{self, Debug, Formatter};
 
-pub type TransactionCallback = dyn FnOnce(Transaction) + Send;
-pub type PayloadCallback = dyn FnMut(&Vec<u8>) + Send;
+pub type TransactionCallback = dyn FnOnce(Transaction) + Send + Sync;
 
 /// Define Supported Signature Algorithm
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -78,7 +71,7 @@ impl Blockchain {
         }
     }
 
-    pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction) + Send>(
+    pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction) + Send + Sync>(
         &mut self,
         trans: Transaction,
         on_done: CallBack,
@@ -99,7 +92,6 @@ impl Blockchain {
         &mut self,
         payload: Vec<u8>,
         local_key: &identity::Keypair,
-        sender: oneshot::Sender<Vec<Vec<u8>>>,
     ) -> anyhow::Result<()> {
         let submitter = Address::from(local_key.public());
         let ed25519_key = match local_key {
@@ -136,10 +128,6 @@ impl Blockchain {
         // TODO: Consensus algorithm will be refactored
         self.commit_block(block.clone()).await;
 
-        if let Err(e) = sender.send(block.transactions.iter().map(|t| t.payload()).collect()) {
-            anyhow::bail!("Blockchain: failed to send commit: {:?}", e);
-        }
-
         Ok(())
     }
 
@@ -150,7 +138,7 @@ impl Blockchain {
 
     /// Commit block and notify block listeners
     async fn commit_block(&mut self, block: Block) {
-        self.chain.add_block(block.clone());
+        self.chain.add_block(block);
     }
 
     pub fn last_block(&self) -> Option<Block> {
@@ -256,14 +244,12 @@ mod tests {
             _ => return Err("Key format is wrong".to_string()),
         };
 
-        let (sender, _receiver) = oneshot::channel();
-
         let mut blockchain = Blockchain::new(&ed25519_key);
 
         let data = "Hello First Transaction";
 
         let result = blockchain
-            .add_block(data.as_bytes().to_vec(), &keypair, sender)
+            .add_block(data.as_bytes().to_vec(), &keypair)
             .await;
         assert_eq!(result.is_ok(), true);
         assert_eq!(

@@ -43,13 +43,13 @@ pub fn make_maven_routes(
 mod tests {
     use super::*;
     use crate::artifact_service::model::PackageType;
+    use crate::blockchain_service::service::BlockchainService;
     use crate::build_service::event::BuildEventClient;
     use crate::docker::error_util::RegistryError;
     use crate::network::client::Client;
     use crate::transparency_log::log::{TransparencyLogError, TransparencyLogService};
     use crate::util::test_util;
     use libp2p::identity::Keypair;
-    use pyrsia_blockchain_network::blockchain::Blockchain;
     use std::path::Path;
     use std::str;
     use tokio::sync::mpsc;
@@ -63,12 +63,19 @@ mod tests {
             }
         };
 
-        let blockchain = Blockchain::new(ed25519_keypair);
+        let (sender, _receiver) = mpsc::channel(1);
+
+        let p2p_client = Client {
+            sender,
+            local_peer_id: local_keypair.public().to_peer_id(),
+        };
+
+        let blockchain_service = BlockchainService::new(ed25519_keypair, p2p_client);
 
         TransparencyLogService::new(
             &artifact_path,
             local_keypair,
-            Arc::new(Mutex::new(blockchain)),
+            Arc::new(Mutex::new(blockchain_service)),
         )
         .unwrap()
     }

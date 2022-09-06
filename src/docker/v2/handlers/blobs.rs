@@ -58,17 +58,15 @@ fn get_package_specific_artifact_id(name: &str, digest: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::artifact_service::storage::ArtifactStorage;
+    use crate::blockchain_service::service::BlockchainService;
     use crate::build_service::event::BuildEventClient;
     use crate::network::client::Client;
-    use crate::transparency_log::log::AddArtifactRequest;
+    use crate::transparency_log::log::{AddArtifactRequest, TransparencyLogService};
     use crate::util::test_util;
-    use crate::{
-        artifact_service::storage::ArtifactStorage, transparency_log::log::TransparencyLogService,
-    };
     use anyhow::Context;
     use hyper::header::HeaderValue;
     use libp2p::identity::Keypair;
-    use pyrsia_blockchain_network::blockchain::Blockchain;
     use std::borrow::Borrow;
     use std::fs::File;
     use std::path::{Path, PathBuf};
@@ -83,12 +81,19 @@ mod tests {
             }
         };
 
-        let blockchain = Blockchain::new(ed25519_keypair);
+        let (sender, _receiver) = mpsc::channel(1);
+
+        let p2p_client = Client {
+            sender,
+            local_peer_id: local_keypair.public().to_peer_id(),
+        };
+
+        let blockchain_service = BlockchainService::new(ed25519_keypair, p2p_client);
 
         TransparencyLogService::new(
             &artifact_path,
             local_keypair,
-            Arc::new(Mutex::new(blockchain)),
+            Arc::new(Mutex::new(blockchain_service)),
         )
         .unwrap()
     }
