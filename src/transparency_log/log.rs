@@ -70,12 +70,6 @@ impl From<rusqlite::Error> for TransparencyLogError {
     }
 }
 
-impl From<tokio::sync::oneshot::error::RecvError> for TransparencyLogError {
-    fn from(err: tokio::sync::oneshot::error::RecvError) -> TransparencyLogError {
-        TransparencyLogError::StorageFailure(err.to_string())
-    }
-}
-
 #[derive(
     Debug,
     Clone,
