@@ -40,6 +40,7 @@ impl Chain {
     pub fn is_empty(&self) -> bool {
         self.blocks.is_empty()
     }
+
     pub fn add_block(&mut self, block: Block) {
         self.blocks.push(block);
     }
