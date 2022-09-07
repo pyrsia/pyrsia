@@ -13,3 +13,4 @@ target/
 .vscode/
 .DS_Store
 /src/blockchain/blockchain_storage
+tests/reports/
