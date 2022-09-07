@@ -77,7 +77,7 @@ impl ArtifactService {
         let package_specific_id = build_result.package_specific_id.as_str();
 
         info!(
-            "Build with ID {} completed successfully for package type {} and package specific ID {}",
+            "Build with ID {} completed successfully for package type {:?} and package specific ID {}",
             build_id, build_result.package_type, package_specific_id
         );
 
