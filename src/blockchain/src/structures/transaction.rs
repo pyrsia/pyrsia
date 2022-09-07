@@ -88,6 +88,7 @@ pub struct Transaction {
     hash: HashDigest,
     signature: TransactionSignature,
 }
+
 impl Transaction {
     pub fn new(
         type_id: TransactionType,

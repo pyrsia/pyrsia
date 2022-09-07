@@ -22,6 +22,7 @@ use args::parser::PyrsiaNodeArgs;
 use network::handlers;
 use pyrsia::artifact_service::service::ArtifactService;
 use pyrsia::artifact_service::storage::ARTIFACTS_DIR;
+use pyrsia::blockchain_service::service::BlockchainService;
 use pyrsia::build_service::event::{BuildEventClient, BuildEventLoop};
 use pyrsia::build_service::service::BuildService;
 use pyrsia::docker::error_util::*;
@@ -55,14 +56,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     debug!("Create p2p components");
     let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm(args.max_provided_keys)?;
 
-    debug!("Create blockchain components");
-    let blockchain = setup_blockchain()?;
-
     debug!("Start p2p event loop");
     tokio::spawn(event_loop.run());
 
     debug!("Create pyrsia services");
     let artifact_service = setup_pyrsia_services(p2p_client.clone(), &args)?;
+
+    debug!("Create blockchain service component");
+    let blockchain_service = setup_blockchain_service(p2p_client.clone())?;
 
     debug!("Setup HTTP server");
     setup_http(&args, artifact_service.clone());
@@ -107,8 +108,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     block,
                 } => {
                     if let Err(error) = handlers::handle_request_block_update(
-                        p2p_client.clone(),
-                        blockchain.clone(),
+                        blockchain_service.clone(),
                         block_ordinal,
                         block.clone(),
                     )
@@ -130,6 +130,9 @@ async fn setup_p2p(mut p2p_client: Client, args: &PyrsiaNodeArgs) -> anyhow::Res
     } else if let Some(to_dial) = &args.peer {
         info!("Invoking dial");
         handlers::dial_other_peer(p2p_client.clone(), to_dial).await
+    } else if args.listen_only {
+        info!("Pyrsia node will listen only. No attempt to connect to other nodes.");
+        Ok(())
     } else {
         info!("Looking up bootstrap node");
         let peer_addrs = load_peer_addrs(&args.bootstrap_url).await?;
@@ -182,7 +185,7 @@ async fn load_peer_addrs(peer_url: &str) -> anyhow::Result<String> {
     }
 }
 
-fn setup_blockchain() -> Result<Arc<Mutex<Blockchain>>> {
+fn setup_blockchain_service(p2p_client: Client) -> Result<Arc<Mutex<BlockchainService>>> {
     let local_keypair =
         keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
 
@@ -193,7 +196,10 @@ fn setup_blockchain() -> Result<Arc<Mutex<Blockchain>>> {
         }
     };
 
-    Ok(Arc::new(Mutex::new(Blockchain::new(&ed25519_keypair))))
+    Ok(Arc::new(Mutex::new(BlockchainService {
+        blockchain: Blockchain::new(&ed25519_keypair),
+        p2p_client: p2p_client,
+    })))
 }
 
 fn setup_pyrsia_services(
@@ -297,11 +303,14 @@ fn setup_http(args: &PyrsiaNodeArgs, artifact_service: Arc<Mutex<ArtifactService
 
 #[cfg(all(test, not(tarpaulin_include)))]
 mod tests {
-    use crate::setup_blockchain;
+    use pyrsia::network::p2p;
+
+    use crate::setup_blockchain_service;
 
     #[test]
     fn setup_blockchain_success() {
-        let blockchain = setup_blockchain();
-        assert!(blockchain.is_ok());
+        let (p2p_client, _, _) = p2p::setup_libp2p_swarm(100).unwrap();
+        let blockchain_service = setup_blockchain_service(p2p_client.clone());
+        assert!(blockchain_service.is_ok());
     }
 }

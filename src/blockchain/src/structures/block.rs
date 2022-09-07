@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 
-use super::header::{Address, Header};
+use super::header::{Address, Header, Ordinal};
 use super::transaction::Transaction;
 use crate::crypto::hash_algorithm::HashDigest;
 use crate::signature::Signature;
@@ -45,7 +45,7 @@ pub struct Block {
 impl Block {
     pub fn new(
         parent_hash: HashDigest,
-        ordinal: u128,
+        ordinal: Ordinal,
         transactions: Vec<Transaction>,
         signing_key: &identity::ed25519::Keypair,
     ) -> Self {
@@ -158,6 +158,23 @@ mod tests {
     }
 
     #[test]
+    fn test_signature() -> Result<(), String> {
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
+
+        let transactions = vec![Transaction::new(
+            TransactionType::Create,
+            local_id,
+            b"Hello First Transaction".to_vec(),
+            &keypair,
+        )];
+        let block = Block::new(HashDigest::new(b""), 1, transactions.to_vec(), &keypair);
+
+        assert_eq!(block.signature(), block.block_signature);
+        Ok(())
+    }
+
+    #[test]
     fn test_block_verify() -> Result<(), String> {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
@@ -171,6 +188,23 @@ mod tests {
         let block = Block::new(HashDigest::new(b""), 1, transactions.to_vec(), &keypair);
 
         assert!(block.verify());
+        Ok(())
+    }
+
+    #[test]
+    fn test_display() -> Result<(), String> {
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
+
+        let transactions = vec![Transaction::new(
+            TransactionType::Create,
+            local_id,
+            b"Hello First Transaction".to_vec(),
+            &keypair,
+        )];
+        let block = Block::new(HashDigest::new(b""), 1, transactions.to_vec(), &keypair);
+
+        assert_ne!(format!("The block is: {block}"), "The block is: ");
         Ok(())
     }
 }

@@ -69,6 +69,18 @@ All pull requests require:
 
 If there are optional checks that fail, it's best to ask the reviewers and bring up the failure at the next team meeting.
 
+### Reviewing PRs
+
+Reviewers are assigned randomly from the @pyrsia/collaborators group.
+
+Reviewers have the responsibility to review with the following in mind:
+
+1. Ensure that the code is easy to read and understand
+2. Ensure that the architecture designs are easy to understand in the code
+3. Ensure that comments are applicable to code being reviewed and don't force a future thinking design change
+4. Ensure that the review is completed in a reasonable time - within 24 hours after the review has been requested
+5. Always Comment or Approve. Never leave it at `Request Changes` as it blocks the other reviewer from approving and merging the code.
+
 ### Project Board
 
 [Learn more](https://docs.github.com/en/issues/organizing-your-work-with-project-boards/managing-project-boards/about-project-boards)

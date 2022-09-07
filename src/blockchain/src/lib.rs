@@ -17,6 +17,7 @@
 pub mod args;
 pub mod blockchain;
 pub mod crypto;
+pub mod error;
 pub mod identities;
 pub mod network;
 pub mod providers;
