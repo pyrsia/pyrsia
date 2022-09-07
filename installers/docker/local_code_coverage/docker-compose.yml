@@ -4,11 +4,14 @@ services:
     build:
       context: ../../../
       dockerfile: installers/docker/local_code_coverage/Dockerfile
+      args:
+        - USER=pyrsiaapp
+        - USER_GRP=pyrsiagrp
     container_name: pyrsia_code_coverage
     security_opt:
       - seccomp=unconfined
     volumes:
-      - ../../../tests/reports/code-coverage-data:/home/pyrsia/code-coverage-data
+      - ../../../tests/reports/code-coverage-data:/home/pyrsiaapp/pyrsia/code-coverage-data
 volumes:
   code-coverage-data:
     name: code-coverage-data
