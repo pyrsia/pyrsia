@@ -83,7 +83,7 @@ impl BlockchainService {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(tarpaulin_include)))]
 mod tests {
     use super::*;
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
