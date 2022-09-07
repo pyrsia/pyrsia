@@ -33,6 +33,8 @@ use libp2p::request_response::{
 use libp2p::swarm::SwarmEvent;
 use libp2p::Swarm;
 use log::{debug, error, info, trace, warn};
+use pyrsia_blockchain_network::structures::block::Block;
+use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::error::Error;
 use tokio::sync::{mpsc, oneshot};
@@ -593,8 +595,8 @@ pub enum PyrsiaEvent {
         channel: ResponseChannel<IdleMetricResponse>,
     },
     BlockUpdateRequest {
-        block_ordinal: u64,
-        block: Vec<u8>,
+        block_ordinal: Ordinal,
+        block: Box<Block>,
     },
 }
 
