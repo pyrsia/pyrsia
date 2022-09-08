@@ -1,4 +1,4 @@
 target
-.git
 .cache
 .cargo
+tests/reports/
