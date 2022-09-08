@@ -55,18 +55,20 @@ impl RequestResponseCodec for BlockUpdateExchangeCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        debug!("prysia::blobkchain_protocol::BlockUpdate::read_request received from peer.");
+        debug!("pyrsia::blockchain_protocol::BlockUpdate::read_request received from peer.");
+
+        // the first var is the block ordinal, which is a u128, hence 16 bytes long
         let mut buff: [u8; 16] = [0; 16];
         let mut size = read_varint(io).await?;
-        if size != 8 {
+        if size != 16 {
             return Err(io::ErrorKind::InvalidData.into());
         }
-
         size = io.read(&mut buff).await?;
-        if size != 8 {
+        if size != 16 {
             return Err(io::ErrorKind::InvalidData.into());
         }
 
+        // the remaining bytes of the request make up the actual block
         let block_vec = read_length_prefixed(io, 1_000_000).await?;
         if block_vec.is_empty() {
             return Err(io::ErrorKind::UnexpectedEof.into());
