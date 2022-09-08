@@ -91,7 +91,7 @@ impl ToSql for Operation {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TransparencyLog {
-    pub id: String,
+    id: String,
     pub package_type: Option<PackageType>,
     pub package_specific_id: String,
     pub num_artifacts: u32,

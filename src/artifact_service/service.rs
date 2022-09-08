@@ -112,9 +112,8 @@ impl ArtifactService {
             );
 
             let payload = serde_json::to_string(&add_artifact_transparency_log).unwrap();
-            let payload_bytes = payload.into_bytes();
             self.blockchain_service
-                .add_payload(payload_bytes.clone(), &self.local_keypair)
+                .add_payload(payload.into_bytes(), &self.local_keypair)
                 .await;
 
             self.transparency_log_service
@@ -461,7 +460,6 @@ mod tests {
                 .await
         };
         let result = task::spawn_blocking(|| future).await.unwrap();
-        println!("RESULT: {:?}", result);
         assert!(result.is_ok());
 
         test_util::tests::teardown(tmp_dir);
