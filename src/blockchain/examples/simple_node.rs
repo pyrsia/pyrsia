@@ -15,7 +15,6 @@
 */
 
 use clap::Parser;
-use dirs;
 use futures::channel::{mpsc as futures_mpsc, oneshot};
 use futures::StreamExt;
 use libp2p::{identity, PeerId};
@@ -160,7 +159,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             "🌟 Got new batch. Highest finalized = {:?}",
             max_block_finalized
         );
-        if max_block_finalized >= 100 as u128 {
+        if max_block_finalized >= 100_u128 {
             break;
         }
     }
@@ -209,8 +208,7 @@ pub fn read_keypair(path: &String) -> Result<[u8; 64], Box<dyn Error>> {
 pub fn get_keyfile_name(args: BlockchainNodeArgs) -> String {
     let mut path = dirs::home_dir().unwrap();
     path.push(args.key_filename);
-    let filepath = path.into_os_string().into_string().unwrap();
-    filepath
+    path.into_os_string().into_string().unwrap()
 }
 
 pub fn create_ed25519_keypair(filename: String) -> libp2p::identity::ed25519::Keypair {

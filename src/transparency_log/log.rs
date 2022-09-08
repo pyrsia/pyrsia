@@ -91,7 +91,7 @@ impl ToSql for Operation {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TransparencyLog {
-    id: String,
+    pub id: String,
     pub package_type: Option<PackageType>,
     pub package_specific_id: String,
     pub num_artifacts: u32,
@@ -175,8 +175,6 @@ impl TransparencyLogService {
             node_public_key: Uuid::new_v4().to_string(),
         };
 
-        self.write_transparency_log(&transparency_log)?;
-
         Ok(transparency_log)
     }
 
@@ -246,7 +244,7 @@ impl TransparencyLogService {
         }
     }
 
-    fn write_transparency_log(
+    pub fn write_transparency_log(
         &self,
         transparency_log: &TransparencyLog,
     ) -> Result<(), TransparencyLogError> {
