@@ -317,7 +317,8 @@ impl Client {
     }
 }
 
-#[cfg(all(test, not(tarpaulin_include)))]
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use libp2p::identity::{self, Keypair};

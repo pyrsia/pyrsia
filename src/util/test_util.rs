@@ -14,7 +14,8 @@
    limitations under the License.
 */
 
-#[cfg(all(test, not(tarpaulin_include)))]
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 pub mod tests {
     use std::env;
     use std::fs;

@@ -120,7 +120,8 @@ fn save_ed25519(
     Ok(())
 }
 
-#[cfg(all(test, not(tarpaulin_include)))]
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
 

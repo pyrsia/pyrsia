@@ -92,7 +92,8 @@ impl aleph_bft::Index for KeyBox {
     }
 }
 
-#[cfg(all(test, not(tarpaulin_include)))]
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use aleph_bft::KeyBox as AlephKeyBox;

@@ -63,7 +63,8 @@ fn get_disk_stress() -> f64 {
     total_usage as f64
 }
 
-#[cfg(all(test, not(tarpaulin_include)))]
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
 

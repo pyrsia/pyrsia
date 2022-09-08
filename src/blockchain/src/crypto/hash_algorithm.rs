@@ -48,7 +48,8 @@ impl aleph_bft::Hasher for HashDigest {
     }
 }
 
-#[cfg(all(test, not(tarpaulin_include)))]
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use aleph_bft::Hasher;

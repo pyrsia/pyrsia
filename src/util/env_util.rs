@@ -30,7 +30,8 @@ pub fn read_var(variable_name: &str, default_value: &str) -> String {
     }
 }
 
-#[cfg(all(test, not(tarpaulin_include)))]
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
 

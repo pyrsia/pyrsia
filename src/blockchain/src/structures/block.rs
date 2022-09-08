@@ -111,7 +111,8 @@ impl Display for Block {
     }
 }
 
-#[cfg(all(test, not(tarpaulin_include)))]
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
 
     use super::super::transaction::TransactionType;

@@ -39,7 +39,8 @@ pub fn make_maven_routes(
     warp::any().and(maven2_root)
 }
 
-#[cfg(all(test, not(tarpaulin_include)))]
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use crate::artifact_service::model::PackageType;

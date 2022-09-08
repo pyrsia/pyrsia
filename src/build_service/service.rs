@@ -289,7 +289,8 @@ fn get_docker_image_name(package_specific_id: &str) -> String {
     String::from(docker_image_name)
 }
 
-#[cfg(all(test, not(tarpaulin_include)))]
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use crate::build_service::mapping::model::MappingInfo;

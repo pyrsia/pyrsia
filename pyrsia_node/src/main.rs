@@ -301,7 +301,8 @@ fn setup_http(args: &PyrsiaNodeArgs, artifact_service: Arc<Mutex<ArtifactService
     tokio::spawn(server);
 }
 
-#[cfg(all(test, not(tarpaulin_include)))]
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use pyrsia::network::p2p;
 

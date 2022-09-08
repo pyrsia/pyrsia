@@ -55,7 +55,8 @@ fn get_package_specific_artifact_id(name: &str, digest: &str) -> String {
     format!("{}@{}", name, digest)
 }
 
-#[cfg(all(test, not(tarpaulin_include)))]
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use crate::artifact_service::storage::ArtifactStorage;
