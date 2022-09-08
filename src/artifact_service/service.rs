@@ -129,7 +129,7 @@ impl ArtifactService {
             self.p2p_client
                 .provide(&add_artifact_transparency_log.artifact_id)
                 .await?;
-    }
+        }
 
         Ok(())
     }
