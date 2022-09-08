@@ -84,6 +84,7 @@ pub fn make_node_routes(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::blockchain_service::service::BlockchainService;
     use crate::build_service::event::{BuildEvent, BuildEventClient};
     use crate::network::client::command::Command;
     use crate::network::client::Client;
@@ -91,23 +92,67 @@ mod tests {
     use crate::util::test_util;
     use libp2p::identity::Keypair;
     use std::collections::HashSet;
+    use std::path::Path;
     use std::str;
     use tokio::sync::mpsc;
+
+    fn create_p2p_client(local_keypair: &Keypair) -> (mpsc::Receiver<Command>, Client) {
+        let (command_sender, command_receiver) = mpsc::channel(1);
+        let p2p_client = Client {
+            sender: command_sender,
+            local_peer_id: local_keypair.public().to_peer_id(),
+        };
+
+        (command_receiver, p2p_client)
+    }
+
+    fn create_blockchain_service(
+        local_keypair: &Keypair,
+        p2p_client: Client,
+    ) -> Arc<Mutex<BlockchainService>> {
+        let ed25519_keypair = match local_keypair {
+            libp2p::identity::Keypair::Ed25519(ref v) => v,
+            _ => {
+                panic!("Keypair Format Error");
+            }
+        };
+
+        Arc::new(Mutex::new(BlockchainService::new(
+            ed25519_keypair,
+            p2p_client,
+        )))
+    }
+
+    fn create_artifact_service<P: AsRef<Path>>(
+        artifact_path: P,
+        local_keypair: Keypair,
+        p2p_client: Client,
+    ) -> (mpsc::Receiver<BuildEvent>, ArtifactService) {
+        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client.clone());
+
+        let (build_event_sender, build_event_receiver) = mpsc::channel(1);
+        let build_event_client = BuildEventClient::new(build_event_sender);
+
+        let artifact_service = ArtifactService::new(
+            &artifact_path,
+            local_keypair,
+            blockchain_service,
+            build_event_client,
+            p2p_client,
+        )
+        .expect("Creating ArtifactService failed");
+
+        (build_event_receiver, artifact_service)
+    }
 
     #[tokio::test]
     async fn node_routes_build_docker() {
         let tmp_dir = test_util::tests::setup();
 
-        let (command_sender, _command_receiver) = mpsc::channel(1);
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-        };
-
-        let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
-        let build_event_client = BuildEventClient::new(build_event_sender);
-        let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
-            .expect("Creating ArtifactService failed");
+        let local_keypair = Keypair::generate_ed25519();
+        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let (mut build_event_receiver, artifact_service) =
+            create_artifact_service(&tmp_dir, local_keypair, p2p_client);
 
         let build_id = uuid::Uuid::new_v4();
         tokio::spawn(async move {
@@ -144,16 +189,10 @@ mod tests {
     async fn node_routes_build_maven() {
         let tmp_dir = test_util::tests::setup();
 
-        let (command_sender, _command_receiver) = mpsc::channel(1);
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-        };
-
-        let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
-        let build_event_client = BuildEventClient::new(build_event_sender);
-        let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
-            .expect("Creating ArtifactService failed");
+        let local_keypair = Keypair::generate_ed25519();
+        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let (mut build_event_receiver, artifact_service) =
+            create_artifact_service(&tmp_dir, local_keypair, p2p_client);
 
         let build_id = uuid::Uuid::new_v4();
         tokio::spawn(async move {
@@ -190,19 +229,17 @@ mod tests {
     async fn node_routes_peers() {
         let tmp_dir = test_util::tests::setup();
 
-        let (command_sender, mut command_receiver) = mpsc::channel(1);
-        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id,
-        };
+        let local_keypair = Keypair::generate_ed25519();
+        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let (_build_event_receiver, artifact_service) =
+            create_artifact_service(&tmp_dir, local_keypair, p2p_client.clone());
 
         tokio::spawn(async move {
             loop {
                 match command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let mut set = HashSet::new();
-                        set.insert(local_peer_id);
+                        set.insert(p2p_client.local_peer_id);
                         let _ = sender.send(set);
                     }
                     _ => panic!("Command must match Command::ListPeers"),
@@ -210,16 +247,11 @@ mod tests {
             }
         });
 
-        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
-        let build_event_client = BuildEventClient::new(build_event_sender);
-        let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
-            .expect("Creating ArtifactService failed");
-
         let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let response = warp::test::request().path("/peers").reply(&filter).await;
 
         let expected_body =
-            bytes::Bytes::from(serde_json::to_string(&vec![local_peer_id]).unwrap());
+            bytes::Bytes::from(serde_json::to_string(&vec![p2p_client.local_peer_id]).unwrap());
 
         assert_eq!(response.status(), 200);
         assert_eq!(expected_body, str::from_utf8(response.body()).unwrap());
@@ -231,26 +263,24 @@ mod tests {
     async fn node_routes_status() {
         let tmp_dir = test_util::tests::setup();
 
-        let (command_sender, mut command_receiver) = mpsc::channel(1);
-        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id,
-        };
+        let local_keypair = Keypair::generate_ed25519();
+        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let (_build_event_receiver, artifact_service) =
+            create_artifact_service(&tmp_dir, local_keypair, p2p_client.clone());
 
         tokio::spawn(async move {
             loop {
                 match command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let mut set = HashSet::new();
-                        set.insert(local_peer_id);
+                        set.insert(p2p_client.local_peer_id);
                         let _ = sender.send(set);
                     }
                     Some(Command::Status { sender, .. }) => {
                         let status = Status {
                             peers_count: 0,
                             peer_addrs: Vec::new(),
-                            peer_id: local_peer_id.to_string(),
+                            peer_id: p2p_client.local_peer_id.to_string(),
                         };
 
                         let _ = sender.send(status);
@@ -260,17 +290,12 @@ mod tests {
             }
         });
 
-        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
-        let build_event_client = BuildEventClient::new(build_event_sender);
-        let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
-            .expect("Creating ArtifactService failed");
-
         let filter = make_node_routes(Arc::new(Mutex::new(artifact_service)));
         let response = warp::test::request().path("/status").reply(&filter).await;
 
         let expected_status = Status {
             peers_count: 0,
-            peer_id: local_peer_id.to_string(),
+            peer_id: p2p_client.local_peer_id.to_string(),
             peer_addrs: Vec::new(),
         };
 
