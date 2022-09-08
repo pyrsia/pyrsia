@@ -59,28 +59,61 @@ pub fn make_docker_routes(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::blockchain_service::service::BlockchainService;
     use crate::build_service::event::BuildEventClient;
     use crate::docker::error_util::{RegistryError, RegistryErrorCode};
+    use crate::network::client::command::Command;
     use crate::network::client::Client;
     use crate::util::test_util;
     use libp2p::identity::Keypair;
     use std::str;
     use tokio::sync::mpsc;
 
+    fn create_p2p_client(local_keypair: &Keypair) -> (mpsc::Receiver<Command>, Client) {
+        let (command_sender, command_receiver) = mpsc::channel(1);
+        let p2p_client = Client {
+            sender: command_sender,
+            local_peer_id: local_keypair.public().to_peer_id(),
+        };
+
+        (command_receiver, p2p_client)
+    }
+
+    fn create_blockchain_service(
+        local_keypair: &Keypair,
+        p2p_client: Client,
+    ) -> Arc<Mutex<BlockchainService>> {
+        let ed25519_keypair = match local_keypair {
+            libp2p::identity::Keypair::Ed25519(ref v) => v,
+            _ => {
+                panic!("Keypair Format Error");
+            }
+        };
+
+        Arc::new(Mutex::new(BlockchainService::new(
+            ed25519_keypair,
+            p2p_client,
+        )))
+    }
+
     #[tokio::test]
     async fn docker_routes_base() {
         let tmp_dir = test_util::tests::setup();
 
-        let (command_sender, _command_receiver) = mpsc::channel(1);
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-        };
+        let local_keypair = Keypair::generate_ed25519();
+        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client.clone());
 
         let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
-        let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
-            .expect("Creating ArtifactService failed");
+        let artifact_service = ArtifactService::new(
+            &tmp_dir,
+            local_keypair,
+            blockchain_service,
+            build_event_client,
+            p2p_client,
+        )
+        .expect("Creating ArtifactService failed");
 
         let filter = make_docker_routes(Arc::new(Mutex::new(artifact_service)));
         let response = warp::test::request().path("/v2").reply(&filter).await;
@@ -97,16 +130,20 @@ mod tests {
     async fn docker_routes_blobs() {
         let tmp_dir = test_util::tests::setup();
 
-        let (command_sender, _command_receiver) = mpsc::channel(1);
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-        };
+        let local_keypair = Keypair::generate_ed25519();
+        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client.clone());
 
         let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
-        let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
-            .expect("Creating ArtifactService failed");
+        let artifact_service = ArtifactService::new(
+            &tmp_dir,
+            local_keypair,
+            blockchain_service,
+            build_event_client,
+            p2p_client,
+        )
+        .expect("Creating ArtifactService failed");
 
         let filter = make_docker_routes(Arc::new(Mutex::new(artifact_service)));
         let response = warp::test::request()
@@ -129,16 +166,20 @@ mod tests {
     async fn docker_routes_manifests() {
         let tmp_dir = test_util::tests::setup();
 
-        let (command_sender, _command_receiver) = mpsc::channel(1);
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-        };
+        let local_keypair = Keypair::generate_ed25519();
+        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client.clone());
 
         let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
-        let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
-            .expect("Creating ArtifactService failed");
+        let artifact_service = ArtifactService::new(
+            &tmp_dir,
+            local_keypair,
+            blockchain_service,
+            build_event_client,
+            p2p_client,
+        )
+        .expect("Creating ArtifactService failed");
 
         let filter = make_docker_routes(Arc::new(Mutex::new(artifact_service)));
         let response = warp::test::request()

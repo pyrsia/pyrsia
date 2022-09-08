@@ -14,6 +14,12 @@
    limitations under the License.
 */
 
+use libp2p::identity;
+use libp2p::identity::Keypair::Ed25519;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt::{self, Debug, Formatter};
+
 use super::crypto::hash_algorithm::HashDigest;
 use super::structures::{
     block::Block,
@@ -21,13 +27,8 @@ use super::structures::{
     header::Address,
     transaction::{Transaction, TransactionType},
 };
-use libp2p::identity;
-use libp2p::identity::Keypair::Ed25519;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fmt::{self, Debug, Formatter};
 
-pub type PayloadCallback = dyn FnMut(&Vec<u8>);
+pub type TransactionCallback = dyn FnOnce(Transaction) + Send + Sync;
 
 /// Define Supported Signature Algorithm
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -37,9 +38,7 @@ pub enum SignatureAlgorithm {
 
 pub struct Blockchain {
     // trans_observers may be only used internally by blockchain service
-    trans_observers: HashMap<Transaction, Box<dyn FnOnce(Transaction)>>,
-    // payload_observers used by transparency_log service
-    payload_observers: Vec<Box<PayloadCallback>>,
+    trans_observers: HashMap<Transaction, Box<TransactionCallback>>,
     // chain is the blocks of the blockchain
     chain: Chain,
 }
@@ -49,7 +48,6 @@ impl Debug for Blockchain {
         f.debug_struct("Blockchain")
             .field("chain", &self.chain)
             .field("trans_observers", &self.trans_observers.len())
-            .field("payload_observers", &self.payload_observers.len())
             .finish()
     }
 }
@@ -69,12 +67,11 @@ impl Blockchain {
         chain.add_block(block);
         Self {
             trans_observers: Default::default(),
-            payload_observers: vec![],
             chain,
         }
     }
 
-    pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction)>(
+    pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction) + Send + Sync>(
         &mut self,
         trans: Transaction,
         on_done: CallBack,
@@ -88,20 +85,6 @@ impl Blockchain {
         if let Some(on_settled) = self.trans_observers.remove(&trans) {
             on_settled(trans)
         }
-    }
-
-    pub fn add_payload_listener<CallBack: 'static + FnMut(&Vec<u8>)>(
-        &mut self,
-        on_payload: CallBack,
-    ) -> &mut Self {
-        self.payload_observers.push(Box::new(on_payload));
-        self
-    }
-
-    pub async fn notify_payload_event(&mut self, payload: &'_ Vec<u8>) {
-        self.payload_observers
-            .iter_mut()
-            .for_each(|notify| notify(payload))
     }
 
     /// Add block after receiving payload and keypair
@@ -143,7 +126,8 @@ impl Blockchain {
         );
 
         // TODO: Consensus algorithm will be refactored
-        self.commit_block(block).await;
+        self.commit_block(block.clone()).await;
+
         Ok(())
     }
 
@@ -154,11 +138,7 @@ impl Blockchain {
 
     /// Commit block and notify block listeners
     async fn commit_block(&mut self, block: Block) {
-        self.chain.add_block(block.clone());
-
-        for trans in block.transactions {
-            self.notify_payload_event(&trans.payload()).await;
-        }
+        self.chain.add_block(block);
     }
 
     pub fn last_block(&self) -> Option<Block> {
@@ -168,8 +148,7 @@ impl Blockchain {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::Cell;
-    use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
 
     use super::*;
 
@@ -214,39 +193,18 @@ mod tests {
             "some transaction".as_bytes().to_vec(),
             &keypair,
         );
-        let called = Rc::new(Cell::new(false));
+        let called = Arc::new(Mutex::new(false));
         chain
             .submit_transaction(transaction.clone(), {
                 let called = called.clone();
                 let transaction = transaction.clone();
                 move |t: Transaction| {
                     assert_eq!(transaction, t);
-                    called.set(true)
+                    *called.lock().unwrap() = true;
                 }
             })
             .notify_transaction_settled(transaction);
-        assert!(called.get());
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_add_payload_listener() -> Result<(), String> {
-        let keypair = identity::ed25519::Keypair::generate();
-        let block = Block::new(
-            HashDigest::new(b"Hello World!"),
-            1u128,
-            Vec::new(),
-            &keypair,
-        );
-        let mut blockchain = Blockchain::new(&keypair);
-        let called = move |b: &Vec<u8>| println!("data is {:?}", b);
-
-        blockchain
-            .add_payload_listener(called)
-            .commit_block(block)
-            .await;
-
-        assert_eq!(1, blockchain.payload_observers.len());
+        assert!(*called.lock().unwrap());
         Ok(())
     }
 
