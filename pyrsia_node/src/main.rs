@@ -32,7 +32,6 @@ use pyrsia::logging::*;
 use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
-use pyrsia::transparency_log::log::{TransparencyLogError, TransparencyLogService};
 use pyrsia::util::keypair_util::{self, KEYPAIR_FILENAME};
 use pyrsia::verification_service::service::VerificationService;
 use pyrsia_blockchain_network::blockchain::Blockchain;
@@ -200,7 +199,7 @@ fn setup_blockchain_service(p2p_client: Client) -> Result<Arc<Mutex<BlockchainSe
 
     Ok(Arc::new(Mutex::new(BlockchainService {
         blockchain: Blockchain::new(&ed25519_keypair),
-        p2p_client: p2p_client,
+        p2p_client,
     })))
 }
 
@@ -213,14 +212,10 @@ async fn setup_pyrsia_services(
     let (build_event_sender, build_event_receiver) = mpsc::channel(32);
     let build_event_client = BuildEventClient::new(build_event_sender);
 
-    debug!("Create transparency log service");
-    let transparency_log_service =
-        setup_transparency_log_service(&artifact_path, blockchain_service)?;
-
     debug!("Create artifact service");
     let artifact_service = setup_artifact_service(
         &artifact_path,
-        transparency_log_service,
+        blockchain_service,
         build_event_client.clone(),
         p2p_client,
     )?;
@@ -243,25 +238,19 @@ async fn setup_pyrsia_services(
     Ok(artifact_service)
 }
 
-fn setup_transparency_log_service(
-    artifact_path: &Path,
-    blockchain_service: Arc<Mutex<BlockchainService>>,
-) -> Result<TransparencyLogService, TransparencyLogError> {
-    let local_keypair =
-        keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
-
-    TransparencyLogService::new(&artifact_path, local_keypair, blockchain_service)
-}
-
 fn setup_artifact_service(
     artifact_path: &Path,
-    transparency_log_service: TransparencyLogService,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
     build_event_client: BuildEventClient,
     p2p_client: Client,
 ) -> Result<Arc<Mutex<ArtifactService>>> {
+    let local_keypair =
+        keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
+
     let artifact_service = ArtifactService::new(
         artifact_path,
-        transparency_log_service,
+        local_keypair,
+        blockchain_service,
         build_event_client,
         p2p_client,
     )?;

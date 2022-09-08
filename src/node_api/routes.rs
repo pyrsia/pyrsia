@@ -89,7 +89,6 @@ mod tests {
     use crate::network::client::command::Command;
     use crate::network::client::Client;
     use crate::node_api::model::cli::Status;
-    use crate::transparency_log::log::TransparencyLogService;
     use crate::util::test_util;
     use libp2p::identity::Keypair;
     use std::collections::HashSet;
@@ -97,11 +96,20 @@ mod tests {
     use std::str;
     use tokio::sync::mpsc;
 
-    fn create_transparency_log_service<P: AsRef<Path>>(
-        artifact_path: P,
+    fn create_p2p_client(local_keypair: &Keypair) -> (mpsc::Receiver<Command>, Client) {
+        let (command_sender, command_receiver) = mpsc::channel(1);
+        let p2p_client = Client {
+            sender: command_sender,
+            local_peer_id: local_keypair.public().to_peer_id(),
+        };
+
+        (command_receiver, p2p_client)
+    }
+
+    fn create_blockchain_service(
+        local_keypair: &Keypair,
         p2p_client: Client,
-    ) -> TransparencyLogService {
-        let local_keypair = Keypair::generate_ed25519();
+    ) -> Arc<Mutex<BlockchainService>> {
         let ed25519_keypair = match local_keypair {
             libp2p::identity::Keypair::Ed25519(ref v) => v,
             _ => {
@@ -109,39 +117,26 @@ mod tests {
             }
         };
 
-        let blockchain_service = BlockchainService::new(ed25519_keypair, p2p_client);
-
-        TransparencyLogService::new(
-            &artifact_path,
-            local_keypair,
-            Arc::new(Mutex::new(blockchain_service)),
-        )
-        .unwrap()
-    }
-
-    fn create_p2p_client() -> (mpsc::Receiver<Command>, Client) {
-        let (command_sender, command_receiver) = mpsc::channel(1);
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-        };
-
-        (command_receiver, p2p_client)
+        Arc::new(Mutex::new(BlockchainService::new(
+            ed25519_keypair,
+            p2p_client,
+        )))
     }
 
     fn create_artifact_service<P: AsRef<Path>>(
         artifact_path: P,
+        local_keypair: Keypair,
         p2p_client: Client,
     ) -> (mpsc::Receiver<BuildEvent>, ArtifactService) {
-        let transparency_log_service =
-            create_transparency_log_service(&artifact_path, p2p_client.clone());
+        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client.clone());
 
         let (build_event_sender, build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
 
         let artifact_service = ArtifactService::new(
             &artifact_path,
-            transparency_log_service,
+            local_keypair,
+            blockchain_service,
             build_event_client,
             p2p_client,
         )
@@ -154,9 +149,10 @@ mod tests {
     async fn node_routes_build_docker() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_command_receiver, p2p_client) = create_p2p_client();
+        let local_keypair = Keypair::generate_ed25519();
+        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let (mut build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, p2p_client);
+            create_artifact_service(&tmp_dir, local_keypair, p2p_client);
 
         let build_id = uuid::Uuid::new_v4();
         tokio::spawn(async move {
@@ -193,9 +189,10 @@ mod tests {
     async fn node_routes_build_maven() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_command_receiver, p2p_client) = create_p2p_client();
+        let local_keypair = Keypair::generate_ed25519();
+        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let (mut build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, p2p_client);
+            create_artifact_service(&tmp_dir, local_keypair, p2p_client);
 
         let build_id = uuid::Uuid::new_v4();
         tokio::spawn(async move {
@@ -232,9 +229,10 @@ mod tests {
     async fn node_routes_peers() {
         let tmp_dir = test_util::tests::setup();
 
-        let (mut command_receiver, p2p_client) = create_p2p_client();
+        let local_keypair = Keypair::generate_ed25519();
+        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let (_build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, p2p_client.clone());
+            create_artifact_service(&tmp_dir, local_keypair, p2p_client.clone());
 
         tokio::spawn(async move {
             loop {
@@ -265,9 +263,10 @@ mod tests {
     async fn node_routes_status() {
         let tmp_dir = test_util::tests::setup();
 
-        let (mut command_receiver, p2p_client) = create_p2p_client();
+        let local_keypair = Keypair::generate_ed25519();
+        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let (_build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, p2p_client.clone());
+            create_artifact_service(&tmp_dir, local_keypair, p2p_client.clone());
 
         tokio::spawn(async move {
             loop {

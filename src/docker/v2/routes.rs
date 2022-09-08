@@ -62,16 +62,27 @@ mod tests {
     use crate::blockchain_service::service::BlockchainService;
     use crate::build_service::event::BuildEventClient;
     use crate::docker::error_util::{RegistryError, RegistryErrorCode};
+    use crate::network::client::command::Command;
     use crate::network::client::Client;
-    use crate::transparency_log::log::TransparencyLogService;
     use crate::util::test_util;
     use libp2p::identity::Keypair;
-    use std::path::Path;
     use std::str;
     use tokio::sync::mpsc;
 
-    fn create_transparency_log_service<P: AsRef<Path>>(artifact_path: P) -> TransparencyLogService {
-        let local_keypair = Keypair::generate_ed25519();
+    fn create_p2p_client(local_keypair: &Keypair) -> (mpsc::Receiver<Command>, Client) {
+        let (command_sender, command_receiver) = mpsc::channel(1);
+        let p2p_client = Client {
+            sender: command_sender,
+            local_peer_id: local_keypair.public().to_peer_id(),
+        };
+
+        (command_receiver, p2p_client)
+    }
+
+    fn create_blockchain_service(
+        local_keypair: &Keypair,
+        p2p_client: Client,
+    ) -> Arc<Mutex<BlockchainService>> {
         let ed25519_keypair = match local_keypair {
             libp2p::identity::Keypair::Ed25519(ref v) => v,
             _ => {
@@ -79,40 +90,26 @@ mod tests {
             }
         };
 
-        let (sender, _receiver) = mpsc::channel(1);
-
-        let p2p_client = Client {
-            sender,
-            local_peer_id: local_keypair.public().to_peer_id(),
-        };
-
-        let blockchain_service = BlockchainService::new(ed25519_keypair, p2p_client);
-
-        TransparencyLogService::new(
-            &artifact_path,
-            local_keypair,
-            Arc::new(Mutex::new(blockchain_service)),
-        )
-        .unwrap()
+        Arc::new(Mutex::new(BlockchainService::new(
+            ed25519_keypair,
+            p2p_client,
+        )))
     }
 
     #[tokio::test]
     async fn docker_routes_base() {
         let tmp_dir = test_util::tests::setup();
 
-        let (command_sender, _command_receiver) = mpsc::channel(1);
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-        };
-
-        let transparency_log_service = create_transparency_log_service(&tmp_dir);
+        let local_keypair = Keypair::generate_ed25519();
+        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client.clone());
 
         let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
         let artifact_service = ArtifactService::new(
             &tmp_dir,
-            transparency_log_service,
+            local_keypair,
+            blockchain_service,
             build_event_client,
             p2p_client,
         )
@@ -133,19 +130,16 @@ mod tests {
     async fn docker_routes_blobs() {
         let tmp_dir = test_util::tests::setup();
 
-        let (command_sender, _command_receiver) = mpsc::channel(1);
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-        };
-
-        let transparency_log_service = create_transparency_log_service(&tmp_dir);
+        let local_keypair = Keypair::generate_ed25519();
+        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client.clone());
 
         let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
         let artifact_service = ArtifactService::new(
             &tmp_dir,
-            transparency_log_service,
+            local_keypair,
+            blockchain_service,
             build_event_client,
             p2p_client,
         )
@@ -172,19 +166,16 @@ mod tests {
     async fn docker_routes_manifests() {
         let tmp_dir = test_util::tests::setup();
 
-        let (command_sender, _command_receiver) = mpsc::channel(1);
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-        };
-
-        let transparency_log_service = create_transparency_log_service(&tmp_dir);
+        let local_keypair = Keypair::generate_ed25519();
+        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client.clone());
 
         let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
         let artifact_service = ArtifactService::new(
             &tmp_dir,
-            transparency_log_service,
+            local_keypair,
+            blockchain_service,
             build_event_client,
             p2p_client,
         )

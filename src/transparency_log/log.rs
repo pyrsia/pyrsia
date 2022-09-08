@@ -15,8 +15,6 @@
 */
 
 use crate::artifact_service::model::PackageType;
-use crate::blockchain_service::service::BlockchainService;
-use libp2p::identity::Keypair;
 use libp2p::PeerId;
 use log::{debug, error};
 use rusqlite::types::{ToSqlOutput, Value};
@@ -26,10 +24,8 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
-use tokio::sync::Mutex;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
@@ -134,22 +130,14 @@ pub struct AuthorizedNode {
 /// access.
 pub struct TransparencyLogService {
     storage_path: PathBuf,
-    local_keypair: Keypair,
-    blockchain_service: Arc<Mutex<BlockchainService>>,
 }
 
 impl TransparencyLogService {
-    pub fn new<P: AsRef<Path>>(
-        repository_path: P,
-        local_keypair: Keypair,
-        blockchain_service: Arc<Mutex<BlockchainService>>,
-    ) -> Result<Self, TransparencyLogError> {
+    pub fn new<P: AsRef<Path>>(repository_path: P) -> Result<Self, TransparencyLogError> {
         let mut absolute_path = repository_path.as_ref().to_path_buf().canonicalize()?;
         absolute_path.push("transparency_log");
         Ok(TransparencyLogService {
             storage_path: absolute_path,
-            local_keypair,
-            blockchain_service,
         })
     }
 
@@ -164,7 +152,7 @@ impl TransparencyLogService {
     }
 
     /// Adds a transparency log with the AddArtifact operation.
-    pub async fn add_artifact(
+    pub async fn create_add_artifact(
         &mut self,
         add_artifact_request: AddArtifactRequest,
     ) -> Result<TransparencyLog, TransparencyLogError> {
@@ -186,13 +174,6 @@ impl TransparencyLogService {
             node_id: Uuid::new_v4().to_string(),
             node_public_key: Uuid::new_v4().to_string(),
         };
-
-        let payload = serde_json::to_string(&transparency_log).unwrap();
-        self.blockchain_service
-            .lock()
-            .await
-            .add_payload(payload.into_bytes(), &self.local_keypair)
-            .await;
 
         self.write_transparency_log(&transparency_log)?;
 
@@ -444,9 +425,7 @@ impl TransparencyLogService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::network::client::Client;
     use crate::util::test_util;
-    use tokio::sync::mpsc;
 
     #[test]
     fn create_transparency_log() {
@@ -498,29 +477,7 @@ mod tests {
     }
 
     fn create_transparency_log_service<P: AsRef<Path>>(artifact_path: P) -> TransparencyLogService {
-        let local_keypair = Keypair::generate_ed25519();
-        let ed25519_keypair = match local_keypair {
-            libp2p::identity::Keypair::Ed25519(ref v) => v,
-            _ => {
-                panic!("Keypair Format Error");
-            }
-        };
-
-        let (sender, _receiver) = mpsc::channel(1);
-
-        let p2p_client = Client {
-            sender,
-            local_peer_id: local_keypair.public().to_peer_id(),
-        };
-
-        let blockchain_service = BlockchainService::new(ed25519_keypair, p2p_client);
-
-        TransparencyLogService::new(
-            &artifact_path,
-            local_keypair,
-            Arc::new(Mutex::new(blockchain_service)),
-        )
-        .unwrap()
+        TransparencyLogService::new(&artifact_path).unwrap()
     }
 
     #[test]
@@ -818,13 +775,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_add_artifact() {
+    async fn test_create_add_artifact() {
         let tmp_dir = test_util::tests::setup();
 
         let mut log = create_transparency_log_service(&tmp_dir);
 
         let result = log
-            .add_artifact(AddArtifactRequest {
+            .create_add_artifact(AddArtifactRequest {
                 package_type: PackageType::Docker,
                 package_specific_id: "package_specific_id".to_owned(),
                 num_artifacts: 8,

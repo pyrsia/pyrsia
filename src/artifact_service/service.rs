@@ -16,6 +16,7 @@
 
 use super::model::PackageType;
 use super::storage::ArtifactStorage;
+use crate::blockchain_service::service::BlockchainService;
 use crate::build_service::error::BuildError;
 use crate::build_service::event::BuildEventClient;
 use crate::build_service::model::BuildResult;
@@ -24,6 +25,7 @@ use crate::transparency_log::log::{
     AddArtifactRequest, TransparencyLog, TransparencyLogError, TransparencyLogService,
 };
 use anyhow::{bail, Context};
+use libp2p::identity::Keypair;
 use libp2p::PeerId;
 use log::info;
 use multihash::Hasher;
@@ -31,6 +33,8 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::str;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// The artifact service is the component that handles everything related to
 /// pyrsia artifacts. It allows artifacts to be retrieved and added to the
@@ -38,6 +42,8 @@ use std::str;
 pub struct ArtifactService {
     pub artifact_storage: ArtifactStorage,
     build_event_client: BuildEventClient,
+    local_keypair: Keypair,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
     pub transparency_log_service: TransparencyLogService,
     pub p2p_client: Client,
 }
@@ -45,14 +51,18 @@ pub struct ArtifactService {
 impl ArtifactService {
     pub fn new<P: AsRef<Path>>(
         artifact_path: P,
-        transparency_log_service: TransparencyLogService,
+        local_keypair: Keypair,
+        blockchain_service: Arc<Mutex<BlockchainService>>,
         build_event_client: BuildEventClient,
         p2p_client: Client,
     ) -> anyhow::Result<Self> {
         let artifact_storage = ArtifactStorage::new(&artifact_path)?;
+        let transparency_log_service = TransparencyLogService::new(artifact_path)?;
         Ok(ArtifactService {
             artifact_storage,
             build_event_client,
+            local_keypair,
+            blockchain_service,
             transparency_log_service,
             p2p_client,
         })
@@ -96,12 +106,19 @@ impl ArtifactService {
 
             let add_artifact_transparency_log = self
                 .transparency_log_service
-                .add_artifact(add_artifact_request)
+                .create_add_artifact(add_artifact_request)
                 .await?;
             info!(
-                "Transparency Log for build with ID {} successfully added. Adding artifact locally: {:?}",
-                build_id, add_artifact_transparency_log
+                "Transparency Log for build with ID {} successfully created.",
+                build_id
             );
+
+            let payload = serde_json::to_string(&add_artifact_transparency_log).unwrap();
+            self.blockchain_service
+                .lock()
+                .await
+                .add_payload(payload.into_bytes(), &self.local_keypair)
+                .await;
 
             self.put_artifact_from_build_result(
                 &artifact.artifact_location,
@@ -268,28 +285,6 @@ mod tests {
         0x4f,
     ];
 
-    fn create_transparency_log_service<P: AsRef<Path>>(
-        artifact_path: P,
-        p2p_client: Client,
-    ) -> TransparencyLogService {
-        let local_keypair = Keypair::generate_ed25519();
-        let ed25519_keypair = match local_keypair {
-            libp2p::identity::Keypair::Ed25519(ref v) => v,
-            _ => {
-                panic!("Keypair Format Error");
-            }
-        };
-
-        let blockchain_service = BlockchainService::new(ed25519_keypair, p2p_client);
-
-        TransparencyLogService::new(
-            &artifact_path,
-            local_keypair,
-            Arc::new(Mutex::new(blockchain_service)),
-        )
-        .unwrap()
-    }
-
     fn create_p2p_client() -> (mpsc::Receiver<Command>, Client) {
         let (command_sender, command_receiver) = mpsc::channel(1);
         let p2p_client = Client {
@@ -304,15 +299,23 @@ mod tests {
         artifact_path: P,
         p2p_client: Client,
     ) -> (mpsc::Receiver<BuildEvent>, ArtifactService) {
-        let transparency_log_service =
-            create_transparency_log_service(&artifact_path, p2p_client.clone());
+        let local_keypair = Keypair::generate_ed25519();
+        let ed25519_keypair = match local_keypair {
+            libp2p::identity::Keypair::Ed25519(ref v) => v,
+            _ => {
+                panic!("Keypair Format Error");
+            }
+        };
+
+        let blockchain_service = BlockchainService::new(ed25519_keypair, p2p_client.clone());
 
         let (build_event_sender, build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
 
         let artifact_service = ArtifactService::new(
             &artifact_path,
-            transparency_log_service,
+            local_keypair,
+            Arc::new(Mutex::new(blockchain_service)),
             build_event_client,
             p2p_client,
         )
@@ -345,7 +348,7 @@ mod tests {
         let package_specific_artifact_id = "package_specific_artifact_id";
         let transparency_log = artifact_service
             .transparency_log_service
-            .add_artifact(AddArtifactRequest {
+            .create_add_artifact(AddArtifactRequest {
                 package_type,
                 package_specific_id: package_specific_id.to_owned(),
                 num_artifacts: 8,
@@ -427,7 +430,7 @@ mod tests {
         let package_specific_artifact_id = "package_specific_artifact_id";
         artifact_service
             .transparency_log_service
-            .add_artifact(AddArtifactRequest {
+            .create_add_artifact(AddArtifactRequest {
                 package_type,
                 package_specific_id: package_specific_id.to_owned(),
                 num_artifacts: 8,
@@ -510,7 +513,7 @@ mod tests {
         let package_specific_artifact_id = "package_specific_artifact_id";
         artifact_service
             .transparency_log_service
-            .add_artifact(AddArtifactRequest {
+            .create_add_artifact(AddArtifactRequest {
                 package_type,
                 package_specific_id: package_specific_id.to_owned(),
                 num_artifacts: 8,
@@ -565,7 +568,7 @@ mod tests {
         let package_specific_artifact_id = "package_specific_artifact_id";
         artifact_service
             .transparency_log_service
-            .add_artifact(AddArtifactRequest {
+            .create_add_artifact(AddArtifactRequest {
                 package_type,
                 package_specific_id: package_specific_id.to_owned(),
                 num_artifacts: 8,
@@ -623,7 +626,7 @@ mod tests {
         let package_specific_artifact_id = "package_specific_artifact_id";
         artifact_service
             .transparency_log_service
-            .add_artifact(AddArtifactRequest {
+            .create_add_artifact(AddArtifactRequest {
                 package_type,
                 package_specific_id: package_specific_id.to_owned(),
                 num_artifacts: 8,
