@@ -22,17 +22,16 @@ use crate::build_service::event::BuildEventClient;
 use crate::build_service::model::BuildResult;
 use crate::network::client::Client;
 use crate::transparency_log::log::{
-    AddArtifactRequest, Operation, TransparencyLog, TransparencyLogError, TransparencyLogService,
+    AddArtifactRequest, TransparencyLog, TransparencyLogError, TransparencyLogService,
 };
 use anyhow::{bail, Context};
 use libp2p::identity::Keypair;
 use libp2p::PeerId;
 use log::info;
 use multihash::Hasher;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str;
 
 /// The artifact service is the component that handles everything related to
@@ -45,7 +44,6 @@ pub struct ArtifactService {
     pub blockchain_service: BlockchainService,
     pub transparency_log_service: TransparencyLogService,
     pub p2p_client: Client,
-    artifact_locations: HashMap<String, PathBuf>,
 }
 
 impl ArtifactService {
@@ -65,7 +63,6 @@ impl ArtifactService {
             blockchain_service,
             transparency_log_service,
             p2p_client,
-            artifact_locations: Default::default(),
         })
     }
 
@@ -114,19 +111,25 @@ impl ArtifactService {
                 build_id
             );
 
-            self.artifact_locations.insert(
-                add_artifact_transparency_log.id.clone(),
-                (*artifact.artifact_location).to_path_buf(),
-            );
-
             let payload = serde_json::to_string(&add_artifact_transparency_log).unwrap();
             let payload_bytes = payload.into_bytes();
             self.blockchain_service
                 .add_payload(payload_bytes.clone(), &self.local_keypair)
                 .await;
 
-            self.handle_block_added(vec![payload_bytes]).await?;
-        }
+            self.transparency_log_service
+                .write_transparency_log(&add_artifact_transparency_log)?;
+
+            self.put_artifact_from_build_result(
+                &artifact.artifact_location,
+                &add_artifact_transparency_log.artifact_id,
+            )
+            .await?;
+
+            self.p2p_client
+                .provide(&add_artifact_transparency_log.artifact_id)
+                .await?;
+    }
 
         Ok(())
     }
@@ -137,29 +140,8 @@ impl ArtifactService {
     ) -> Result<(), anyhow::Error> {
         if payloads.len() == 1 {
             let transparency_log: TransparencyLog = serde_json::from_slice(&payloads[0])?;
-            match transparency_log.operation {
-                Operation::AddArtifact => {
-                    if let Some(artifact_location) =
-                        self.artifact_locations.remove(&transparency_log.id)
-                    {
-                        self.transparency_log_service
-                            .write_transparency_log(&transparency_log)?;
-
-                        self.put_artifact_from_build_result(
-                            &artifact_location,
-                            &transparency_log.artifact_id,
-                        )
-                        .await?;
-
-                        self.p2p_client
-                            .provide(&transparency_log.artifact_id)
-                            .await?;
-                    }
-                }
-                _ => {
-                    info!("Not yet handled.");
-                }
-            }
+            self.transparency_log_service
+                .write_transparency_log(&transparency_log)?;
         }
 
         Ok(())
