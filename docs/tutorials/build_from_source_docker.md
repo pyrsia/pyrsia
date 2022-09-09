@@ -86,7 +86,8 @@ cp target/debug/pyrsia_node nodeA
 cd nodeA
 ```
 
-And then run node A in listen-only mode, listening on a non-default port (because we will run node B with default settings).
+And then run node A in listen-only mode, listening on a non-default port (because
+we will run node B with default settings).
 
 ```sh
 RUST_LOG=pyrsia=debug DEV_MODE=on \
@@ -99,7 +100,8 @@ Watch out for this kind of log:
 INFO  pyrsia::network::event_loop > Local node is listening on "/ip4/127.0.0.1/tcp/56662/p2p/12D3KooWBgWeXNT1EKXo2omRhZVmkbvPgzZ5BcGjTfgKr586BSAn"
 ```
 
-It contains the p2p multiaddress of node A, which we will need when starting node B later in this turorial.
+It contains the p2p multiaddress of node A, which we will need when starting node
+B later in this tutorial.
 
 As you can see, we specified the `--pipeline-service-endpoint` argument to point
 to `http://localhost:8080`, which is where we will run our build pipeline prototype
@@ -132,7 +134,8 @@ By default, this prototype listens on http port 8080. If you run it on a differe
 host or port, make sure to specify its location when starting the Pyrsia node
 with `--pipeline-service-endpoint` (see above).
 
-You will see the following output indicating that the build pipeline is ready for use
+You will see the following output indicating that the build pipeline is ready
+for use
 
 ```text
    Finished dev [unoptimized + debuginfo] target(s) in 1m 07s
@@ -143,7 +146,8 @@ You will see the following output indicating that the build pipeline is ready fo
 
 ## Run Pyrsia node B
 
-Now it's time to run our regular node. node B. Let's create another temporary directory to clearly separate it from node A.
+Now it's time to run our regular node. node B. Let's create another temporary
+directory to clearly separate it from node A.
 
 ```sh
 mkdir nodeB
@@ -151,24 +155,30 @@ cp target/debug/pyrsia_node nodeB
 cd nodeB
 ```
 
-And then run node B with default settings and connecting it to the multiaddress of node A. This multiaddress can be found in the logs of node A (see section "Run Pyrsia node A" above).
+And then run node B with default settings and connecting it to the multiaddress
+of node A. This multiaddress can be found in the logs of node A (see section
+"Run Pyrsia node A" above).
 
 ```sh
 RUST_LOG=pyrsia=debug DEV_MODE=on \
 ./pyrsia_node -H 0.0.0.0 --peer /ip4/127.0.0.1/tcp/56662/p2p/12D3KooWBgWeXNT1EKXo2omRhZVmkbvPgzZ5BcGjTfgKr586BSAn
 ```
 
-**Important**: do not simply copy/paste this command, the multiaddress on your local system will be different.
+**Important**: do not simply copy/paste this command, the multiaddress on your
+local system will be different.
 
-At this points, we are running a Pyrsia network consisting of two nodes, so let's continue building an artifact and providing it on the network.
+At this points, we are running a Pyrsia network consisting of two nodes, so
+let's continue building an artifact and providing it on the network.
 
 ## Trigger a build from source for a given artifact
 
 In this section we will trigger a build for `alpine:3.16` on node A.
 
-We will use the Pyrsia CLI to trigger a build from source. Since we want to trigger the build on node A, which is running on port 7889, we will have to edit this config:
+We will use the Pyrsia CLI to trigger a build from source. Since we want to trigger
+the build on node A, which is running on port 7889, we will have to edit this config:
 
-In a new terminal, while the Pyrsia nodes and the build pipeline prototype are running, run:
+In a new terminal, while the Pyrsia nodes and the build pipeline prototype are
+running, run:
 
 ```sh
  ./pyrsia config --edit
@@ -200,8 +210,8 @@ Build request successfully handled. Build with ID c9ca3e57-aa84-4fab-a8be-381ab3
 
 ## Wait for the build to finish in the build pipeline
 
-In the Pyrsia node logs of node A, you will see that a build has been started and the Pyrsia
-node is now waiting for its result:
+In the Pyrsia node logs of node A, you will see that a build has been started and
+the Pyrsia node is now waiting for its result:
 
 ```text
 INFO  pyrsia_registry > 127.0.0.1:50187 "POST /build/docker HTTP/1.1" 200 "-" "-" 42.826041ms
@@ -263,7 +273,9 @@ INFO  pyrsia::artifact_service::service > Build with ID c9ca3e57-aa84-4fab-a8be-
 ## Try to reach consensus with the other authorized nodes
 
 Pyrsia node A will now try to reach consensus with the
-other authorized nodes, but since we are only running one authorized node, this step is implicit and node A will continue with the next steps: creating and distributing the new transparency log.
+other authorized nodes, but since we are only running one authorized node, this
+step is implicit and node A will continue with the next steps: creating and
+distributing the new transparency log.
 
 ## Create a transparency log about the artifact publication
 
@@ -297,7 +309,8 @@ Example for `alpine:3.16`:
 
 ## Publish the artifact on the p2p network
 
-As a final step in the build from source scenario, the artifacts are stored locally on node A and provided on the p2p network.
+As a final step in the build from source scenario, the artifacts are stored locally
+on node A and provided on the p2p network.
 
 ```text
  INFO  pyrsia::artifact_service::service > put_artifact with id: da341557-9150-4208-9474-f5884f799338
@@ -305,7 +318,8 @@ As a final step in the build from source scenario, the artifacts are stored loca
  DEBUG pyrsia::network::client           > p2p::Client::provide "da341557-9150-4208-9474-f5884f799338"
  ```
 
-Now we are ready to use the published artifacts in our build workflow on node B as shown in the sample section below.
+Now we are ready to use the published artifacts in our build workflow on node B
+as shown in the sample section below.
 
 ## Use Pyrsia with Docker pull
 
@@ -360,12 +374,15 @@ INFO  pyrsia::artifact_service::service       > put_artifact with id: f6e32438-b
 INFO  pyrsia::artifact_service::storage       > An artifact is being pushed to the artifact manager f6e32438-b23d-47be-908b-b6b97901a724
 ```
 
-Indicating that the Alpine image was first pulled from Pyrsia the network and then stored locally, so node B can now also participate in the p2p content distribution.
+Indicating that the Alpine image was first pulled from Pyrsia the network and then
+stored locally, so node B can now also participate in the p2p content distribution.
 
 ## Inspect the transparency logs
 
 The transparency logs that were created as part of the build from source process,
-can be inspected using the Pyrsia CLI on any node.
+can be inspected using the Pyrsia CLI on any node. You can change the CLI config
+to use the default port 7888 again to inspect the logs on node B, or you can run
+inspect-log without any changes to inspect the logs on node A:
 
 ```sh
 ./pyrsia inspect-log docker --image alpine:3.16
