@@ -13,14 +13,14 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use crate::error::BlockchainError;
-use crate::structures::block::Block;
 use codec::{Decode, Encode};
 use log::warn;
 use serde::{Deserialize, Serialize};
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 
 use super::header::Ordinal;
+use crate::error::BlockchainError;
+use crate::structures::block::Block;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Decode, Encode, Hash, PartialEq, Eq)]
 pub struct Chain {

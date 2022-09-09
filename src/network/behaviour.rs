@@ -16,7 +16,7 @@
 
 use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactRequest, ArtifactResponse};
 use crate::network::blockchain_protocol::{
-    BlockUpdateExchangeCodec, BlockUpdateRequest, BlockUpdateResponse,
+    BlockchainExchangeCodec, BlockchainRequest, BlockchainResponse,
 };
 use crate::network::idle_metric_protocol::{
     IdleMetricExchangeCodec, IdleMetricRequest, IdleMetricResponse,
@@ -45,7 +45,7 @@ pub struct PyrsiaNetworkBehaviour {
     pub kademlia: Kademlia<MemoryStore>,
     pub request_response: RequestResponse<ArtifactExchangeCodec>,
     pub idle_metric_request_response: RequestResponse<IdleMetricExchangeCodec>,
-    pub block_update_request_response: RequestResponse<BlockUpdateExchangeCodec>,
+    pub blockchain_request_response: RequestResponse<BlockchainExchangeCodec>,
 }
 
 /// Each event in the `PyrsiaNetworkBehaviour` is wrapped in a
@@ -57,7 +57,7 @@ pub enum PyrsiaNetworkEvent {
     Kademlia(KademliaEvent),
     RequestResponse(RequestResponseEvent<ArtifactRequest, ArtifactResponse>),
     IdleMetricRequestResponse(RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>),
-    BlockUpdateRequestResponse(RequestResponseEvent<BlockUpdateRequest, BlockUpdateResponse>),
+    BlockchainRequestResponse(RequestResponseEvent<BlockchainRequest, BlockchainResponse>),
 }
 
 impl From<autonat::Event> for PyrsiaNetworkEvent {
@@ -90,8 +90,8 @@ impl From<RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>> for Pyrsi
     }
 }
 
-impl From<RequestResponseEvent<BlockUpdateRequest, BlockUpdateResponse>> for PyrsiaNetworkEvent {
-    fn from(event: RequestResponseEvent<BlockUpdateRequest, BlockUpdateResponse>) -> Self {
-        PyrsiaNetworkEvent::BlockUpdateRequestResponse(event)
+impl From<RequestResponseEvent<BlockchainRequest, BlockchainResponse>> for PyrsiaNetworkEvent {
+    fn from(event: RequestResponseEvent<BlockchainRequest, BlockchainResponse>) -> Self {
+        PyrsiaNetworkEvent::BlockchainRequestResponse(event)
     }
 }

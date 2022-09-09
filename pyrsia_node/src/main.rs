@@ -104,16 +104,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         );
                     }
                 }
-                pyrsia::network::event_loop::PyrsiaEvent::BlockUpdateRequest {
-                    block_ordinal,
-                    block,
-                } => {
-                    if let Err(error) = handlers::handle_request_block_update(
-                        blockchain_service.clone(),
-                        block_ordinal,
-                        block.clone(),
-                    )
-                    .await
+                pyrsia::network::event_loop::PyrsiaEvent::BlockchainRequest { data, channel } => {
+                    if let Err(error) =
+                        handlers::handle_request_blockchain(blockchain_service.clone(), data).await
                     {
                         warn!("This node failed to update blockchain Error: {:?}", error);
                     }

@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use bincode::deserialize;
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::ResponseChannel;
 use libp2p::{Multiaddr, PeerId};
@@ -82,18 +83,16 @@ pub async fn handle_request_idle_metric(
     p2p_client.respond_idle_metric(peer_metrics, channel).await
 }
 
-pub async fn handle_request_block_update(
+pub async fn handle_request_blockchain(
     blockchain_service: Arc<Mutex<BlockchainService>>,
-    block_ordinal: Ordinal,
-    block: Box<Block>,
+    data: Vec<u8>,
 ) -> anyhow::Result<()> {
-    debug!(
-        "Handling request blockchain: {:?}={:?}",
-        block_ordinal, block
-    );
+    debug!("Handling request blockchain: {:?}", data);
 
     let mut blockchain_service = blockchain_service.lock().await;
 
+    let block_ordinal: Ordinal = deserialize(&data[1..=9])?;
+    let block: Box<Block> = Box::new(deserialize(&data[10..])?);
     blockchain_service.add_block(block_ordinal, block).await;
-    blockchain_service.p2p_client.respond_block_update().await
+    blockchain_service.p2p_client.respond_blockchain().await
 }

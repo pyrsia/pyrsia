@@ -287,24 +287,17 @@ impl Client {
         Ok(())
     }
 
-    pub async fn request_block_update(
+    pub async fn request_blockchain(
         &mut self,
         peer: &PeerId,
-        block_ordinal: Ordinal,
-        block: Box<Block>,
-    ) -> anyhow::Result<Option<u64>> {
-        debug!(
-            "p2p::Client::request_blockchain {:?}: {:?}={:?}",
-            peer,
-            block_ordinal,
-            block.clone(),
-        );
+        data: Vec<u8>,
+    ) -> anyhow::Result<Vec<u8>> {
+        debug!("p2p::Client::request_blockchain {:?} form {:?}", data, peer);
 
         let (sender, receiver) = oneshot::channel();
         self.sender
-            .send(Command::RequestBlockUpdate {
-                block_ordinal,
-                block,
+            .send(Command::RequestBlockchain {
+                data,
                 peer: *peer,
                 sender,
             })
@@ -312,7 +305,7 @@ impl Client {
         receiver.await?
     }
 
-    pub async fn respond_block_update(&mut self) -> anyhow::Result<()> {
+    pub async fn respond_blockchain(&mut self) -> anyhow::Result<()> {
         Ok(())
     }
 }
@@ -540,7 +533,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_request_block_update() {
+    async fn test_request_blockchain() {
         let (sender, mut receiver) = mpsc::channel(1);
         let local_key = identity::ed25519::Keypair::generate();
 
@@ -551,18 +544,19 @@ mod tests {
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
-        let block = Box::new(Block::new(HashDigest::new(b""), 0, vec![], &local_key));
-        tokio::spawn(async move { client.request_block_update(&other_peer_id, 1, block).await });
+        let block = Block::new(HashDigest::new(b""), 0, vec![], &local_key);
+
+        let mut buf = vec![1u8];
+        buf.append(&mut bincode::serialize(&(1 as u128)).unwrap());
+
+        tokio::spawn(async move { client.request_blockchain(&other_peer_id, buf.clone()).await });
 
         tokio::select! {
             command = receiver.recv() => match command {
-                Some(Command::RequestBlockUpdate { peer, block_ordinal, block, sender:_ }) => {
+                Some(Command::RequestBlockchain { peer, data, sender:_ }) => {
                     assert_eq!(peer, other_peer_id);
-                    assert_eq!(block_ordinal, 1 );
-                    assert_eq!(block.header.parent_hash, HashDigest::new(b""))
-
                 },
-                _ => panic!("Command must match Command::RequestBlockUpdate")
+                _ => panic!("Command must match Command::RequestBlockchain")
             }
         }
     }

@@ -16,11 +16,21 @@
 
 use libp2p::identity;
 use pyrsia_blockchain_network::blockchain::Blockchain;
+use pyrsia_blockchain_network::error::BlockchainError;
 use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::fmt::{self, Debug, Formatter};
 
 use crate::network::client::Client;
+
+#[derive(Copy, Clone)]
+#[repr(u8)]
+pub enum BlockchainCommand {
+    Broadcast =1,
+    PushFromPeer =2 ,
+    PullFromPeer =3,
+    QueryHighestBlockOrdinal =4,
+}
 
 pub struct BlockchainService {
     pub blockchain: Blockchain,
@@ -45,22 +55,30 @@ impl BlockchainService {
     }
 
     /// Add payload to blockchain. It will be called by other services (e.g. transparent logging service)
-    pub async fn add_payload(&mut self, payload: Vec<u8>, local_key: &identity::Keypair) {
+    pub async fn add_payload(&mut self, payload: Vec<u8>, local_key: &identity::Keypair) ->Result<(), BlockchainError> {
         let _ = self.blockchain.add_block(payload, local_key).await;
-        self.notify_block_update(Box::new(self.blockchain.last_block().unwrap()))
-            .await;
+        self.broadcast_blockchain(Box::new(self.blockchain.last_block().unwrap()))
+            .await?;
+        Ok(())
     }
 
     /// Notify other nodes to add a new block.
-    async fn notify_block_update(&mut self, block: Box<Block>) {
-        let peer_list = self.p2p_client.list_peers().await.unwrap_or_default();
-        let block_ordinal = block.header.ordinal;
+    async fn broadcast_blockchain(&mut self, block: Box<Block>) ->Result<(), BlockchainError> {
+        let peer_list = self.p2p_client.list_peers().await?;
+        let cmd = BlockchainCommand::Broadcast as u8;
+        let block_ordinal = block.header.ordinal as u128;
+
+        let mut buf:Vec<u8> = vec![];
+
+        buf.push(cmd);
+        buf.append(&mut bincode::serialize(&block_ordinal).unwrap());
+        buf.append(&mut bincode::serialize(&block).unwrap());
+
         for peer_id in peer_list.iter() {
-            let _ = self
-                .p2p_client
-                .request_block_update(peer_id, block_ordinal, block.clone())
-                .await;
+            self.p2p_client.request_blockchain(peer_id, buf.clone()).await?;
         }
+
+        Ok(())
     }
 
     /// Add a new block to local blockchain.
@@ -102,13 +120,7 @@ mod tests {
         let mut blockchain_service = BlockchainService::new(&keypair, client);
         let payload = vec![];
 
-        assert_eq!(
-            blockchain_service
-                .add_payload(payload, &identity::Keypair::Ed25519(keypair))
-                .await,
-            ()
-        );
-
+        assert!(blockchain_service.add_payload(payload, &identity::Keypair::Ed25519(keypair)).await.is_ok());
         Ok(())
     }
 
@@ -138,7 +150,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_notify_block_update() -> Result<(), String> {
+    async fn test_notify_blockchain() -> Result<(), String> {
         let (sender, _) = mpsc::channel(1);
         let keypair = identity::ed25519::Keypair::generate();
         let local_peer_id = identity::PublicKey::Ed25519(keypair.public()).to_peer_id();
@@ -151,7 +163,7 @@ mod tests {
 
         let block = Box::new(Block::new(HashDigest::new(b""), 1, vec![], &keypair));
 
-        assert_eq!(blockchain_service.notify_block_update(block).await, ());
+        assert!(blockchain_service.broadcast_blockchain(block).await.is_ok());
 
         Ok(())
     }

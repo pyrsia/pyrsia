@@ -21,6 +21,8 @@ use crate::structures::header::Ordinal;
 
 #[derive(Debug, Error)]
 pub enum BlockchainError {
+    #[error("Anyhow Error")]
+    AnyhowError(#[from] anyhow::Error),
     #[error("IO Error")]
     IOError(#[from] io::Error),
     #[error("Blockchain start postion: {0} is greater than end postion: {1} ")]
