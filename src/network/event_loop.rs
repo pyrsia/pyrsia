@@ -331,7 +331,8 @@ impl PyrsiaEventLoop {
                 }
                 RequestResponseMessage::Response {
                     request_id,
-                    response: _,
+                    response,
+                    ..
                 } => {
                     debug!("RequestResponseMessage::Response {:?}", request_id);
                     self.pending_request_build
