@@ -10,5 +10,5 @@ and get involved!
 
 <!-- markdown-link-check-disable -->
 
-- [Tutorials](./tutorials/readme.md)
-- [Get Involved](./community/get_involved/readme.md)
+- [Tutorials](/docs/tutorials)
+- [Get Involved](/docs/community/get_involved)
