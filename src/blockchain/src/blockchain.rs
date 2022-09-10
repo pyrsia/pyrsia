@@ -147,6 +147,7 @@ impl Blockchain {
 }
 
 #[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use std::sync::{Arc, Mutex};
 

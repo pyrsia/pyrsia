@@ -73,6 +73,7 @@ impl AuthorityVerifier {
 }
 
 #[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use aleph_bft::PartialMultisignature;

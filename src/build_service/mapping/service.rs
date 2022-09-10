@@ -92,6 +92,7 @@ impl MappingService {
 }
 
 #[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use crate::build_service::mapping::model::SourceRepository;

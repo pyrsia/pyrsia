@@ -318,6 +318,7 @@ fn setup_http(args: &PyrsiaNodeArgs, artifact_service: Arc<Mutex<ArtifactService
 }
 
 #[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use pyrsia::network::p2p;
 
