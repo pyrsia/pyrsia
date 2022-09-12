@@ -85,18 +85,25 @@ pub async fn handle_request_idle_metric(
 }
 
 pub async fn handle_request_blockchain(
-    blockchain_service: Arc<Mutex<BlockchainService>>,
+    artifact_service: Arc<Mutex<ArtifactService>>,
     data: Vec<u8>,
     channel: ResponseChannel<BlockchainResponse>,
 ) -> anyhow::Result<()> {
     debug!("Handling request blockchain: {:?}", data);
 
-    let mut blockchain_service = blockchain_service.lock().await;
+    let mut artifact_service = artifact_service.lock().await;
+
+    let payloads = block.fetch_payload();
+    artifact_service
+        .blockchain_service
+        .add_block(block_ordinal, block)
+        .await;
+    artifact_service.handle_block_added(payloads).await?;
 
     let cmd: BlockchainCommand = BlockchainCommand::try_from(data[0])?;
 
     let block_ordinal: Ordinal = deserialize(&data[1..=9])?;
     let block: Box<Block> = Box::new(deserialize(&data[10..])?);
     blockchain_service.add_block(block_ordinal, block).await;
-    blockchain_service.p2p_client.respond_blockchain().await
+    artifact_service..p2p_client.respond_blockchain().await
 }

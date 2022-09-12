@@ -84,10 +84,7 @@ mod tests {
         (command_receiver, p2p_client)
     }
 
-    fn create_blockchain_service(
-        local_keypair: &Keypair,
-        p2p_client: Client,
-    ) -> Arc<Mutex<BlockchainService>> {
+    fn create_blockchain_service(local_keypair: &Keypair, p2p_client: Client) -> BlockchainService {
         let ed25519_keypair = match local_keypair {
             libp2p::identity::Keypair::Ed25519(ref v) => v,
             _ => {
@@ -95,10 +92,7 @@ mod tests {
             }
         };
 
-        Arc::new(Mutex::new(BlockchainService::new(
-            ed25519_keypair,
-            p2p_client,
-        )))
+        BlockchainService::new(ed25519_keypair, p2p_client)
     }
 
     #[test]
@@ -190,6 +184,10 @@ mod tests {
                 artifact_hash: hash.to_owned(),
             })
             .await
+            .unwrap();
+        artifact_service
+            .transparency_log_service
+            .write_transparency_log(&transparency_log)
             .unwrap();
 
         create_artifact(
