@@ -64,7 +64,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     debug!("Create pyrsia services");
     let artifact_service =
-        setup_pyrsia_services(blockchain_service.clone(), p2p_client.clone(), &args).await?;
+        setup_pyrsia_services(blockchain_service, p2p_client.clone(), &args).await?;
 
     debug!("Setup HTTP server");
     setup_http(&args, artifact_service.clone());
@@ -105,12 +105,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 pyrsia::network::event_loop::PyrsiaEvent::BlockchainRequest { data, channel } => {
-                    if let Err(error) = handlers::handle_request_blockchain(
-                        blockchain_service.clone(),
-                        data,
-                        channel,
-                    )
-                    .await
+                    if let Err(error) =
+                        handlers::handle_request_blockchain(artifact_service.clone(), data, channel)
+                            .await
                     {
                         warn!("This node failed to update blockchain Error: {:?}", error);
                     }
@@ -183,7 +180,7 @@ async fn load_peer_addrs(peer_url: &str) -> anyhow::Result<String> {
     }
 }
 
-fn setup_blockchain_service(p2p_client: Client) -> Result<Arc<Mutex<BlockchainService>>> {
+fn setup_blockchain_service(p2p_client: Client) -> Result<BlockchainService> {
     let local_keypair =
         keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
 
@@ -194,14 +191,14 @@ fn setup_blockchain_service(p2p_client: Client) -> Result<Arc<Mutex<BlockchainSe
         }
     };
 
-    Ok(Arc::new(Mutex::new(BlockchainService {
+    Ok(BlockchainService {
         blockchain: Blockchain::new(&ed25519_keypair),
         p2p_client,
-    })))
+    })
 }
 
 async fn setup_pyrsia_services(
-    blockchain_service: Arc<Mutex<BlockchainService>>,
+    blockchain_service: BlockchainService,
     p2p_client: Client,
     args: &PyrsiaNodeArgs,
 ) -> Result<Arc<Mutex<ArtifactService>>> {
@@ -237,7 +234,7 @@ async fn setup_pyrsia_services(
 
 fn setup_artifact_service(
     artifact_path: &Path,
-    blockchain_service: Arc<Mutex<BlockchainService>>,
+    blockchain_service: BlockchainService,
     build_event_client: BuildEventClient,
     p2p_client: Client,
 ) -> Result<Arc<Mutex<ArtifactService>>> {
