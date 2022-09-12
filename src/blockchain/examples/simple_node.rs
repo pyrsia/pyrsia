@@ -232,6 +232,7 @@ pub fn create_ed25519_keypair(filename: String) -> libp2p::identity::ed25519::Ke
 }
 
 #[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use pyrsia_blockchain_network::args::parser::DEFAULT_BLOCK_KEYPAIR_FILENAME;

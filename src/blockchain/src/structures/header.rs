@@ -138,6 +138,7 @@ impl Header {
 }
 
 #[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use libp2p::identity;

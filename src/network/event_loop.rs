@@ -603,6 +603,7 @@ pub enum PyrsiaEvent {
 }
 
 #[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactExchangeProtocol};

@@ -84,6 +84,7 @@ fn get_package_specific_artifact_id(full_path: &str) -> Result<String, anyhow::E
 }
 
 #[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use crate::artifact_service::storage::ArtifactStorage;
