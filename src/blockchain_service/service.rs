@@ -103,12 +103,11 @@ mod tests {
         let mut blockchain_service = BlockchainService::new(&keypair, client);
         let payload = vec![];
 
-        assert_eq!(
-            blockchain_service
-                .add_payload(payload, &identity::Keypair::Ed25519(keypair))
-                .await,
-            ()
-        );
+        blockchain_service
+            .add_payload(payload, &identity::Keypair::Ed25519(keypair))
+            .await;
+
+        assert!(blockchain_service.blockchain.last_block().is_some());
 
         Ok(())
     }
@@ -125,15 +124,15 @@ mod tests {
 
         let mut blockchain_service = BlockchainService::new(&keypair, client);
 
-        let block = Block::new(HashDigest::new(b""), 0, vec![], &keypair);
-
-        assert_eq!(blockchain_service.add_block(0, Box::new(block)).await, ());
-
         let last_block = blockchain_service.blockchain.last_block().unwrap();
 
         let block = Block::new(last_block.header.hash(), 1, vec![], &keypair);
+        blockchain_service
+            .add_block(1, Box::new(block.clone()))
+            .await;
 
-        assert_eq!(blockchain_service.add_block(1, Box::new(block)).await, ());
+        let last_block = blockchain_service.blockchain.last_block().unwrap();
+        assert_eq!(last_block, block);
 
         Ok(())
     }
@@ -151,8 +150,7 @@ mod tests {
         let mut blockchain_service = BlockchainService::new(&keypair, client);
 
         let block = Box::new(Block::new(HashDigest::new(b""), 1, vec![], &keypair));
-
-        assert_eq!(blockchain_service.notify_block_update(block).await, ());
+        blockchain_service.notify_block_update(block).await;
 
         Ok(())
     }

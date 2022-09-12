@@ -33,8 +33,6 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::str;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 /// The artifact service is the component that handles everything related to
 /// pyrsia artifacts. It allows artifacts to be retrieved and added to the
@@ -43,7 +41,7 @@ pub struct ArtifactService {
     pub artifact_storage: ArtifactStorage,
     build_event_client: BuildEventClient,
     local_keypair: Keypair,
-    blockchain_service: Arc<Mutex<BlockchainService>>,
+    pub blockchain_service: BlockchainService,
     pub transparency_log_service: TransparencyLogService,
     pub p2p_client: Client,
 }
@@ -52,7 +50,7 @@ impl ArtifactService {
     pub fn new<P: AsRef<Path>>(
         artifact_path: P,
         local_keypair: Keypair,
-        blockchain_service: Arc<Mutex<BlockchainService>>,
+        blockchain_service: BlockchainService,
         build_event_client: BuildEventClient,
         p2p_client: Client,
     ) -> anyhow::Result<Self> {
@@ -115,10 +113,11 @@ impl ArtifactService {
 
             let payload = serde_json::to_string(&add_artifact_transparency_log).unwrap();
             self.blockchain_service
-                .lock()
-                .await
                 .add_payload(payload.into_bytes(), &self.local_keypair)
                 .await;
+
+            self.transparency_log_service
+                .write_transparency_log(&add_artifact_transparency_log)?;
 
             self.put_artifact_from_build_result(
                 &artifact.artifact_location,
@@ -129,6 +128,19 @@ impl ArtifactService {
             self.p2p_client
                 .provide(&add_artifact_transparency_log.artifact_id)
                 .await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn handle_block_added(
+        &mut self,
+        payloads: Vec<Vec<u8>>,
+    ) -> Result<(), anyhow::Error> {
+        if payloads.len() == 1 {
+            let transparency_log: TransparencyLog = serde_json::from_slice(&payloads[0])?;
+            self.transparency_log_service
+                .write_transparency_log(&transparency_log)?;
         }
 
         Ok(())
@@ -263,21 +275,15 @@ impl ArtifactService {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
-    use crate::blockchain_service::service::BlockchainService;
     use crate::build_service::event::BuildEvent;
     use crate::network::client::command::Command;
     use crate::network::idle_metric_protocol::PeerMetrics;
-    use crate::transparency_log::log::{AddArtifactRequest, TransparencyLogError};
     use crate::util::test_util;
-    use anyhow::Context;
-    use libp2p::identity::Keypair;
     use sha2::{Digest, Sha256};
     use std::collections::HashSet;
     use std::env;
-    use std::fs::File;
     use std::path::PathBuf;
-    use std::sync::Arc;
-    use tokio::sync::{mpsc, Mutex};
+    use tokio::sync::mpsc;
     use tokio::task;
 
     const VALID_ARTIFACT_HASH: [u8; 32] = [
@@ -316,7 +322,7 @@ mod tests {
         let artifact_service = ArtifactService::new(
             &artifact_path,
             local_keypair,
-            Arc::new(Mutex::new(blockchain_service)),
+            blockchain_service,
             build_event_client,
             p2p_client,
         )
@@ -357,6 +363,10 @@ mod tests {
                 artifact_hash: hex::encode(VALID_ARTIFACT_HASH),
             })
             .await
+            .unwrap();
+        artifact_service
+            .transparency_log_service
+            .write_transparency_log(&transparency_log)
             .unwrap();
 
         //put the artifact
@@ -429,7 +439,7 @@ mod tests {
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
         let package_specific_artifact_id = "package_specific_artifact_id";
-        artifact_service
+        let transparency_log = artifact_service
             .transparency_log_service
             .create_add_artifact(AddArtifactRequest {
                 package_type,
@@ -440,6 +450,10 @@ mod tests {
             })
             .await
             .unwrap();
+        artifact_service
+            .transparency_log_service
+            .write_transparency_log(&transparency_log)
+            .unwrap();
 
         let future = {
             artifact_service
@@ -447,7 +461,6 @@ mod tests {
                 .await
         };
         let result = task::spawn_blocking(|| future).await.unwrap();
-        println!("RESULT: {:?}", result);
         assert!(result.is_ok());
 
         test_util::tests::teardown(tmp_dir);
@@ -512,7 +525,7 @@ mod tests {
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
         let package_specific_artifact_id = "package_specific_artifact_id";
-        artifact_service
+        let created_transparency_log = artifact_service
             .transparency_log_service
             .create_add_artifact(AddArtifactRequest {
                 package_type,
@@ -522,6 +535,10 @@ mod tests {
                 artifact_hash: random_hash,
             })
             .await
+            .unwrap();
+        artifact_service
+            .transparency_log_service
+            .write_transparency_log(&created_transparency_log)
             .unwrap();
 
         let transparency_log = artifact_service
@@ -567,7 +584,7 @@ mod tests {
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
         let package_specific_artifact_id = "package_specific_artifact_id";
-        artifact_service
+        let created_transparency_log = artifact_service
             .transparency_log_service
             .create_add_artifact(AddArtifactRequest {
                 package_type,
@@ -577,6 +594,10 @@ mod tests {
                 artifact_hash: random_hash.clone(),
             })
             .await
+            .unwrap();
+        artifact_service
+            .transparency_log_service
+            .write_transparency_log(&created_transparency_log)
             .unwrap();
 
         let transparency_log = artifact_service
@@ -625,7 +646,7 @@ mod tests {
         let package_type = PackageType::Maven2;
         let package_specific_id = "package_specific_id";
         let package_specific_artifact_id = "package_specific_artifact_id";
-        artifact_service
+        let transparency_log = artifact_service
             .transparency_log_service
             .create_add_artifact(AddArtifactRequest {
                 package_type,
@@ -635,6 +656,10 @@ mod tests {
                 artifact_hash: random_hash,
             })
             .await
+            .unwrap();
+        artifact_service
+            .transparency_log_service
+            .write_transparency_log(&transparency_log)
             .unwrap();
 
         let result = artifact_service
