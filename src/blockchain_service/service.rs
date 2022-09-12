@@ -23,7 +23,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use crate::network::client::Client;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum BlockchainCommand {
     Broadcast =1,
@@ -31,6 +31,21 @@ pub enum BlockchainCommand {
     PullFromPeer =3,
     QueryHighestBlockOrdinal =4,
 }
+
+impl TryFrom<u8> for BlockchainCommand {
+    type Error = &'static BlockchainError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            1u8 => Ok(Self::Broadcast),
+            2u8 => Ok(Self::PushFromPeer),
+            3u8 => Ok(Self::PullFromPeer),
+            4u8 => Ok(Self::QueryHighestBlockOrdinal),
+            _ =>Err(&BlockchainError::InvalidBlockchainCmd)
+        }
+    }
+}
+
 
 pub struct BlockchainService {
     pub blockchain: Blockchain,
@@ -184,6 +199,35 @@ mod tests {
             format!("This is blockchain service {blockchain_service:?}"),
             "This is blockchain service"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_blochchain_command_convert_to_u8() -> Result<(), String> {
+        assert_eq!(1u8, BlockchainCommand::Broadcast as u8);
+
+        assert_eq!(2u8, BlockchainCommand::PushFromPeer as u8);
+  
+        assert_eq!(3u8, BlockchainCommand::PullFromPeer as u8);
+  
+        assert_eq!(4u8, BlockchainCommand::QueryHighestBlockOrdinal as u8);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_blochchain_command_convert_from_u8() -> Result<(), String> {
+        
+        assert_eq!(BlockchainCommand::try_from(1u8).unwrap(), BlockchainCommand::Broadcast);
+        
+        assert_eq!(BlockchainCommand::try_from(2u8).unwrap(), BlockchainCommand::PushFromPeer);
+
+        assert_eq!(BlockchainCommand::try_from(3u8).unwrap(), BlockchainCommand::PullFromPeer);
+
+        assert_eq!(BlockchainCommand::try_from(4u8).unwrap(), BlockchainCommand::QueryHighestBlockOrdinal);
+
+        assert!(BlockchainCommand::try_from(47u8).is_err());
+
         Ok(())
     }
 }

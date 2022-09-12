@@ -23,8 +23,6 @@ use crate::node_api::model::cli::Status;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
 use log::debug;
-use pyrsia_blockchain_network::structures::block::Block;
-use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::collections::HashSet;
 use tokio::sync::{mpsc, oneshot};
 
@@ -315,6 +313,7 @@ mod tests {
     use super::*;
     use libp2p::identity::{self, Keypair};
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
+    use pyrsia_blockchain_network::structures::block::Block;
     use rand::distributions::Alphanumeric;
     use rand::{thread_rng, Rng};
 
@@ -548,6 +547,7 @@ mod tests {
 
         let mut buf = vec![1u8];
         buf.append(&mut bincode::serialize(&(1 as u128)).unwrap());
+        buf.append(&mut bincode::serialize(&block).unwrap());
 
         tokio::spawn(async move { client.request_blockchain(&other_peer_id, buf.clone()).await });
 

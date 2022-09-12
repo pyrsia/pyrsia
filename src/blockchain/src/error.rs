@@ -25,10 +25,12 @@ pub enum BlockchainError {
     AnyhowError(#[from] anyhow::Error),
     #[error("IO Error")]
     IOError(#[from] io::Error),
-    #[error("Blockchain start postion: {0} is greater than end postion: {1} ")]
-    InvalidBlockchainPosition(usize, usize),
+    #[error("Invalid blockchain command")]
+    InvalidBlockchainCmd,
     #[error("Invalid blockchain length: {0}")]
     InvalidBlockchainLength(usize),
+    #[error("Blockchain start postion: {0} is greater than end postion: {1} ")]
+    InvalidBlockchainPosition(usize, usize),
     #[error("Invalid blockchain Ordinal: {0}")]
     InvalidBlockchainOrdinal(Ordinal),
 }

@@ -118,7 +118,7 @@ impl ArtifactService {
                 .lock()
                 .await
                 .add_payload(payload.into_bytes(), &self.local_keypair)
-                .await;
+                .await?;
 
             self.put_artifact_from_build_result(
                 &artifact.artifact_location,

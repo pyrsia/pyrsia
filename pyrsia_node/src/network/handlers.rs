@@ -21,8 +21,9 @@ use libp2p::{Multiaddr, PeerId};
 use log::debug;
 
 use pyrsia::artifact_service::service::ArtifactService;
-use pyrsia::blockchain_service::service::BlockchainService;
+use pyrsia::blockchain_service::service::{BlockchainCommand, BlockchainService};
 use pyrsia::network::artifact_protocol::ArtifactResponse;
+use pyrsia::network::blockchain_protocol::BlockchainResponse;
 use pyrsia::network::client::Client;
 use pyrsia::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use pyrsia::peer_metrics;
@@ -86,10 +87,13 @@ pub async fn handle_request_idle_metric(
 pub async fn handle_request_blockchain(
     blockchain_service: Arc<Mutex<BlockchainService>>,
     data: Vec<u8>,
+    channel: ResponseChannel<BlockchainResponse>,
 ) -> anyhow::Result<()> {
     debug!("Handling request blockchain: {:?}", data);
 
     let mut blockchain_service = blockchain_service.lock().await;
+
+    let cmd: BlockchainCommand = BlockchainCommand::try_from(data[0])?;
 
     let block_ordinal: Ordinal = deserialize(&data[1..=9])?;
     let block: Box<Block> = Box::new(deserialize(&data[10..])?);
