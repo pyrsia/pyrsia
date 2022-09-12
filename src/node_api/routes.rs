@@ -82,6 +82,7 @@ pub fn make_node_routes(
 }
 
 #[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use crate::blockchain_service::service::BlockchainService;

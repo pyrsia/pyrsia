@@ -260,6 +260,7 @@ impl ArtifactService {
 }
 
 #[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use crate::blockchain_service::service::BlockchainService;

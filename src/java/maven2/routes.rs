@@ -40,6 +40,7 @@ pub fn make_maven_routes(
 }
 
 #[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use crate::artifact_service::model::PackageType;
