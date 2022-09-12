@@ -56,6 +56,21 @@ impl TryFrom<u8> for BlockchainCommand {
     }
 }
 
+impl TryFrom<u8> for BlockchainCommand {
+    type Error = &'static BlockchainError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            1u8 => Ok(Self::Broadcast),
+            2u8 => Ok(Self::PushFromPeer),
+            3u8 => Ok(Self::PullFromPeer),
+            4u8 => Ok(Self::QueryHighestBlockOrdinal),
+            _ =>Err(&BlockchainError::InvalidBlockchainCmd)
+        }
+    }
+}
+
+
 pub struct BlockchainService {
     blockchain: Blockchain,
     pub keypair: identity::ed25519::Keypair,
