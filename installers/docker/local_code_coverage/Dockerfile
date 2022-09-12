@@ -11,4 +11,5 @@ RUN rustup --version; \
     cargo install cargo-tarpaulin;
 COPY --chown=${USER}:${USER_GRP} . ${HOME}/pyrsia/
 WORKDIR ${HOME}/pyrsia
-ENTRYPOINT ["cargo", "tarpaulin", "--all-targets", "--no-fail-fast", "--workspace", "--out", "Html", "--output-dir", "/home/pyrsiaapp/pyrsia/code-coverage-data"]
+RUN chmod 544  installers/docker/local_code_coverage/entrypoint.sh;
+ENTRYPOINT ["non-existing.sh"]
