@@ -163,6 +163,7 @@ pub async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
 }
 
 #[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
     use crate::artifact_service::model::PackageType;

@@ -7,6 +7,7 @@ services:
       args:
         - USER=pyrsiaapp
         - USER_GRP=pyrsiagrp
+    entrypoint: "installers/docker/local_code_coverage/entrypoint.sh"
     container_name: pyrsia_code_coverage
     security_opt:
       - seccomp=unconfined
