@@ -135,8 +135,8 @@ impl Blockchain {
     }
 
     /// Update block after receiving the new block from other peers
-    pub async fn update_block_from_peers(&mut self, block: Box<Block>) {
-        self.commit_block(*block).await;
+    pub async fn update_block_from_peers(&mut self, block: Block) {
+        self.commit_block(block).await;
     }
 
     /// Commit block and notify block listeners
@@ -277,7 +277,7 @@ mod tests {
 
         let mut blockchain = Blockchain::new(&ed25519_key);
 
-        let block = Box::new(Block::new(HashDigest::new(b""), 1, vec![], &ed25519_key));
+        let block = Block::new(HashDigest::new(b""), 1, vec![], &ed25519_key);
 
         let result = blockchain.update_block_from_peers(block).await;
         assert_eq!(result, ());

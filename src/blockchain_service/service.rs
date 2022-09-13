@@ -117,7 +117,7 @@ impl BlockchainService {
             .await?;
 
         self.broadcast_blockchain(Box::new(self.blockchain.last_block().unwrap()))
-            .await?;
+        .await?;
         Ok(())
     }
 
@@ -133,6 +133,10 @@ impl BlockchainService {
 
         log::debug!("Blockchain get block to broadcast:{:?}", block);
 
+        let block = *block;
+
+        println!("{:?}", block);
+
         buf.push(cmd);
         buf.append(&mut serialize(&block_ordinal).unwrap());
         buf.append(&mut serialize(&block).unwrap());
@@ -142,7 +146,7 @@ impl BlockchainService {
                 .request_blockchain(peer_id, buf.clone())
                 .await?;
         }
-
+ 
         Ok(())
     }
 
