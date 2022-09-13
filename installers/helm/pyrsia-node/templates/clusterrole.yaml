@@ -1,9 +1,25 @@
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  namespace: pyrsia-node
-  name: service-reader
+  namespace: kube-system
+  name: pyrsia-node-service-reader
 rules:
 - apiGroups: [""] # "" indicates the core API group
   resources: ["services"]
   verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pyrsia-node-service-reader
+  namespace: kube-system 
+subjects:
+  - kind: ServiceAccount
+    # Reference to upper's `metadata.name`
+    name: default
+    # Reference to upper's `metadata.namespace`
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: pyrsia-node-service-reader
+  apiGroup: rbac.authorization.k8s.io

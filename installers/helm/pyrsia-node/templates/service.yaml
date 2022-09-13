@@ -1,9 +1,7 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: pyrsia-node
-  annotations:
-    kubernetes.io/ingress.global-static-ip-name: pyrsia-node
+  name: pyrsia-node-0
 spec:
   type: LoadBalancer
   externalTrafficPolicy: {{ .Values.pyrsia.trafficPolicy}}
@@ -18,3 +16,42 @@ spec:
       targetPort: 44000
       protocol: TCP
       name: p2p
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: pyrsia-node-1
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    statefulset.kubernetes.io/pod-name: pyrsia-node-1
+  ports:
+    - port: 80
+      targetPort: 7888
+      protocol: TCP
+      name: pyrsia
+    - port: 44000
+      targetPort: 44000
+      protocol: TCP
+      name: p2p
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: pyrsia-node-2
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    statefulset.kubernetes.io/pod-name: pyrsia-node-2
+  ports:
+    - port: 80
+      targetPort: 7888
+      protocol: TCP
+      name: pyrsia
+    - port: 44000
+      targetPort: 44000
+      protocol: TCP
+      name: p2p
+---

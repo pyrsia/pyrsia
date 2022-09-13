@@ -1,8 +1,8 @@
 replicaCount: 3
 
 image:
-    repository: sbtaylor15/pyrsia-node
-    tag: latest
+    repository: pyrsiaoss/pyrsia-node
+    tag: 0.1.0-2071
     pullPolicy: Always
 
 pyrsia:
@@ -12,3 +12,6 @@ pyrsia:
     storage:
         size: "1500Gi"
     trafficPolicy: "Cluster"
+
+p2pkeys:
+    kms_key_id: ""
