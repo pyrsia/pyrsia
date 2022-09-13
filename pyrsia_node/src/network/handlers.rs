@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use anyhow::bail;
 use bincode::deserialize;
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::ResponseChannel;
@@ -84,26 +85,46 @@ pub async fn handle_request_idle_metric(
     p2p_client.respond_idle_metric(peer_metrics, channel).await
 }
 
+//Respsond to the BlockchainRequest event
 pub async fn handle_request_blockchain(
     artifact_service: Arc<Mutex<ArtifactService>>,
     data: Vec<u8>,
     channel: ResponseChannel<BlockchainResponse>,
 ) -> anyhow::Result<()> {
     debug!("Handling request blockchain: {:?}", data);
+    match BlockchainCommand::try_from(data[0])? {
+        BlockchainCommand::Broadcast => {
+            handle_broadcast_blockchain(artifact_service, data[1..].to_vec(), channel).await
+        }
+        _ => todo!(),
+    }
+}
 
-    let mut artifact_service = artifact_service.lock().await;
+pub async fn handle_broadcast_blockchain(
+    artifact_service: Arc<Mutex<ArtifactService>>,
+    data: Vec<u8>,
+    channel: ResponseChannel<BlockchainResponse>,
+) -> anyhow::Result<()> {
+    debug!("Handling broadcast blockchain: {:?}", data);
 
-    let payloads = block.fetch_payload();
-    artifact_service
-        .blockchain_service
-        .add_block(block_ordinal, block)
-        .await;
-    artifact_service.handle_block_added(payloads).await?;
+    if data.len() < 10 {
+        bail!("Blockcchain data is invalid")
+    } else {
+        let block_ordinal: Ordinal = deserialize(&data[0..9])?;
+        let block: Block = deserialize(&data[10..])?;
+        let mut artifact_service = artifact_service.lock().await;
 
-    let cmd: BlockchainCommand = BlockchainCommand::try_from(data[0])?;
+        let payloads = block.fetch_payload();
+        artifact_service
+            .blockchain_service
+            .add_block(block_ordinal, block)
+            .await;
+        artifact_service.handle_block_added(payloads).await?;
 
-    let block_ordinal: Ordinal = deserialize(&data[1..=9])?;
-    let block: Box<Block> = Box::new(deserialize(&data[10..])?);
-    blockchain_service.add_block(block_ordinal, block).await;
-    artifact_service..p2p_client.respond_blockchain().await
+        let response_data = vec![];
+        artifact_service
+            .p2p_client
+            .respond_blockchain(response_data, channel)
+            .await
+    }
 }

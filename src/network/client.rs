@@ -17,6 +17,7 @@
 pub mod command;
 
 use crate::network::artifact_protocol::ArtifactResponse;
+use crate::network::blockchain_protocol::BlockchainResponse;
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
@@ -303,7 +304,17 @@ impl Client {
         receiver.await?
     }
 
-    pub async fn respond_blockchain(&mut self) -> anyhow::Result<()> {
+    pub async fn respond_blockchain(
+        &mut self,
+        data: Vec<u8>,
+        channel: ResponseChannel<BlockchainResponse>,
+    ) -> anyhow::Result<()> {
+        debug!("p2p::Client::repond_blockchain {:?}", data);
+
+        self.sender
+            .send(Command::RespondBlockchain { data, channel })
+            .await?;
+
         Ok(())
     }
 }
@@ -546,7 +557,7 @@ mod tests {
 
         let block = Block::new(HashDigest::new(b""), 0, vec![], &local_key);
 
-        let mut buf = vec![1u8];
+        let mut buf: Vec<u8> = vec![1u8];
         buf.append(&mut bincode::serialize(&(1 as u128)).unwrap());
         buf.append(&mut bincode::serialize(&block).unwrap());
 

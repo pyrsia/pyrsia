@@ -71,19 +71,24 @@ impl BlockchainService {
 
     /// Add payload to blockchain. It will be called by other services (e.g. transparent logging service)
     pub async fn add_payload(&mut self, payload: Vec<u8>, local_key: &identity::Keypair) ->Result<(), BlockchainError> {
-        let _ = self.blockchain.add_block(payload, local_key).await;
+        self.blockchain.add_block(payload, local_key).await?;
+        
         self.broadcast_blockchain(Box::new(self.blockchain.last_block().unwrap()))
-            .await?;
+        .await?;
         Ok(())
     }
 
     /// Notify other nodes to add a new block.
     async fn broadcast_blockchain(&mut self, block: Box<Block>) ->Result<(), BlockchainError> {
-        let peer_list = self.p2p_client.list_peers().await?;
+        let peer_list = self.p2p_client.list_peers().await.unwrap_or_default();
         let cmd = BlockchainCommand::Broadcast as u8;
         let block_ordinal = block.header.ordinal as u128;
 
         let mut buf:Vec<u8> = vec![];
+
+        let block = *block;
+
+        println!("{:?}", block);
 
         buf.push(cmd);
         buf.append(&mut bincode::serialize(&block_ordinal).unwrap());
@@ -92,12 +97,12 @@ impl BlockchainService {
         for peer_id in peer_list.iter() {
             self.p2p_client.request_blockchain(peer_id, buf.clone()).await?;
         }
-
+ 
         Ok(())
     }
 
     /// Add a new block to local blockchain.
-    pub async fn add_block(&mut self, ordinal: Ordinal, block: Box<Block>) {
+    pub async fn add_block(&mut self, ordinal: Ordinal, block: Block) {
         let last_block = self.blockchain.last_block();
 
         match last_block {
@@ -136,10 +141,12 @@ mod tests {
         let mut blockchain_service = BlockchainService::new(&keypair, client);
         let payload = vec![];
 
-        blockchain_service
-            .add_payload(payload, &identity::Keypair::Ed25519(keypair))
-            .await;
+        assert!(blockchain_service.blockchain.last_block().is_some());
 
+        assert!(blockchain_service
+            .add_payload(payload, &identity::Keypair::Ed25519(keypair))
+            .await.is_ok());
+ 
         assert!(blockchain_service.blockchain.last_block().is_some());
 
         Ok(())
@@ -161,7 +168,7 @@ mod tests {
 
         let block = Block::new(last_block.header.hash(), 1, vec![], &keypair);
         blockchain_service
-            .add_block(1, Box::new(block.clone()))
+            .add_block(1, block.clone())
             .await;
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
@@ -182,9 +189,9 @@ mod tests {
 
         let mut blockchain_service = BlockchainService::new(&keypair, client);
 
-        let block = Box::new(Block::new(HashDigest::new(b""), 1, vec![], &keypair));
+        let block = Block::new(HashDigest::new(b""), 1, vec![], &keypair);
 
-        assert!(blockchain_service.broadcast_blockchain(block).await.is_ok());
+        assert!(blockchain_service.broadcast_blockchain(Box::new(block)).await.is_ok());
 
         Ok(())
     }
