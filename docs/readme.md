@@ -11,4 +11,5 @@ and get involved!
 <!-- markdown-link-check-disable -->
 
 - [Tutorials](/docs/tutorials)
+- [Developer's Hub](/docs/developers/)
 - [Get Involved](/docs/community/get_involved)
