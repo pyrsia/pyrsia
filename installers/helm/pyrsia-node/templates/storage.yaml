@@ -2,7 +2,6 @@
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  namespace: {{ .Release.Namespace }}
   name: pyrsia-csi
 reclaimPolicy: Retain
 {{- if eq .Values.k8s_provider "gke" }}
