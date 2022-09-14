@@ -1,3 +1,7 @@
+---
+sidebar_position: 1
+---
+
 # What is Pyrsia
 
 Pyrsia is a network of two types of **interconnected nodes**:
@@ -135,7 +139,7 @@ nB --- nC
 
 ### Can I run a Pyrsia node?
 
-Yes, have a look at [Quick Installation](quick-installation) and one of the package
+Yes, have a look at [Quick Installation](/docs/tutorials/quick-installation.mdx) and one of the package
 specific tutorials on [Docker](docker) or [Maven](maven).
 
 ### Do I have to participate in artifact distribution?
