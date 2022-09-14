@@ -58,9 +58,9 @@ The command deploys Pyrsia on the Kubernetes cluster using the following paramet
        gcloud projects add-iam-policy-binding <PROJECT> --member=serviceAccount:service-<PROJECT_NUMBER>@compute-system.iam.gserviceaccount.com --role=roles/cloudkms.cryptoKeyEncrypterDecrypter
        ```
 
-  - Oracle
-    1. Step One
-    2. Step 2
+  - Oracle (to be filled out in next PR by Oracle)
+    1. Placeholder for Step One
+    2. Placeholder for Step Two
 
 > **Tip**: List all releases using `helm list`
 
