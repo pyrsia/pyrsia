@@ -1,0 +1,45 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: pyrsia-csi
+reclaimPolicy: Retain
+{{- if eq .Values.k8s_provider "gke" }}
+provisioner: pd.csi.storage.gke.io
+parameters:
+  type: pd-balanced
+  disk-encryption-kms-key: {{ .Values.p2pkeys.kms_key_id }}
+{{- end }}
+{{- if eq .Values.k8s_provider "oke" }}
+provisioner: blockvolume.csi.oraclecloud.com
+parameters:
+  vpusPerGB: "0"
+  attachment-type: "paravirtualized"
+  kms-key-id: {{ .Values.p2pkeys.kms_key_id }}
+spec:
+  selector:
+    matchLabels:
+      failure-domain.beta.kubernetes.io/zone: us-phoenix-1
+{{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pyrsia-p2p-keys-pvc
+spec:
+  storageClassName: pyrsia-csi
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pyrsia-storage-pvc
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1500Gi
