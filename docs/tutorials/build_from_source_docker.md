@@ -3,7 +3,7 @@
 > **Warning:** The build-from-source demo is still work-in-progress.
 
 This tutorial describes how to setup two Pyrsia nodes: one that acts as the authorized
-node and builds Docker images from source and makes them in the Pyrsia network,
+node and builds Docker images from source and makes them available in the Pyrsia network,
 and another one that acts as a regular Pyrsia node, retrieving the transparency
 logs and the Docker image from the Pyrsia network. \
 (Note: in the current prototype, the build pipeline does not actually build the
@@ -146,7 +146,7 @@ for use
 
 ## Run Pyrsia node B
 
-Now it's time to run our regular node. node B. Let's create another temporary
+Now it's time to run our regular node: node B. Let's create another temporary
 directory to clearly separate it from node A.
 
 ```sh
@@ -167,7 +167,7 @@ RUST_LOG=pyrsia=debug DEV_MODE=on \
 **Important**: do not simply copy/paste this command, the multiaddress on your
 local system will be different.
 
-At this points, we are running a Pyrsia network consisting of two nodes, so
+At this point, we are running a Pyrsia network consisting of two nodes, so
 let's continue building an artifact and providing it on the network.
 
 ## Trigger a build from source for a given artifact
@@ -329,7 +329,7 @@ using Pyrsia with Docker.
 ### Configure Docker desktop to use node B as registry mirror
 
 In your Docker desktop installation -> Settings -> Docker Engine where Docker
-allows you to set registry-mirrors. Setup node A as a registry mirror by
+allows you to set registry-mirrors. Setup node B as a registry mirror by
 adding/editing the following in the configuration.
 
 ```jsonc
@@ -374,7 +374,7 @@ INFO  pyrsia::artifact_service::service       > put_artifact with id: f6e32438-b
 INFO  pyrsia::artifact_service::storage       > An artifact is being pushed to the artifact manager f6e32438-b23d-47be-908b-b6b97901a724
 ```
 
-Indicating that the Alpine image was first pulled from Pyrsia the network and then
+Indicating that the Alpine image was first pulled from the Pyrsia network and then
 stored locally, so node B can now also participate in the p2p content distribution.
 
 ## Inspect the transparency logs
