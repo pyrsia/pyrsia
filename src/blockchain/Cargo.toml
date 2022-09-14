@@ -5,17 +5,10 @@ edition = "2021"
 
 [dependencies]
 aleph-bft = "0.8.4"
-<<<<<<< HEAD
-anyhow = "1.0.58"
-async-trait = "0.1.57"
-bincode = "1.3.3"
-clap = { version = "3.2.17", features = ["derive"] }
-=======
 anyhow = "1.0.64"
 async-trait = "0.1.57"
 bincode = "1.3.3"
 clap = { version = "3.2.21", features = ["derive"] }
->>>>>>> 1b79bfcd92e8e7f6eef68aa41730037904d4c4be
 codec = {package = "parity-scale-codec", version = "2.3.1", default-features = false, features = ["derive"]}
 dirs = "4.0.0"
 ed25519-dalek = { version = "1.0.1", features=["serde"]}
@@ -30,12 +23,8 @@ primitive-types = "0.11.1"
 rand = "0.8.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-<<<<<<< HEAD
-tokio = { version = "1.20.1", features = ["io-util", "io-std", "macros", "rt", "rt-multi-thread", "sync", "time"] }
-=======
 thiserror = "1.0.35"
 tokio = { version = "1.21.0", features = ["fs", "io-util", "io-std", "macros", "rt", "rt-multi-thread", "sync", "time"] }
->>>>>>> 1b79bfcd92e8e7f6eef68aa41730037904d4c4be
 unsigned-varint = "0.7.1"
 
 [[example]]
