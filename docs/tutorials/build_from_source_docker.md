@@ -6,8 +6,9 @@ This tutorial describes how to setup two Pyrsia nodes: one that acts as the auth
 node and builds Docker images from source and makes them available in the Pyrsia network,
 and another one that acts as a regular Pyrsia node, retrieving the transparency
 logs and the Docker image from the Pyrsia network. \
-(Note: in the current prototype, the build pipeline does not actually build the
-image, but downloads them from Docker Hub instead).
+
+> Note: in the current prototype, the build pipeline does not actually build the
+image, but downloads them from Docker Hub instead.
 
 The following scenario will be used:
 
