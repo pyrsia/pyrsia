@@ -329,7 +329,7 @@ using Pyrsia with Docker.
 
 ### Configure Docker desktop to use node B as registry mirror
 
-On Windows or MacOS, open your Docker desktop installation -> Settings -> 
+On Windows or MacOS, open your Docker desktop installation -> Settings ->
 Docker Engine where Docker allows you to set registry-mirrors. Configure node B
 as a registry mirror by adding/editing the following in the configuration:
 
@@ -341,7 +341,7 @@ as a registry mirror by adding/editing the following in the configuration:
 
 On Linux, you'll find this configuration in the file `/etc/docker/daemon.json`.
 
-On MacOS or Windows, you can't specify `localhost` because the request will 
+On MacOS or Windows, you can't specify `localhost` because the request will
 originate from the Docker Desktop VM, so you will need to specify the IP
 address of host machine. On Linux you can use localhost.
 
