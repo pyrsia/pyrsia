@@ -134,13 +134,12 @@ nA --- nC
 nB --- nC
 ```
 
-
 ## FAQ
 
 ### Can I run a Pyrsia node?
 
-Yes, have a look at [Quick Installation](/docs/tutorials/quick-installation.mdx) and one of the package
-specific tutorials on [Docker](docker) or [Maven](maven).
+Yes, have a look at [Quick Installation](/docs/tutorials/quick-installation.mdx)
+and one of the package specific tutorials on [Docker](docker) or [Maven](maven).
 
 ### Do I have to participate in artifact distribution?
 
