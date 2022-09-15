@@ -62,14 +62,13 @@ impl TryFrom<u8> for BlockchainCommand {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             1u8 => Ok(Self::Broadcast),
-            2u8 => Ok(Self::PushFromPeer),
+            2u8 => Ok(Self::PushToPeer),
             3u8 => Ok(Self::PullFromPeer),
             4u8 => Ok(Self::QueryHighestBlockOrdinal),
-            _ =>Err(&BlockchainError::InvalidBlockchainCmd)
+            _ => Err(&BlockchainError::InvalidBlockchainCmd),
         }
     }
 }
-
 
 pub struct BlockchainService {
     blockchain: Blockchain,
@@ -117,7 +116,7 @@ impl BlockchainService {
             .await?;
 
         self.broadcast_blockchain(Box::new(self.blockchain.last_block().unwrap()))
-        .await?;
+            .await?;
         Ok(())
     }
 
@@ -135,7 +134,7 @@ impl BlockchainService {
 
         let block = *block;
 
-        println!("{:?}", block);
+        log::debug!("Blockchain get block to broadcast:{:?}", block);
 
         buf.push(cmd);
         buf.append(&mut serialize(&block_ordinal).unwrap());
@@ -146,7 +145,7 @@ impl BlockchainService {
                 .request_blockchain(peer_id, buf.clone())
                 .await?;
         }
- 
+
         Ok(())
     }
 
