@@ -15,6 +15,7 @@ helm package pyrsia-node
 mv pyrsia-node*.tgz repos/$RELTYPE
 cd repos/$RELTYPE
 helm repo index --url https://helmrepo.pyrsia.io/repos/$RELTYPE .
+cp ../../pyrsia-node/artifacthub-repo.yaml .
 cd ../..
 
 # Generate pretty directory listing web pages
