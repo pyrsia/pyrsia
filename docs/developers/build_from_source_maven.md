@@ -1,4 +1,8 @@
-# How to setup a Pyrsia node to build Maven libraries from source
+---
+sidebar_position: 2
+---
+
+# Pyrsia demo: build Docker images from source
 
 > **Warning:** The build-from-source demo is still work-in-progress.
 
@@ -21,7 +25,7 @@ Ultimately, the following scenario will be used, but for now some steps
 - Create a transparency log about the artifact publication
 - Publish the artifact on the p2p network
 
-See the [architecture and use-cases](../developers/pyrsia-architecture-and-use-cases.md)
+See the [architecture and use-cases](pyrsia-architecture-and-use-cases.md)
 document for more information.
 
 Because this demo scenario results in a published Maven artifact in the Pyrsia

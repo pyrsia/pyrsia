@@ -1,3 +1,7 @@
+---
+sidebar_position: 1
+---
+
 # Pyrsia demo: build Docker images from source
 
 > **Warning:** The build-from-source demo is still work-in-progress.
@@ -43,7 +47,7 @@ sequenceDiagram
     nodeB->>User: return docker image
 ```
 
-See the [architecture and use-cases](../developers/pyrsia-architecture-and-use-cases.md)
+See the [architecture and use-cases](pyrsia-architecture-and-use-cases.md)
 document for more information.
 
 ## Compile Pyrsia

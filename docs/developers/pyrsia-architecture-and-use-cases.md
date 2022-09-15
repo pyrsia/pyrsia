@@ -1,3 +1,7 @@
+---
+sidebar_position: 0
+---
+
 # Pyrsia architecture and use cases
 
 > **Warning:** This document is a work-in-progress.
