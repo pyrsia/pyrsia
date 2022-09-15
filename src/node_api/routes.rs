@@ -147,7 +147,12 @@ mod tests {
         let local_keypair = Keypair::generate_ed25519();
         let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let (mut build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, local_keypair, p2p_client);
+            create_artifact_service(&tmp_dir, local_keypair.clone(), p2p_client);
+
+        artifact_service
+            .transparency_log_service
+            .add_authorized_node(local_keypair.public().to_peer_id())
+            .expect("Error adding authorized node");
 
         let build_id = uuid::Uuid::new_v4();
         tokio::spawn(async move {
@@ -187,7 +192,12 @@ mod tests {
         let local_keypair = Keypair::generate_ed25519();
         let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let (mut build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, local_keypair, p2p_client);
+            create_artifact_service(&tmp_dir, local_keypair.clone(), p2p_client);
+
+        artifact_service
+            .transparency_log_service
+            .add_authorized_node(local_keypair.public().to_peer_id())
+            .expect("Error adding authorized node");
 
         let build_id = uuid::Uuid::new_v4();
         tokio::spawn(async move {

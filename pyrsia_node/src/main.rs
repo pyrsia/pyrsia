@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let blockchain_service = setup_blockchain_service(p2p_client.clone())?;
 
     debug!("Create pyrsia services");
-    let artifact_service =
+    let (artifact_service, build_event_client) =
         setup_pyrsia_services(blockchain_service, p2p_client.clone(), &args).await?;
 
     debug!("Setup HTTP server");
@@ -91,6 +91,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         warn!(
                             "This node failed to provide artifact with id {}. Error: {:?}",
                             artifact_id, error
+                        );
+                    }
+                }
+                pyrsia::network::event_loop::PyrsiaEvent::RequestBuild {
+                    package_type,
+                    package_specific_id,
+                    channel,
+                } => {
+                    debug!(
+                        "Main::p2p request build: {:?} : {}",
+                        package_type, package_specific_id
+                    );
+                    if let Err(error) = handlers::handle_request_build(
+                        build_event_client.clone(),
+                        package_type,
+                        &package_specific_id,
+                        channel,
+                    )
+                    .await
+                    {
+                        warn!(
+                            "This node failed to provide build with package type {:?} and id {}. Error: {:?}",
+                            package_type, package_specific_id, error
                         );
                     }
                 }
@@ -207,7 +230,7 @@ async fn setup_pyrsia_services(
     blockchain_service: BlockchainService,
     p2p_client: Client,
     args: &PyrsiaNodeArgs,
-) -> Result<Arc<Mutex<ArtifactService>>> {
+) -> Result<(Arc<Mutex<ArtifactService>>, Arc<Mutex<BuildEventClient>>)> {
     let artifact_path = PathBuf::from(ARTIFACTS_DIR.as_str());
     let (build_event_sender, build_event_receiver) = mpsc::channel(32);
     let build_event_client = BuildEventClient::new(build_event_sender);
@@ -224,7 +247,7 @@ async fn setup_pyrsia_services(
     let build_service = setup_build_service(&artifact_path, build_event_client.clone(), args)?;
 
     debug!("Create verification service");
-    let verification_service = setup_verification_service(build_event_client)?;
+    let verification_service = setup_verification_service(build_event_client.clone())?;
 
     debug!("Start build event loop");
     let build_event_loop = BuildEventLoop::new(
@@ -235,7 +258,7 @@ async fn setup_pyrsia_services(
     );
     tokio::spawn(build_event_loop.run());
 
-    Ok(artifact_service)
+    Ok((artifact_service, Arc::new(Mutex::new(build_event_client))))
 }
 
 fn setup_artifact_service(

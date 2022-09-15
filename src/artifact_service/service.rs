@@ -25,14 +25,16 @@ use crate::transparency_log::log::{
     AddArtifactRequest, TransparencyLog, TransparencyLogError, TransparencyLogService,
 };
 use anyhow::{bail, Context};
+use itertools::Itertools;
 use libp2p::identity::Keypair;
 use libp2p::PeerId;
-use log::info;
+use log::{debug, info};
 use multihash::Hasher;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::str;
+use std::str::FromStr;
 
 /// The artifact service is the component that handles everything related to
 /// pyrsia artifacts. It allows artifacts to be retrieved and added to the
@@ -71,9 +73,42 @@ impl ArtifactService {
         package_type: PackageType,
         package_specific_id: String,
     ) -> Result<String, BuildError> {
-        self.build_event_client
-            .start_build(package_type, package_specific_id)
-            .await
+        let local_peer_id = self.local_keypair.public().to_peer_id();
+        debug!("Got local node with peer_id: {:?}", local_peer_id.clone());
+
+        let nodes = self
+            .transparency_log_service
+            .get_authorized_nodes()
+            .map_err(|e| BuildError::InitializationFailed(e.to_string()))?;
+
+        let peer_id = match nodes
+            .iter()
+            .map(|node| PeerId::from_str(&node.node_id).unwrap())
+            .find_or_last(|&auth_peer_id| local_peer_id.eq(&auth_peer_id))
+        {
+            Some(auth_peer_id) => {
+                debug!(
+                    "Got authorized node with peer_id: {:?}",
+                    auth_peer_id.clone()
+                );
+                auth_peer_id
+            }
+            None => panic!("no authorized nodes found"),
+        };
+
+        if local_peer_id.eq(&peer_id) {
+            debug!("Start local build in authorized node");
+            self.build_event_client
+                .start_build(package_type, package_specific_id)
+                .await
+        } else {
+            debug!("Request build in authorized node from p2p network");
+            self.p2p_client
+                .clone()
+                .request_build(&peer_id, package_type, package_specific_id.clone())
+                .await
+                .map_err(|e| BuildError::InitializationFailed(e.to_string()))
+        }
     }
 
     pub async fn handle_build_result(

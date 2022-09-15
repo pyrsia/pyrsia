@@ -102,7 +102,7 @@ pub struct TransparencyLog {
     source_id: String,
     timestamp: u64,
     pub operation: Operation,
-    node_id: String,
+    pub node_id: String,
     node_public_key: String,
 }
 
@@ -142,7 +142,28 @@ impl TransparencyLogService {
     }
 
     /// Add a new authorized node to the p2p network.
-    pub fn add_authorized_node(&self, _peer_id: PeerId) -> Result<(), TransparencyLogError> {
+    pub fn add_authorized_node(&self, peer_id: PeerId) -> Result<(), TransparencyLogError> {
+        let transparency_log = TransparencyLog {
+            id: Uuid::new_v4().to_string(),
+            package_type: None,
+            package_specific_id: String::from(""),
+            num_artifacts: 0,
+            package_specific_artifact_id: String::from(""),
+            artifact_hash: String::from(""),
+            source_hash: String::from(""),
+            artifact_id: String::from(""),
+            source_id: String::from(""),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            operation: Operation::AddNode,
+            node_id: peer_id.to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        self.write_transparency_log(&transparency_log)?;
+
         Ok(())
     }
 

@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use crate::artifact_service::model::PackageType;
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
@@ -58,6 +59,12 @@ pub enum Command {
     ListProviders {
         artifact_id: String,
         sender: oneshot::Sender<HashSet<PeerId>>,
+    },
+    RequestBuild {
+        peer: PeerId,
+        package_type: PackageType,
+        package_specific_id: String,
+        sender: oneshot::Sender<anyhow::Result<()>>,
     },
     RequestArtifact {
         artifact_id: String,

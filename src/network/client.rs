@@ -16,6 +16,7 @@
 
 pub mod command;
 
+use crate::artifact_service::model::PackageType;
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
@@ -26,6 +27,7 @@ use log::debug;
 use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::collections::HashSet;
+use tokio::sync::oneshot::error::RecvError;
 use tokio::sync::{mpsc, oneshot};
 
 /* peer metrics support */
@@ -174,6 +176,45 @@ impl Client {
             })
             .await?;
         Ok(receiver.await?)
+    }
+
+    /// Request a build to a peer with the specified address.
+    pub async fn request_build(
+        &mut self,
+        peer_id: &PeerId,
+        package_type: PackageType,
+        package_specific_id: String,
+    ) -> Result<String, RecvError> {
+        debug!(
+            "p2p::Client::request_build {:?}: {:?}: {:?}",
+            peer_id, package_type, package_specific_id
+        );
+
+        let (sender, receiver) = oneshot::channel();
+        match self
+            .sender
+            .send(Command::RequestBuild {
+                peer: *peer_id,
+                package_type: package_type.to_owned(),
+                package_specific_id: package_specific_id.to_owned(),
+                sender,
+            })
+            .await
+        {
+            Ok(_) => debug!("Build requested successfully"),
+            Err(e) => debug!("Error sending build request: {:?}", e),
+        }
+
+        match receiver.await {
+            Ok(_) => {
+                debug!("Receiver of build request ok");
+                Ok(String::from("ok"))
+            }
+            Err(e) => {
+                debug!("Receiver of build request error: {:?}", e);
+                Err(e)
+            }
+        }
     }
 
     /// Request an artifact with the specified `artifact_id`
