@@ -111,7 +111,7 @@ pub async fn handle_broadcast_blockchain(
 ) -> anyhow::Result<()> {
     debug!("Handling broadcast blockchain: {:?}", data);
 
-    if data.len() < 10 {
+    if data.len() < 17 {
         bail!("Blockcchain data is invalid")
     } else {
         let block_ordinal: Ordinal = deserialize(&data[1..17])?;
