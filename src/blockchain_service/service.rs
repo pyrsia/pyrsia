@@ -26,10 +26,10 @@ use crate::network::client::Client;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum BlockchainCommand {
-    Broadcast =1,
-    PushFromPeer =2 ,
-    PullFromPeer =3,
-    QueryHighestBlockOrdinal =4,
+    Broadcast = 1,                // Broadcast the updated block to all other nodes
+    PushToPeer = 2,               // Send a block to a peer
+    PullFromPeer = 3,             // Pull blocks from a peer
+    QueryHighestBlockOrdinal = 4, // Query the current highest (latest) block ordinal number from other nodes
 }
 
 impl TryFrom<u8> for BlockchainCommand {
@@ -38,14 +38,13 @@ impl TryFrom<u8> for BlockchainCommand {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             1u8 => Ok(Self::Broadcast),
-            2u8 => Ok(Self::PushFromPeer),
+            2u8 => Ok(Self::PushToPeer),
             3u8 => Ok(Self::PullFromPeer),
             4u8 => Ok(Self::QueryHighestBlockOrdinal),
-            _ =>Err(&BlockchainError::InvalidBlockchainCmd)
+            _ => Err(&BlockchainError::InvalidBlockchainCmd),
         }
     }
 }
-
 
 pub struct BlockchainService {
     pub blockchain: Blockchain,
@@ -70,34 +69,40 @@ impl BlockchainService {
     }
 
     /// Add payload to blockchain. It will be called by other services (e.g. transparent logging service)
-    pub async fn add_payload(&mut self, payload: Vec<u8>, local_key: &identity::Keypair) ->Result<(), BlockchainError> {
+    pub async fn add_payload(
+        &mut self,
+        payload: Vec<u8>,
+        local_key: &identity::Keypair,
+    ) -> Result<(), BlockchainError> {
         self.blockchain.add_block(payload, local_key).await?;
-        
+
         self.broadcast_blockchain(Box::new(self.blockchain.last_block().unwrap()))
-        .await?;
+            .await?;
         Ok(())
     }
 
     /// Notify other nodes to add a new block.
-    async fn broadcast_blockchain(&mut self, block: Box<Block>) ->Result<(), BlockchainError> {
+    async fn broadcast_blockchain(&mut self, block: Box<Block>) -> Result<(), BlockchainError> {
         let peer_list = self.p2p_client.list_peers().await.unwrap_or_default();
         let cmd = BlockchainCommand::Broadcast as u8;
         let block_ordinal = block.header.ordinal as u128;
 
-        let mut buf:Vec<u8> = vec![];
+        let mut buf: Vec<u8> = vec![];
 
         let block = *block;
 
-        println!("{:?}", block);
+        log::debug!("Blockchain get block to broadcast:{:?}", block);
 
         buf.push(cmd);
         buf.append(&mut bincode::serialize(&block_ordinal).unwrap());
         buf.append(&mut bincode::serialize(&block).unwrap());
 
         for peer_id in peer_list.iter() {
-            self.p2p_client.request_blockchain(peer_id, buf.clone()).await?;
+            self.p2p_client
+                .request_blockchain(peer_id, buf.clone())
+                .await?;
         }
- 
+
         Ok(())
     }
 
@@ -145,8 +150,9 @@ mod tests {
 
         assert!(blockchain_service
             .add_payload(payload, &identity::Keypair::Ed25519(keypair))
-            .await.is_ok());
- 
+            .await
+            .is_ok());
+
         assert!(blockchain_service.blockchain.last_block().is_some());
 
         Ok(())
@@ -167,9 +173,7 @@ mod tests {
         let last_block = blockchain_service.blockchain.last_block().unwrap();
 
         let block = Block::new(last_block.header.hash(), 1, vec![], &keypair);
-        blockchain_service
-            .add_block(1, block.clone())
-            .await;
+        blockchain_service.add_block(1, block.clone()).await;
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
         assert_eq!(last_block, block);
@@ -191,7 +195,10 @@ mod tests {
 
         let block = Block::new(HashDigest::new(b""), 1, vec![], &keypair);
 
-        assert!(blockchain_service.broadcast_blockchain(Box::new(block)).await.is_ok());
+        assert!(blockchain_service
+            .broadcast_blockchain(Box::new(block))
+            .await
+            .is_ok());
 
         Ok(())
     }
@@ -219,25 +226,36 @@ mod tests {
     fn test_blochchain_command_convert_to_u8() -> Result<(), String> {
         assert_eq!(1u8, BlockchainCommand::Broadcast as u8);
 
-        assert_eq!(2u8, BlockchainCommand::PushFromPeer as u8);
-  
+        assert_eq!(2u8, BlockchainCommand::PushToPeer as u8);
+
         assert_eq!(3u8, BlockchainCommand::PullFromPeer as u8);
-  
+
         assert_eq!(4u8, BlockchainCommand::QueryHighestBlockOrdinal as u8);
-        
+
         Ok(())
     }
 
     #[test]
     fn test_blochchain_command_convert_from_u8() -> Result<(), String> {
-        
-        assert_eq!(BlockchainCommand::try_from(1u8).unwrap(), BlockchainCommand::Broadcast);
-        
-        assert_eq!(BlockchainCommand::try_from(2u8).unwrap(), BlockchainCommand::PushFromPeer);
+        assert_eq!(
+            BlockchainCommand::try_from(1u8).unwrap(),
+            BlockchainCommand::Broadcast
+        );
 
-        assert_eq!(BlockchainCommand::try_from(3u8).unwrap(), BlockchainCommand::PullFromPeer);
+        assert_eq!(
+            BlockchainCommand::try_from(2u8).unwrap(),
+            BlockchainCommand::PushToPeer
+        );
 
-        assert_eq!(BlockchainCommand::try_from(4u8).unwrap(), BlockchainCommand::QueryHighestBlockOrdinal);
+        assert_eq!(
+            BlockchainCommand::try_from(3u8).unwrap(),
+            BlockchainCommand::PullFromPeer
+        );
+
+        assert_eq!(
+            BlockchainCommand::try_from(4u8).unwrap(),
+            BlockchainCommand::QueryHighestBlockOrdinal
+        );
 
         assert!(BlockchainCommand::try_from(47u8).is_err());
 

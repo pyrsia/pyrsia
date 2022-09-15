@@ -22,7 +22,7 @@ use libp2p::{Multiaddr, PeerId};
 use log::debug;
 
 use pyrsia::artifact_service::service::ArtifactService;
-use pyrsia::blockchain_service::service::{BlockchainCommand, BlockchainService};
+use pyrsia::blockchain_service::service::BlockchainCommand;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
 use pyrsia::network::blockchain_protocol::BlockchainResponse;
 use pyrsia::network::client::Client;
@@ -94,9 +94,13 @@ pub async fn handle_request_blockchain(
     debug!("Handling request blockchain: {:?}", data);
     match BlockchainCommand::try_from(data[0])? {
         BlockchainCommand::Broadcast => {
-            handle_broadcast_blockchain(artifact_service, data[1..].to_vec(), channel).await
+            debug!("Blockchain get BlockchainCommand::Broadcast");
+            handle_broadcast_blockchain(artifact_service, data, channel).await
         }
-        _ => todo!(),
+        _ => {
+            debug!("Blockchain get other command");
+            todo!()
+        }
     }
 }
 
@@ -110,8 +114,8 @@ pub async fn handle_broadcast_blockchain(
     if data.len() < 10 {
         bail!("Blockcchain data is invalid")
     } else {
-        let block_ordinal: Ordinal = deserialize(&data[0..9])?;
-        let block: Block = deserialize(&data[10..])?;
+        let block_ordinal: Ordinal = deserialize(&data[1..17])?;
+        let block: Block = deserialize(&data[17..])?;
         let mut artifact_service = artifact_service.lock().await;
 
         let payloads = block.fetch_payload();
@@ -121,8 +125,9 @@ pub async fn handle_broadcast_blockchain(
             .await;
         artifact_service.handle_block_added(payloads).await?;
 
-        let response_data = vec![];
+        let response_data = vec![0u8];
         artifact_service
+            .blockchain_service
             .p2p_client
             .respond_blockchain(response_data, channel)
             .await

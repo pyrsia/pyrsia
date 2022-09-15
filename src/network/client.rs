@@ -567,6 +567,7 @@ mod tests {
             command = receiver.recv() => match command {
                 Some(Command::RequestBlockchain { peer, data, sender:_ }) => {
                     assert_eq!(peer, other_peer_id);
+                    assert_eq!(1u8, data[0]);
                 },
                 _ => panic!("Command must match Command::RequestBlockchain")
             }
