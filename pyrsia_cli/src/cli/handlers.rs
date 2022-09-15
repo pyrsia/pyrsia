@@ -238,3 +238,53 @@ fn valid_disk_space(input: &str) -> bool {
         false
     }
 }
+
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
+mod tests {
+    use crate::cli::handlers::{valid_disk_space, valid_host, valid_port};
+
+    #[test]
+    fn test_valid_host() {
+        let valid_hosts = vec!["pyrsia.io", "localhost", "10.10.10.255"];
+        assert!(valid_hosts.into_iter().all(|x| valid_host(x)));
+    }
+
+    #[test]
+    fn test_invalid_host() {
+        let invalid_hosts = vec![
+            "-pyrsia.io",
+            "@localhost",
+            "%*%*%*%*NO_SENSE_AS_HOST@#$*@#$*@#$*",
+        ];
+        assert!(!invalid_hosts.into_iter().any(|x| valid_host(x)));
+    }
+
+    #[test]
+    fn test_valid_port() {
+        let valid_ports = vec!["0", "8988", "65535"];
+        assert!(valid_ports.into_iter().all(|x| valid_port(x)));
+    }
+
+    #[test]
+    fn test_invalid_port() {
+        let invalid_ports = vec!["-1", "65536"];
+        assert!(!invalid_ports.into_iter().any(|x| valid_port(x)));
+    }
+
+    #[test]
+    fn test_valid_disk_space() {
+        let valid_disk_space_list = vec!["100 GB", "1 GB", "4096 GB"];
+        assert!(valid_disk_space_list
+            .into_iter()
+            .all(|x| valid_disk_space(x)));
+    }
+
+    #[test]
+    fn test_invalid_disk_space() {
+        let invalid_disk_space_list = vec!["0 GB", "4097 GB", "100GB", "100gb"];
+        assert!(!invalid_disk_space_list
+            .into_iter()
+            .any(|x| valid_disk_space(x)));
+    }
+}
