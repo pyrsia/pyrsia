@@ -8,3 +8,5 @@ image:
 
 p2pkeys:
   kms_key_id: ""
+
+k8s_provider: gke # "gke, oke, aks, eks"
