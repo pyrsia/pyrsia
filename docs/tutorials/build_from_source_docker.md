@@ -1,32 +1,50 @@
-# How to setup a Pyrsia node to build Docker images from source
+# Pyrsia demo: build Docker images from source
 
 > **Warning:** The build-from-source demo is still work-in-progress.
 
-This tutorial describes how to setup a Pyrsia node that can build Docker images
-from source with the goal to publish them in the Pyrsia network. (Note: in the
-current prototype, the build pipeline does not actually build the image, but
-downloads them from Docker Hub instead).
+This tutorial describes how to setup two Pyrsia nodes: one that acts as the authorized
+node and builds Docker images from source and makes them available in the Pyrsia network,
+and another one that acts as a regular Pyrsia node, retrieving the transparency
+logs and the Docker image from the Pyrsia network. \
 
-Ultimately, the following scenario will be used, but for now some steps
-(indicated below) are skipped for the purpose of this build-from-source demo:
+> Note: in the current prototype, the build pipeline does not actually build the
+image, but downloads them from Docker Hub instead.
 
-- Setup at least 3 authorized nodes (Skipped in this demo, only one Pyrsia node
-  is used)
-- Set up a build pipeline per Pyrsia node and configure the nodes to use them
+The following scenario will be used:
+
+- Setup an 'authorized' node: node A
+- Setup a regular node: node B
+- Set up a build pipeline (prototype) for node A and configure it to use it.
 - Trigger a build from source for a given artifact
 - Wait for the build to finish in the build pipeline
 - Try to reach consensus with the other authorized nodes, which have to run the
-  same build and verify they produce the same build result. (Skipped in this demo)
+  same build and verify they produce the same build result. (There's only one
+  authorized node, so this is 'light' consensus for now)
 - Create a transparency log about the artifact publication
 - Publish the artifact on the p2p network
+- Inspect the transparency log on any node
+- Use docker pull using node B to pull the docker image from the Pyrsia network
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant nodeB as Node B
+    participant nodeA as Node A
+    participant Build pipeline
+    User->>nodeA: Trigger build
+    nodeA->>Build pipeline: Request build
+    nodeA->>nodeA: Wait for build to finish
+    nodeA->>Build pipeline: Fetch build result
+    nodeA->>nodeA: Reach consensus and<br>create transparency log
+    nodeA->>nodeB: Distribute new logs
+    User->>nodeB: docker pull
+    nodeB->>nodeB: Check transparency logs
+    nodeB->>nodeA: Fetch artifacts
+    nodeB->>User: return docker image
+```
 
 See the [architecture and use-cases](../developers/pyrsia-architecture-and-use-cases.md)
 document for more information.
-
-Because this demo scenario results in a published Docker image in the Pyrsia
-network, we can run a final step to show the build from source worked:
-
-- Use docker pull to pull the docker image from the Pyrsia network
 
 ## Compile Pyrsia
 
@@ -50,7 +68,7 @@ cargo build --workspace
 See the [Development Environment](../community/get_involved/local_dev_setup.md)
 document for more information.
 
-## Run the Pyrsia node
+## Run Pyrsia node A
 
 Now we will set the following env vars and start a pyrsia node:
 
@@ -60,10 +78,31 @@ Now we will set the following env vars and start a pyrsia node:
   remove this directory prior to starting Pyrsia if you want to start from an
   empty state.
 
+For the purpose of this demo, let's create temporary directories to clearly
+separate our two nodes:
+
 ```sh
-RUST_LOG=pyrsia=debug DEV_MODE=on PYRSIA_ARTIFACT_PATH=/tmp/pyrsia \
-cargo run --package pyrsia_node -- --pipeline-service-endpoint http://localhost:8080 -H 0.0.0.0 --listen-only true
+mkdir nodeA
+cp target/debug/pyrsia_node nodeA
+cd nodeA
 ```
+
+And then run node A in listen-only mode, listening on a non-default port (because
+we will run node B with default settings).
+
+```sh
+RUST_LOG=pyrsia=debug DEV_MODE=on \
+./pyrsia_node --pipeline-service-endpoint http://localhost:8080 -p 7889 --listen-only true
+```
+
+Watch out for this kind of log:
+
+```text
+INFO  pyrsia::network::event_loop > Local node is listening on "/ip4/127.0.0.1/tcp/56662/p2p/12D3KooWBgWeXNT1EKXo2omRhZVmkbvPgzZ5BcGjTfgKr586BSAn"
+```
+
+It contains the p2p multiaddress of node A, which we will need when starting node
+B later in this tutorial.
 
 As you can see, we specified the `--pipeline-service-endpoint` argument to point
 to `http://localhost:8080`, which is where we will run our build pipeline prototype
@@ -96,7 +135,8 @@ By default, this prototype listens on http port 8080. If you run it on a differe
 host or port, make sure to specify its location when starting the Pyrsia node
 with `--pipeline-service-endpoint` (see above).
 
-You will see the following output indicating that the build pipeline is ready for use
+You will see the following output indicating that the build pipeline is ready
+for use
 
 ```text
    Finished dev [unoptimized + debuginfo] target(s) in 1m 07s
@@ -105,24 +145,57 @@ You will see the following output indicating that the build pipeline is ready fo
  INFO  actix_server::server  > Tokio runtime found; starting in existing Tokio runtime
 ```
 
-## Trigger a build from source for a given artifact
+## Run Pyrsia node B
 
-In this section we will trigger a build for `alpine:3.16`.
-
-We will use the Pyrsia CLI to trigger a build from source. In a new terminal, while
-the Pyrsia node and build pipeline prototype are running, check if your Pyrsia CLI
-config is correct:
+Now it's time to run our regular node: node B. Let's create another temporary
+directory to clearly separate it from node A.
 
 ```sh
-cd $PYRSIA_HOME/target/debug
-./pyrsia config --show
-host = 'localhost'
-port = '7888'
-disk_allocated = '5.84 GB'
+mkdir nodeB
+cp target/debug/pyrsia_node nodeB
+cd nodeB
 ```
 
-If you're not using the default port for your Pyrsia node, make sure to configure
-the CLI using `./pyrsia config --add`.
+And then run node B with default settings and connecting it to the multiaddress
+of node A. This multiaddress can be found in the logs of node A (see section
+"Run Pyrsia node A" above).
+
+```sh
+RUST_LOG=pyrsia=debug DEV_MODE=on \
+./pyrsia_node -H 0.0.0.0 --peer /ip4/127.0.0.1/tcp/56662/p2p/12D3KooWBgWeXNT1EKXo2omRhZVmkbvPgzZ5BcGjTfgKr586BSAn
+```
+
+**Important**: do not simply copy/paste this command, the multiaddress on your
+local system will be different.
+
+At this point, we are running a Pyrsia network consisting of two nodes, so
+let's continue building an artifact and providing it on the network.
+
+## Trigger a build from source for a given artifact
+
+In this section we will trigger a build for `alpine:3.16` on node A.
+
+We will use the Pyrsia CLI to trigger a build from source. Since we want to trigger
+the build on node A, which is running on port 7889, we will have to edit this config:
+
+In a new terminal, while the Pyrsia nodes and the build pipeline prototype are
+running, run:
+
+```sh
+ ./pyrsia config --edit
+ ```
+
+And enter the correct values:
+
+```text
+Enter host:
+localhost
+Enter port:
+7889
+Enter disk space to be allocated to pyrsia(Please enter with units ex: 10 GB):
+
+Node configuration Saved !!
+```
 
 Then trigger the build from source, like this:
 
@@ -138,8 +211,8 @@ Build request successfully handled. Build with ID c9ca3e57-aa84-4fab-a8be-381ab3
 
 ## Wait for the build to finish in the build pipeline
 
-In the Pyrsia node logs, you will see that a build has been started and the Pyrsia
-node is now waiting for its result:
+In the Pyrsia node logs of node A, you will see that a build has been started and
+the Pyrsia node is now waiting for its result:
 
 ```text
 INFO  pyrsia_registry > 127.0.0.1:50187 "POST /build/docker HTTP/1.1" 200 "-" "-" 42.826041ms
@@ -200,8 +273,10 @@ INFO  pyrsia::artifact_service::service > Build with ID c9ca3e57-aa84-4fab-a8be-
 
 ## Try to reach consensus with the other authorized nodes
 
-In a regular scenario, the Pyrsia node will now try to reach consensus with the
-other authorized nodes, but this step is skipped in this demo.
+Pyrsia node A will now try to reach consensus with the
+other authorized nodes, but since we are only running one authorized node, this
+step is implicit and node A will continue with the next steps: creating and
+distributing the new transparency log.
 
 ## Create a transparency log about the artifact publication
 
@@ -236,7 +311,7 @@ Example for `alpine:3.16`:
 ## Publish the artifact on the p2p network
 
 As a final step in the build from source scenario, the artifacts are stored locally
-and provided on the p2p network.
+on node A and provided on the p2p network.
 
 ```text
  INFO  pyrsia::artifact_service::service > put_artifact with id: da341557-9150-4208-9474-f5884f799338
@@ -244,19 +319,19 @@ and provided on the p2p network.
  DEBUG pyrsia::network::client           > p2p::Client::provide "da341557-9150-4208-9474-f5884f799338"
  ```
 
-Now we are ready to use the published artifacts in our build workflow as shown in
-the sample section below.
+Now we are ready to use the published artifacts in our build workflow on node B
+as shown in the sample section below.
 
 ## Use Pyrsia with Docker pull
 
 Now that we have a Pyrsia network including a published Docker image, we can start
 using Pyrsia with Docker.
 
-### Configure Docker desktop to use node A as registry mirror
+### Configure Docker desktop to use node B as registry mirror
 
-In your Docker desktop installation -> Settings -> Docker Engine where Docker
-allows you to set registry-mirrors. Setup node A as a registry mirror by
-adding/editing the following in the configuration.
+On Windows or MacOS, open your Docker desktop installation -> Settings ->
+Docker Engine where Docker allows you to set registry-mirrors. Configure node B
+as a registry mirror by adding/editing the following in the configuration:
 
 ```jsonc
  "registry-mirrors": [
@@ -264,11 +339,11 @@ adding/editing the following in the configuration.
  ]
 ```
 
-Note: if you're using Linux, you'll find this file in `/etc/docker/daemon.json`.
+On Linux, you'll find this configuration in the file `/etc/docker/daemon.json`.
 
-On Mac OS X using localhost does not work (because the request is made from the
-Docker Desktop VM), so you will need to specify the IP address of host machine.
-On Linux you can use localhost.
+On MacOS or Windows, you can't specify `localhost` because the request will
+originate from the Docker Desktop VM, so you will need to specify the IP
+address of host machine. On Linux you can use localhost.
 
 You will need to restart Docker Desktop. Once restarted you should be able to
 pull Docker images through Pyrsia.
@@ -282,21 +357,33 @@ docker rmi alpine:3.16 # remove alpine from local docker cache
 docker pull alpine:3.16
 ```
 
-You'll see this in the Pyrsia logs:
+You'll see this in the Pyrsia logs of node B:
 
 ```text
-INFO  pyrsia_registry                         > 192.168.0.227:64436 "GET /v2/ HTTP/1.1" 200 "-" "docker/20.10.17 go/go1.17.11 git-commit/a89b842 kernel/5.10.104-linuxkit os/linux arch/arm64 UpstreamClient(Docker-Client/20.10.17 \(darwin\))" 76.666µs
+INFO  pyrsia_registry                      > 192.168.0.227:60446 "GET /v2/ HTTP/1.1" 200 "-" "docker/20.10.17 go/go1.17.11 git-commit/a89b842 kernel/5.10.124-linuxkit os/linux arch/arm64 UpstreamClient(Docker-Client/20.10.17-rd \(darwin\))" 259.375µs
 DEBUG pyrsia::docker::v2::handlers::manifests > Fetching manifest for alpine with tag: 3.16
-INFO  pyrsia::artifact_service::storage       > An artifact is being pulled from the artifact manager b0ed9f25-f322-47ef-8dac-03154209cfcf
-INFO  pyrsia_registry                         > 192.168.0.227:64437 "HEAD /v2/library/alpine/manifests/3.16 HTTP/1.1" 200 "-" "docker/20.10.17 go/go1.17.11 git-commit/a89b842 kernel/5.10.104-linuxkit os/linux arch/arm64 UpstreamClient(Docker-Client/20.10.17 \(darwin\))" 1.04075ms
+INFO  pyrsia::artifact_service::storage       > An artifact is being pulled from the artifact manager f6e32438-b23d-47be-908b-b6b97901a724
+DEBUG pyrsia::network::client                 > p2p::Client::list_providers "f6e32438-b23d-47be-908b-b6b97901a724"
+DEBUG pyrsia::network::event_loop             > Local Peer 12D3KooWNVVUAbLQnBWHvRS4Ad4aWpZyUTZMN5126KTgyYcubtpB is dialing Peer 12D3KooWHZRXJTjvYfP5A34bRLmeg9xmDFm46LUQJHHnhmemoUf6...
+DEBUG pyrsia::network::client                 > p2p::Client::get_idle_peer() entered with 1 peers
+DEBUG pyrsia::network::idle_metric_protocol   > p2p::idle_metric_protocol::write_request writing a request to peer for and idle metric
+DEBUG pyrsia::network::idle_metric_protocol   > p2p::idle_metric_protocol::read_response Reading response to idle metric request with value =[150, 62, 178, 249, 43, 85, 23, 66]
+DEBUG pyrsia::network::client                 > p2p::Client::get_idle_peer() Pushing idle peer with value 25053298284.56112
+DEBUG pyrsia::network::client                 > p2p::Client::request_artifact PeerId("12D3KooWHZRXJTjvYfP5A34bRLmeg9xmDFm46LUQJHHnhmemoUf6"): "f6e32438-b23d-47be-908b-b6b97901a724"
+DEBUG pyrsia::network::artifact_protocol      > Write ArtifactRequest: "f6e32438-b23d-47be-908b-b6b97901a724"
+INFO  pyrsia::artifact_service::service       > put_artifact with id: f6e32438-b23d-47be-908b-b6b97901a724
+INFO  pyrsia::artifact_service::storage       > An artifact is being pushed to the artifact manager f6e32438-b23d-47be-908b-b6b97901a724
 ```
 
-Indicating that the Alpine image was pulled from Pyrsia.
+Indicating that the Alpine image was first pulled from the Pyrsia network and then
+stored locally, so node B can now also participate in the p2p content distribution.
 
 ## Inspect the transparency logs
 
 The transparency logs that were created as part of the build from source process,
-can be inspected using the Pyrsia CLI.
+can be inspected using the Pyrsia CLI on any node. You can change the CLI config
+to use the default port 7888 again to inspect the logs on node B, or you can run
+inspect-log without any changes to inspect the logs on node A:
 
 ```sh
 ./pyrsia inspect-log docker --image alpine:3.16

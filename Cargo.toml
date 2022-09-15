@@ -31,14 +31,14 @@ bytes = "1.2.0"
 byte-unit = { version = "4.0.13", default-features = false}
 confy = "0.4.0"
 ctor = "0.1.21"
-clap = { version = "3.2.20", features = ["derive"] }
+clap = { version = "3.2.21", features = ["derive"] }
 dirs = "4.0.0"
 defaults = "0.2.0"
 derive_builder = "0.11.2"
 env_logger = "0.9.0"
 filename = "0.1.1"
 fs_extra = "1.2.0"
-futures = "0.3.23"
+futures = "0.3.24"
 hex = "0.4.3"
 hyper = { version = "0.14", features = ["full"] }
 hyper-tls = "0.5.0"
@@ -65,7 +65,7 @@ strum = "0.24.1"
 strum_macros = "0.24.3"
 sysinfo = "0.25.2"
 test-log = "0.2.8"
-thiserror = "1.0.34"
+thiserror = "1.0.35"
 tokio = { version = "1.21.0", features = [ "macros", "rt-multi-thread", "io-std" ] }
 tokio-stream = "0.1.9"
 toml = "0.5.9"
