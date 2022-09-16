@@ -62,6 +62,7 @@ pub fn cli_parser() -> ArgMatches {
                 .about("Shows node information"),
             Command::new("inspect-log")
                 .about("Shows transparency logs")
+                .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommands(vec![
                     Command::new("docker")
                         .about("Shows transparency logs for a Docker image")
