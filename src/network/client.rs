@@ -21,13 +21,13 @@ use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
+use anyhow::Error;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
 use log::debug;
 use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::collections::HashSet;
-use anyhow::Error;
 use tokio::sync::{mpsc, oneshot};
 
 /* peer metrics support */

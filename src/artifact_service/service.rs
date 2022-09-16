@@ -73,7 +73,10 @@ impl ArtifactService {
         package_type: PackageType,
         package_specific_id: String,
     ) -> Result<String, BuildError> {
-        debug!("Request build of {:?} {:?}", package_type, package_specific_id);
+        debug!(
+            "Request build of {:?} {:?}",
+            package_type, package_specific_id
+        );
 
         let local_peer_id = self.local_keypair.public().to_peer_id();
         debug!("Got local node with peer_id: {:?}", local_peer_id.clone());
