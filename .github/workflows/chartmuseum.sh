@@ -8,6 +8,7 @@ if [ "$RELTYPE" == "" ]; then
   RELTYPE="nightly"
 fi
 
+WORKSPACE=$PWD
 cd installers/helm
 mkdir -p repos/$RELTYPE
 gsutil -m rsync -r gs://helmrepo/repos repos
@@ -19,7 +20,7 @@ cp ../../pyrsia-node/artifacthub-repo.yaml .
 cd ../..
 
 # Generate pretty directory listing web pages
-python3 .github/workflows/genlisting.py -r
+python3 $WORKSPACE/.github/workflows/genlisting.py -r
 
 # copy new public repo to GCS
 gsutil -m rsync -r repos gs://helmrepo/repos
