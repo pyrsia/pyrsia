@@ -19,12 +19,10 @@ use crate::artifact_service::service::ArtifactService;
 
 use super::handlers::blobs::*;
 use super::handlers::manifests::*;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use warp::Filter;
 
 pub fn make_docker_routes(
-    artifact_service: Arc<Mutex<ArtifactService>>,
+    artifact_service: ArtifactService,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let empty_json = "{}";
     let v2_base = warp::path("v2")
@@ -65,10 +63,13 @@ mod tests {
     use crate::docker::error_util::{RegistryError, RegistryErrorCode};
     use crate::network::client::command::Command;
     use crate::network::client::Client;
+    use crate::transparency_log::log::TransparencyLogService;
     use crate::util::test_util;
     use libp2p::identity::Keypair;
+    use std::path::Path;
     use std::str;
-    use tokio::sync::mpsc;
+    use std::sync::Arc;
+    use tokio::sync::{mpsc, Mutex};
 
     fn create_p2p_client(local_keypair: &Keypair) -> (mpsc::Receiver<Command>, Client) {
         let (command_sender, command_receiver) = mpsc::channel(1);
@@ -91,26 +92,37 @@ mod tests {
         BlockchainService::new(ed25519_keypair, p2p_client)
     }
 
+    fn create_transparency_log_service<P: AsRef<Path>>(
+        artifact_path: P,
+        local_keypair: Keypair,
+        p2p_client: Client,
+    ) -> TransparencyLogService {
+        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client);
+
+        TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
+            .expect("Creating TransparencyLogService failed")
+    }
+
     #[tokio::test]
     async fn docker_routes_base() {
         let tmp_dir = test_util::tests::setup();
 
         let local_keypair = Keypair::generate_ed25519();
         let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client.clone());
+        let transparency_log_service =
+            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone());
 
         let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
         let artifact_service = ArtifactService::new(
             &tmp_dir,
-            local_keypair,
-            blockchain_service,
+            transparency_log_service,
             build_event_client,
             p2p_client,
         )
         .expect("Creating ArtifactService failed");
 
-        let filter = make_docker_routes(Arc::new(Mutex::new(artifact_service)));
+        let filter = make_docker_routes(artifact_service);
         let response = warp::test::request().path("/v2").reply(&filter).await;
 
         let expected_body = "{}";
@@ -127,20 +139,20 @@ mod tests {
 
         let local_keypair = Keypair::generate_ed25519();
         let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client.clone());
+        let transparency_log_service =
+            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone());
 
         let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
         let artifact_service = ArtifactService::new(
             &tmp_dir,
-            local_keypair,
-            blockchain_service,
+            transparency_log_service,
             build_event_client,
             p2p_client,
         )
         .expect("Creating ArtifactService failed");
 
-        let filter = make_docker_routes(Arc::new(Mutex::new(artifact_service)));
+        let filter = make_docker_routes(artifact_service);
         let response = warp::test::request()
             .path("/v2/library/alpine/blobs/sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a")
             .reply(&filter)
@@ -163,20 +175,20 @@ mod tests {
 
         let local_keypair = Keypair::generate_ed25519();
         let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client.clone());
+        let transparency_log_service =
+            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone());
 
         let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
         let artifact_service = ArtifactService::new(
             &tmp_dir,
-            local_keypair,
-            blockchain_service,
+            transparency_log_service,
             build_event_client,
             p2p_client,
         )
         .expect("Creating ArtifactService failed");
 
-        let filter = make_docker_routes(Arc::new(Mutex::new(artifact_service)));
+        let filter = make_docker_routes(artifact_service);
         let response = warp::test::request()
             .path("/v2/library/alpine/manifests/1.15")
             .reply(&filter)

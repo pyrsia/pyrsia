@@ -20,6 +20,7 @@ use libp2p::{Multiaddr, PeerId};
 use log::debug;
 
 use pyrsia::artifact_service::service::ArtifactService;
+use pyrsia::blockchain_service::service::BlockchainService;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
 use pyrsia::network::client::Client;
 use pyrsia::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
@@ -54,13 +55,12 @@ pub async fn probe_other_peer(mut p2p_client: Client, to_probe: &Multiaddr) -> a
 /// Respond to a RequestArtifact event by getting the artifact
 /// based on the provided artifact id.
 pub async fn handle_request_artifact(
-    artifact_service: Arc<Mutex<ArtifactService>>,
+    mut artifact_service: ArtifactService,
     artifact_id: &str,
     channel: ResponseChannel<ArtifactResponse>,
 ) -> anyhow::Result<()> {
     debug!("Handling request artifact: {:?}", artifact_id);
 
-    let mut artifact_service = artifact_service.lock().await;
     let content = artifact_service.get_artifact_locally(artifact_id).await?;
 
     artifact_service
@@ -82,7 +82,8 @@ pub async fn handle_request_idle_metric(
 }
 
 pub async fn handle_request_block_update(
-    artifact_service: Arc<Mutex<ArtifactService>>,
+    mut artifact_service: ArtifactService,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
     block_ordinal: Ordinal,
     block: Box<Block>,
 ) -> anyhow::Result<()> {
@@ -91,14 +92,11 @@ pub async fn handle_request_block_update(
         block_ordinal, block
     );
 
-    let mut artifact_service = artifact_service.lock().await;
+    let mut blockchain_service = blockchain_service.lock().await;
 
     let payloads = block.fetch_payload();
-    artifact_service
-        .blockchain_service
-        .add_block(block_ordinal, block)
-        .await;
-    artifact_service.handle_block_added(payloads).await?;
+    blockchain_service.add_block(block_ordinal, block).await;
 
+    artifact_service.handle_block_added(payloads).await?;
     artifact_service.p2p_client.respond_block_update().await
 }

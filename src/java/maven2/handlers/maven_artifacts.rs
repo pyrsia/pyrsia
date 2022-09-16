@@ -19,13 +19,11 @@ use crate::artifact_service::service::ArtifactService;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use anyhow::bail;
 use log::debug;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_get_maven_artifact(
     full_path: String,
-    artifact_service: Arc<Mutex<ArtifactService>>,
+    mut artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
     debug!("Requesting maven artifact: {}", full_path);
     let package_specific_artifact_id =
@@ -45,8 +43,6 @@ pub async fn handle_get_maven_artifact(
         package_specific_artifact_id
     );
     let artifact_content = artifact_service
-        .lock()
-        .await
         .get_artifact(PackageType::Maven2, &package_specific_artifact_id)
         .await
         .map_err(|err| {
@@ -92,14 +88,16 @@ mod tests {
     use crate::build_service::event::BuildEventClient;
     use crate::network::client::command::Command;
     use crate::network::client::Client;
-    use crate::transparency_log::log::AddArtifactRequest;
+    use crate::transparency_log::log::{AddArtifactRequest, TransparencyLogService};
     use crate::util::test_util;
     use anyhow::Context;
     use hyper::header::HeaderValue;
     use libp2p::identity::Keypair;
+    use std::collections::HashSet;
     use std::fs::File;
-    use std::path::PathBuf;
-    use tokio::sync::mpsc;
+    use std::path::{Path, PathBuf};
+    use std::sync::Arc;
+    use tokio::sync::{mpsc, Mutex};
 
     const VALID_ARTIFACT_HASH: &str =
         "e11c16ff163ccc1efe01d2696c626891560fa82123601a5ff196d97b6ab156da";
@@ -129,6 +127,17 @@ mod tests {
         BlockchainService::new(ed25519_keypair, p2p_client)
     }
 
+    fn create_transparency_log_service<P: AsRef<Path>>(
+        artifact_path: P,
+        local_keypair: Keypair,
+        p2p_client: Client,
+    ) -> TransparencyLogService {
+        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client);
+
+        TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
+            .expect("Creating TransparencyLogService failed")
+    }
+
     #[test]
     fn get_package_specific_artifact_id_test() {
         assert_eq!(
@@ -147,15 +156,26 @@ mod tests {
         let tmp_dir = test_util::tests::setup();
 
         let local_keypair = Keypair::generate_ed25519();
-        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client.clone());
+        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let transparency_log_service =
+            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone());
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    }
+                    _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
 
         let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
         let mut artifact_service = ArtifactService::new(
             &tmp_dir,
-            local_keypair,
-            blockchain_service,
+            transparency_log_service,
             build_event_client,
             p2p_client,
         )
@@ -163,7 +183,7 @@ mod tests {
 
         let transparency_log = artifact_service
             .transparency_log_service
-            .create_add_artifact(AddArtifactRequest {
+            .add_artifact(AddArtifactRequest {
                 package_type: PackageType::Maven2,
                 package_specific_id: VALID_MAVEN_ID.to_owned(),
                 num_artifacts: 8,
@@ -183,11 +203,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = handle_get_maven_artifact(
-            VALID_FULL_PATH.to_string(),
-            Arc::new(Mutex::new(artifact_service)),
-        )
-        .await;
+        let result = handle_get_maven_artifact(VALID_FULL_PATH.to_string(), artifact_service).await;
 
         assert!(result.is_ok());
 

@@ -29,6 +29,7 @@ use std::path::{Path, PathBuf};
 
 /// The build service is a component used by authorized nodes only. It is
 /// the entrypoint to the authorized node's build pipeline infrastructure.
+#[derive(Clone)]
 pub struct BuildService {
     repository_path: PathBuf,
     build_event_client: BuildEventClient,

@@ -111,7 +111,7 @@ impl PyrsiaEventLoop {
 
     // Handles events from the `AutoNat` network behaviour.
     async fn handle_autonat_event(&mut self, event: AutonatEvent) {
-        println!("Handle AutonatEvent: {:?}", event);
+        trace!("Handle AutonatEvent: {:?}", event);
         match event {
             AutonatEvent::InboundProbe(evt) => {
                 debug!("AutonatEvent::InboundProbe {:?}", evt);
