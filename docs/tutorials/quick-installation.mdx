@@ -10,11 +10,14 @@ Pyrsia can easily be setup on a local Ubuntu (or Debian based) machine by using 
 
 :::warning Limited platform support
 
-Currently our team is working very hard on core features. There may be missing support for you Operating System (OS).
+Currently our team is working very hard on core features and installers for other operating systems.
 
 :::
 
 - Ubuntu Focal (x86_64)
+
+Until we provide installers for other operating systems, you can start using Pyrsia
+by running our [pre-built Docker image](#run-pyrsia-in-docker) or [build Pyrsia from source](/docs/community/get_involved/local_dev_setup.md).
 
 ## Using the Web Script
 
@@ -55,3 +58,50 @@ If you see the following output, then your installation has failed.
 $ pyrsia ping
 Error: error sending request for url (http://localhost:7888/v2): error trying to connect: tcp connect error: Connection refused (os error 111)
 ```
+
+## Run Pyrsia in Docker
+
+As a temporary alternative to the installation scripts for the supported platforms,
+you can also choose to run our pre-built Docker image available in [Docker Hub](https://hub.docker.com/r/pyrsiaoss/pyrsia-node)
+
+Make sure you have Docker installed on your system and run:
+
+```sh
+docker run -p 7888:7888 pyrsiaoss/pyrsia-node
+```
+
+Or use this `docker-compose.yml` file:
+
+```yaml
+services:
+  pyrsia:
+    image: pyrsiaoss/pyrsia-node
+    ports:
+      - "7888:7888"
+    volumes:
+      - "pyrsia:/pyrsia"
+
+volumes:
+  pyrsia:
+```
+
+And start running Pyrsia in the background:
+
+```sh
+docker-compose up -d
+```
+
+Tail the logs to check if Pyrsia started correctly:
+
+```sh
+docker-compose logs -f
+```
+
+Or use the pyrsia CLI like this:
+
+```sh
+docker exec pyrsia-1 pyrsia ping
+Connection Successful !!
+```
+
+(replace pyrsia-1 with the name of your Pyrsia container)
