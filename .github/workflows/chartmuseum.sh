@@ -19,7 +19,7 @@ cp ../../pyrsia-node/artifacthub-repo.yaml .
 cd ../..
 
 # Generate pretty directory listing web pages
-python3 /Users/steve/git/pyrsia/.github/workflows/genlisting.py -r
+python3 .github/workflows/genlisting.py -r
 
 # copy new public repo to GCS
 gsutil -m rsync -r repos gs://helmrepo/repos
