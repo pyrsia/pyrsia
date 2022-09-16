@@ -179,8 +179,7 @@ jobs:
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1
       with:
-        args: '-- --test-threads 1'
-        out-type: Lcov
+        args: '--all-targets --workspace -- --test-threads 1'
 
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v3
