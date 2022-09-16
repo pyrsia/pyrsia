@@ -28,7 +28,7 @@ use anyhow::{bail, Context};
 use itertools::Itertools;
 use libp2p::identity::Keypair;
 use libp2p::PeerId;
-use log::{debug, info};
+use log::{debug, info, warn};
 use multihash::Hasher;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -73,6 +73,8 @@ impl ArtifactService {
         package_type: PackageType,
         package_specific_id: String,
     ) -> Result<String, BuildError> {
+        debug!("Request build of {:?} {:?}", package_type, package_specific_id);
+
         let local_peer_id = self.local_keypair.public().to_peer_id();
         debug!("Got local node with peer_id: {:?}", local_peer_id.clone());
 
@@ -80,6 +82,13 @@ impl ArtifactService {
             .transparency_log_service
             .get_authorized_nodes()
             .map_err(|e| BuildError::InitializationFailed(e.to_string()))?;
+
+        if nodes.is_empty() {
+            warn!("No authorized nodes found");
+            return Err(BuildError::InitializationFailed(String::from(
+                "No authorized nodes found",
+            )));
+        }
 
         let peer_id = match nodes
             .iter()
@@ -93,7 +102,7 @@ impl ArtifactService {
                 );
                 auth_peer_id
             }
-            None => panic!("no authorized nodes found"),
+            None => panic!("Error unexpected looking for authorized nodes"),
         };
 
         if local_peer_id.eq(&peer_id) {

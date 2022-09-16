@@ -45,7 +45,7 @@ type PendingDialMap = HashMap<PeerId, oneshot::Sender<anyhow::Result<()>>>;
 type PendingListPeersMap = HashMap<QueryId, oneshot::Sender<HashSet<PeerId>>>;
 type PendingStartProvidingMap = HashMap<QueryId, oneshot::Sender<()>>;
 type PendingRequestArtifactMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<Vec<u8>>>>;
-type PendingRequestBuildMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<()>>>;
+type PendingRequestBuildMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<String>>>;
 type PendingRequestIdleMetricMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<PeerMetrics>>>;
 type PendingRequestBlockUpdateMap =
     HashMap<RequestId, oneshot::Sender<anyhow::Result<Option<u64>>>>;
@@ -347,7 +347,7 @@ impl PyrsiaEventLoop {
                     self.pending_request_build
                         .remove(&request_id)
                         .expect("Request to still be pending.")
-                        .send(Ok(()))
+                        .send(Ok(request_id.to_string()))
                         .unwrap_or_else(|e| {
                             error!(
                                 "Handle RequestResponseEvent match arm: {}. Error: {:?}",

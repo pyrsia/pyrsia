@@ -27,7 +27,7 @@ use log::debug;
 use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::collections::HashSet;
-use tokio::sync::oneshot::error::RecvError;
+use anyhow::Error;
 use tokio::sync::{mpsc, oneshot};
 
 /* peer metrics support */
@@ -184,7 +184,7 @@ impl Client {
         peer_id: &PeerId,
         package_type: PackageType,
         package_specific_id: String,
-    ) -> Result<String, RecvError> {
+    ) -> anyhow::Result<String> {
         debug!(
             "p2p::Client::request_build {:?}: {:?}: {:?}",
             peer_id, package_type, package_specific_id
@@ -206,13 +206,10 @@ impl Client {
         }
 
         match receiver.await {
-            Ok(_) => {
-                debug!("Receiver of build request ok");
-                Ok(String::from("ok"))
-            }
+            Ok(result) => result,
             Err(e) => {
                 debug!("Receiver of build request error: {:?}", e);
-                Err(e)
+                Err(Error::from(e))
             }
         }
     }

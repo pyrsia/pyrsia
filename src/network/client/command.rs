@@ -64,7 +64,7 @@ pub enum Command {
         peer: PeerId,
         package_type: PackageType,
         package_specific_id: String,
-        sender: oneshot::Sender<anyhow::Result<()>>,
+        sender: oneshot::Sender<anyhow::Result<String>>,
     },
     RequestArtifact {
         artifact_id: String,
