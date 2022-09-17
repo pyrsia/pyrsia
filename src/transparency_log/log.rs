@@ -446,6 +446,7 @@ impl TransparencyLogService {
 mod tests {
     use super::*;
     use crate::util::test_util;
+    use libp2p::identity::Keypair;
 
     #[test]
     fn create_transparency_log() {
@@ -823,6 +824,42 @@ mod tests {
         let result_read = log.get_authorized_nodes();
         assert!(result_read.is_ok());
         assert_eq!(result_read.unwrap().len(), 0);
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_add_authorized_nodes() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = create_transparency_log_service(&tmp_dir);
+
+        let peer_id = Keypair::generate_ed25519().public().to_peer_id();
+
+        let transparency_log = TransparencyLog {
+            id: String::from("id"),
+            package_type: None,
+            package_specific_id: String::from(""),
+            num_artifacts: 0,
+            package_specific_artifact_id: String::from(""),
+            artifact_hash: String::from(""),
+            source_hash: String::from(""),
+            artifact_id: String::from(""),
+            source_id: String::from(""),
+            timestamp: 10000000,
+            operation: Operation::AddNode,
+            node_id: peer_id.clone().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        let result_add = log.add_authorized_node(peer_id);
+        assert!(result_add.is_ok());
+
+        let result_read = log.get_authorized_nodes();
+        assert!(result_read.is_ok());
+        let vec = result_read.unwrap();
+        assert_eq!(vec.len(), 1);
+        assert_eq!(vec.get(0).unwrap().node_id, transparency_log.node_id);
 
         test_util::tests::teardown(tmp_dir);
     }

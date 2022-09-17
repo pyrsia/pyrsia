@@ -230,7 +230,7 @@ async fn setup_pyrsia_services(
     blockchain_service: BlockchainService,
     p2p_client: Client,
     args: &PyrsiaNodeArgs,
-) -> Result<(Arc<Mutex<ArtifactService>>, Arc<Mutex<BuildEventClient>>)> {
+) -> Result<(Arc<Mutex<ArtifactService>>, BuildEventClient)> {
     let artifact_path = PathBuf::from(ARTIFACTS_DIR.as_str());
     let (build_event_sender, build_event_receiver) = mpsc::channel(32);
     let build_event_client = BuildEventClient::new(build_event_sender);
@@ -258,7 +258,7 @@ async fn setup_pyrsia_services(
     );
     tokio::spawn(build_event_loop.run());
 
-    Ok((artifact_service, Arc::new(Mutex::new(build_event_client))))
+    Ok((artifact_service, build_event_client))
 }
 
 fn setup_artifact_service(

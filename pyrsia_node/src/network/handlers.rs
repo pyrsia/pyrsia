@@ -76,7 +76,7 @@ pub async fn handle_request_artifact(
 /// Respond to a RequestBuild event by getting the build
 /// based on the provided package_type and package_specific_id.
 pub async fn handle_request_build(
-    build_event_client: Arc<Mutex<BuildEventClient>>,
+    build_event_client: BuildEventClient,
     package_type: PackageType,
     package_specific_id: &str,
     _: ResponseChannel<BuildResponse>,
@@ -86,8 +86,7 @@ pub async fn handle_request_build(
         package_type, package_specific_id
     );
 
-    let build_event = build_event_client.lock().await;
-    build_event
+    build_event_client
         .start_build(package_type, package_specific_id.to_string())
         .await
 }

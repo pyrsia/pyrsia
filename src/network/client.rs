@@ -579,6 +579,47 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_request_docker_build() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let mut client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+        let docker_package_type = PackageType::Docker;
+        let random_package_specific_id: String = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect();
+        let cloned_random_package_specific_id = random_package_specific_id.clone();
+
+        tokio::spawn(async move {
+            client
+                .request_build(
+                    &other_peer_id,
+                    docker_package_type,
+                    random_package_specific_id,
+                )
+                .await
+        });
+
+        tokio::select! {
+            command = receiver.recv() => match command {
+                Some(Command::RequestBuild { peer, package_type, package_specific_id, sender }) => {
+                    assert_eq!(peer, other_peer_id);
+                    assert_eq!(package_type, docker_package_type);
+                    assert_eq!(package_specific_id, cloned_random_package_specific_id);
+                    let _ = sender.send(Ok(String::from("ok")));
+                },
+                _ => panic!("Command must match Command::RequestBuild")
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn test_request_block_update() {
         let (sender, mut receiver) = mpsc::channel(1);
         let local_key = identity::ed25519::Keypair::generate();

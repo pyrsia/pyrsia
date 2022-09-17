@@ -78,7 +78,7 @@ impl ArtifactService {
             package_type, package_specific_id
         );
 
-        let local_peer_id = self.local_keypair.public().to_peer_id();
+        let local_peer_id = self.p2p_client.local_peer_id;
         debug!("Got local node with peer_id: {:?}", local_peer_id.clone());
 
         let nodes = self
@@ -715,6 +715,109 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap().len(), 1);
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_request_build_without_authorized_nodes() {
+        let tmp_dir = test_util::tests::setup();
+
+        let (_command_receiver, p2p_client) = create_p2p_client();
+        let (_build_event_receiver, artifact_service) =
+            create_artifact_service(&tmp_dir, p2p_client.clone());
+
+        let package_type = PackageType::Docker;
+        let package_specific_id = "package_specific_id";
+
+        // request build
+        let error = artifact_service
+            .request_build(package_type, package_specific_id.to_string())
+            .await
+            .unwrap_err();
+
+        assert_eq!(
+            error,
+            BuildError::InitializationFailed("No authorized nodes found".to_owned())
+        );
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_request_build_starts_on_local_authorized_node() {
+        let tmp_dir = test_util::tests::setup();
+
+        let (_command_receiver, p2p_client) = create_p2p_client();
+        let (mut build_event_receiver, artifact_service) =
+            create_artifact_service(&tmp_dir, p2p_client.clone());
+
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::Start { sender, .. }) => {
+                        let _ = sender.send(Ok(String::from("build_start_ok")));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::Start"),
+                }
+            }
+        });
+
+        artifact_service
+            .transparency_log_service
+            .add_authorized_node(p2p_client.local_peer_id)
+            .unwrap();
+
+        let package_type = PackageType::Docker;
+        let package_specific_id = "package_specific_id";
+
+        // request build
+        let result = artifact_service
+            .request_build(package_type, package_specific_id.to_string())
+            .await
+            .unwrap();
+
+        assert_eq!(result, String::from("build_start_ok"));
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_request_build_starts_on_other_authorized_node() {
+        let tmp_dir = test_util::tests::setup();
+
+        let (mut command_receiver, p2p_client) = create_p2p_client();
+        let (_build_event_receiver, artifact_service) =
+            create_artifact_service(&tmp_dir, p2p_client.clone());
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::RequestBuild { sender, .. }) => {
+                        let _ = sender.send(Ok(String::from("request_build_ok")));
+                    }
+                    _ => panic!("Command must match Command::RequestBuild"),
+                }
+            }
+        });
+
+        let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+
+        artifact_service
+            .transparency_log_service
+            .add_authorized_node(other_peer_id)
+            .unwrap();
+
+        let package_type = PackageType::Docker;
+        let package_specific_id = "package_specific_id";
+
+        // request build
+        let result = artifact_service
+            .request_build(package_type, package_specific_id.to_string())
+            .await
+            .unwrap();
+
+        assert_eq!(result, String::from("request_build_ok"));
 
         test_util::tests::teardown(tmp_dir);
     }
