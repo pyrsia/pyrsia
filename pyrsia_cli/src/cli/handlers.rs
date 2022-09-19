@@ -191,7 +191,7 @@ fn valid_host(input: &str) -> bool {
     /// Returns true if input is a valid hostname as per the definition
     /// at https://man7.org/linux/man-pages/man7/hostname.7.html, otherwise false
     fn valid_hostname(input: &str) -> bool {
-        if input.len() == 0 || input.len() > 253 {
+        if input.is_empty() || input.len() > 253 {
             return false;
         }
         lazy_static! {
