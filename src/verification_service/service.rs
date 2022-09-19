@@ -258,15 +258,44 @@ impl VerificationService {
 mod tests {
     use super::*;
     use crate::artifact_service::model::PackageType;
+    use crate::blockchain_service::service::BlockchainService;
     use crate::build_service::event::BuildEvent;
     use crate::build_service::model::BuildResultArtifact;
+    use crate::network::client::Client;
     use crate::transparency_log::log::{AddArtifactRequest, TransparencyLogService};
     use crate::util::test_util;
+    use libp2p::identity::Keypair;
     use std::path::{Path, PathBuf};
-    use tokio::sync::mpsc;
+    use std::sync::Arc;
+    use tokio::sync::{mpsc, Mutex};
+
+    fn create_p2p_client(local_keypair: &Keypair) -> Client {
+        let (command_sender, _command_receiver) = mpsc::channel(1);
+        Client {
+            sender: command_sender,
+            local_peer_id: local_keypair.public().to_peer_id(),
+        }
+    }
+
+    fn create_blockchain_service(local_keypair: &Keypair, p2p_client: Client) -> BlockchainService {
+        let ed25519_keypair = match local_keypair {
+            libp2p::identity::Keypair::Ed25519(ref v) => v,
+            _ => {
+                panic!("Keypair Format Error");
+            }
+        };
+
+        BlockchainService::new(ed25519_keypair, p2p_client)
+    }
 
     fn create_transparency_log_service<P: AsRef<Path>>(artifact_path: P) -> TransparencyLogService {
-        TransparencyLogService::new(&artifact_path).unwrap()
+        let local_keypair = Keypair::generate_ed25519();
+        let p2p_client = create_p2p_client(&local_keypair);
+
+        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client);
+
+        TransparencyLogService::new(&artifact_path, Arc::new(Mutex::new(blockchain_service)))
+            .unwrap()
     }
 
     #[tokio::test]
@@ -278,7 +307,7 @@ mod tests {
         let package_type = PackageType::Docker;
         let package_specific_id = "alpine:3.15.1";
         let transparency_log = transparency_log_service
-            .create_add_artifact(AddArtifactRequest {
+            .add_artifact(AddArtifactRequest {
                 package_type,
                 package_specific_id: package_specific_id.to_owned(),
                 num_artifacts: 1,
@@ -332,7 +361,7 @@ mod tests {
         let mut payloads = vec![];
         for i in 1..=3 {
             let transparency_log = transparency_log_service
-                .create_add_artifact(AddArtifactRequest {
+                .add_artifact(AddArtifactRequest {
                     package_type: PackageType::Docker,
                     package_specific_id: "alpine:3.15.1".to_owned(),
                     num_artifacts: 3,
@@ -401,7 +430,7 @@ mod tests {
         let package_specific_artifact_id = "a/b/c.blob";
         let artifact_hash = uuid::Uuid::new_v4();
         let transparency_log = transparency_log_service
-            .create_add_artifact(AddArtifactRequest {
+            .add_artifact(AddArtifactRequest {
                 package_type,
                 package_specific_id: package_specific_id.to_owned(),
                 num_artifacts: 1,
@@ -468,7 +497,7 @@ mod tests {
         let package_specific_artifact_id = "a/b/c.blob";
         let artifact_hash = uuid::Uuid::new_v4();
         let transparency_log = transparency_log_service
-            .create_add_artifact(AddArtifactRequest {
+            .add_artifact(AddArtifactRequest {
                 package_type,
                 package_specific_id: package_specific_id.to_owned(),
                 num_artifacts: 1,
@@ -543,7 +572,7 @@ mod tests {
         let package_specific_artifact_id = "a/b/c.blob";
         let artifact_hash = uuid::Uuid::new_v4();
         let transparency_log = transparency_log_service
-            .create_add_artifact(AddArtifactRequest {
+            .add_artifact(AddArtifactRequest {
                 package_type,
                 package_specific_id: package_specific_id.to_owned(),
                 num_artifacts: 1,
@@ -618,7 +647,7 @@ mod tests {
         let package_type = PackageType::Docker;
         let package_specific_id = "alpine:3.15.1";
         let transparency_log = transparency_log_service
-            .create_add_artifact(AddArtifactRequest {
+            .add_artifact(AddArtifactRequest {
                 package_type,
                 package_specific_id: package_specific_id.to_owned(),
                 num_artifacts: 1,

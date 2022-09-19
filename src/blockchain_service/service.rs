@@ -48,6 +48,7 @@ impl TryFrom<u8> for BlockchainCommand {
 
 pub struct BlockchainService {
     pub blockchain: Blockchain,
+    pub keypair: identity::ed25519::Keypair,
     pub p2p_client: Client,
 }
 
@@ -64,6 +65,7 @@ impl BlockchainService {
     pub fn new(keypair: &identity::ed25519::Keypair, p2p_client: Client) -> Self {
         Self {
             blockchain: Blockchain::new(keypair),
+            keypair: keypair.to_owned(),
             p2p_client,
         }
     }
@@ -72,9 +74,9 @@ impl BlockchainService {
     pub async fn add_payload(
         &mut self,
         payload: Vec<u8>,
-        local_key: &identity::Keypair,
     ) -> Result<(), BlockchainError> {
-        self.blockchain.add_block(payload, local_key).await?;
+        self.blockchain
+        .add_block(payload, &identity::Keypair::Ed25519(self.keypair.clone())).await?;
 
         self.broadcast_blockchain(Box::new(self.blockchain.last_block().unwrap()))
             .await?;
@@ -107,7 +109,7 @@ impl BlockchainService {
     }
 
     /// Add a new block to local blockchain.
-    pub async fn add_block(&mut self, ordinal: Ordinal, block: Block) {
+    pub async fn add_block(&mut self, ordinal: Ordinal, block: Box<Block>) {
         let last_block = self.blockchain.last_block();
 
         match last_block {
@@ -133,47 +135,48 @@ mod tests {
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
     use tokio::sync::mpsc;
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_add_payload() -> Result<(), String> {
+    fn create_blockchain_service() -> BlockchainService {
         let (sender, _) = mpsc::channel(1);
-        let keypair = identity::ed25519::Keypair::generate();
-        let local_peer_id = identity::PublicKey::Ed25519(keypair.public()).to_peer_id();
+        let ed25519_keypair = identity::ed25519::Keypair::generate();
+        let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
         let client = Client {
             sender,
             local_peer_id,
         };
 
-        let mut blockchain_service = BlockchainService::new(&keypair, client);
-        let payload = vec![];
+        BlockchainService::new(&ed25519_keypair, client)
+    }
 
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_add_payload() -> Result<(), String> {
+        let mut blockchain_service = create_blockchain_service();
+
+        let payload = vec![];
         assert!(blockchain_service.blockchain.last_block().is_some());
 
         assert!(blockchain_service
-            .add_payload(payload, &identity::Keypair::Ed25519(keypair))
+            .add_payload(payload)
             .await
             .is_ok());
-
-        assert!(blockchain_service.blockchain.last_block().is_some());
 
         Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_add_block() -> Result<(), String> {
-        let (sender, _) = mpsc::channel(1);
-        let keypair = identity::ed25519::Keypair::generate();
-        let local_peer_id = identity::PublicKey::Ed25519(keypair.public()).to_peer_id();
-        let client = Client {
-            sender,
-            local_peer_id,
-        };
-
-        let mut blockchain_service = BlockchainService::new(&keypair, client);
+        let mut blockchain_service = create_blockchain_service();
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
 
-        let block = Block::new(last_block.header.hash(), 1, vec![], &keypair);
-        blockchain_service.add_block(1, block.clone()).await;
+        let block = Block::new(
+            last_block.header.hash(),
+            1,
+            vec![],
+            &blockchain_service.keypair,
+        );
+        blockchain_service
+            .add_block(1, Box::new(block.clone()))
+            .await;
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
         assert_eq!(last_block, block);
@@ -183,20 +186,17 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_notify_blockchain() -> Result<(), String> {
-        let (sender, _) = mpsc::channel(1);
-        let keypair = identity::ed25519::Keypair::generate();
-        let local_peer_id = identity::PublicKey::Ed25519(keypair.public()).to_peer_id();
-        let client = Client {
-            sender,
-            local_peer_id,
-        };
+        let mut blockchain_service = create_blockchain_service();
 
-        let mut blockchain_service = BlockchainService::new(&keypair, client);
-
-        let block = Block::new(HashDigest::new(b""), 1, vec![], &keypair);
+        let block = Box::new(Block::new(
+            HashDigest::new(b""),
+            1,
+            vec![],
+            &blockchain_service.keypair,
+        ));
 
         assert!(blockchain_service
-            .broadcast_blockchain(Box::new(block))
+            .broadcast_blockchain(block)
             .await
             .is_ok());
 
@@ -205,15 +205,7 @@ mod tests {
 
     #[test]
     fn test_debug() -> Result<(), String> {
-        let (sender, _) = mpsc::channel(1);
-        let keypair = identity::ed25519::Keypair::generate();
-        let local_peer_id = identity::PublicKey::Ed25519(keypair.public()).to_peer_id();
-        let client = Client {
-            sender,
-            local_peer_id,
-        };
-
-        let blockchain_service = BlockchainService::new(&keypair, client);
+        let blockchain_service = create_blockchain_service();
 
         assert_ne!(
             format!("This is blockchain service {blockchain_service:?}"),
