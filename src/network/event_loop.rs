@@ -904,4 +904,43 @@ mod tests {
             .await;
         assert!(result.is_err());
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_request_build_loop() {
+        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
+        let (mut p2p_client_2, event_loop_2) = create_test_swarm();
+
+        tokio::spawn(event_loop_1.run());
+        tokio::spawn(event_loop_2.run());
+
+        p2p_client_1
+            .listen(&"/ip4/127.0.0.1/tcp/44140".parse().unwrap())
+            .await
+            .unwrap();
+        p2p_client_2
+            .listen(&"/ip4/127.0.0.1/tcp/44141".parse().unwrap())
+            .await
+            .unwrap();
+
+        let result_dial = p2p_client_1
+            .dial(
+                &p2p_client_2.local_peer_id,
+                &"/ip4/127.0.0.1/tcp/44141".parse().unwrap(),
+            )
+            .await;
+        assert!(result_dial.is_ok());
+
+        let package_type = PackageType::Docker;
+        let package_specific_id = "package_specific_id";
+
+        let result = p2p_client_1
+            .request_build(
+                &p2p_client_2.local_peer_id,
+                package_type,
+                package_specific_id.to_string(),
+            )
+            .await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "1");
+    }
 }
