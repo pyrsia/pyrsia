@@ -23,6 +23,7 @@ use log::debug;
 
 use pyrsia::artifact_service::service::ArtifactService;
 use pyrsia::blockchain_service::service::BlockchainCommand;
+use pyrsia::blockchain_service::service::BlockchainService;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
 use pyrsia::network::blockchain_protocol::BlockchainResponse;
 use pyrsia::network::client::Client;
@@ -58,13 +59,12 @@ pub async fn probe_other_peer(mut p2p_client: Client, to_probe: &Multiaddr) -> a
 /// Respond to a RequestArtifact event by getting the artifact
 /// based on the provided artifact id.
 pub async fn handle_request_artifact(
-    artifact_service: Arc<Mutex<ArtifactService>>,
+    mut artifact_service: ArtifactService,
     artifact_id: &str,
     channel: ResponseChannel<ArtifactResponse>,
 ) -> anyhow::Result<()> {
     debug!("Handling request artifact: {:?}", artifact_id);
 
-    let mut artifact_service = artifact_service.lock().await;
     let content = artifact_service.get_artifact_locally(artifact_id).await?;
 
     artifact_service
@@ -87,7 +87,8 @@ pub async fn handle_request_idle_metric(
 
 //Respsond to the BlockchainRequest event
 pub async fn handle_request_blockchain(
-    artifact_service: Arc<Mutex<ArtifactService>>,
+    artifact_service: ArtifactService,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
     data: Vec<u8>,
     channel: ResponseChannel<BlockchainResponse>,
 ) -> anyhow::Result<()> {
@@ -95,7 +96,7 @@ pub async fn handle_request_blockchain(
     match BlockchainCommand::try_from(data[0])? {
         BlockchainCommand::Broadcast => {
             debug!("Blockchain get BlockchainCommand::Broadcast");
-            handle_broadcast_blockchain(artifact_service, data, channel).await
+            handle_broadcast_blockchain(artifact_service, blockchain_service, data, channel).await
         }
         _ => {
             debug!("Blockchain get other command");
@@ -105,7 +106,8 @@ pub async fn handle_request_blockchain(
 }
 
 pub async fn handle_broadcast_blockchain(
-    artifact_service: Arc<Mutex<ArtifactService>>,
+    mut artifact_service: ArtifactService,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
     data: Vec<u8>,
     channel: ResponseChannel<BlockchainResponse>,
 ) -> anyhow::Result<()> {
@@ -116,18 +118,19 @@ pub async fn handle_broadcast_blockchain(
     } else {
         let block_ordinal: Ordinal = deserialize(&data[1..17])?;
         let block: Block = deserialize(&data[17..])?;
-        let mut artifact_service = artifact_service.lock().await;
+
+        let mut blockchain_service = blockchain_service.lock().await;
 
         let payloads = block.fetch_payload();
-        artifact_service
-            .blockchain_service
-            .add_block(block_ordinal, block)
+        blockchain_service
+            .add_block(block_ordinal, Box::new(block))
             .await;
+
         artifact_service.handle_block_added(payloads).await?;
 
         let response_data = vec![0u8];
+
         artifact_service
-            .blockchain_service
             .p2p_client
             .respond_blockchain(response_data, channel)
             .await

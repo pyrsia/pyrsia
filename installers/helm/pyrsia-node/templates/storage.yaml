@@ -22,24 +22,3 @@ spec:
       failure-domain.beta.kubernetes.io/zone: us-phoenix-1
 {{- end }}
 ---
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pyrsia-p2p-keys-pvc
-spec:
-  storageClassName: pyrsia-csi
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 50Gi
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pyrsia-storage-pvc
-spec:
-  accessModes: ["ReadWriteOnce"]
-  resources:
-    requests:
-      storage: 1500Gi

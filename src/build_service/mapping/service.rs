@@ -18,6 +18,7 @@ use super::model::MappingInfo;
 use crate::artifact_service::model::PackageType;
 use crate::build_service::error::BuildError;
 
+#[derive(Clone)]
 pub struct MappingService {
     mapping_service_endpoint: String,
 }

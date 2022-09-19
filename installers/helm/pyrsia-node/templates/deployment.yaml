@@ -40,10 +40,19 @@ spec:
               mountPath: "/usr/local/var/pyrsia"
             - name: pyrsia-p2p-keys
               mountPath: /usr/local/var/pyrsia-p2p-keys
-      volumes:
-        - name: pyrsia-storage
-          persistentVolumeClaim:
-            claimName: pyrsia-storage-pvc
-        - name: pyrsia-p2p-keys
-          persistentVolumeClaim:
-            claimName: pyrsia-p2p-keys-pvc                 
+  volumeClaimTemplates:
+  - metadata:
+      name: pyrsia-storage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1500Gi
+  - metadata:
+      name: pyrsia-p2p-keys
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: pyrsia-csi              

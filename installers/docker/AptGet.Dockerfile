@@ -8,7 +8,7 @@ EXPOSE 44000
 ENV RUST_LOG=info
 
 RUN apt-get update; \
-    apt-get -y install wget gnupg2 jq curl; \
+    apt-get -y install ca-certificates wget gnupg2 jq curl; \
     wget -O - https://pyrsia.io/install.sh | sh; 
 
 # Need to run an entrypoint script that will determine if the docker container
