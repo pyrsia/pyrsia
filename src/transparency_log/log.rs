@@ -15,6 +15,7 @@
 */
 
 use crate::artifact_service::model::PackageType;
+use crate::blockchain_service::service::BlockchainService;
 use libp2p::PeerId;
 use log::{debug, error};
 use rusqlite::types::{ToSqlOutput, Value};
@@ -24,8 +25,10 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
@@ -128,16 +131,22 @@ pub struct AuthorizedNode {
 ///
 /// It uses a local database to store and index transparency log information to simplify
 /// access.
+#[derive(Clone)]
 pub struct TransparencyLogService {
     storage_path: PathBuf,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
 }
 
 impl TransparencyLogService {
-    pub fn new<P: AsRef<Path>>(repository_path: P) -> Result<Self, TransparencyLogError> {
+    pub fn new<P: AsRef<Path>>(
+        repository_path: P,
+        blockchain_service: Arc<Mutex<BlockchainService>>,
+    ) -> Result<Self, TransparencyLogError> {
         let mut absolute_path = repository_path.as_ref().to_path_buf().canonicalize()?;
         absolute_path.push("transparency_log");
         Ok(TransparencyLogService {
             storage_path: absolute_path,
+            blockchain_service,
         })
     }
 
@@ -173,7 +182,7 @@ impl TransparencyLogService {
     }
 
     /// Adds a transparency log with the AddArtifact operation.
-    pub async fn create_add_artifact(
+    pub async fn add_artifact(
         &mut self,
         add_artifact_request: AddArtifactRequest,
     ) -> Result<TransparencyLog, TransparencyLogError> {
@@ -195,6 +204,13 @@ impl TransparencyLogService {
             node_id: Uuid::new_v4().to_string(),
             node_public_key: Uuid::new_v4().to_string(),
         };
+
+        let payload = serde_json::to_string(&transparency_log).unwrap();
+        self.blockchain_service
+            .lock()
+            .await
+            .add_payload(payload.into_bytes())
+            .await;
 
         Ok(transparency_log)
     }
@@ -445,8 +461,30 @@ impl TransparencyLogService {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
-    use crate::util::test_util;
+    use crate::{network::client::Client, util::test_util};
+    use libp2p::identity;
     use libp2p::identity::Keypair;
+    use tokio::sync::mpsc;
+
+    fn create_p2p_client(keypair: identity::Keypair) -> Client {
+        let (command_sender, _command_receiver) = mpsc::channel(1);
+        Client {
+            sender: command_sender,
+            local_peer_id: keypair.public().to_peer_id(),
+        }
+    }
+
+    fn create_transparency_log_service<P: AsRef<Path>>(artifact_path: P) -> TransparencyLogService {
+        let ed25519_keypair = identity::ed25519::Keypair::generate();
+        let p2p_client = create_p2p_client(identity::Keypair::Ed25519(ed25519_keypair.clone()));
+
+        let blockchain_service = Arc::new(Mutex::new(BlockchainService::new(
+            &ed25519_keypair,
+            p2p_client,
+        )));
+
+        TransparencyLogService::new(&artifact_path, blockchain_service).unwrap()
+    }
 
     #[test]
     fn create_transparency_log() {
@@ -495,10 +533,6 @@ mod tests {
         assert_eq!(transparency_log.operation, operation);
         assert_eq!(transparency_log.node_id, node_id);
         assert_eq!(transparency_log.node_public_key, node_public_key);
-    }
-
-    fn create_transparency_log_service<P: AsRef<Path>>(artifact_path: P) -> TransparencyLogService {
-        TransparencyLogService::new(&artifact_path).unwrap()
     }
 
     #[test]
@@ -796,13 +830,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_create_add_artifact() {
+    async fn test_add_artifact() {
         let tmp_dir = test_util::tests::setup();
 
         let mut log = create_transparency_log_service(&tmp_dir);
 
         let result = log
-            .create_add_artifact(AddArtifactRequest {
+            .add_artifact(AddArtifactRequest {
                 package_type: PackageType::Docker,
                 package_specific_id: "package_specific_id".to_owned(),
                 num_artifacts: 8,
