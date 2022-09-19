@@ -71,12 +71,10 @@ impl BlockchainService {
     }
 
     /// Add payload to blockchain. It will be called by other services (e.g. transparent logging service)
-    pub async fn add_payload(
-        &mut self,
-        payload: Vec<u8>,
-    ) -> Result<(), BlockchainError> {
+    pub async fn add_payload(&mut self, payload: Vec<u8>) -> Result<(), BlockchainError> {
         self.blockchain
-        .add_block(payload, &identity::Keypair::Ed25519(self.keypair.clone())).await?;
+            .add_block(payload, &identity::Keypair::Ed25519(self.keypair.clone()))
+            .await?;
 
         self.broadcast_blockchain(Box::new(self.blockchain.last_block().unwrap()))
             .await?;
@@ -153,11 +151,7 @@ mod tests {
 
         let payload = vec![];
         assert!(blockchain_service.blockchain.last_block().is_some());
-
-        assert!(blockchain_service
-            .add_payload(payload)
-            .await
-            .is_ok());
+        assert!(blockchain_service.add_payload(payload).await.is_ok());
 
         Ok(())
     }
@@ -194,11 +188,7 @@ mod tests {
             vec![],
             &blockchain_service.keypair,
         ));
-
-        assert!(blockchain_service
-            .broadcast_blockchain(block)
-            .await
-            .is_ok());
+        assert!(blockchain_service.broadcast_blockchain(block).await.is_ok());
 
         Ok(())
     }
