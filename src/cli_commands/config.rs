@@ -45,7 +45,7 @@ impl Display for CliConfig {
 }
 
 pub fn add_config(new_cfg: CliConfig) -> Result<()> {
-    let mut cfg: CliConfig = confy::load(CONF_FILE)?;
+    let mut cfg: CliConfig = confy::load(CONF_FILE, None)?;
     if !new_cfg.host.is_empty() {
         cfg.host = new_cfg.host
     }
@@ -58,13 +58,13 @@ pub fn add_config(new_cfg: CliConfig) -> Result<()> {
         cfg.disk_allocated = new_cfg.disk_allocated
     }
 
-    confy::store(CONF_FILE, &cfg)?;
+    confy::store(CONF_FILE, None, &cfg)?;
 
     Ok(())
 }
 
 pub fn get_config() -> Result<CliConfig> {
-    let cfg: CliConfig = confy::load(CONF_FILE)?;
+    let cfg: CliConfig = confy::load(CONF_FILE, None)?;
 
     Ok(cfg)
 }
