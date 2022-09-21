@@ -120,13 +120,13 @@ impl PyrsiaEventLoop {
         trace!("Handle AutonatEvent: {:?}", event);
         match event {
             AutonatEvent::InboundProbe(evt) => {
-                debug!("AutonatEvent::InboundProbe {:?}", evt);
+                trace!("AutonatEvent::InboundProbe {:?}", evt);
                 // let peer = evt.Request.ge
                 // let address = evt.get_address();
                 // self.swarm.behaviour_mut().auto_nat.add_server(peer, address);
             }
             AutonatEvent::OutboundProbe(evt) => {
-                debug!("AutonatEvent::OutboundProbe {:?}", evt);
+                trace!("AutonatEvent::OutboundProbe {:?}", evt);
             }
             AutonatEvent::StatusChanged { old, new } => {
                 info!("State changed from {:?} to {:?}", old, new);

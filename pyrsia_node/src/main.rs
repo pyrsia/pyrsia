@@ -74,7 +74,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         &args,
         artifact_service.clone(),
         transparency_log_service,
-        build_event_client.clone(),
         p2p_client.clone(),
     );
 
@@ -318,7 +317,6 @@ fn setup_http(
     args: &PyrsiaNodeArgs,
     artifact_service: ArtifactService,
     transparency_log_service: TransparencyLogService,
-    build_event_client: BuildEventClient,
     p2p_client: Client,
 ) {
     // Get host and port from the settings. Defaults to DEFAULT_HOST and DEFAULT_PORT
@@ -334,9 +332,8 @@ fn setup_http(
 
     debug!("Setup HTTP routing");
     let docker_routes = make_docker_routes(artifact_service.clone());
-    let maven_routes = make_maven_routes(artifact_service);
-    let node_api_routes =
-        make_node_routes(build_event_client, p2p_client, transparency_log_service);
+    let maven_routes = make_maven_routes(artifact_service.clone());
+    let node_api_routes = make_node_routes(artifact_service, p2p_client, transparency_log_service);
     let all_routes = docker_routes.or(maven_routes).or(node_api_routes);
 
     debug!("Setup HTTP server");
