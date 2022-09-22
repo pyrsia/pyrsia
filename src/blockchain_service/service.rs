@@ -20,6 +20,7 @@ use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::error::BlockchainError;
 use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::structures::header::Ordinal;
+use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 
 use crate::network::client::Client;
@@ -129,12 +130,11 @@ impl BlockchainService {
             }
 
             Some(last_block) => {
-                if ordinal == last_block.header.ordinal + 1 {
-                    self.blockchain.update_block_from_peers(block).await;
-                } else if ordinal > last_block.header.ordinal + 1 {
-                    return Err(BlockchainError::LaggingBlockchainData);
-                } else {
-                    warn!("Blockchain Receives a Duplicate Block!");
+                let expected = last_block.header.ordinal + 1;
+                match ordinal.cmp(&expected) {
+                    Ordering::Greater => return Err(BlockchainError::LaggingBlockchainData),
+                    Ordering::Less => warn!("Blockchain Receives a Duplicate Block!"),
+                    Ordering::Equal => self.blockchain.update_block_from_peers(block).await,
                 }
             }
         }
