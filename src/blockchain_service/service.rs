@@ -15,13 +15,21 @@
 */
 
 use libp2p::identity;
+use log::warn;
 use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::error::BlockchainError;
 use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::structures::header::Ordinal;
+use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 
 use crate::network::client::Client;
+
+/// Blockchain command length is 1 byte
+pub const BLOCKCHAIN_COMMAND_LENGTH: usize = 1;
+
+/// Blockchain ordinal length is 16 bytes
+pub const BLOCKCHAIN_ORDINAL_LENGTH: usize = 16;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -47,7 +55,7 @@ impl TryFrom<u8> for BlockchainCommand {
 }
 
 pub struct BlockchainService {
-    pub blockchain: Blockchain,
+    blockchain: Blockchain,
     pub keypair: identity::ed25519::Keypair,
     pub p2p_client: Client,
 }
@@ -107,7 +115,11 @@ impl BlockchainService {
     }
 
     /// Add a new block to local blockchain.
-    pub async fn add_block(&mut self, ordinal: Ordinal, block: Box<Block>) {
+    pub async fn add_block(
+        &mut self,
+        ordinal: Ordinal,
+        block: Box<Block>,
+    ) -> Result<(), BlockchainError> {
         let last_block = self.blockchain.last_block();
 
         match last_block {
@@ -118,11 +130,29 @@ impl BlockchainService {
             }
 
             Some(last_block) => {
-                if ordinal == last_block.header.ordinal + 1 {
-                    self.blockchain.update_block_from_peers(block).await;
+                let expected = last_block.header.ordinal + 1;
+                match ordinal.cmp(&expected) {
+                    Ordering::Greater => return Err(BlockchainError::LaggingBlockchainData),
+                    Ordering::Less => warn!("Blockchain Receives a Duplicate Block!"),
+                    Ordering::Equal => self.blockchain.update_block_from_peers(block).await,
                 }
             }
         }
+
+        Ok(())
+    }
+
+    /// Retrive Blocks form start ordinal number to end ordinal number (including end ordinal number)
+    pub async fn pull_blocks(
+        &self,
+        start: Ordinal,
+        end: Ordinal,
+    ) -> Result<Vec<Block>, BlockchainError> {
+        self.blockchain.pull_blocks(start, end)
+    }
+
+    pub async fn query_last_block(&self) -> Option<Block> {
+        self.blockchain.last_block()
     }
 }
 
@@ -168,12 +198,18 @@ mod tests {
             vec![],
             &blockchain_service.keypair,
         );
-        blockchain_service
+        let _ = blockchain_service
             .add_block(1, Box::new(block.clone()))
             .await;
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
         assert_eq!(last_block, block);
+
+        // Ordinal is not next, return error.
+        assert!(blockchain_service
+            .add_block(3, Box::new(block.clone()))
+            .await
+            .is_err());
 
         Ok(())
     }
