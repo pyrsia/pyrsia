@@ -196,7 +196,6 @@ pub async fn handle_query_block_ordinal_from_peer(
     debug!("Handling query block ordinal");
 
     let mut blockchain_service = blockchain_service.lock().await;
-
     let latest_ordinal: Ordinal = match blockchain_service.query_last_block().await {
         Some(v) => v.header.ordinal,
         None => bail!(BlockchainError::InvalidBlockchainLength(0)),
