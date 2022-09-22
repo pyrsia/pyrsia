@@ -16,114 +16,103 @@
 
 use async_trait::async_trait;
 use futures::prelude::*;
-use libp2p::core::upgrade::{
-    read_length_prefixed, read_varint, write_length_prefixed, write_varint, ProtocolName,
-};
+use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
 use libp2p::request_response::RequestResponseCodec;
 use log::debug;
-use pyrsia_blockchain_network::structures::block::Block;
-use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::io;
 
 #[derive(Debug, Clone)]
-pub struct BlockUpdateExchangeProtocol();
+pub struct BlockchainExchangeProtocol();
 
 #[derive(Clone)]
-pub struct BlockUpdateExchangeCodec();
+pub struct BlockchainExchangeCodec();
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BlockUpdateRequest(pub Ordinal, pub Box<Block>);
+pub struct BlockchainRequest(pub Vec<u8>);
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BlockUpdateResponse();
+pub struct BlockchainResponse(pub Vec<u8>);
 
-impl ProtocolName for BlockUpdateExchangeProtocol {
+impl ProtocolName for BlockchainExchangeProtocol {
     fn protocol_name(&self) -> &[u8] {
         "/pyrsia-blockchain-update-exchange/1".as_bytes()
     }
 }
 #[async_trait]
-impl RequestResponseCodec for BlockUpdateExchangeCodec {
-    type Protocol = BlockUpdateExchangeProtocol;
-    type Request = BlockUpdateRequest;
-    type Response = BlockUpdateResponse;
+impl RequestResponseCodec for BlockchainExchangeCodec {
+    type Protocol = BlockchainExchangeProtocol;
+    type Request = BlockchainRequest;
+    type Response = BlockchainResponse;
 
-    //read blockchain request from a peer.
+    ///This method reads the blockchain request from the peer.
     async fn read_request<T>(
         &mut self,
-        _: &BlockUpdateExchangeProtocol,
+        _: &BlockchainExchangeProtocol,
         io: &mut T,
     ) -> io::Result<Self::Request>
     where
         T: AsyncRead + Unpin + Send,
     {
-        debug!("pyrsia::blockchain_protocol::BlockUpdate::read_request received from peer.");
-
-        // the first var is the block ordinal, which is a u128, hence 16 bytes long
-        let mut buff: [u8; 16] = [0; 16];
-        let mut size = read_varint(io).await?;
-        if size != 16 {
-            return Err(io::ErrorKind::InvalidData.into());
-        }
-        size = io.read(&mut buff).await?;
-        if size != 16 {
-            return Err(io::ErrorKind::InvalidData.into());
-        }
-
-        // the remaining bytes of the request make up the actual block
-        let block_vec = read_length_prefixed(io, 1_000_000).await?;
-        if block_vec.is_empty() {
+        let buffer = read_length_prefixed(io, 1_500_000).await?;
+        if buffer.is_empty() {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
 
-        debug!("Read Blockchain Request: block is {:?}", block_vec);
-        let block: Box<Block> = Box::new(bincode::deserialize(&block_vec[..]).unwrap());
-        Ok(BlockUpdateRequest(u128::from_be_bytes(buff), block))
+        debug!("Blockchain::read_request receives: {:?}", buffer);
+
+        Ok(BlockchainRequest(buffer))
     }
 
-    //reads blockchain response from the peer
+    ///This method reads the blockchain response from the peer
     async fn read_response<T>(
         &mut self,
-        _: &BlockUpdateExchangeProtocol,
-        _io: &mut T,
+        _: &BlockchainExchangeProtocol,
+        io: &mut T,
     ) -> io::Result<Self::Response>
     where
         T: AsyncRead + Unpin + Send,
     {
-        Ok(BlockUpdateResponse())
+        let buffer = read_length_prefixed(io, 1_500_000).await?;
+        if buffer.is_empty() {
+            return Err(io::ErrorKind::UnexpectedEof.into());
+        }
+
+        debug!("Blockchain::read_response receives: {:?}", buffer);
+
+        Ok(BlockchainResponse(buffer))
     }
 
-    //this method send blockchain request from the peer
+    ///This method sends a blockchain request to the peer
     async fn write_request<T>(
         &mut self,
-        _: &BlockUpdateExchangeProtocol,
+        _: &BlockchainExchangeProtocol,
         io: &mut T,
-        BlockUpdateRequest(block_ordinal, block): BlockUpdateRequest,
+        BlockchainRequest(data): BlockchainRequest,
     ) -> io::Result<()>
     where
         T: AsyncWrite + Unpin + Send,
     {
-        debug!("Write BlockUpdateRequest: {:?}={:?}", block_ordinal, block);
-        let data = block_ordinal.to_be_bytes();
-        write_varint(io, data.as_ref().len()).await?;
-        io.write_all(data.as_ref()).await?;
-        io.flush().await?;
+        debug!("Blockchain::write_request sends: {:?}", data);
 
-        let block_data = bincode::serialize(&block).unwrap();
-        write_length_prefixed(io, block_data).await?;
+        write_length_prefixed(io, data).await?;
         io.close().await?;
 
         Ok(())
     }
 
-    //this object writes the quality metric to the peer.
+    ///This method sends a blockchain request to the peer
     async fn write_response<T>(
         &mut self,
-        _: &BlockUpdateExchangeProtocol,
-        _io: &mut T,
-        BlockUpdateResponse(): BlockUpdateResponse,
+        _: &BlockchainExchangeProtocol,
+        io: &mut T,
+        BlockchainResponse(data): BlockchainResponse,
     ) -> io::Result<()>
     where
         T: AsyncWrite + Unpin + Send,
     {
+        debug!("Blockchain::write_response sends: {:?}", data);
+
+        write_length_prefixed(io, data).await?;
+        io.close().await?;
+
         Ok(())
     }
 }
