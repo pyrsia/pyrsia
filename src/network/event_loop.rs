@@ -741,42 +741,6 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_dial_discovers_both_nodes() {
-        pretty_env_logger::init_timed();
-
-        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2) = create_test_swarm();
-
-        tokio::spawn(event_loop_1.run());
-        tokio::spawn(event_loop_2.run());
-
-        p2p_client_1
-            .listen(&"/ip4/127.0.0.1/tcp/44130".parse().unwrap())
-            .await
-            .unwrap();
-        p2p_client_2
-            .listen(&"/ip4/127.0.0.1/tcp/44131".parse().unwrap())
-            .await
-            .unwrap();
-
-        let result = p2p_client_1
-            .dial(
-                &p2p_client_2.local_peer_id,
-                &"/ip4/127.0.0.1/tcp/44131".parse().unwrap(),
-            )
-            .await;
-        assert!(result.is_ok());
-
-        // wait a few seconds for identify negotiation to finish
-        tokio::time::sleep(Duration::from_millis(5000)).await;
-
-        let peers_in_client_1 = p2p_client_1.list_peers().await.unwrap();
-        let peers_in_client_2 = p2p_client_2.list_peers().await.unwrap();
-        assert!(peers_in_client_1.contains(&p2p_client_2.local_peer_id));
-        assert!(peers_in_client_2.contains(&p2p_client_1.local_peer_id));
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
     async fn test_dial_with_invalid_peer_id() {
         let (mut p2p_client_1, event_loop_1) = create_test_swarm();
         let (p2p_client_2, _) = create_test_swarm();
