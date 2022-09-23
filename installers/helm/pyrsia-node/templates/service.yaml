@@ -3,6 +3,8 @@ kind: Service
 apiVersion: v1
 metadata:
   name: pyrsia-node-0
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: pyrsia-node-0.pyrsia.link  
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
@@ -22,6 +24,8 @@ kind: Service
 apiVersion: v1
 metadata:
   name: pyrsia-node-1
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: pyrsia-node-1.pyrsia.link    
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
@@ -41,9 +45,10 @@ kind: Service
 apiVersion: v1
 metadata:
   name: pyrsia-node-2
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: pyrsia-node-2.pyrsia.link    
 spec:
   type: LoadBalancer
-  externalTrafficPolicy: Local
   selector:
     statefulset.kubernetes.io/pod-name: pyrsia-node-2
   ports:
