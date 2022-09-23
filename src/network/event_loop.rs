@@ -21,7 +21,7 @@ use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
 use crate::util::env_util::read_var;
-use libp2p::autonat::Event as AutonatEvent;
+use libp2p::autonat::{Event as AutonatEvent, NatStatus};
 use libp2p::core::PeerId;
 use libp2p::futures::StreamExt;
 use libp2p::identify::IdentifyEvent;
@@ -110,40 +110,27 @@ impl PyrsiaEventLoop {
     async fn handle_autonat_event(&mut self, event: AutonatEvent) {
         trace!("Handle AutonatEvent: {:?}", event);
         match event {
-            AutonatEvent::InboundProbe(evt) => {
-                debug!("AutonatEvent::InboundProbe {:?}", evt);
-                // let peer = evt.Request.ge
-                // let address = evt.get_address();
-                // self.swarm.behaviour_mut().auto_nat.add_server(peer, address);
-            }
-            AutonatEvent::OutboundProbe(evt) => {
-                debug!("AutonatEvent::OutboundProbe {:?}", evt);
-            }
+            AutonatEvent::InboundProbe(..) => {}
+            AutonatEvent::OutboundProbe(..) => {}
             AutonatEvent::StatusChanged { old, new } => {
-                info!("State changed from {:?} to {:?}", old, new);
+                info!("Autonat status changed from {:?} to {:?}", old, new);
+                if let NatStatus::Public(address) = new {
+                    let local_peer_id = *self.swarm.local_peer_id();
+                    self.swarm
+                        .behaviour_mut()
+                        .kademlia
+                        .add_address(&local_peer_id, address);
+                }
             }
         }
     }
 
     // Handles events from the `Identify` network behaviour.
     async fn handle_identify_event(&mut self, event: IdentifyEvent) {
-        println!("Handle IdentifyEvent: {:?}", event);
+        trace!("Handle IdentifyEvent: {:?}", event);
         match event {
             IdentifyEvent::Pushed { .. } => {}
-            IdentifyEvent::Received { peer_id, info } => {
-                debug!("Identify::Received: {}; {:?}", peer_id, info);
-                if let Some(addr) = info.listen_addrs.get(0) {
-                    debug!(
-                        "Identify::Received: adding address {:?} for peer {}",
-                        addr.clone(),
-                        peer_id
-                    );
-                    self.swarm
-                        .behaviour_mut()
-                        .kademlia
-                        .add_address(&peer_id, addr.clone());
-                }
-            }
+            IdentifyEvent::Received { .. } => {}
             IdentifyEvent::Sent { .. } => {}
             IdentifyEvent::Error { .. } => {}
         }
