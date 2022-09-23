@@ -44,7 +44,6 @@ pub enum Command {
         sender: oneshot::Sender<anyhow::Result<()>>,
     },
     ListPeers {
-        peer_id: PeerId,
         sender: oneshot::Sender<HashSet<PeerId>>,
     },
     Status {
