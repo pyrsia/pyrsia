@@ -206,7 +206,8 @@ impl TransparencyLogService {
         };
 
         let payload = serde_json::to_string(&transparency_log).unwrap();
-        self.blockchain_service
+        let _ = self
+            .blockchain_service
             .lock()
             .await
             .add_payload(payload.into_bytes())

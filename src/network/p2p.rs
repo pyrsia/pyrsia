@@ -16,7 +16,7 @@
 
 use crate::network::artifact_protocol::{ArtifactExchangeCodec, ArtifactExchangeProtocol};
 use crate::network::behaviour::PyrsiaNetworkBehaviour;
-use crate::network::blockchain_protocol::{BlockUpdateExchangeCodec, BlockUpdateExchangeProtocol};
+use crate::network::blockchain_protocol::{BlockchainExchangeCodec, BlockchainExchangeProtocol};
 use crate::network::client::Client;
 use crate::network::event_loop::{PyrsiaEvent, PyrsiaEventLoop};
 use crate::network::idle_metric_protocol::{IdleMetricExchangeCodec, IdleMetricExchangeProtocol};
@@ -190,9 +190,9 @@ fn create_swarm(
                     iter::once((IdleMetricExchangeProtocol(), ProtocolSupport::Full)),
                     Default::default(),
                 ),
-                block_update_request_response: RequestResponse::new(
-                    BlockUpdateExchangeCodec(),
-                    iter::once((BlockUpdateExchangeProtocol(), ProtocolSupport::Full)),
+                blockchain_request_response: RequestResponse::new(
+                    BlockchainExchangeCodec(),
+                    iter::once((BlockchainExchangeProtocol(), ProtocolSupport::Full)),
                     Default::default(),
                 ),
             },
