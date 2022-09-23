@@ -114,12 +114,18 @@ impl PyrsiaEventLoop {
             AutonatEvent::OutboundProbe(..) => {}
             AutonatEvent::StatusChanged { old, new } => {
                 info!("Autonat status changed from {:?} to {:?}", old, new);
-                if let NatStatus::Public(address) = new {
-                    let local_peer_id = *self.swarm.local_peer_id();
-                    self.swarm
-                        .behaviour_mut()
-                        .kademlia
-                        .add_address(&local_peer_id, address);
+                match new {
+                    NatStatus::Public(address) => {
+                        let local_peer_id = *self.swarm.local_peer_id();
+                        self.swarm
+                            .behaviour_mut()
+                            .kademlia
+                            .add_address(&local_peer_id, address);
+                    }
+                    NatStatus::Private => {
+                        // todo: setup relay listen address
+                    }
+                    NatStatus::Unknown => {}
                 }
             }
         }
@@ -364,6 +370,11 @@ impl PyrsiaEventLoop {
             } => {
                 if endpoint.is_dialer() {
                     if let Some(sender) = self.pending_dial.remove(&peer_id) {
+                        self.swarm
+                            .behaviour_mut()
+                            .kademlia
+                            .add_address(&peer_id, endpoint.get_remote_address().to_owned());
+
                         sender.send(Ok(())).unwrap_or_else(|_e| {
                             error!("Handle SwarmEvent match arm: {}", event_str);
                         });
@@ -450,13 +461,11 @@ impl PyrsiaEventLoop {
                     }
                 }
             }
-            Command::ListPeers { peer_id, sender } => {
-                let query_id = self
-                    .swarm
-                    .behaviour_mut()
-                    .kademlia
-                    .get_closest_peers(peer_id);
-                self.pending_list_peers.insert(query_id, sender);
+            Command::ListPeers { sender } => {
+                let peers = HashSet::from_iter(self.swarm.connected_peers().copied());
+                sender.send(peers).unwrap_or_else(|_e| {
+                    error!("Handle Command match arm: {}.", command_str);
+                });
             }
             Command::Status { sender } => {
                 let swarm = &self.swarm;
