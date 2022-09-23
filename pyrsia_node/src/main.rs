@@ -113,15 +113,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         );
                     }
                 }
-                pyrsia::network::event_loop::PyrsiaEvent::BlockUpdateRequest {
-                    block_ordinal,
-                    block,
-                } => {
-                    if let Err(error) = handlers::handle_request_block_update(
+                pyrsia::network::event_loop::PyrsiaEvent::BlockchainRequest { data, channel } => {
+                    if let Err(error) = handlers::handle_request_blockchain(
                         artifact_service.clone(),
                         blockchain_service.clone(),
-                        block_ordinal,
-                        block.clone(),
+                        data,
+                        channel,
                     )
                     .await
                     {
