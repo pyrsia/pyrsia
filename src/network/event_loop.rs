@@ -23,7 +23,7 @@ use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
 use crate::util::env_util::read_var;
-use libp2p::autonat::Event as AutonatEvent;
+use libp2p::autonat::{Event as AutonatEvent, NatStatus};
 use libp2p::core::PeerId;
 use libp2p::futures::StreamExt;
 use libp2p::identify::IdentifyEvent;
@@ -116,40 +116,33 @@ impl PyrsiaEventLoop {
     async fn handle_autonat_event(&mut self, event: AutonatEvent) {
         trace!("Handle AutonatEvent: {:?}", event);
         match event {
-            AutonatEvent::InboundProbe(evt) => {
-                trace!("AutonatEvent::InboundProbe {:?}", evt);
-                // let peer = evt.Request.ge
-                // let address = evt.get_address();
-                // self.swarm.behaviour_mut().auto_nat.add_server(peer, address);
-            }
-            AutonatEvent::OutboundProbe(evt) => {
-                trace!("AutonatEvent::OutboundProbe {:?}", evt);
-            }
+            AutonatEvent::InboundProbe(..) => {}
+            AutonatEvent::OutboundProbe(..) => {}
             AutonatEvent::StatusChanged { old, new } => {
-                info!("State changed from {:?} to {:?}", old, new);
+                info!("Autonat status changed from {:?} to {:?}", old, new);
+                match new {
+                    NatStatus::Public(address) => {
+                        let local_peer_id = *self.swarm.local_peer_id();
+                        self.swarm
+                            .behaviour_mut()
+                            .kademlia
+                            .add_address(&local_peer_id, address);
+                    }
+                    NatStatus::Private => {
+                        // todo: setup relay listen address
+                    }
+                    NatStatus::Unknown => {}
+                }
             }
         }
     }
 
     // Handles events from the `Identify` network behaviour.
     async fn handle_identify_event(&mut self, event: IdentifyEvent) {
-        println!("Handle IdentifyEvent: {:?}", event);
+        trace!("Handle IdentifyEvent: {:?}", event);
         match event {
             IdentifyEvent::Pushed { .. } => {}
-            IdentifyEvent::Received { peer_id, info } => {
-                debug!("Identify::Received: {}; {:?}", peer_id, info);
-                if let Some(addr) = info.listen_addrs.get(0) {
-                    debug!(
-                        "Identify::Received: adding address {:?} for peer {}",
-                        addr.clone(),
-                        peer_id
-                    );
-                    self.swarm
-                        .behaviour_mut()
-                        .kademlia
-                        .add_address(&peer_id, addr.clone());
-                }
-            }
+            IdentifyEvent::Received { .. } => {}
             IdentifyEvent::Sent { .. } => {}
             IdentifyEvent::Error { .. } => {}
         }
@@ -443,6 +436,11 @@ impl PyrsiaEventLoop {
             } => {
                 if endpoint.is_dialer() {
                     if let Some(sender) = self.pending_dial.remove(&peer_id) {
+                        self.swarm
+                            .behaviour_mut()
+                            .kademlia
+                            .add_address(&peer_id, endpoint.get_remote_address().to_owned());
+
                         sender.send(Ok(())).unwrap_or_else(|_e| {
                             error!("Handle SwarmEvent match arm: {}", event_str);
                         });
@@ -529,13 +527,11 @@ impl PyrsiaEventLoop {
                     }
                 }
             }
-            Command::ListPeers { peer_id, sender } => {
-                let query_id = self
-                    .swarm
-                    .behaviour_mut()
-                    .kademlia
-                    .get_closest_peers(peer_id);
-                self.pending_list_peers.insert(query_id, sender);
+            Command::ListPeers { sender } => {
+                let peers = HashSet::from_iter(self.swarm.connected_peers().copied());
+                sender.send(peers).unwrap_or_else(|_e| {
+                    error!("Handle Command match arm: {}.", command_str);
+                });
             }
             Command::Status { sender } => {
                 let swarm = &self.swarm;
@@ -846,42 +842,6 @@ mod tests {
             )
             .await;
         assert!(result.is_err());
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_dial_discovers_both_nodes() {
-        pretty_env_logger::init_timed();
-
-        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2) = create_test_swarm();
-
-        tokio::spawn(event_loop_1.run());
-        tokio::spawn(event_loop_2.run());
-
-        p2p_client_1
-            .listen(&"/ip4/127.0.0.1/tcp/44130".parse().unwrap())
-            .await
-            .unwrap();
-        p2p_client_2
-            .listen(&"/ip4/127.0.0.1/tcp/44131".parse().unwrap())
-            .await
-            .unwrap();
-
-        let result = p2p_client_1
-            .dial(
-                &p2p_client_2.local_peer_id,
-                &"/ip4/127.0.0.1/tcp/44131".parse().unwrap(),
-            )
-            .await;
-        assert!(result.is_ok());
-
-        // wait a few seconds for identify negotiation to finish
-        tokio::time::sleep(Duration::from_millis(5000)).await;
-
-        let peers_in_client_1 = p2p_client_1.list_peers().await.unwrap();
-        let peers_in_client_2 = p2p_client_2.list_peers().await.unwrap();
-        assert!(peers_in_client_1.contains(&p2p_client_2.local_peer_id));
-        assert!(peers_in_client_2.contains(&p2p_client_1.local_peer_id));
     }
 
     #[tokio::test(flavor = "multi_thread")]

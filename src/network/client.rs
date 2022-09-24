@@ -131,12 +131,7 @@ impl Client {
     /// List the peers that this node is connected to.
     pub async fn list_peers(&mut self) -> anyhow::Result<HashSet<PeerId>> {
         let (sender, receiver) = oneshot::channel();
-        self.sender
-            .send(Command::ListPeers {
-                peer_id: self.local_peer_id,
-                sender,
-            })
-            .await?;
+        self.sender.send(Command::ListPeers { sender }).await?;
         Ok(receiver.await?)
     }
 
@@ -431,8 +426,7 @@ mod tests {
 
         tokio::select! {
             command = receiver.recv() => match command {
-                Some(Command::ListPeers { peer_id, sender }) => {
-                    assert_eq!(peer_id, local_peer_id);
+                Some(Command::ListPeers { sender }) => {
                     let _ = sender.send(Default::default());
                 },
                 _ => panic!("Command must match Command::ListPeers")
