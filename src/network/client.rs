@@ -94,7 +94,7 @@ impl Client {
                 sender,
             })
             .await?;
-        Ok(receiver.await?)
+        receiver.await?
     }
 
     /// Instruct the swarm to start listening on the specified address.
