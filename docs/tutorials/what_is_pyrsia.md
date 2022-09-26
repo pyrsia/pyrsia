@@ -104,8 +104,8 @@ nA --- nC
 nB --- nC
 ```
 
-Those build nodes perform build for all kinds of open source libraries (at this
-stage, Pyrsia is building support for Docker and Maven, but more package types will
+Those build nodes perform builds for all kinds of open source libraries (at this
+stage, Pyrsia is building support for Docker images and Maven artifacts, but more package types will
 be added soon). The trust in the built artifacts is reached because no single build
 node can publish an artifact on its own. It needs to ask all the other build nodes
 to verify the build (i.e. perform the same build and compare the result) and only
@@ -115,9 +115,9 @@ the artifact is published.
 Pyrsia keeps a transparency log of those publications and distributes those in a
 blockchain.
 
-Any other node in the network can access these logs and uses them to verify binary
+Any other node in the network can access these logs and use them to verify binary
 artifacts that are downloaded from other nodes in the network. Whenever a node
-downloaded an artifact, it can choose to participate in the content distribution
+downloads an artifact, it can choose to participate in the content distribution
 and provide this artifact to other nodes itself.
 
 ```mermaid

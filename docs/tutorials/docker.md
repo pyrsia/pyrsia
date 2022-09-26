@@ -7,7 +7,7 @@ sidebar_position: 2
 Once you've completed the [installation](/docs/tutorials/quick-installation.mdx),
 it's time to configure your build tools to make use of Pyrsia.
 
-In this tutorial we will show how you can easily switch your Docker setup to use
+In this tutorial we will show how you can easily modify your Docker setup to use
 Pyrsia to download official Docker images.
 
 ## Installation
@@ -50,7 +50,7 @@ publication logs, also known as transparency logs.
 When your Docker client pulls an image, it will make the request to your local
 Pyrsia node (because you configured it as a registry mirror) and it will fetch
 the artifact from a peer node in the Pyrsia network, verify it based on the
-tranparency logs and return it to the Docker client.
+transparency logs and return it to the Docker client.
 
 ```mermaid
 graph LR
