@@ -299,7 +299,8 @@ mod tests {
         keypair: &Keypair,
         p2p_client: Client,
     ) -> (mpsc::Receiver<BuildEvent>, ArtifactService) {
-        let blockchain_service = Arc::new(Mutex::new(BlockchainService::new(
+        let blockchain_service = Arc::new(Mutex::new(BlockchainService::init_first_node(
+            keypair,
             keypair,
             p2p_client.clone(),
         )));

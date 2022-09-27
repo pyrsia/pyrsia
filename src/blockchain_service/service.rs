@@ -70,10 +70,18 @@ impl Debug for BlockchainService {
 }
 
 impl BlockchainService {
-    pub fn new(keypair: &identity::ed25519::Keypair, p2p_client: Client) -> Self {
+    pub fn init_first_node(local_keypair: &identity::ed25519::Keypair, blockchain_keypair: &identity::ed25519::Keypair, p2p_client: Client) -> Self {
         Self {
-            blockchain: Blockchain::new(keypair),
-            keypair: keypair.to_owned(),
+            blockchain: Blockchain::new(blockchain_keypair),
+            keypair: local_keypair.to_owned(),
+            p2p_client,
+        }
+    }
+
+    pub fn init_other_node(local_keypair: &identity::ed25519::Keypair, p2p_client: Client) -> Self {
+        Self {
+            blockchain: Default::default(),
+            keypair: local_keypair.to_owned(),
             p2p_client,
         }
     }
@@ -172,7 +180,7 @@ mod tests {
             local_peer_id,
         };
 
-        BlockchainService::new(&ed25519_keypair, client)
+        BlockchainService::init_first_node(&ed25519_keypair, &ed25519_keypair, client)
     }
 
     #[tokio::test(flavor = "multi_thread")]

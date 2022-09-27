@@ -19,6 +19,7 @@ pub mod network;
 
 use anyhow::{bail, Result};
 use args::parser::PyrsiaNodeArgs;
+use libp2p::identity::Keypair;
 use network::handlers;
 use pyrsia::artifact_service::service::ArtifactService;
 use pyrsia::artifact_service::storage::ARTIFACTS_DIR;
@@ -54,13 +55,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = PyrsiaNodeArgs::parse();
 
     debug!("Create p2p components");
-    let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm(args.max_provided_keys)?;
+    let (p2p_client, local_keypair, mut p2p_events, event_loop) =
+        p2p::setup_libp2p_swarm(args.max_provided_keys)?;
 
     debug!("Start p2p event loop");
     tokio::spawn(event_loop.run());
 
     debug!("Create blockchain service component");
-    let blockchain_service = setup_blockchain_service(p2p_client.clone())?;
+    let blockchain_service = setup_blockchain_service(local_keypair, p2p_client.clone(), &args)?;
 
     debug!("Create transparency log service");
     let transparency_log_service = setup_transparency_log_service(blockchain_service.clone())?;
@@ -193,21 +195,41 @@ async fn load_peer_addrs(peer_url: &str) -> anyhow::Result<String> {
     }
 }
 
-fn setup_blockchain_service(p2p_client: Client) -> Result<Arc<Mutex<BlockchainService>>> {
-    let local_keypair =
-        keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
+fn setup_blockchain_service(
+    local_keypair: Keypair,
+    p2p_client: Client,
+    args: &PyrsiaNodeArgs,
+) -> Result<Arc<Mutex<BlockchainService>>> {
+    let blockchain_service: BlockchainService;
 
-    let ed25519_keypair = match local_keypair {
+    let local_ed25519_keypair = match local_keypair {
         libp2p::identity::Keypair::Ed25519(v) => v,
         _ => {
             bail!("Keypair Format Error");
         }
     };
 
-    Ok(Arc::new(Mutex::new(BlockchainService::new(
-        &ed25519_keypair,
-        p2p_client,
-    ))))
+    if args.init_blockchain {
+        let blockchain_keypair =
+            keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
+
+        let blockchain_ed25519_keypair = match blockchain_keypair {
+            libp2p::identity::Keypair::Ed25519(v) => v,
+            _ => {
+                bail!("Keypair Format Error");
+            }
+        };
+        // Refactor to overloading(trait) later
+        blockchain_service = BlockchainService::init_first_node(
+            &local_ed25519_keypair,
+            &blockchain_ed25519_keypair,
+            p2p_client,
+        );
+    } else {
+        blockchain_service = BlockchainService::init_other_node(&local_ed25519_keypair, p2p_client);
+    }
+
+    Ok(Arc::new(Mutex::new(blockchain_service)))
 }
 
 fn setup_transparency_log_service(
@@ -334,14 +356,15 @@ fn setup_http(
 #[cfg(test)]
 #[cfg(not(tarpaulin_include))]
 mod tests {
+    use crate::{args::parser::PyrsiaNodeArgs, setup_blockchain_service};
+    use clap::Parser;
     use pyrsia::network::p2p;
-
-    use crate::setup_blockchain_service;
 
     #[test]
     fn setup_blockchain_success() {
-        let (p2p_client, _, _) = p2p::setup_libp2p_swarm(100).unwrap();
-        let blockchain_service = setup_blockchain_service(p2p_client.clone());
+        let (p2p_client, local_keypair, _, _) = p2p::setup_libp2p_swarm(100).unwrap();
+        let args = PyrsiaNodeArgs::parse();
+        let blockchain_service = setup_blockchain_service(local_keypair, p2p_client.clone(), &args);
         assert!(blockchain_service.is_ok());
     }
 }
