@@ -14,7 +14,9 @@
    limitations under the License.
 */
 
+use bincode::{deserialize, serialize};
 use libp2p::identity;
+use libp2p::PeerId;
 use log::warn;
 use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::error::BlockchainError;
@@ -70,7 +72,7 @@ impl Debug for BlockchainService {
 }
 
 impl BlockchainService {
-    pub fn init_first_node(local_keypair: &identity::ed25519::Keypair, blockchain_keypair: &identity::ed25519::Keypair, p2p_client: Client) -> Self {
+    pub fn init_first_blockchain_node(local_keypair: &identity::ed25519::Keypair, blockchain_keypair: &identity::ed25519::Keypair, p2p_client: Client) -> Self {
         Self {
             blockchain: Blockchain::new(blockchain_keypair),
             keypair: local_keypair.to_owned(),
@@ -78,7 +80,7 @@ impl BlockchainService {
         }
     }
 
-    pub fn init_other_node(local_keypair: &identity::ed25519::Keypair, p2p_client: Client) -> Self {
+    pub fn init_other_blockchain_node(local_keypair: &identity::ed25519::Keypair, p2p_client: Client) -> Self {
         Self {
             blockchain: Default::default(),
             keypair: local_keypair.to_owned(),
@@ -110,8 +112,8 @@ impl BlockchainService {
         log::debug!("Blockchain get block to broadcast:{:?}", block);
 
         buf.push(cmd);
-        buf.append(&mut bincode::serialize(&block_ordinal).unwrap());
-        buf.append(&mut bincode::serialize(&block).unwrap());
+        buf.append(&mut serialize(&block_ordinal).unwrap());
+        buf.append(&mut serialize(&block).unwrap());
 
         for peer_id in peer_list.iter() {
             self.p2p_client
@@ -121,6 +123,38 @@ impl BlockchainService {
 
         Ok(())
     }
+
+    async fn query_blockchain_ordinal(&mut self, other_peer_id :&PeerId) -> Result<Ordinal, BlockchainError> {
+        let cmd = BlockchainCommand::QueryHighestBlockOrdinal as u8;
+
+        let mut buf: Vec<u8> = vec![];
+
+        log::debug!("Blockchain query ordinal from : {:?}", other_peer_id);
+
+        buf.push(cmd);
+
+        let ordinal = deserialize(&self.p2p_client.request_blockchain(other_peer_id, buf.clone()).await?).unwrap();
+
+        Ok(ordinal)
+    }
+
+    async fn pull_block_from_other_nodes(&mut self, other_peer_id :&PeerId, start :Ordinal, end :Ordinal) -> Result<Vec<Block>, BlockchainError> {
+        let cmd = BlockchainCommand::PullFromPeer as u8;
+
+        let mut buf: Vec<u8> = vec![];
+
+        log::debug!("Blockchain query ordinal from : {:?}", other_peer_id);
+
+        buf.push(cmd);
+        buf.append(&mut serialize(&start).unwrap());
+        buf.append(&mut serialize(&end).unwrap());
+
+        let blocks = deserialize(&self.p2p_client.request_blockchain(other_peer_id, buf.clone()).await?).unwrap();
+
+        Ok(blocks)
+    }
+
+
 
     /// Add a new block to local blockchain.
     pub async fn add_block(
@@ -157,10 +191,24 @@ impl BlockchainService {
         end: Ordinal,
     ) -> Result<Vec<Block>, BlockchainError> {
         self.blockchain.pull_blocks(start, end)
+        
     }
 
     pub async fn query_last_block(&self) -> Option<Block> {
         self.blockchain.last_block()
+    }
+
+    pub async fn init_pull_from_others(&mut self, other_peer_id: &PeerId) -> Result<(), BlockchainError> {
+        // Always start with the genesis block
+        let ordinal = self.query_blockchain_ordinal(other_peer_id).await?;
+
+        for block in self.pull_block_from_other_nodes(other_peer_id, 0, ordinal).await?.iter() {
+            let ordinal = block.header.ordinal;
+            let block = block.clone();
+            self.add_block(ordinal, Box::new(block)).await?;
+        }
+
+        Ok(())
     }
 }
 
@@ -180,7 +228,7 @@ mod tests {
             local_peer_id,
         };
 
-        BlockchainService::init_first_node(&ed25519_keypair, &ed25519_keypair, client)
+        BlockchainService::init_first_blockchain_node(&ed25519_keypair, &ed25519_keypair, client)
     }
 
     #[tokio::test(flavor = "multi_thread")]
