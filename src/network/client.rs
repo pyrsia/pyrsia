@@ -16,11 +16,13 @@
 
 pub mod command;
 
+use crate::artifact_service::model::PackageType;
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::blockchain_protocol::BlockchainResponse;
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
+use anyhow::Error;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
 use log::debug;
@@ -94,7 +96,7 @@ impl Client {
                 sender,
             })
             .await?;
-        Ok(receiver.await?)
+        receiver.await?
     }
 
     /// Instruct the swarm to start listening on the specified address.
@@ -168,6 +170,42 @@ impl Client {
             })
             .await?;
         Ok(receiver.await?)
+    }
+
+    /// Request a build to a peer with the specified address.
+    pub async fn request_build(
+        &mut self,
+        peer_id: &PeerId,
+        package_type: PackageType,
+        package_specific_id: String,
+    ) -> anyhow::Result<String> {
+        debug!(
+            "p2p::Client::request_build {:?}: {:?}: {:?}",
+            peer_id, package_type, package_specific_id
+        );
+
+        let (sender, receiver) = oneshot::channel();
+        match self
+            .sender
+            .send(Command::RequestBuild {
+                peer: *peer_id,
+                package_type: package_type.to_owned(),
+                package_specific_id: package_specific_id.to_owned(),
+                sender,
+            })
+            .await
+        {
+            Ok(_) => debug!("Build requested successfully"),
+            Err(e) => debug!("Error sending build request: {:?}", e),
+        }
+
+        match receiver.await {
+            Ok(result) => result,
+            Err(e) => {
+                debug!("Receiver of build request error: {:?}", e);
+                Err(Error::from(e))
+            }
+        }
     }
 
     /// Request an artifact with the specified `artifact_id`
@@ -533,6 +571,47 @@ mod tests {
                     let _ = sender.send(Ok(vec![]));
                 },
                 _ => panic!("Command must match Command::RequestArtifact")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_request_docker_build() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let mut client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+        let docker_package_type = PackageType::Docker;
+        let random_package_specific_id: String = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect();
+        let cloned_random_package_specific_id = random_package_specific_id.clone();
+
+        tokio::spawn(async move {
+            client
+                .request_build(
+                    &other_peer_id,
+                    docker_package_type,
+                    random_package_specific_id,
+                )
+                .await
+        });
+
+        tokio::select! {
+            command = receiver.recv() => match command {
+                Some(Command::RequestBuild { peer, package_type, package_specific_id, sender }) => {
+                    assert_eq!(peer, other_peer_id);
+                    assert_eq!(package_type, docker_package_type);
+                    assert_eq!(package_specific_id, cloned_random_package_specific_id);
+                    let _ = sender.send(Ok(String::from("ok")));
+                },
+                _ => panic!("Command must match Command::RequestBuild")
             }
         }
     }

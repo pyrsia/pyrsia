@@ -105,7 +105,7 @@ pub struct TransparencyLog {
     source_id: String,
     timestamp: u64,
     pub operation: Operation,
-    node_id: String,
+    pub node_id: String,
     node_public_key: String,
 }
 
@@ -151,7 +151,28 @@ impl TransparencyLogService {
     }
 
     /// Add a new authorized node to the p2p network.
-    pub fn add_authorized_node(&self, _peer_id: PeerId) -> Result<(), TransparencyLogError> {
+    pub fn add_authorized_node(&self, peer_id: PeerId) -> Result<(), TransparencyLogError> {
+        let transparency_log = TransparencyLog {
+            id: Uuid::new_v4().to_string(),
+            package_type: None,
+            package_specific_id: String::from(""),
+            num_artifacts: 0,
+            package_specific_artifact_id: String::from(""),
+            artifact_hash: String::from(""),
+            source_hash: String::from(""),
+            artifact_id: String::from(""),
+            source_id: String::from(""),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            operation: Operation::AddNode,
+            node_id: peer_id.to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        self.write_transparency_log(&transparency_log)?;
+
         Ok(())
     }
 
@@ -232,9 +253,10 @@ impl TransparencyLogService {
     }
 
     fn open_db(&self) -> Result<Connection, TransparencyLogError> {
-        fs::create_dir_all(&self.storage_path)?;
-        let db_storage_path = self.storage_path.to_str().unwrap();
-        let conn = Connection::open(db_storage_path.to_owned() + "/transparency_log.db")?;
+        let mut db_path = self.storage_path.to_owned();
+        fs::create_dir_all(db_path.clone())?;
+        db_path.push("transparency_log.db");
+        let conn = Connection::open(db_path)?;
         match conn.execute(
             "CREATE TABLE IF NOT EXISTS TRANSPARENCYLOG (
                 id TEXT PRIMARY KEY,
@@ -443,6 +465,7 @@ mod tests {
     use super::*;
     use crate::{network::client::Client, util::test_util};
     use libp2p::identity;
+    use libp2p::identity::Keypair;
     use tokio::sync::mpsc;
 
     fn create_p2p_client(keypair: identity::Keypair) -> Client {
@@ -527,6 +550,9 @@ mod tests {
         let mut path = log.storage_path;
         path.push("transparency_log.db");
         assert_eq!(conn.path().unwrap(), path.as_path());
+
+        let close_result = conn.close();
+        assert!(close_result.is_ok());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -837,6 +863,42 @@ mod tests {
         let result_read = log.get_authorized_nodes();
         assert!(result_read.is_ok());
         assert_eq!(result_read.unwrap().len(), 0);
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_add_authorized_nodes() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = create_transparency_log_service(&tmp_dir);
+
+        let peer_id = Keypair::generate_ed25519().public().to_peer_id();
+
+        let transparency_log = TransparencyLog {
+            id: String::from("id"),
+            package_type: None,
+            package_specific_id: String::from(""),
+            num_artifacts: 0,
+            package_specific_artifact_id: String::from(""),
+            artifact_hash: String::from(""),
+            source_hash: String::from(""),
+            artifact_id: String::from(""),
+            source_id: String::from(""),
+            timestamp: 10000000,
+            operation: Operation::AddNode,
+            node_id: peer_id.clone().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        let result_add = log.add_authorized_node(peer_id);
+        assert!(result_add.is_ok());
+
+        let result_read = log.get_authorized_nodes();
+        assert!(result_read.is_ok());
+        let vec = result_read.unwrap();
+        assert_eq!(vec.len(), 1);
+        assert_eq!(vec.get(0).unwrap().node_id, transparency_log.node_id);
 
         test_util::tests::teardown(tmp_dir);
     }
