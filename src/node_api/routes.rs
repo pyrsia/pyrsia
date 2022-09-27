@@ -18,7 +18,7 @@ use super::handlers::swarm::*;
 use super::model::cli::{RequestDockerBuild, RequestMavenBuild};
 use crate::artifact_service::service::ArtifactService;
 use crate::network::client::Client;
-use crate::node_api::model::cli::{RequestDockerLog, RequestMavenLog};
+use crate::node_api::model::cli::{RequestAddNode, RequestDockerLog, RequestMavenLog};
 use crate::transparency_log::log::TransparencyLogService;
 use warp::Filter;
 
@@ -38,6 +38,14 @@ pub fn make_node_routes(
         .and(warp::body::json::<RequestDockerBuild>())
         .and(artifact_service_filter.clone())
         .and_then(handle_build_docker);
+
+    let add_node = warp::path!("node" / "add")
+        .and(warp::post())
+        .and(warp::path::end())
+        .and(warp::body::content_length_limit(1024 * 8))
+        .and(warp::body::json::<RequestAddNode>())
+        .and(transparency_log_service_filter.clone())
+        .and_then(handle_add_authorized_node);
 
     let build_maven = warp::path!("build" / "maven")
         .and(warp::post())
@@ -81,7 +89,8 @@ pub fn make_node_routes(
             .or(peers)
             .or(status)
             .or(inspect_docker)
-            .or(inspect_maven),
+            .or(inspect_maven)
+            .or(add_node),
     )
 }
 

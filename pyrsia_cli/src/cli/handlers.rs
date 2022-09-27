@@ -18,7 +18,7 @@ use lazy_static::lazy_static;
 use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::node;
 use pyrsia::node_api::model::cli::{
-    RequestDockerBuild, RequestDockerLog, RequestMavenBuild, RequestMavenLog,
+    RequestAddNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild, RequestMavenLog,
 };
 use regex::Regex;
 use std::collections::HashSet;
@@ -92,6 +92,17 @@ fn handle_request_build_result(build_result: Result<String, reqwest::Error>) {
     }
 }
 
+fn handle_request_authorize(authorize_result: Result<String, reqwest::Error>) {
+    match authorize_result {
+        Ok(_auth_id) => {
+            println!("Authorize request successfully handled.",);
+        }
+        Err(error) => {
+            println!("Authorize request failed with error: {}", error);
+        }
+    }
+}
+
 pub async fn node_ping() {
     let result = node::ping().await;
     match result {
@@ -132,6 +143,14 @@ pub async fn node_list() {
             println!("Error: {}. {}", error, CONF_REMINDER_MESSAGE);
         }
     }
+}
+
+pub async fn request_authorize(peer_id: &str) {
+    let build_result = node::request_authorize(RequestAddNode {
+        peer_id: peer_id.to_owned(),
+    })
+    .await;
+    handle_request_authorize(build_result);
 }
 
 pub async fn inspect_docker_transparency_log(image: &str) {

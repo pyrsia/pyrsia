@@ -64,6 +64,9 @@ async fn main() {
             }
             _ => {}
         },
+        Some(("authorize", _authorize_matches)) => {
+            request_authorize(_authorize_matches.get_one::<String>("peer").unwrap()).await;
+        }
         _ => {} //this should be handled by clap arg_required_else_help
     }
 }

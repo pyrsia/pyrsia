@@ -216,6 +216,52 @@ impl TransparencyLogService {
         Ok(transparency_log)
     }
 
+    pub async fn request_add_authorized_node(
+        &mut self,
+        peer_id: &str,
+    ) -> Result<(), anyhow::Error> {
+        let add_node_transparency_log = self.create_add_node(peer_id).unwrap();
+
+        let payload = serde_json::to_string(&add_node_transparency_log).unwrap();
+
+        let _ = self
+            .blockchain_service
+            .lock()
+            .await
+            .add_payload(payload.into_bytes())
+            .await;
+
+        self.write_transparency_log(&add_node_transparency_log)?;
+
+        Ok(())
+    }
+
+    pub fn create_add_node(
+        &mut self,
+        peer_id: &str,
+    ) -> Result<TransparencyLog, TransparencyLogError> {
+        let transparency_log = TransparencyLog {
+            id: Uuid::new_v4().to_string(),
+            package_type: None,
+            package_specific_id: String::from(""),
+            num_artifacts: 0,
+            package_specific_artifact_id: String::from(""),
+            artifact_hash: String::from(""),
+            source_hash: String::from(""),
+            artifact_id: String::from(""),
+            source_id: String::from(""),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            operation: Operation::AddNode,
+            node_id: peer_id.to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        Ok(transparency_log)
+    }
+
     /// Adds a transparency log with the RemoveArtifact operation.
     pub fn remove_artifact(
         &mut self,

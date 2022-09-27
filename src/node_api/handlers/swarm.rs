@@ -18,7 +18,7 @@ use crate::artifact_service::model::PackageType;
 use crate::docker::error_util::RegistryError;
 use crate::network::client::Client;
 use crate::node_api::model::cli::{
-    RequestDockerBuild, RequestDockerLog, RequestMavenBuild, RequestMavenLog,
+    RequestAddNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild, RequestMavenLog,
 };
 use crate::transparency_log::log::TransparencyLogService;
 
@@ -41,6 +41,23 @@ pub async fn handle_build_docker(
         .header("Content-Type", "application/json")
         .status(StatusCode::OK)
         .body(build_id_as_json))
+}
+
+pub async fn handle_add_authorized_node(
+    request_add_node: RequestAddNode,
+    mut transparency_log_service: TransparencyLogService,
+) -> Result<impl Reply, Rejection> {
+    transparency_log_service
+        .request_add_authorized_node(request_add_node.peer_id.as_str())
+        .await
+        .map_err(RegistryError::from)?;
+
+    let json = serde_json::to_string("OK").map_err(RegistryError::from)?;
+
+    Ok(warp::http::response::Builder::new()
+        .header("Content-Type", "application/json")
+        .status(StatusCode::OK)
+        .body(json))
 }
 
 pub async fn handle_build_maven(

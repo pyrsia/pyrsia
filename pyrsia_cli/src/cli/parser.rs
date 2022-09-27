@@ -77,6 +77,12 @@ pub fn cli_parser() -> ArgMatches {
                             arg!(--gav <GAV> "The maven GAV (e.g. org.myorg:my-artifact:1.1.0)"),
                         ]),
                 ]),
+            Command::new("authorize")
+                .about("Pyrsia authorize command")
+                .arg_required_else_help(true)
+                .args(&[
+                    arg!(-p --peer <PEER_ID>      "Peer ID of the node to authorize"),
+                ]),
         ])
         .version(version_string)
         .get_matches()
