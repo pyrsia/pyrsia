@@ -21,11 +21,15 @@ use libp2p::request_response::ResponseChannel;
 use libp2p::{Multiaddr, PeerId};
 use log::debug;
 
+use pyrsia::artifact_service::model::PackageType;
 use pyrsia::artifact_service::service::ArtifactService;
 use pyrsia::blockchain_service::service::BlockchainCommand;
 use pyrsia::blockchain_service::service::BlockchainService;
+use pyrsia::build_service::error::BuildError;
+use pyrsia::build_service::event::BuildEventClient;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
 use pyrsia::network::blockchain_protocol::BlockchainResponse;
+use pyrsia::network::build_protocol::BuildResponse;
 use pyrsia::network::client::Client;
 use pyrsia::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use pyrsia::peer_metrics;
@@ -70,6 +74,24 @@ pub async fn handle_request_artifact(
     artifact_service
         .p2p_client
         .respond_artifact(content, channel)
+        .await
+}
+
+/// Respond to a RequestBuild event by getting the build
+/// based on the provided package_type and package_specific_id.
+pub async fn handle_request_build(
+    build_event_client: BuildEventClient,
+    package_type: PackageType,
+    package_specific_id: &str,
+    _: ResponseChannel<BuildResponse>,
+) -> Result<String, BuildError> {
+    debug!(
+        "Handling request build: {:?} : {}",
+        package_type, package_specific_id
+    );
+
+    build_event_client
+        .start_build(package_type, package_specific_id.to_string())
         .await
 }
 
