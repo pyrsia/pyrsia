@@ -422,13 +422,12 @@ impl PyrsiaEventLoop {
                 probe_addr,
                 sender,
             } => {
-                self.swarm
-                    .behaviour_mut()
-                    .auto_nat
-                    .add_server(peer_id, Some(probe_addr));
-                match sender.send(()) {
-                    Ok(_) => log::info!("Handled probe for AutoNAT"),
-                    Err(e) => log::error!("Could not handle probe for AutoNAT: {:?}", e),
+                if let Entry::Vacant(_) = self.pending_dial.entry(peer_id) {
+                    self.pending_dial.insert(peer_id, sender);
+                    self.swarm
+                        .behaviour_mut()
+                        .auto_nat
+                        .add_server(peer_id, Some(probe_addr));
                 }
             }
             Command::Listen { addr, sender } => {
