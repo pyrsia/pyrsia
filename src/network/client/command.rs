@@ -33,7 +33,7 @@ pub enum Command {
     AddProbe {
         peer_id: PeerId,
         probe_addr: Multiaddr,
-        sender: oneshot::Sender<()>,
+        sender: oneshot::Sender<anyhow::Result<()>>,
     },
     Listen {
         addr: Multiaddr,

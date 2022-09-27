@@ -253,9 +253,10 @@ impl TransparencyLogService {
     }
 
     fn open_db(&self) -> Result<Connection, TransparencyLogError> {
-        fs::create_dir_all(&self.storage_path)?;
-        let db_storage_path = self.storage_path.to_str().unwrap();
-        let conn = Connection::open(db_storage_path.to_owned() + "/transparency_log.db")?;
+        let mut db_path = self.storage_path.to_owned();
+        fs::create_dir_all(db_path.clone())?;
+        db_path.push("transparency_log.db");
+        let conn = Connection::open(db_path)?;
         match conn.execute(
             "CREATE TABLE IF NOT EXISTS TRANSPARENCYLOG (
                 id TEXT PRIMARY KEY,
@@ -549,6 +550,9 @@ mod tests {
         let mut path = log.storage_path;
         path.push("transparency_log.db");
         assert_eq!(conn.path().unwrap(), path.as_path());
+
+        let close_result = conn.close();
+        assert!(close_result.is_ok());
 
         test_util::tests::teardown(tmp_dir);
     }
