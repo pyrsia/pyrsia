@@ -87,7 +87,7 @@ pub async fn handle_request_idle_metric(
     p2p_client.respond_idle_metric(peer_metrics, channel).await
 }
 
-//Respsond to the BlockchainRequest event
+//Respond to the BlockchainRequest event
 pub async fn handle_request_blockchain(
     artifact_service: ArtifactService,
     blockchain_service: Arc<Mutex<BlockchainService>>,

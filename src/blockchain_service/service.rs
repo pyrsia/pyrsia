@@ -133,7 +133,7 @@ impl BlockchainService {
                 let expected = last_block.header.ordinal + 1;
                 match ordinal.cmp(&expected) {
                     Ordering::Greater => return Err(BlockchainError::LaggingBlockchainData),
-                    Ordering::Less => warn!("Blockchain Receives a Duplicate Block!"),
+                    Ordering::Less => warn!("Blockchain received a duplicate block!"),
                     Ordering::Equal => self.blockchain.update_block_from_peers(block).await,
                 }
             }
