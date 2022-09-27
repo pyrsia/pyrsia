@@ -7,7 +7,7 @@ Microservice Configuration Management - Track, Version, Find, Share and Deploy M
 ## TL;DR - Google
 
 ```console
-#!/usr/env bash
+#!/usr/bin/env bash
 
 # GKE Project Details
 export GKE_PROJECT_ID=$(gcloud config get project)
@@ -17,6 +17,7 @@ export GKE_PROJECT_NUMBER=$(gcloud projects list --filter="${GKE_PROJECT_ID}" --
 export DNS_SA_EMAIL="${DNS_SA_NAME}@${GKE_PROJECT_ID}.iam.gserviceaccount.com"
 export DNS_SA_NAME="external-dns-sa"
 export EXTERNALDNS_NS="external-dns"
+export EXTERNALDNS_DOMAIN="example.com"
 
 # Pyrsia P2P
 export KEY="pyrsia-p2p-key"
@@ -44,9 +45,10 @@ gcloud kms keyrings create ${KEYRING} --project ${GKE_PROJECT_ID} --location glo
 gcloud kms keys create ${KEY} --keyring ${KEYRING} --project ${GKE_PROJECT_ID} --location global --purpose "Symmetric encrypt/decrypt"
 
 # Install Pyrsia
+kubectl create namespace ${PYRSIA_NS}
 helm repo add pyrsiaoss https://helmrepo.pyrsia.io/repos/nightly
 helm repo update
-helm upgrade pyrsia pyrsiaoss/pyrsia-node --create-namespace ${PYRSIA_NS} --namespace ${PYRSIA_NS} --install --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/${GKE_PROJECT_ID}/locations/global/keyRings/${KEYRING}/cryptoKeys/${KEY}" --set external_dns_ns=${EXTERNALDNS_NS}
+helm upgrade pyrsia pyrsiaoss/pyrsia-node -n ${PYRSIA_NS} --install --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/${GKE_PROJECT_ID}/locations/global/keyRings/${KEYRING}/cryptoKeys/${KEY}" --set external_dns_ns=${EXTERNALDNS_NS} --set dnsname=${EXTERNALDNS_DOMAIN}
 
 ```
 
