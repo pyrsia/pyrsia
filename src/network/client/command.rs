@@ -14,13 +14,13 @@
    limitations under the License.
 */
 
+use crate::artifact_service::model::PackageType;
 use crate::network::artifact_protocol::ArtifactResponse;
+use crate::network::blockchain_protocol::BlockchainResponse;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
-use pyrsia_blockchain_network::structures::block::Block;
-use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::collections::HashSet;
 use strum_macros::Display;
 use tokio::sync::oneshot;
@@ -33,7 +33,7 @@ pub enum Command {
     AddProbe {
         peer_id: PeerId,
         probe_addr: Multiaddr,
-        sender: oneshot::Sender<()>,
+        sender: oneshot::Sender<anyhow::Result<()>>,
     },
     Listen {
         addr: Multiaddr,
@@ -45,7 +45,6 @@ pub enum Command {
         sender: oneshot::Sender<anyhow::Result<()>>,
     },
     ListPeers {
-        peer_id: PeerId,
         sender: oneshot::Sender<HashSet<PeerId>>,
     },
     Status {
@@ -58,6 +57,12 @@ pub enum Command {
     ListProviders {
         artifact_id: String,
         sender: oneshot::Sender<HashSet<PeerId>>,
+    },
+    RequestBuild {
+        peer: PeerId,
+        package_type: PackageType,
+        package_specific_id: String,
+        sender: oneshot::Sender<anyhow::Result<String>>,
     },
     RequestArtifact {
         artifact_id: String,
@@ -76,13 +81,15 @@ pub enum Command {
         metric: PeerMetrics,
         channel: ResponseChannel<IdleMetricResponse>,
     },
-    RequestBlockUpdate {
-        block_ordinal: Ordinal,
-        block: Box<Block>,
+    RequestBlockchain {
+        data: Vec<u8>,
         peer: PeerId,
-        sender: oneshot::Sender<anyhow::Result<Option<u64>>>,
+        sender: oneshot::Sender<anyhow::Result<Vec<u8>>>,
     },
-    RespondBlockUpdate(),
+    RespondBlockchain {
+        data: Vec<u8>,
+        channel: ResponseChannel<BlockchainResponse>,
+    },
 }
 
 #[cfg(test)]

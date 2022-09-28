@@ -15,6 +15,7 @@
 */
 
 use crate::artifact_service::model::PackageType;
+use crate::blockchain_service::service::BlockchainService;
 use libp2p::PeerId;
 use log::{debug, error};
 use rusqlite::types::{ToSqlOutput, Value};
@@ -24,8 +25,10 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
@@ -102,7 +105,7 @@ pub struct TransparencyLog {
     source_id: String,
     timestamp: u64,
     pub operation: Operation,
-    node_id: String,
+    pub node_id: String,
     node_public_key: String,
 }
 
@@ -128,21 +131,48 @@ pub struct AuthorizedNode {
 ///
 /// It uses a local database to store and index transparency log information to simplify
 /// access.
+#[derive(Clone)]
 pub struct TransparencyLogService {
     storage_path: PathBuf,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
 }
 
 impl TransparencyLogService {
-    pub fn new<P: AsRef<Path>>(repository_path: P) -> Result<Self, TransparencyLogError> {
+    pub fn new<P: AsRef<Path>>(
+        repository_path: P,
+        blockchain_service: Arc<Mutex<BlockchainService>>,
+    ) -> Result<Self, TransparencyLogError> {
         let mut absolute_path = repository_path.as_ref().to_path_buf().canonicalize()?;
         absolute_path.push("transparency_log");
         Ok(TransparencyLogService {
             storage_path: absolute_path,
+            blockchain_service,
         })
     }
 
     /// Add a new authorized node to the p2p network.
-    pub fn add_authorized_node(&self, _peer_id: PeerId) -> Result<(), TransparencyLogError> {
+    pub fn add_authorized_node(&self, peer_id: PeerId) -> Result<(), TransparencyLogError> {
+        let transparency_log = TransparencyLog {
+            id: Uuid::new_v4().to_string(),
+            package_type: None,
+            package_specific_id: String::from(""),
+            num_artifacts: 0,
+            package_specific_artifact_id: String::from(""),
+            artifact_hash: String::from(""),
+            source_hash: String::from(""),
+            artifact_id: String::from(""),
+            source_id: String::from(""),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            operation: Operation::AddNode,
+            node_id: peer_id.to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        self.write_transparency_log(&transparency_log)?;
+
         Ok(())
     }
 
@@ -152,7 +182,7 @@ impl TransparencyLogService {
     }
 
     /// Adds a transparency log with the AddArtifact operation.
-    pub async fn create_add_artifact(
+    pub async fn add_artifact(
         &mut self,
         add_artifact_request: AddArtifactRequest,
     ) -> Result<TransparencyLog, TransparencyLogError> {
@@ -174,6 +204,14 @@ impl TransparencyLogService {
             node_id: Uuid::new_v4().to_string(),
             node_public_key: Uuid::new_v4().to_string(),
         };
+
+        let payload = serde_json::to_string(&transparency_log).unwrap();
+        let _ = self
+            .blockchain_service
+            .lock()
+            .await
+            .add_payload(payload.into_bytes())
+            .await;
 
         Ok(transparency_log)
     }
@@ -215,9 +253,10 @@ impl TransparencyLogService {
     }
 
     fn open_db(&self) -> Result<Connection, TransparencyLogError> {
-        fs::create_dir_all(&self.storage_path)?;
-        let db_storage_path = self.storage_path.to_str().unwrap();
-        let conn = Connection::open(db_storage_path.to_owned() + "/transparency_log.db")?;
+        let mut db_path = self.storage_path.to_owned();
+        fs::create_dir_all(db_path.clone())?;
+        db_path.push("transparency_log.db");
+        let conn = Connection::open(db_path)?;
         match conn.execute(
             "CREATE TABLE IF NOT EXISTS TRANSPARENCYLOG (
                 id TEXT PRIMARY KEY,
@@ -424,7 +463,30 @@ impl TransparencyLogService {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
-    use crate::util::test_util;
+    use crate::{network::client::Client, util::test_util};
+    use libp2p::identity;
+    use libp2p::identity::Keypair;
+    use tokio::sync::mpsc;
+
+    fn create_p2p_client(keypair: identity::Keypair) -> Client {
+        let (command_sender, _command_receiver) = mpsc::channel(1);
+        Client {
+            sender: command_sender,
+            local_peer_id: keypair.public().to_peer_id(),
+        }
+    }
+
+    fn create_transparency_log_service<P: AsRef<Path>>(artifact_path: P) -> TransparencyLogService {
+        let ed25519_keypair = identity::ed25519::Keypair::generate();
+        let p2p_client = create_p2p_client(identity::Keypair::Ed25519(ed25519_keypair.clone()));
+
+        let blockchain_service = Arc::new(Mutex::new(BlockchainService::new(
+            &ed25519_keypair,
+            p2p_client,
+        )));
+
+        TransparencyLogService::new(&artifact_path, blockchain_service).unwrap()
+    }
 
     #[test]
     fn create_transparency_log() {
@@ -475,10 +537,6 @@ mod tests {
         assert_eq!(transparency_log.node_public_key, node_public_key);
     }
 
-    fn create_transparency_log_service<P: AsRef<Path>>(artifact_path: P) -> TransparencyLogService {
-        TransparencyLogService::new(&artifact_path).unwrap()
-    }
-
     #[test]
     fn test_open_db() {
         let tmp_dir = test_util::tests::setup();
@@ -492,6 +550,9 @@ mod tests {
         let mut path = log.storage_path;
         path.push("transparency_log.db");
         assert_eq!(conn.path().unwrap(), path.as_path());
+
+        let close_result = conn.close();
+        assert!(close_result.is_ok());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -774,13 +835,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_create_add_artifact() {
+    async fn test_add_artifact() {
         let tmp_dir = test_util::tests::setup();
 
         let mut log = create_transparency_log_service(&tmp_dir);
 
         let result = log
-            .create_add_artifact(AddArtifactRequest {
+            .add_artifact(AddArtifactRequest {
                 package_type: PackageType::Docker,
                 package_specific_id: "package_specific_id".to_owned(),
                 num_artifacts: 8,
@@ -802,6 +863,42 @@ mod tests {
         let result_read = log.get_authorized_nodes();
         assert!(result_read.is_ok());
         assert_eq!(result_read.unwrap().len(), 0);
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_add_authorized_nodes() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = create_transparency_log_service(&tmp_dir);
+
+        let peer_id = Keypair::generate_ed25519().public().to_peer_id();
+
+        let transparency_log = TransparencyLog {
+            id: String::from("id"),
+            package_type: None,
+            package_specific_id: String::from(""),
+            num_artifacts: 0,
+            package_specific_artifact_id: String::from(""),
+            artifact_hash: String::from(""),
+            source_hash: String::from(""),
+            artifact_id: String::from(""),
+            source_id: String::from(""),
+            timestamp: 10000000,
+            operation: Operation::AddNode,
+            node_id: peer_id.clone().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        let result_add = log.add_authorized_node(peer_id);
+        assert!(result_add.is_ok());
+
+        let result_read = log.get_authorized_nodes();
+        assert!(result_read.is_ok());
+        let vec = result_read.unwrap();
+        assert_eq!(vec.len(), 1);
+        assert_eq!(vec.get(0).unwrap().node_id, transparency_log.node_id);
 
         test_util::tests::teardown(tmp_dir);
     }

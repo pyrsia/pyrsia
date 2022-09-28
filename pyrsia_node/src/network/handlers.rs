@@ -14,13 +14,22 @@
    limitations under the License.
 */
 
+use anyhow::bail;
+use bincode::deserialize;
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::ResponseChannel;
 use libp2p::{Multiaddr, PeerId};
 use log::debug;
 
+use pyrsia::artifact_service::model::PackageType;
 use pyrsia::artifact_service::service::ArtifactService;
+use pyrsia::blockchain_service::service::BlockchainCommand;
+use pyrsia::blockchain_service::service::BlockchainService;
+use pyrsia::build_service::error::BuildError;
+use pyrsia::build_service::event::BuildEventClient;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
+use pyrsia::network::blockchain_protocol::BlockchainResponse;
+use pyrsia::network::build_protocol::BuildResponse;
 use pyrsia::network::client::Client;
 use pyrsia::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use pyrsia::peer_metrics;
@@ -54,18 +63,35 @@ pub async fn probe_other_peer(mut p2p_client: Client, to_probe: &Multiaddr) -> a
 /// Respond to a RequestArtifact event by getting the artifact
 /// based on the provided artifact id.
 pub async fn handle_request_artifact(
-    artifact_service: Arc<Mutex<ArtifactService>>,
+    mut artifact_service: ArtifactService,
     artifact_id: &str,
     channel: ResponseChannel<ArtifactResponse>,
 ) -> anyhow::Result<()> {
     debug!("Handling request artifact: {:?}", artifact_id);
 
-    let mut artifact_service = artifact_service.lock().await;
     let content = artifact_service.get_artifact_locally(artifact_id).await?;
 
     artifact_service
         .p2p_client
         .respond_artifact(content, channel)
+        .await
+}
+
+/// Respond to a RequestBuild event by getting the build
+/// based on the provided package_type and package_specific_id.
+pub async fn handle_request_build(
+    build_event_client: BuildEventClient,
+    package_type: PackageType,
+    package_specific_id: &str,
+    _: ResponseChannel<BuildResponse>,
+) -> Result<String, BuildError> {
+    debug!(
+        "Handling request build: {:?} : {}",
+        package_type, package_specific_id
+    );
+
+    build_event_client
+        .start_build(package_type, package_specific_id.to_string())
         .await
 }
 
@@ -81,24 +107,54 @@ pub async fn handle_request_idle_metric(
     p2p_client.respond_idle_metric(peer_metrics, channel).await
 }
 
-pub async fn handle_request_block_update(
-    artifact_service: Arc<Mutex<ArtifactService>>,
-    block_ordinal: Ordinal,
-    block: Box<Block>,
+//Respsond to the BlockchainRequest event
+pub async fn handle_request_blockchain(
+    artifact_service: ArtifactService,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
+    data: Vec<u8>,
+    channel: ResponseChannel<BlockchainResponse>,
 ) -> anyhow::Result<()> {
-    debug!(
-        "Handling request blockchain: {:?}={:?}",
-        block_ordinal, block
-    );
+    debug!("Handling request blockchain: {:?}", data);
+    match BlockchainCommand::try_from(data[0])? {
+        BlockchainCommand::Broadcast => {
+            debug!("Blockchain get BlockchainCommand::Broadcast");
+            handle_broadcast_blockchain(artifact_service, blockchain_service, data, channel).await
+        }
+        _ => {
+            debug!("Blockchain get other command");
+            todo!()
+        }
+    }
+}
 
-    let mut artifact_service = artifact_service.lock().await;
+pub async fn handle_broadcast_blockchain(
+    mut artifact_service: ArtifactService,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
+    data: Vec<u8>,
+    channel: ResponseChannel<BlockchainResponse>,
+) -> anyhow::Result<()> {
+    debug!("Handling broadcast blockchain: {:?}", data);
 
-    let payloads = block.fetch_payload();
-    artifact_service
-        .blockchain_service
-        .add_block(block_ordinal, block)
-        .await;
-    artifact_service.handle_block_added(payloads).await?;
+    if data.len() < 17 {
+        bail!("Blockcchain data is invalid")
+    } else {
+        let block_ordinal: Ordinal = deserialize(&data[1..17])?;
+        let block: Block = deserialize(&data[17..])?;
 
-    artifact_service.p2p_client.respond_block_update().await
+        let mut blockchain_service = blockchain_service.lock().await;
+
+        let payloads = block.fetch_payload();
+        blockchain_service
+            .add_block(block_ordinal, Box::new(block))
+            .await;
+
+        artifact_service.handle_block_added(payloads).await?;
+
+        let response_data = vec![0u8];
+
+        artifact_service
+            .p2p_client
+            .respond_blockchain(response_data, channel)
+            .await
+    }
 }

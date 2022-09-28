@@ -9,22 +9,22 @@ on:
       - '**/*.rs'
       - '**/Cargo.toml'
       - Cargo.lock
-  release: 
+  release:
     types: [published]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # OS/X  Build Job 
+  # OS/X  Build Job
   build-osx:
     runs-on: macos-latest
-    env: 
+    env:
       RUSTC_WRAPPER: /Users/runner/.cargo/bin/sccache
-      CARGO_INCREMENTAL: 0   
+      CARGO_INCREMENTAL: 0
     steps:
     - uses: actions/checkout@v3
-  
+
     # Use sscache store in GitHub cache
     - uses: actions/cache@v3
       with:
@@ -44,7 +44,7 @@ jobs:
 
     - name: Build Release and Test Binaries
       run: |
-        .github/workflows/build.sh 
+        .github/workflows/build.sh
         sccache --show-stats
 
     - name: Execute Test Cases
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RUSTC_WRAPPER: /home/runner/.cargo/bin/sccache
-      CARGO_INCREMENTAL: 0      
+      CARGO_INCREMENTAL: 0
     steps:
     - uses: actions/checkout@v3
 
@@ -83,7 +83,7 @@ jobs:
     - name: Build Release and Test Binaries
       run: |
         .github/workflows/build.sh
-        sccache --show-stats 
+        sccache --show-stats
 
     - name: Execute Test Cases
       run: |
@@ -91,21 +91,21 @@ jobs:
 
     # Install cargo deb and strip
     - name: Install cargo-deb cargo-strip
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release') 
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       uses: actions-rs/cargo@v1.0.3
       with:
         command: install
         args: cargo-deb cargo-strip --force
 
-    # Strip binaries 
+    # Strip binaries
     - name: Strip Binaries
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')   
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       run: |
         cargo strip
 
     # Create Pyrsia .deb file
     - name: Package Pyrsia as deb file
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')   
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       uses: actions-rs/cargo@v1.0.3
       with:
         command: deb
@@ -113,40 +113,40 @@ jobs:
 
     # Login to GCS
     - name: Google Auth
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')  
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       uses: 'google-github-actions/auth@v0'
       with:
         workload_identity_provider: 'projects/679352079717/locations/global/workloadIdentityPools/pyrsia-pool/providers/github-provider'
-        service_account: 'pyrsia-ghaction@pyrsia-sandbox.iam.gserviceaccount.com'  
+        service_account: 'pyrsia-ghaction@pyrsia-sandbox.iam.gserviceaccount.com'
 
     # Add gsutils
     - name: Set up Cloud SDK
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')  
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       uses: 'google-github-actions/setup-gcloud@v0'
 
     # Add the prysia .deb file to the NIGHTLY apt repo which resides on GCS
     - name: Publish Build to NIGHTLY GCS repo
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')  
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       run: |
-        .github/workflows/aptly.sh target/debian/pyrsia_0.1.0+${{ github.run_number }}_amd64.deb nightly 
-      env: 
+        .github/workflows/aptly.sh target/debian/pyrsia_0.1.0+${{ github.run_number }}_amd64.deb nightly
+      env:
         GPG_KEY: ${{ secrets.GPG_KEY }}
-    
+
     # Add the prysia .deb file to the STABLE apt repo which resides on GCS
     - name: Publish Release to STABLE GCS repo
       # Only add to STABLE on publishing of a release
-      if: github.repository_owner == 'pyrsia' && github.event_name == 'release' 
+      if: github.repository_owner == 'pyrsia' && github.event_name == 'release'
       run: |
-        .github/workflows/aptly.sh target/debian/pyrsia_0.1.0+${{ github.run_number }}_amd64.deb stable 
-      env: 
+        .github/workflows/aptly.sh target/debian/pyrsia_0.1.0+${{ github.run_number }}_amd64.deb stable
+      env:
         GPG_KEY: ${{ secrets.GPG_KEY }}
-    
+
     # Update the helm chart values with the image tag
     - name: Add Build to Version Number in Chart and Values files
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       run: |
         sudo go install github.com/mikefarah/yq/v4@latest
-        yq e '.image.tag |= "0.1.0-${{ github.run_number }}"' -i installers/helm/pyrsia-node/values.yaml  
+        yq e '.image.tag |= "0.1.0-${{ github.run_number }}"' -i installers/helm/pyrsia-node/values.yaml
         yq e '.version |= "0.1.0-${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
         yq e '.appVersion |= "0.1.0-${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
 
@@ -154,14 +154,14 @@ jobs:
     - name: Add the updated helm chart to the helm NIGHTLY repo
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       run: |
-        .github/workflows/chartmuseum.sh nightly 
+        .github/workflows/chartmuseum.sh nightly
 
     # Add the updated helm chart to the helm STABLE repo
     - name: Add the updated helm chart to the helm STABLE repo
-      if: github.repository_owner == 'pyrsia' && github.event_name == 'release' 
+      if: github.repository_owner == 'pyrsia' && github.event_name == 'release'
       run: |
-        .github/workflows/chartmuseum.sh stable        
-  
+        .github/workflows/chartmuseum.sh stable
+
   # Coverage wipes the cache in order to instrument the code.  No need to wait for other jobs to run it.
   coverage:
     runs-on: ubuntu-latest
@@ -179,14 +179,14 @@ jobs:
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1
       with:
-        args: '-- --test-threads 1'
+        args: '--all-targets --workspace -- --test-threads 1'
 
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v3
       with:
         token: ${{secrets.CODECOV_TOKEN}}
         fail_ci_if_error: ${{ github.repository_owner == 'pyrsia' }}
-  
+
   # Docker build that uses the published .deb file from the Linux build
   docker:
     runs-on: ubuntu-latest
@@ -212,7 +212,9 @@ jobs:
         tags: pyrsiaoss/pyrsia-node:0.1.0-${{ github.run_number }}
 
     - name: Only build if CodeCoverage.Dockerfile changed
-      uses: tj-actions/changed-files@v29.0.7
+      uses: tj-actions/changed-files@v29
+      with:
+          fetch-depth: 2
       id: changed-files
 
     - name: Build and Push Code Coverage Base Image
