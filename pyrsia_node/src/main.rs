@@ -82,7 +82,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     debug!("Start p2p components");
     setup_p2p(p2p_client.clone(), &args).await?;
-    debug!("Blockchain start pulling from other nodes");
+
     pull_block_from_other_nodes(blockchain_service.clone(), &args).await?;
 
     debug!("Listen for p2p events");
@@ -362,6 +362,7 @@ async fn pull_block_from_other_nodes(
 ) -> anyhow::Result<()> {
     if let Some(other_node_addr) = &args.peer {
         if !args.init_blockchain {
+            debug!("Blockchain start pulling from other nodes");
             let other_peer_id = libp2p::PeerId::try_from_multiaddr(other_node_addr).unwrap();
             let mut blockchain_service = blockchain_service.lock().await;
             blockchain_service
