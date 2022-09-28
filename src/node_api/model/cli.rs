@@ -24,7 +24,7 @@ pub struct Status {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct RequestAddNode {
+pub struct RequestAddAuthorizedNode {
     pub peer_id: String,
 }
 

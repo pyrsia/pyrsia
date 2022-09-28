@@ -35,6 +35,9 @@ async fn main() {
                 config_show();
             }
         }
+        Some(("authorize", authorize_matches)) => {
+            authorize(authorize_matches.get_one::<String>("peer").unwrap()).await;
+        }
         Some(("build", build_matches)) => match build_matches.subcommand() {
             Some(("docker", docker_matches)) => {
                 request_docker_build(docker_matches.get_one::<String>("image").unwrap()).await;
@@ -64,9 +67,6 @@ async fn main() {
             }
             _ => {}
         },
-        Some(("authorize", _authorize_matches)) => {
-            request_authorize(_authorize_matches.get_one::<String>("peer").unwrap()).await;
-        }
         _ => {} //this should be handled by clap arg_required_else_help
     }
 }

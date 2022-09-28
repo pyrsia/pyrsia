@@ -18,7 +18,8 @@ use lazy_static::lazy_static;
 use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::node;
 use pyrsia::node_api::model::cli::{
-    RequestAddNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild, RequestMavenLog,
+    RequestAddAuthorizedNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild,
+    RequestMavenLog,
 };
 use regex::Regex;
 use std::collections::HashSet;
@@ -62,6 +63,17 @@ pub fn config_show() {
     };
 }
 
+pub async fn authorize(peer_id: &str) {
+    match node::add_authorized_node(RequestAddAuthorizedNode {
+        peer_id: peer_id.to_owned(),
+    })
+    .await
+    {
+        Ok(_) => println!("Authorize request successfully handled."),
+        Err(error) => println!("Authorize request failed with error: {}", error),
+    };
+}
+
 pub async fn request_docker_build(image: &str) {
     let build_result = node::request_docker_build(RequestDockerBuild {
         image: image.to_owned(),
@@ -88,17 +100,6 @@ fn handle_request_build_result(build_result: Result<String, reqwest::Error>) {
         }
         Err(error) => {
             println!("Build request failed with error: {}", error);
-        }
-    }
-}
-
-fn handle_request_authorize(authorize_result: Result<String, reqwest::Error>) {
-    match authorize_result {
-        Ok(_auth_id) => {
-            println!("Authorize request successfully handled.",);
-        }
-        Err(error) => {
-            println!("Authorize request failed with error: {}", error);
         }
     }
 }
@@ -145,14 +146,6 @@ pub async fn node_list() {
     }
 }
 
-pub async fn request_authorize(peer_id: &str) {
-    let build_result = node::request_authorize(RequestAddNode {
-        peer_id: peer_id.to_owned(),
-    })
-    .await;
-    handle_request_authorize(build_result);
-}
-
 pub async fn inspect_docker_transparency_log(image: &str) {
     let result = node::inspect_docker_transparency_log(RequestDockerLog {
         image: image.to_owned(),
@@ -184,23 +177,17 @@ pub async fn inspect_maven_transparency_log(gav: &str) {
 }
 
 /// Read user input interactively until the validation passed
-fn read_interactive_input<'a>(
-    cli_prompt: &str,
-    validation_func: &'a dyn Fn(&str) -> bool,
-) -> String {
+fn read_interactive_input(cli_prompt: &str, validation_func: &dyn Fn(&str) -> bool) -> String {
     loop {
         println!("{}", cli_prompt);
         let mut buffer = String::new();
-        match io::stdin().lock().read_line(&mut buffer) {
-            Ok(bytes_read) => {
-                if bytes_read > 0 {
-                    let input = buffer.lines().next().unwrap();
-                    if validation_func(input.clone()) {
-                        break input.to_string();
-                    }
+        if let Ok(bytes_read) = io::stdin().lock().read_line(&mut buffer) {
+            if bytes_read > 0 {
+                let input = buffer.lines().next().unwrap();
+                if validation_func(input) {
+                    break input.to_string();
                 }
             }
-            Err(_) => {}
         }
     }
 }
@@ -221,20 +208,14 @@ fn valid_host(input: &str) -> bool {
 
     /// Returns true if input is a valid IPv4 address, otherwise false
     fn valid_ipv4_address(input: &str) -> bool {
-        match input.parse::<Ipv4Addr>() {
-            Ok(_) => true,
-            Err(_) => false,
-        }
+        input.parse::<Ipv4Addr>().is_ok()
     }
 
     valid_ipv4_address(input) || valid_hostname(input)
 }
 
 fn valid_port(input: &str) -> bool {
-    match input.parse::<u16>() {
-        Ok(_) => true,
-        Err(_) => false,
-    }
+    input.parse::<u16>().is_ok()
 }
 
 fn valid_disk_space(input: &str) -> bool {
@@ -266,7 +247,7 @@ mod tests {
     #[test]
     fn test_valid_host() {
         let valid_hosts = vec!["pyrsia.io", "localhost", "10.10.10.255"];
-        assert!(valid_hosts.into_iter().all(|x| valid_host(x)));
+        assert!(valid_hosts.into_iter().all(valid_host));
     }
 
     #[test]
@@ -276,34 +257,30 @@ mod tests {
             "@localhost",
             "%*%*%*%*NO_SENSE_AS_HOST@#$*@#$*@#$*",
         ];
-        assert!(!invalid_hosts.into_iter().any(|x| valid_host(x)));
+        assert!(!invalid_hosts.into_iter().any(valid_host));
     }
 
     #[test]
     fn test_valid_port() {
         let valid_ports = vec!["0", "8988", "65535"];
-        assert!(valid_ports.into_iter().all(|x| valid_port(x)));
+        assert!(valid_ports.into_iter().all(valid_port));
     }
 
     #[test]
     fn test_invalid_port() {
         let invalid_ports = vec!["-1", "65536"];
-        assert!(!invalid_ports.into_iter().any(|x| valid_port(x)));
+        assert!(!invalid_ports.into_iter().any(valid_port));
     }
 
     #[test]
     fn test_valid_disk_space() {
         let valid_disk_space_list = vec!["100 GB", "1 GB", "4096 GB"];
-        assert!(valid_disk_space_list
-            .into_iter()
-            .all(|x| valid_disk_space(x)));
+        assert!(valid_disk_space_list.into_iter().all(valid_disk_space));
     }
 
     #[test]
     fn test_invalid_disk_space() {
         let invalid_disk_space_list = vec!["0 GB", "4097 GB", "100GB", "100gb"];
-        assert!(!invalid_disk_space_list
-            .into_iter()
-            .any(|x| valid_disk_space(x)));
+        assert!(!invalid_disk_space_list.into_iter().any(valid_disk_space));
     }
 }

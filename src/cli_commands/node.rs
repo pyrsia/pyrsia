@@ -16,8 +16,8 @@
 
 use super::config::get_config;
 use crate::node_api::model::cli::{
-    RequestAddNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild, RequestMavenLog,
-    Status,
+    RequestAddAuthorizedNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild,
+    RequestMavenLog, Status,
 };
 
 pub async fn ping() -> Result<String, reqwest::Error> {
@@ -40,6 +40,23 @@ pub async fn status() -> Result<Status, reqwest::Error> {
     Ok(response)
 }
 
+pub async fn add_authorized_node(
+    request: RequestAddAuthorizedNode,
+) -> Result<String, reqwest::Error> {
+    let node_url = format!("http://{}/authorized_node", get_url());
+    let client = reqwest::Client::new();
+    match client
+        .post(node_url)
+        .json(&request)
+        .send()
+        .await?
+        .error_for_status()
+    {
+        Ok(response) => response.json::<String>().await,
+        Err(e) => Err(e),
+    }
+}
+
 pub async fn request_docker_build(request: RequestDockerBuild) -> Result<String, reqwest::Error> {
     let node_url = format!("http://{}/build/docker", get_url());
     let client = reqwest::Client::new();
@@ -57,21 +74,6 @@ pub async fn request_docker_build(request: RequestDockerBuild) -> Result<String,
 
 pub async fn request_maven_build(request: RequestMavenBuild) -> Result<String, reqwest::Error> {
     let node_url = format!("http://{}/build/maven", get_url());
-    let client = reqwest::Client::new();
-    match client
-        .post(node_url)
-        .json(&request)
-        .send()
-        .await?
-        .error_for_status()
-    {
-        Ok(response) => response.json::<String>().await,
-        Err(e) => Err(e),
-    }
-}
-
-pub async fn request_authorize(request: RequestAddNode) -> Result<String, reqwest::Error> {
-    let node_url = format!("http://{}/node/add", get_url());
     let client = reqwest::Client::new();
     match client
         .post(node_url)
