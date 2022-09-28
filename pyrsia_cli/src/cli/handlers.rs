@@ -69,7 +69,7 @@ pub async fn authorize(peer_id: &str) {
     })
     .await
     {
-        Ok(_) => println!("Authorize request successfully handled."),
+        Ok(()) => println!("Authorize request successfully handled."),
         Err(error) => println!("Authorize request failed with error: {}", error),
     };
 }

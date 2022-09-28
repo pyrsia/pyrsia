@@ -42,19 +42,16 @@ pub async fn status() -> Result<Status, reqwest::Error> {
 
 pub async fn add_authorized_node(
     request: RequestAddAuthorizedNode,
-) -> Result<String, reqwest::Error> {
+) -> Result<(), reqwest::Error> {
     let node_url = format!("http://{}/authorized_node", get_url());
     let client = reqwest::Client::new();
-    match client
+    client
         .post(node_url)
         .json(&request)
         .send()
         .await?
         .error_for_status()
-    {
-        Ok(response) => response.json::<String>().await,
-        Err(e) => Err(e),
-    }
+        .map(|_| ())
 }
 
 pub async fn request_docker_build(request: RequestDockerBuild) -> Result<String, reqwest::Error> {
