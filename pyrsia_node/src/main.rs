@@ -392,19 +392,3 @@ async fn pull_block_from_other_nodes(
     }
     Ok(())
 }
-
-#[cfg(test)]
-#[cfg(not(tarpaulin_include))]
-mod tests {
-    use crate::{args::parser::PyrsiaNodeArgs, setup_blockchain_service};
-    use clap::Parser;
-    use pyrsia::network::p2p;
-
-    #[test]
-    fn setup_blockchain_success() {
-        let (p2p_client, local_keypair, _, _) = p2p::setup_libp2p_swarm(100).unwrap();
-        let args = PyrsiaNodeArgs::parse();
-        let blockchain_service = setup_blockchain_service(local_keypair, p2p_client.clone(), &args);
-        assert!(blockchain_service.is_ok());
-    }
-}

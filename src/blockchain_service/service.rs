@@ -222,6 +222,7 @@ impl BlockchainService {
         self.blockchain.last_block()
     }
 
+    /// 
     pub async fn init_pull_from_others(
         &mut self,
         other_peer_id: &PeerId,
