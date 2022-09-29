@@ -24,6 +24,11 @@ pub struct Status {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct RequestAddAuthorizedNode {
+    pub peer_id: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RequestDockerBuild {
     pub image: String,
 }

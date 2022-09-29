@@ -39,6 +39,7 @@ pub enum RegistryErrorCode {
     BlobUnknown,
     BlobDoesNotExist(String),
     ManifestUnknown,
+    BadRequest(String),
     Unknown(String),
 }
 
@@ -142,6 +143,10 @@ pub async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
             RegistryErrorCode::ManifestUnknown => {
                 status_code = StatusCode::NOT_FOUND;
                 error_message.code = RegistryErrorCode::ManifestUnknown;
+            }
+            RegistryErrorCode::BadRequest(m) => {
+                status_code = StatusCode::BAD_REQUEST;
+                error_message.message = m.clone();
             }
             RegistryErrorCode::Unknown(m) => {
                 error_message.message = m.clone();
