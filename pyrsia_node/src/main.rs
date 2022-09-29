@@ -74,7 +74,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         &args,
         artifact_service.clone(),
         transparency_log_service,
-        build_event_client,
         p2p_client.clone(),
     );
 
@@ -100,6 +99,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         warn!(
                             "This node failed to provide artifact with id {}. Error: {:?}",
                             artifact_id, error
+                        );
+                    }
+                }
+                pyrsia::network::event_loop::PyrsiaEvent::RequestBuild {
+                    package_type,
+                    package_specific_id,
+                    channel,
+                } => {
+                    debug!(
+                        "Main::p2p request build: {:?} : {}",
+                        package_type, package_specific_id
+                    );
+                    if let Err(error) = handlers::handle_request_build(
+                        build_event_client.clone(),
+                        package_type,
+                        &package_specific_id,
+                        channel,
+                    )
+                    .await
+                    {
+                        warn!(
+                            "This node failed to provide build with package type {:?} and id {}. Error: {:?}",
+                            package_type, package_specific_id, error
                         );
                     }
                 }
@@ -292,7 +314,6 @@ fn setup_http(
     args: &PyrsiaNodeArgs,
     artifact_service: ArtifactService,
     transparency_log_service: TransparencyLogService,
-    build_event_client: BuildEventClient,
     p2p_client: Client,
 ) {
     // Get host and port from the settings. Defaults to DEFAULT_HOST and DEFAULT_PORT
@@ -308,9 +329,8 @@ fn setup_http(
 
     debug!("Setup HTTP routing");
     let docker_routes = make_docker_routes(artifact_service.clone());
-    let maven_routes = make_maven_routes(artifact_service);
-    let node_api_routes =
-        make_node_routes(build_event_client, p2p_client, transparency_log_service);
+    let maven_routes = make_maven_routes(artifact_service.clone());
+    let node_api_routes = make_node_routes(artifact_service, p2p_client, transparency_log_service);
     let all_routes = docker_routes.or(maven_routes).or(node_api_routes);
 
     debug!("Setup HTTP server");
