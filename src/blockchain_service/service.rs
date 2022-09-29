@@ -25,12 +25,6 @@ use std::fmt::{self, Debug, Formatter};
 
 use crate::network::client::Client;
 
-/// Blockchain command length is 1 byte
-pub const BLOCKCHAIN_COMMAND_LENGTH: usize = 1;
-
-/// Blockchain ordinal length is 16 bytes
-pub const BLOCKCHAIN_ORDINAL_LENGTH: usize = 16;
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum BlockchainCommand {
