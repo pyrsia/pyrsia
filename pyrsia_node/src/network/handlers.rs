@@ -144,7 +144,7 @@ pub async fn handle_request_blockchain(
         }
 
         BlockchainCommand::QueryHighestBlockOrdinal => {
-            debug!("Blockchain get BlockchainCommand::PullFromPeer");
+            debug!("Blockchain get BlockchainCommand::QueryHighestBlockOrdinal");
             handle_query_block_ordinal_from_peer(blockchain_service, channel).await
         }
 
