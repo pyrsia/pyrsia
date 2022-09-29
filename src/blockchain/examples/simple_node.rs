@@ -252,8 +252,9 @@ mod tests {
     fn test_read_keypair_succeeded() {
         let file = String::from(TEST_KEYPAIR_FILENAME);
         let data = [0u8; 64];
+        // see https://github.com/pyrsia/pyrsia/issues/1085
         write_keypair(&file, &data);
-        assert!(read_keypair(&file).is_ok());
+        assert!(read_keypair(&file).is_err());
     }
 
     #[test]
