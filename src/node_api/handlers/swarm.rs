@@ -15,7 +15,6 @@
 */
 
 use crate::artifact_service::model::PackageType;
-use crate::build_service::event::BuildEventClient;
 use crate::docker::error_util::RegistryError;
 use crate::network::client::Client;
 use crate::node_api::model::cli::{
@@ -23,15 +22,16 @@ use crate::node_api::model::cli::{
 };
 use crate::transparency_log::log::TransparencyLogService;
 
+use crate::artifact_service::service::ArtifactService;
 use log::debug;
 use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_build_docker(
     request_docker_build: RequestDockerBuild,
-    build_event_client: BuildEventClient,
+    artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
-    let build_id = build_event_client
-        .start_build(PackageType::Docker, request_docker_build.image)
+    let build_id = artifact_service
+        .request_build(PackageType::Docker, request_docker_build.image)
         .await
         .map_err(RegistryError::from)?;
 
@@ -45,10 +45,10 @@ pub async fn handle_build_docker(
 
 pub async fn handle_build_maven(
     request_maven_build: RequestMavenBuild,
-    build_event_client: BuildEventClient,
+    artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
-    let build_id = build_event_client
-        .start_build(PackageType::Maven2, request_maven_build.gav)
+    let build_id = artifact_service
+        .request_build(PackageType::Maven2, request_maven_build.gav)
         .await
         .map_err(RegistryError::from)?;
 

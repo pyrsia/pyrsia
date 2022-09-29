@@ -14,3 +14,6 @@ target/
 .DS_Store
 /src/blockchain/blockchain_storage
 tests/reports/
+nodeA
+nodeB
+p2p_keypair.ser
