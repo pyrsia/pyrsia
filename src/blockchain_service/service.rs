@@ -136,7 +136,7 @@ impl BlockchainService {
         Ok(())
     }
 
-    /// Retrive Blocks form start ordinal number to end ordinal number (including end ordinal number)
+    /// Retrieve Blocks form start ordinal number to end ordinal number (including end ordinal number)
     pub async fn pull_blocks(
         &self,
         start: Ordinal,
