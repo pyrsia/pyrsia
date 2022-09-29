@@ -361,7 +361,7 @@ mod tests {
     #[test]
     fn setup_blockchain_success() {
         let (p2p_client, _, _) = p2p::setup_libp2p_swarm(100).unwrap();
-        let blockchain_service = setup_blockchain_service(p2p_client.clone());
+        let blockchain_service = setup_blockchain_service(p2p_client);
         assert!(blockchain_service.is_ok());
     }
 }
