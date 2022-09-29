@@ -20,6 +20,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
+use crate::error::BlockchainError;
+use crate::structures::header::Ordinal;
+
 use super::crypto::hash_algorithm::HashDigest;
 use super::structures::{
     block::Block,
@@ -143,6 +146,10 @@ impl Blockchain {
 
     pub fn last_block(&self) -> Option<Block> {
         self.chain.last_block()
+    }
+
+    pub fn pull_blocks(&self, start: Ordinal, end: Ordinal) -> Result<Vec<Block>, BlockchainError> {
+        self.chain.retrieve_blocks(start, end)
     }
 }
 
@@ -275,6 +282,36 @@ mod tests {
         let result = blockchain.update_block_from_peers(block).await;
         assert_eq!(result, ());
 
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_pull_block() -> Result<(), String> {
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
+        let mut blockchain = Blockchain::new(&keypair);
+
+        let mut transactions = vec![];
+        let data = "Hello First Transaction";
+        let transaction = Transaction::new(
+            TransactionType::Create,
+            local_id,
+            data.as_bytes().to_vec(),
+            &keypair,
+        );
+        transactions.push(transaction);
+        assert_eq!(1, blockchain.chain.len());
+        blockchain
+            .commit_block(Block::new(
+                blockchain.chain.blocks()[0].header.hash(),
+                blockchain.chain.blocks()[0].header.ordinal + 1,
+                transactions,
+                &keypair,
+            ))
+            .await;
+
+        assert_eq!(1, blockchain.pull_blocks(0, 0).unwrap().len());
+        assert!(blockchain.pull_blocks(0, 2).is_err());
         Ok(())
     }
 }
