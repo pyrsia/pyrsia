@@ -72,7 +72,11 @@ impl Debug for BlockchainService {
 }
 
 impl BlockchainService {
-    pub fn init_first_blockchain_node(local_keypair: &identity::ed25519::Keypair, blockchain_keypair: &identity::ed25519::Keypair, p2p_client: Client) -> Self {
+    pub fn init_first_blockchain_node(
+        local_keypair: &identity::ed25519::Keypair,
+        blockchain_keypair: &identity::ed25519::Keypair,
+        p2p_client: Client,
+    ) -> Self {
         Self {
             blockchain: Blockchain::new(blockchain_keypair),
             keypair: local_keypair.to_owned(),
@@ -80,7 +84,10 @@ impl BlockchainService {
         }
     }
 
-    pub fn init_other_blockchain_node(local_keypair: &identity::ed25519::Keypair, p2p_client: Client) -> Self {
+    pub fn init_other_blockchain_node(
+        local_keypair: &identity::ed25519::Keypair,
+        p2p_client: Client,
+    ) -> Self {
         Self {
             blockchain: Default::default(),
             keypair: local_keypair.to_owned(),
@@ -124,7 +131,10 @@ impl BlockchainService {
         Ok(())
     }
 
-    async fn query_blockchain_ordinal(&mut self, other_peer_id :&PeerId) -> Result<Ordinal, BlockchainError> {
+    async fn query_blockchain_ordinal(
+        &mut self,
+        other_peer_id: &PeerId,
+    ) -> Result<Ordinal, BlockchainError> {
         let cmd = BlockchainCommand::QueryHighestBlockOrdinal as u8;
 
         let mut buf: Vec<u8> = vec![];
@@ -133,12 +143,23 @@ impl BlockchainService {
 
         buf.push(cmd);
 
-        let ordinal = deserialize(&self.p2p_client.request_blockchain(other_peer_id, buf.clone()).await?).unwrap();
+        let ordinal = deserialize(
+            &self
+                .p2p_client
+                .request_blockchain(other_peer_id, buf.clone())
+                .await?,
+        )
+        .unwrap();
 
         Ok(ordinal)
     }
 
-    async fn pull_block_from_other_nodes(&mut self, other_peer_id :&PeerId, start :Ordinal, end :Ordinal) -> Result<Vec<Block>, BlockchainError> {
+    async fn pull_block_from_other_nodes(
+        &mut self,
+        other_peer_id: &PeerId,
+        start: Ordinal,
+        end: Ordinal,
+    ) -> Result<Vec<Block>, BlockchainError> {
         let cmd = BlockchainCommand::PullFromPeer as u8;
 
         let mut buf: Vec<u8> = vec![];
@@ -149,12 +170,16 @@ impl BlockchainService {
         buf.append(&mut serialize(&start).unwrap());
         buf.append(&mut serialize(&end).unwrap());
 
-        let blocks = deserialize(&self.p2p_client.request_blockchain(other_peer_id, buf.clone()).await?).unwrap();
+        let blocks = deserialize(
+            &self
+                .p2p_client
+                .request_blockchain(other_peer_id, buf.clone())
+                .await?,
+        )
+        .unwrap();
 
         Ok(blocks)
     }
-
-
 
     /// Add a new block to local blockchain.
     pub async fn add_block(
@@ -191,18 +216,24 @@ impl BlockchainService {
         end: Ordinal,
     ) -> Result<Vec<Block>, BlockchainError> {
         self.blockchain.pull_blocks(start, end)
-        
     }
 
     pub async fn query_last_block(&self) -> Option<Block> {
         self.blockchain.last_block()
     }
 
-    pub async fn init_pull_from_others(&mut self, other_peer_id: &PeerId) -> Result<(), BlockchainError> {
+    pub async fn init_pull_from_others(
+        &mut self,
+        other_peer_id: &PeerId,
+    ) -> Result<(), BlockchainError> {
         // Always start with the genesis block
         let ordinal = self.query_blockchain_ordinal(other_peer_id).await?;
 
-        for block in self.pull_block_from_other_nodes(other_peer_id, 0, ordinal).await?.iter() {
+        for block in self
+            .pull_block_from_other_nodes(other_peer_id, 0, ordinal)
+            .await?
+            .iter()
+        {
             let ordinal = block.header.ordinal;
             let block = block.clone();
             self.add_block(ordinal, Box::new(block)).await?;
