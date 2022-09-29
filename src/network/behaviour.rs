@@ -22,6 +22,7 @@ use crate::network::idle_metric_protocol::{
     IdleMetricExchangeCodec, IdleMetricRequest, IdleMetricResponse,
 };
 
+use crate::network::build_protocol::{BuildExchangeCodec, BuildRequest, BuildResponse};
 use libp2p::autonat;
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::kad::record::store::MemoryStore;
@@ -44,6 +45,7 @@ pub struct PyrsiaNetworkBehaviour {
     pub identify: Identify,
     pub kademlia: Kademlia<MemoryStore>,
     pub request_response: RequestResponse<ArtifactExchangeCodec>,
+    pub build_request_response: RequestResponse<BuildExchangeCodec>,
     pub idle_metric_request_response: RequestResponse<IdleMetricExchangeCodec>,
     pub blockchain_request_response: RequestResponse<BlockchainExchangeCodec>,
 }
@@ -56,6 +58,7 @@ pub enum PyrsiaNetworkEvent {
     Identify(IdentifyEvent),
     Kademlia(KademliaEvent),
     RequestResponse(RequestResponseEvent<ArtifactRequest, ArtifactResponse>),
+    BuildRequestResponse(RequestResponseEvent<BuildRequest, BuildResponse>),
     IdleMetricRequestResponse(RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>),
     BlockchainRequestResponse(RequestResponseEvent<BlockchainRequest, BlockchainResponse>),
 }
@@ -81,6 +84,12 @@ impl From<KademliaEvent> for PyrsiaNetworkEvent {
 impl From<RequestResponseEvent<ArtifactRequest, ArtifactResponse>> for PyrsiaNetworkEvent {
     fn from(event: RequestResponseEvent<ArtifactRequest, ArtifactResponse>) -> Self {
         PyrsiaNetworkEvent::RequestResponse(event)
+    }
+}
+
+impl From<RequestResponseEvent<BuildRequest, BuildResponse>> for PyrsiaNetworkEvent {
+    fn from(event: RequestResponseEvent<BuildRequest, BuildResponse>) -> Self {
+        PyrsiaNetworkEvent::BuildRequestResponse(event)
     }
 }
 
