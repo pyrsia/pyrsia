@@ -124,7 +124,7 @@ The most important features of the build pipeline are:
 The current build pipeline prototype supports Maven and Docker builds.
 
 Download or clone the [prototype repo](https://github.com/tiainen/pyrsia_build_pipeline_prototype)
-and run as follows:
+and run as follows (`jq` must be installed locally before):
 
 ```sh
 cd pyrsia_build_pipeline_prototype

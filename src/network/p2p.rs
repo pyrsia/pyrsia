@@ -23,6 +23,7 @@ use crate::network::idle_metric_protocol::{IdleMetricExchangeCodec, IdleMetricEx
 use crate::util::keypair_util;
 use crate::util::keypair_util::KEYPAIR_FILENAME;
 
+use crate::network::build_protocol::{BuildExchangeCodec, BuildExchangeProtocol};
 use libp2p::identity::Keypair;
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
@@ -187,6 +188,11 @@ fn create_swarm(
                 request_response: RequestResponse::new(
                     ArtifactExchangeCodec(),
                     iter::once((ArtifactExchangeProtocol(), ProtocolSupport::Full)),
+                    Default::default(),
+                ),
+                build_request_response: RequestResponse::new(
+                    BuildExchangeCodec(),
+                    iter::once((BuildExchangeProtocol(), ProtocolSupport::Full)),
                     Default::default(),
                 ),
                 idle_metric_request_response: RequestResponse::new(

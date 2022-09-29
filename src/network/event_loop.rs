@@ -14,14 +14,16 @@
    limitations under the License.
 */
 
+use crate::artifact_service::model::PackageType;
 use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse};
 use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::blockchain_protocol::{BlockchainRequest, BlockchainResponse};
+use crate::network::build_protocol::{BuildRequest, BuildResponse};
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
 use crate::util::env_util::read_var;
-use libp2p::autonat::Event as AutonatEvent;
+use libp2p::autonat::{Event as AutonatEvent, NatStatus};
 use libp2p::core::PeerId;
 use libp2p::futures::StreamExt;
 use libp2p::identify::IdentifyEvent;
@@ -41,6 +43,7 @@ type PendingDialMap = HashMap<PeerId, oneshot::Sender<anyhow::Result<()>>>;
 type PendingListPeersMap = HashMap<QueryId, oneshot::Sender<HashSet<PeerId>>>;
 type PendingStartProvidingMap = HashMap<QueryId, oneshot::Sender<()>>;
 type PendingRequestArtifactMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<Vec<u8>>>>;
+type PendingRequestBuildMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<String>>>;
 type PendingRequestIdleMetricMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<PeerMetrics>>>;
 type PendingRequestBlockchainMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<Vec<u8>>>>;
 
@@ -57,6 +60,7 @@ pub struct PyrsiaEventLoop {
     pending_start_providing: PendingStartProvidingMap,
     pending_list_providers: PendingListPeersMap,
     pending_request_artifact: PendingRequestArtifactMap,
+    pending_request_build: PendingRequestBuildMap,
     pending_idle_metric_requests: PendingRequestIdleMetricMap,
     pending_blockchain_requests: PendingRequestBlockchainMap,
 }
@@ -76,6 +80,7 @@ impl PyrsiaEventLoop {
             pending_start_providing: Default::default(),
             pending_list_providers: Default::default(),
             pending_request_artifact: Default::default(),
+            pending_request_build: Default::default(),
             pending_idle_metric_requests: Default::default(),
             pending_blockchain_requests: Default::default(),
         }
@@ -91,6 +96,7 @@ impl PyrsiaEventLoop {
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Identify(identify_event)) => self.handle_identify_event(identify_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Kademlia(kademlia_event)) => self.handle_kademlia_event(kademlia_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::RequestResponse(request_response_event)) => self.handle_request_response_event(request_response_event).await,
+                    SwarmEvent::Behaviour(PyrsiaNetworkEvent::BuildRequestResponse(build_request_response_event)) => self.handle_build_request_response_event(build_request_response_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::IdleMetricRequestResponse(request_response_event)) => self.handle_idle_metric_request_response_event(request_response_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::BlockchainRequestResponse(request_response_event)) => self.handle_blockchain_request_response_event(request_response_event).await,
                     swarm_event => self.handle_swarm_event(swarm_event).await,
@@ -110,40 +116,33 @@ impl PyrsiaEventLoop {
     async fn handle_autonat_event(&mut self, event: AutonatEvent) {
         trace!("Handle AutonatEvent: {:?}", event);
         match event {
-            AutonatEvent::InboundProbe(evt) => {
-                debug!("AutonatEvent::InboundProbe {:?}", evt);
-                // let peer = evt.Request.ge
-                // let address = evt.get_address();
-                // self.swarm.behaviour_mut().auto_nat.add_server(peer, address);
-            }
-            AutonatEvent::OutboundProbe(evt) => {
-                debug!("AutonatEvent::OutboundProbe {:?}", evt);
-            }
+            AutonatEvent::InboundProbe(..) => {}
+            AutonatEvent::OutboundProbe(..) => {}
             AutonatEvent::StatusChanged { old, new } => {
-                info!("State changed from {:?} to {:?}", old, new);
+                info!("Autonat status changed from {:?} to {:?}", old, new);
+                match new {
+                    NatStatus::Public(address) => {
+                        let local_peer_id = *self.swarm.local_peer_id();
+                        self.swarm
+                            .behaviour_mut()
+                            .kademlia
+                            .add_address(&local_peer_id, address);
+                    }
+                    NatStatus::Private => {
+                        // todo: setup relay listen address
+                    }
+                    NatStatus::Unknown => {}
+                }
             }
         }
     }
 
     // Handles events from the `Identify` network behaviour.
     async fn handle_identify_event(&mut self, event: IdentifyEvent) {
-        println!("Handle IdentifyEvent: {:?}", event);
+        trace!("Handle IdentifyEvent: {:?}", event);
         match event {
             IdentifyEvent::Pushed { .. } => {}
-            IdentifyEvent::Received { peer_id, info } => {
-                debug!("Identify::Received: {}; {:?}", peer_id, info);
-                if let Some(addr) = info.listen_addrs.get(0) {
-                    debug!(
-                        "Identify::Received: adding address {:?} for peer {}",
-                        addr.clone(),
-                        peer_id
-                    );
-                    self.swarm
-                        .behaviour_mut()
-                        .kademlia
-                        .add_address(&peer_id, addr.clone());
-                }
-            }
+            IdentifyEvent::Received { .. } => {}
             IdentifyEvent::Sent { .. } => {}
             IdentifyEvent::Error { .. } => {}
         }
@@ -307,6 +306,66 @@ impl PyrsiaEventLoop {
         }
     }
 
+    // Handles events from the `RequestResponse` for build exchange
+    // network behaviour.
+    async fn handle_build_request_response_event(
+        &mut self,
+        event: RequestResponseEvent<BuildRequest, BuildResponse>,
+    ) {
+        trace!("Handle BuildRequestResponseEvent: {:?}", event);
+        let event_str = format!("{:#?}", event);
+        match event {
+            RequestResponseEvent::Message { message, .. } => match message {
+                RequestResponseMessage::Request {
+                    request, channel, ..
+                } => {
+                    debug!("RequestResponseMessage::Request {:?}", request);
+                    self.event_sender
+                        .send(PyrsiaEvent::RequestBuild {
+                            package_type: request.0,
+                            package_specific_id: request.1,
+                            channel,
+                        })
+                        .await
+                        .expect("Event receiver not to be dropped.");
+                }
+                RequestResponseMessage::Response {
+                    request_id,
+                    response: _,
+                } => {
+                    debug!("RequestResponseMessage::Response {:?}", request_id);
+                    self.pending_request_build
+                        .remove(&request_id)
+                        .expect("Request to still be pending.")
+                        .send(Ok(request_id.to_string()))
+                        .unwrap_or_else(|e| {
+                            error!(
+                                "Handle RequestResponseEvent match arm: {}. Error: {:?}",
+                                event_str, e
+                            );
+                        });
+                }
+            },
+            RequestResponseEvent::InboundFailure { .. } => {}
+            RequestResponseEvent::OutboundFailure {
+                request_id, error, ..
+            } => {
+                debug!(
+                    "RequestResponseMessage::OutboundFailure {:?} with error {:?}",
+                    request_id, error
+                );
+                self.pending_request_build
+                    .remove(&request_id)
+                    .expect("Request to still be pending.")
+                    .send(Err(error.into()))
+                    .unwrap_or_else(|e| {
+                        error!("Handle RequestResponseEvent match arm: {}. pending_request_build: {:?}", event_str, e);
+                    });
+            }
+            RequestResponseEvent::ResponseSent { .. } => {}
+        }
+    }
+
     // Handles events from the `RequestResponse` for blockchain update exchange network behaviour.
     async fn handle_blockchain_request_response_event(
         &mut self,
@@ -377,6 +436,11 @@ impl PyrsiaEventLoop {
             } => {
                 if endpoint.is_dialer() {
                     if let Some(sender) = self.pending_dial.remove(&peer_id) {
+                        self.swarm
+                            .behaviour_mut()
+                            .kademlia
+                            .add_address(&peer_id, endpoint.get_remote_address().to_owned());
+
                         sender.send(Ok(())).unwrap_or_else(|_e| {
                             error!("Handle SwarmEvent match arm: {}", event_str);
                         });
@@ -424,13 +488,12 @@ impl PyrsiaEventLoop {
                 probe_addr,
                 sender,
             } => {
-                self.swarm
-                    .behaviour_mut()
-                    .auto_nat
-                    .add_server(peer_id, Some(probe_addr));
-                match sender.send(()) {
-                    Ok(_) => log::info!("Handled probe for AutoNAT"),
-                    Err(e) => log::error!("Could not handle probe for AutoNAT: {:?}", e),
+                if let Entry::Vacant(_) = self.pending_dial.entry(peer_id) {
+                    self.pending_dial.insert(peer_id, sender);
+                    self.swarm
+                        .behaviour_mut()
+                        .auto_nat
+                        .add_server(peer_id, Some(probe_addr));
                 }
             }
             Command::Listen { addr, sender } => {
@@ -463,13 +526,11 @@ impl PyrsiaEventLoop {
                     }
                 }
             }
-            Command::ListPeers { peer_id, sender } => {
-                let query_id = self
-                    .swarm
-                    .behaviour_mut()
-                    .kademlia
-                    .get_closest_peers(peer_id);
-                self.pending_list_peers.insert(query_id, sender);
+            Command::ListPeers { sender } => {
+                let peers = HashSet::from_iter(self.swarm.connected_peers().copied());
+                sender.send(peers).unwrap_or_else(|_e| {
+                    error!("Handle Command match arm: {}.", command_str);
+                });
             }
             Command::Status { sender } => {
                 let swarm = &self.swarm;
@@ -532,6 +593,21 @@ impl PyrsiaEventLoop {
                     .get_providers(artifact_id.into_bytes().into());
                 self.pending_list_providers.insert(query_id, sender);
             }
+            Command::RequestBuild {
+                peer,
+                package_type,
+                package_specific_id,
+                sender,
+            } => {
+                debug!("Event loop :: send build request");
+                let request_id = self
+                    .swarm
+                    .behaviour_mut()
+                    .build_request_response
+                    .send_request(&peer, BuildRequest(package_type, package_specific_id));
+                debug!("Event loop :: build request sent with id {:?}", request_id);
+                self.pending_request_build.insert(request_id, sender);
+            }
             Command::RequestArtifact {
                 artifact_id,
                 peer,
@@ -591,6 +667,11 @@ pub enum PyrsiaEvent {
         artifact_id: String,
         channel: ResponseChannel<ArtifactResponse>,
     },
+    RequestBuild {
+        package_type: PackageType,
+        package_specific_id: String,
+        channel: ResponseChannel<BuildResponse>,
+    },
     IdleMetricRequest {
         channel: ResponseChannel<IdleMetricResponse>,
     },
@@ -608,6 +689,7 @@ mod tests {
     use crate::network::blockchain_protocol::{
         BlockchainExchangeCodec, BlockchainExchangeProtocol,
     };
+    use crate::network::build_protocol::{BuildExchangeCodec, BuildExchangeProtocol};
     use crate::network::client::Client;
     use crate::network::idle_metric_protocol::{
         IdleMetricExchangeCodec, IdleMetricExchangeProtocol,
@@ -661,6 +743,14 @@ mod tests {
                 ArtifactExchangeCodec(),
                 iter::once((
                     ArtifactExchangeProtocol(),
+                    request_response::ProtocolSupport::Full,
+                )),
+                Default::default(),
+            ),
+            build_request_response: request_response::RequestResponse::new(
+                BuildExchangeCodec(),
+                iter::once((
+                    BuildExchangeProtocol(),
                     request_response::ProtocolSupport::Full,
                 )),
                 Default::default(),
@@ -754,42 +844,6 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_dial_discovers_both_nodes() {
-        pretty_env_logger::init_timed();
-
-        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2) = create_test_swarm();
-
-        tokio::spawn(event_loop_1.run());
-        tokio::spawn(event_loop_2.run());
-
-        p2p_client_1
-            .listen(&"/ip4/127.0.0.1/tcp/44130".parse().unwrap())
-            .await
-            .unwrap();
-        p2p_client_2
-            .listen(&"/ip4/127.0.0.1/tcp/44131".parse().unwrap())
-            .await
-            .unwrap();
-
-        let result = p2p_client_1
-            .dial(
-                &p2p_client_2.local_peer_id,
-                &"/ip4/127.0.0.1/tcp/44131".parse().unwrap(),
-            )
-            .await;
-        assert!(result.is_ok());
-
-        // wait a few seconds for identify negotiation to finish
-        tokio::time::sleep(Duration::from_millis(5000)).await;
-
-        let peers_in_client_1 = p2p_client_1.list_peers().await.unwrap();
-        let peers_in_client_2 = p2p_client_2.list_peers().await.unwrap();
-        assert!(peers_in_client_1.contains(&p2p_client_2.local_peer_id));
-        assert!(peers_in_client_2.contains(&p2p_client_1.local_peer_id));
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
     async fn test_dial_with_invalid_peer_id() {
         let (mut p2p_client_1, event_loop_1) = create_test_swarm();
         let (p2p_client_2, _) = create_test_swarm();
@@ -808,5 +862,44 @@ mod tests {
             )
             .await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_request_build_loop() {
+        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
+        let (mut p2p_client_2, event_loop_2) = create_test_swarm();
+
+        tokio::spawn(event_loop_1.run());
+        tokio::spawn(event_loop_2.run());
+
+        p2p_client_1
+            .listen(&"/ip4/127.0.0.1/tcp/44140".parse().unwrap())
+            .await
+            .unwrap();
+        p2p_client_2
+            .listen(&"/ip4/127.0.0.1/tcp/44141".parse().unwrap())
+            .await
+            .unwrap();
+
+        let result_dial = p2p_client_1
+            .dial(
+                &p2p_client_2.local_peer_id,
+                &"/ip4/127.0.0.1/tcp/44141".parse().unwrap(),
+            )
+            .await;
+        assert!(result_dial.is_ok());
+
+        let package_type = PackageType::Docker;
+        let package_specific_id = "package_specific_id";
+
+        let result = p2p_client_1
+            .request_build(
+                &p2p_client_2.local_peer_id,
+                package_type,
+                package_specific_id.to_string(),
+            )
+            .await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "1");
     }
 }
