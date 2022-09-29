@@ -151,7 +151,7 @@ impl TransparencyLogService {
     }
 
     /// Add a new authorized node to the p2p network.
-    pub fn add_authorized_node(&self, peer_id: PeerId) -> Result<(), TransparencyLogError> {
+    pub async fn add_authorized_node(&self, peer_id: PeerId) -> Result<(), TransparencyLogError> {
         let transparency_log = TransparencyLog {
             id: Uuid::new_v4().to_string(),
             package_type: None,
@@ -171,9 +171,15 @@ impl TransparencyLogService {
             node_public_key: Uuid::new_v4().to_string(),
         };
 
-        self.write_transparency_log(&transparency_log)?;
+        let payload = serde_json::to_string(&transparency_log).unwrap();
+        let _ = self
+            .blockchain_service
+            .lock()
+            .await
+            .add_payload(payload.into_bytes())
+            .await;
 
-        Ok(())
+        self.write_transparency_log(&transparency_log)
     }
 
     /// Remove a known authorized node from the p2p network.
@@ -869,8 +875,8 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_add_authorized_nodes() {
+    #[tokio::test]
+    async fn test_add_authorized_nodes() {
         let tmp_dir = test_util::tests::setup();
 
         let log = create_transparency_log_service(&tmp_dir);
@@ -893,7 +899,7 @@ mod tests {
             node_public_key: Uuid::new_v4().to_string(),
         };
 
-        let result_add = log.add_authorized_node(peer_id);
+        let result_add = log.add_authorized_node(peer_id).await;
         assert!(result_add.is_ok());
 
         let result_read = log.get_authorized_nodes();
