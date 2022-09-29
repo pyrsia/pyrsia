@@ -23,7 +23,6 @@ use std::{
     error::Error,
     fs,
     io::{Read, Write},
-    os::unix::fs::OpenOptionsExt,
     sync::{Arc, Mutex},
 };
 use tokio::io;
@@ -184,14 +183,6 @@ pub fn write_block(path: &str, block: Block) {
 }
 
 pub fn write_keypair(path: &String, data: &[u8; 64]) {
-    let mut file = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .mode(0o600)
-        .open(path)
-        .expect("cannot open file");
-
-    file.write_all(data).expect("write failed");
 }
 
 pub fn read_keypair(path: &String) -> Result<[u8; 64], Box<dyn Error>> {

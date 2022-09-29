@@ -51,6 +51,60 @@ jobs:
       run: |
         cargo test --workspace --verbose --release
 
+  # Windows Build Job
+  build-windows:
+    runs-on: windows-latest
+    env:
+      RUSTC_WRAPPER: C:\Users\runneradmin\.cargo\bin\sccache.exe
+      CARGO_INCREMENTAL: 0
+    steps:
+      - uses: actions/checkout@v3
+
+      # Use sscache store in GitHub cache
+      - uses: actions/cache@v3
+        with:
+          path: C:/Users/runneradmin/AppData/Local/Mozilla/sccache/cache
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      # Install and start sccache from binary
+      - name: Start sccache
+        run: |
+          .github/workflows/sccache-windows.bat
+          sccache --start-server
+          sccache --show-stats
+
+      # Need to add build number to version number
+      - name: Add Build to Version Number
+        shell: cmd
+        run: |
+          "C:\Program Files\Git\usr\bin\sed.exe" -i "s/version = \"0.1.0\"/version = \"0.1.0+${{ github.run_number }}\"/" Cargo.toml
+
+      # build binaries. Todo: include tests
+      - name: Build Release Binaries
+        run: |
+          cargo build --workspace --lib --bins --verbose --release
+          sccache --show-stats
+
+      # Create installer
+      - name: Create MSI
+        shell: bash
+        # todo: uncomment: if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        env:
+          WIX_PATH_CANDLE: "C:/Program Files (x86)/WiX Toolset v3.11/bin/candle.exe"
+          WIX_PATH_LIGHT: "C:/Program Files (x86)/WiX Toolset v3.11/bin/light.exe"
+        run: |
+          cd installers/windows
+          "$WIX_PATH_CANDLE" -ext WixUIExtension -ext WixUtilExtension installerps1.wxs
+          "$WIX_PATH_LIGHT" -ext WixUIExtension -ext WixUtilExtension installerps1.wixobj -out pyrsia.msi
+          cd ../..
+
+      # for now, upload installer
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-installer
+          path: ${{ github.workspace }}/installers/windows/pyrsia.msi
+
   build-push-linux:
     permissions:
       contents: 'read'
