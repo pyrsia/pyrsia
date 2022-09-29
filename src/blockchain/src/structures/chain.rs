@@ -69,6 +69,24 @@ impl Chain {
         Ok(ordinal as usize)
     }
 
+    pub fn retrieve_blocks(
+        &self,
+        start: Ordinal,
+        end: Ordinal,
+    ) -> Result<Vec<Block>, BlockchainError> {
+        let start_pos = self.get_block_position(start)?;
+
+        let end_pos = self.get_block_position(end)?;
+
+        if start_pos > end_pos {
+            return Err(BlockchainError::InvalidBlockchainPosition(
+                start_pos, end_pos,
+            ));
+        }
+
+        Ok(self.blocks[start_pos..=end_pos].to_vec())
+    }
+
     pub async fn save_block(
         &self,
         start: Ordinal,
@@ -293,5 +311,34 @@ mod tests {
         let mut curr_dir = env::temp_dir();
         curr_dir.push("blockchain.json");
         Ok(String::from(curr_dir.to_string_lossy()))
+    }
+
+    #[test]
+    fn test_retrieve_block() -> Result<(), String> {
+        let keypair = identity::ed25519::Keypair::generate();
+        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
+
+        let mut chain: Chain = Default::default();
+        assert_eq!(0, chain.len());
+
+        let mut transactions = vec![];
+        let data = "Hello First Transaction";
+        let transaction = Transaction::new(
+            TransactionType::Create,
+            local_id,
+            data.as_bytes().to_vec(),
+            &keypair,
+        );
+        transactions.push(transaction);
+
+        let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
+        chain.add_block(block);
+        assert_eq!(1, chain.len());
+
+        let blocks = chain.retrieve_blocks(0, 0);
+        assert_eq!(0, blocks.unwrap()[0].header.ordinal);
+
+        assert!(chain.retrieve_blocks(0, 1).is_err());
+        Ok(())
     }
 }
