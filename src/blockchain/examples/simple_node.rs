@@ -182,8 +182,7 @@ pub fn write_block(path: &str, block: Block) {
     file.write_all(b"\n").expect("write failed");
 }
 
-pub fn write_keypair(path: &String, data: &[u8; 64]) {
-}
+pub fn write_keypair(path: &String, data: &[u8; 64]) {}
 
 pub fn read_keypair(path: &String) -> Result<[u8; 64], Box<dyn Error>> {
     let mut file = std::fs::File::open(path)?;
