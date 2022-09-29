@@ -234,7 +234,6 @@ impl BlockchainService {
         end: Ordinal,
     ) -> Result<Vec<Block>, BlockchainError> {
         self.blockchain.pull_blocks(start, end)
-        
     }
 
     pub async fn query_last_block(&self) -> Option<Block> {
