@@ -43,7 +43,7 @@ hex = "0.4.3"
 hyper = { version = "0.14", features = ["full"] }
 hyper-tls = "0.5.0"
 if-watch = "2.0.0"
-itertools = "0.10.3"
+itertools = "0.10.5"
 lazy_static = "1.4.0"
 libp2p = { version = "0.46.1", features=["dns-tokio", "tcp-tokio"]}
 log = { version = "0.4.17", features = ["max_level_trace", "release_max_level_trace"] }
