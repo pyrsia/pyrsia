@@ -92,27 +92,23 @@ impl Chain {
     pub async fn save_block(
         &self,
         start: Ordinal,
-        mut end: Ordinal,
+        end: Ordinal,
         file_path: impl AsRef<Path>,
     ) -> Result<(), BlockchainError> {
-        match self.last_block() {
-            None => return Err(BlockchainError::InvalidBlockchainLength(self.len())),
-            Some(block) => {
-                if start > block.header.ordinal {
-                    return Err(BlockchainError::InvalidBlockchainLength(self.len()));
-                }
-                // The end ordinal out of range is currently allowed, replacing it with the ordinal of the last block.
-                if end > block.header.ordinal {
-                    warn!("The end ordinal {:?} out of bounds ", end);
-                    end = block.header.ordinal;
-                }
+        let actual_end = match self.last_block() {
+            None => Err(BlockchainError::InvalidBlockchainLength(self.len())),
+            Some(block) if start > block.header.ordinal => {
+                Err(BlockchainError::InvalidBlockchainLength(self.len()))
             }
-        }
+            Some(block) if end > block.header.ordinal => {
+                warn!("The end ordinal {} is out of bounds", end);
+                Ok(block.header.ordinal)
+            }
+            _ => Ok(end),
+        }?;
 
         let start_pos = self.get_block_position(start)?;
-
-        let end_pos = self.get_block_position(end)?;
-
+        let end_pos = self.get_block_position(actual_end)?;
         if start_pos > end_pos {
             return Err(BlockchainError::InvalidBlockchainPosition(
                 start_pos, end_pos,
@@ -260,17 +256,15 @@ mod tests {
         let temp_file: &str = &get_temp_file().unwrap();
         let mut chain: Chain = Default::default();
         let keypair = identity::ed25519::Keypair::generate();
-        let transactions = vec![];
-        let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
-        chain.add_block(block.clone());
+        let block_1 = Block::new(HashDigest::new(b""), 0, vec![], &keypair);
+        let block_2 = Block::new(HashDigest::new(b""), 1, vec![], &keypair);
+        chain.add_block(block_1.clone());
         assert_eq!(1, chain.len());
-        chain.add_block(block.clone());
+        chain.add_block(block_2.clone());
         assert!(chain.save_block(0, 1, temp_file.to_string()).await.is_ok());
-        let contents = fs::read(temp_file).await.unwrap();
-        assert_eq!(
-            "[{\"header\":{\"parent_h",
-            std::str::from_utf8(&contents[..=20]).unwrap()
-        );
+        let serialized_block = bincode::serialize(&vec![block_1.clone(), block_2.clone()]).unwrap();
+        let file_contents = fs::read(temp_file).await.unwrap();
+        assert_eq!(serialized_block, file_contents);
         assert!(fs::remove_file(temp_file).await.is_ok());
         Ok(())
     }
@@ -327,7 +321,7 @@ mod tests {
     fn get_temp_file() -> Result<String, anyhow::Error> {
         // test blockchain file in tests/resources/ dir
         let mut curr_dir = env::temp_dir();
-        curr_dir.push("blockchain.json");
+        curr_dir.push("blockchain.ser");
         Ok(String::from(curr_dir.to_string_lossy()))
     }
 

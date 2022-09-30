@@ -84,7 +84,7 @@ impl BlockchainService {
         let blockchain_path = load_blockchain_path()?;
 
         Ok(Self {
-            blockchain: Blockchain::new(&keypair, blockchain_path),
+            blockchain: Blockchain::new(keypair, blockchain_path),
             keypair: keypair.to_owned(),
             p2p_client,
         })
@@ -146,14 +146,15 @@ impl BlockchainService {
             Some(last_block) => {
                 let expected = last_block.header.ordinal + 1;
                 match ordinal.cmp(&expected) {
-                    Ordering::Greater => return Err(BlockchainError::LaggingBlockchainData),
-                    Ordering::Less => warn!("Blockchain received a duplicate block!"),
+                    Ordering::Greater => Err(BlockchainError::LaggingBlockchainData),
+                    Ordering::Less => {
+                        warn!("Blockchain received a duplicate block!");
+                        Ok(())
+                    }
                     Ordering::Equal => self.blockchain.update_block_from_peers(block).await,
                 }
             }
         }
-
-        Ok(())
     }
 
     /// Retrieve Blocks form start ordinal number to end ordinal number (including end ordinal number)
@@ -211,7 +212,7 @@ mod tests {
             vec![],
             &blockchain_service.keypair,
         );
-        let _ = blockchain_service
+        blockchain_service
             .add_block(1, Box::new(block.clone()))
             .await
             .expect("Block should have been added.");
