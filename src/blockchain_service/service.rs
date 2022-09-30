@@ -382,8 +382,11 @@ mod tests {
         let mut blockchain_service = create_blockchain_service();
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
-        
-        assert!(blockchain_service.query_blockchain_ordinal(&other_peer_id).await.is_err());
+
+        assert!(blockchain_service
+            .query_blockchain_ordinal(&other_peer_id)
+            .await
+            .is_err());
 
         Ok(())
     }
@@ -393,8 +396,11 @@ mod tests {
         let mut blockchain_service = create_blockchain_service();
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
-        
-        assert!(blockchain_service.init_pull_from_others(&other_peer_id).await.is_err());
+
+        assert!(blockchain_service
+            .init_pull_from_others(&other_peer_id)
+            .await
+            .is_err());
 
         Ok(())
     }
