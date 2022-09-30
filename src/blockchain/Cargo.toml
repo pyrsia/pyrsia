@@ -32,4 +32,5 @@ name = "simple_node"
 
 [dev-dependencies]
 pretty_env_logger = "0.4.0"
+tempfile = "3.2.0"
 tokio = { version = "1.21.1", features = [ "macros", "rt-multi-thread", "io-std" ] }

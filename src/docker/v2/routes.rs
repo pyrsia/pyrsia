@@ -90,6 +90,7 @@ mod tests {
         };
 
         BlockchainService::new(ed25519_keypair, p2p_client)
+            .expect("Creating BlockchainService failed")
     }
 
     fn create_transparency_log_service<P: AsRef<Path>>(

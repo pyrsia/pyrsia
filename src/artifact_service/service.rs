@@ -346,13 +346,11 @@ mod tests {
         keypair: &Keypair,
         p2p_client: Client,
     ) -> (mpsc::Receiver<BuildEvent>, ArtifactService) {
-        let blockchain_service = Arc::new(Mutex::new(BlockchainService::new(
-            keypair,
-            p2p_client.clone(),
-        )));
+        let blockchain_service = BlockchainService::new(keypair, p2p_client.clone())
+            .expect("Creating BlockchainService failed");
 
         let transparency_log_service =
-            TransparencyLogService::new(&artifact_path, blockchain_service)
+            TransparencyLogService::new(&artifact_path, Arc::new(Mutex::new(blockchain_service)))
                 .expect("Creating TransparencyLogService failed");
 
         let (build_event_sender, build_event_receiver) = mpsc::channel(1);

@@ -486,12 +486,11 @@ mod tests {
         let ed25519_keypair = identity::ed25519::Keypair::generate();
         let p2p_client = create_p2p_client(identity::Keypair::Ed25519(ed25519_keypair.clone()));
 
-        let blockchain_service = Arc::new(Mutex::new(BlockchainService::new(
-            &ed25519_keypair,
-            p2p_client,
-        )));
+        let blockchain_service = BlockchainService::new(&ed25519_keypair, p2p_client)
+            .expect("Creating BlockchainService failed");
 
-        TransparencyLogService::new(&artifact_path, blockchain_service).unwrap()
+        TransparencyLogService::new(&artifact_path, Arc::new(Mutex::new(blockchain_service)))
+            .unwrap()
     }
 
     #[test]

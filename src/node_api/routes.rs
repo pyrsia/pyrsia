@@ -130,6 +130,7 @@ mod tests {
         };
 
         BlockchainService::new(ed25519_keypair, p2p_client)
+            .expect("Creating BlockchainService failed")
     }
 
     fn create_artifact_service<P: AsRef<Path>>(

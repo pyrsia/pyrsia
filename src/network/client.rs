@@ -631,7 +631,7 @@ mod tests {
         let block = Block::new(HashDigest::new(b""), 0, vec![], &local_key);
 
         let mut buf: Vec<u8> = vec![1u8];
-        buf.append(&mut bincode::serialize(&(1 as u128)).unwrap());
+        buf.append(&mut bincode::serialize(&(1_u128)).unwrap());
         buf.append(&mut bincode::serialize(&block).unwrap());
 
         tokio::spawn(async move { client.request_blockchain(&other_peer_id, buf.clone()).await });

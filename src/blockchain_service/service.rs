@@ -22,8 +22,10 @@ use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
+use std::path::{Path, PathBuf};
 
 use crate::network::client::Client;
+use crate::util::env_util::read_var;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -63,13 +65,29 @@ impl Debug for BlockchainService {
     }
 }
 
+fn load_blockchain_path() -> Result<PathBuf, BlockchainError> {
+    let pyrsia_blockchain_file = read_var("PYRSIA_BLOCKCHAIN", "pyrsia/blockchain");
+    let pyrsia_blockchain_path = Path::new(&pyrsia_blockchain_file);
+    match std::fs::create_dir_all(pyrsia_blockchain_path) {
+        Ok(()) => Ok(pyrsia_blockchain_path.to_path_buf()),
+        Err(_) => Err(BlockchainError::InvalidStoragePath(
+            pyrsia_blockchain_path.to_path_buf(),
+        )),
+    }
+}
+
 impl BlockchainService {
-    pub fn new(keypair: &identity::ed25519::Keypair, p2p_client: Client) -> Self {
-        Self {
-            blockchain: Blockchain::new(keypair),
+    pub fn new(
+        keypair: &identity::ed25519::Keypair,
+        p2p_client: Client,
+    ) -> Result<Self, BlockchainError> {
+        let blockchain_path = load_blockchain_path()?;
+
+        Ok(Self {
+            blockchain: Blockchain::new(&keypair, blockchain_path),
             keypair: keypair.to_owned(),
             p2p_client,
-        }
+        })
     }
 
     /// Add payload to blockchain. It will be called by other services (e.g. transparent logging service)
@@ -119,7 +137,9 @@ impl BlockchainService {
         match last_block {
             None => {
                 if ordinal == 0 {
-                    self.blockchain.update_block_from_peers(block).await;
+                    self.blockchain.update_block_from_peers(block).await
+                } else {
+                    Ok(())
                 }
             }
 
@@ -167,21 +187,20 @@ mod tests {
         };
 
         BlockchainService::new(&ed25519_keypair, client)
+            .expect("BlockchainService should be created.")
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_add_payload() -> Result<(), String> {
+    async fn test_add_payload() {
         let mut blockchain_service = create_blockchain_service();
 
         let payload = vec![];
         assert!(blockchain_service.blockchain.last_block().is_some());
         assert!(blockchain_service.add_payload(payload).await.is_ok());
-
-        Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_add_block() -> Result<(), String> {
+    async fn test_add_block() {
         let mut blockchain_service = create_blockchain_service();
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
@@ -194,7 +213,8 @@ mod tests {
         );
         let _ = blockchain_service
             .add_block(1, Box::new(block.clone()))
-            .await;
+            .await
+            .expect("Block should have been added.");
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
         assert_eq!(last_block, block);
@@ -204,12 +224,10 @@ mod tests {
             .add_block(3, Box::new(block.clone()))
             .await
             .is_err());
-
-        Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_notify_blockchain() -> Result<(), String> {
+    async fn test_notify_blockchain() {
         let mut blockchain_service = create_blockchain_service();
 
         let block = Box::new(Block::new(
@@ -219,23 +237,20 @@ mod tests {
             &blockchain_service.keypair,
         ));
         assert!(blockchain_service.broadcast_blockchain(block).await.is_ok());
-
-        Ok(())
     }
 
     #[test]
-    fn test_debug() -> Result<(), String> {
+    fn test_debug() {
         let blockchain_service = create_blockchain_service();
 
         assert_ne!(
             format!("This is blockchain service {blockchain_service:?}"),
             "This is blockchain service"
         );
-        Ok(())
     }
 
     #[test]
-    fn test_blochchain_command_convert_to_u8() -> Result<(), String> {
+    fn test_blochchain_command_convert_to_u8() {
         assert_eq!(1u8, BlockchainCommand::Broadcast as u8);
 
         assert_eq!(2u8, BlockchainCommand::PushToPeer as u8);
@@ -243,12 +258,10 @@ mod tests {
         assert_eq!(3u8, BlockchainCommand::PullFromPeer as u8);
 
         assert_eq!(4u8, BlockchainCommand::QueryHighestBlockOrdinal as u8);
-
-        Ok(())
     }
 
     #[test]
-    fn test_blochchain_command_convert_from_u8() -> Result<(), String> {
+    fn test_blochchain_command_convert_from_u8() {
         assert_eq!(
             BlockchainCommand::try_from(1u8).unwrap(),
             BlockchainCommand::Broadcast
@@ -270,7 +283,5 @@ mod tests {
         );
 
         assert!(BlockchainCommand::try_from(47u8).is_err());
-
-        Ok(())
     }
 }

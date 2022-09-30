@@ -229,7 +229,7 @@ fn setup_blockchain_service(p2p_client: Client) -> Result<Arc<Mutex<BlockchainSe
     Ok(Arc::new(Mutex::new(BlockchainService::new(
         &ed25519_keypair,
         p2p_client,
-    ))))
+    )?)))
 }
 
 fn setup_transparency_log_service(

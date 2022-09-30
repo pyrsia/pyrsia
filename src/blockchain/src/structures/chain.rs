@@ -16,7 +16,9 @@
 use codec::{Decode, Encode};
 use log::warn;
 use serde::{Deserialize, Serialize};
-use tokio::{fs::OpenOptions, io::AsyncWriteExt};
+use std::path::Path;
+use tokio::fs::{self, OpenOptions};
+use tokio::io::AsyncWriteExt;
 
 use super::header::Ordinal;
 use crate::error::BlockchainError;
@@ -91,7 +93,7 @@ impl Chain {
         &self,
         start: Ordinal,
         mut end: Ordinal,
-        file_path: String,
+        file_path: impl AsRef<Path>,
     ) -> Result<(), BlockchainError> {
         match self.last_block() {
             None => return Err(BlockchainError::InvalidBlockchainLength(self.len())),
@@ -127,12 +129,28 @@ impl Chain {
 
         match file {
             Ok(mut file) => {
-                file.write_all(&serde_json::to_vec(&self.blocks[start_pos..=end_pos]).unwrap())
+                file.write_all(&bincode::serialize(&self.blocks[start_pos..=end_pos]).unwrap())
                     .await?;
 
                 file.sync_all().await?;
             }
             Err(e) => return Err(BlockchainError::IOError(e)),
+        }
+
+        Ok(())
+    }
+
+    /// Reads a list of blocks from the specified directory path
+    /// and adds it to the chain.
+    pub async fn read_blocks(&mut self, path: impl AsRef<Path>) -> Result<(), BlockchainError> {
+        let mut files = fs::read_dir(path).await?;
+        while let Some(entry) = files.next_entry().await? {
+            if let Ok(file_type) = entry.file_type().await {
+                if file_type.is_file() {
+                    let block_bytes = fs::read(entry.path()).await?;
+                    self.add_block(bincode::deserialize(&block_bytes)?);
+                }
+            }
         }
 
         Ok(())
@@ -195,7 +213,7 @@ mod tests {
         let transactions = vec![];
         let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
         chain.add_block(block);
-        assert_eq!(false, chain.is_empty());
+        assert!(!chain.is_empty());
 
         Ok(())
     }
