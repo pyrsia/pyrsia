@@ -28,7 +28,7 @@ Function Install-Service {
     $testNSSM = (Get-Command nssm -ErrorAction SilentlyContinue).Path
     if ($testNSSM -eq $null) {
         # Error: this shouldn't happen
-        Write-Host Error: nssm not found -foreground "red"
+        Write-Host "Error: nssm not found in path: ${env:PATH}" -foreground "red"
         exit 1
     }
     # directory where nssm should be already installed
