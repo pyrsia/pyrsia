@@ -60,6 +60,11 @@ Total Disk Space Allocated:  5.84 GB
 Disk Space Used:             0.0002%
 ```
 
+### Integration Tests
+
+- **[Repository](https://github.com/pyrsia/pyrsia-integration-tests)**: Pyrsia integration tests git repository.
+- **[Test Results](https://github.com/pyrsia/pyrsia-integration-tests/actions/workflows/run-bats-tests.yml)**: Pyrsia integration tests (daily) results.
+
 ### Cloud Deployment
 
 Pyrsia nodes can be deployed on the cloud using [pyrsia_node helmcharts](https://artifacthub.io/packages/helm/pyrsia-nightly/pyrsia-node). These nodes will act as the Authority nodes and participate as boot nodes on the network.
