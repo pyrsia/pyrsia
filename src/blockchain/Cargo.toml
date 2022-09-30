@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 aleph-bft = "0.8.4"
-anyhow = "1.0.64"
+anyhow = "1.0.65"
 async-trait = "0.1.57"
 bincode = "1.3.3"
 clap = { version = "3.2.22", features = ["derive"] }
@@ -27,8 +27,6 @@ thiserror = "1.0.35"
 tokio = { version = "1.21.1", features = ["fs", "io-util", "io-std", "macros", "rt", "rt-multi-thread", "sync", "time"] }
 unsigned-varint = "0.7.1"
 
-[[example]]
-name = "simple_node"
 
 [dev-dependencies]
 pretty_env_logger = "0.4.0"
