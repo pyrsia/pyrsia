@@ -247,6 +247,7 @@ impl BlockchainService {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
+    use libp2p::identity::Keypair;
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
     use tokio::sync::mpsc;
 
@@ -372,6 +373,28 @@ mod tests {
                 .header
                 .ordinal
         );
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_query_blockchain_ordinal_with_invalid_other_peer() -> Result<(), String> {
+        let mut blockchain_service = create_blockchain_service();
+
+        let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+        
+        assert!(blockchain_service.query_blockchain_ordinal(&other_peer_id).await.is_err());
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_init_pull_from_others_with_invalid_other_peer() -> Result<(), String> {
+        let mut blockchain_service = create_blockchain_service();
+
+        let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+        
+        assert!(blockchain_service.init_pull_from_others(&other_peer_id).await.is_err());
 
         Ok(())
     }
