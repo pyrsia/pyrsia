@@ -302,6 +302,81 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn test_init_first_blockchain_node() -> Result<(), String> {
+        let (sender, _) = mpsc::channel(1);
+        let ed25519_keypair = identity::ed25519::Keypair::generate();
+        let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
+        let client = Client {
+            sender,
+            local_peer_id,
+        };
+
+        let blockchain_service = BlockchainService::init_first_blockchain_node(
+            &ed25519_keypair,
+            &ed25519_keypair,
+            client,
+        );
+        let block = blockchain_service.query_last_block().await.unwrap();
+        assert_eq!(0, block.header.ordinal);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_init_other_blockchain_node() -> Result<(), String> {
+        let (sender, _) = mpsc::channel(1);
+        let ed25519_keypair = identity::ed25519::Keypair::generate();
+        let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
+        let client = Client {
+            sender,
+            local_peer_id,
+        };
+
+        let blockchain_service =
+            BlockchainService::init_other_blockchain_node(&ed25519_keypair, client);
+        assert_eq!(None, blockchain_service.query_last_block().await);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_pull_blocks() -> Result<(), String> {
+        let blockchain_service = create_blockchain_service();
+        assert_eq!(1, blockchain_service.pull_blocks(0, 0).await.unwrap().len());
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_query_last_block() -> Result<(), String> {
+        let mut blockchain_service = create_blockchain_service();
+
+        let last_block = blockchain_service.blockchain.last_block().unwrap();
+
+        let block = Block::new(
+            last_block.header.hash(),
+            1,
+            vec![],
+            &blockchain_service.keypair,
+        );
+        let _ = blockchain_service
+            .add_block(1, Box::new(block.clone()))
+            .await;
+
+        assert_eq!(
+            1,
+            blockchain_service
+                .query_last_block()
+                .await
+                .unwrap()
+                .header
+                .ordinal
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_notify_blockchain() -> Result<(), String> {
         let mut blockchain_service = create_blockchain_service();
 
