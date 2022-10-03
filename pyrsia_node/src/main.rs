@@ -19,6 +19,8 @@ pub mod network;
 
 use anyhow::{bail, Result};
 use args::parser::PyrsiaNodeArgs;
+use libp2p::identity::Keypair;
+use libp2p::PeerId;
 use network::handlers;
 use pyrsia::artifact_service::service::ArtifactService;
 use pyrsia::artifact_service::storage::ARTIFACTS_DIR;
@@ -54,13 +56,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = PyrsiaNodeArgs::parse();
 
     debug!("Create p2p components");
-    let (p2p_client, mut p2p_events, event_loop) = p2p::setup_libp2p_swarm(args.max_provided_keys)?;
+    let (p2p_client, local_keypair, mut p2p_events, event_loop) =
+        p2p::setup_libp2p_swarm(args.max_provided_keys)?;
 
     debug!("Start p2p event loop");
     tokio::spawn(event_loop.run());
 
     debug!("Create blockchain service component");
-    let blockchain_service = setup_blockchain_service(p2p_client.clone())?;
+    let blockchain_service = setup_blockchain_service(local_keypair, p2p_client.clone(), &args)?;
 
     debug!("Create transparency log service");
     let transparency_log_service = setup_transparency_log_service(blockchain_service.clone())?;
@@ -78,7 +81,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     );
 
     debug!("Start p2p components");
-    setup_p2p(p2p_client.clone(), &args).await?;
+    let other_peer_id = setup_p2p(p2p_client.clone(), &args).await?;
+
+    if !args.init_blockchain {
+        pull_block_from_other_nodes(
+            artifact_service.clone(),
+            blockchain_service.clone(),
+            other_peer_id,
+        )
+        .await?;
+    }
 
     debug!("Listen for p2p events");
     loop {
@@ -152,25 +164,33 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-async fn setup_p2p(mut p2p_client: Client, args: &PyrsiaNodeArgs) -> anyhow::Result<()> {
+async fn setup_p2p(
+    mut p2p_client: Client,
+    args: &PyrsiaNodeArgs,
+) -> anyhow::Result<Option<PeerId>> {
     p2p_client.listen(&args.listen_address).await?;
+    let mut other_peer_id: Option<PeerId> = None;
     if let Some(to_probe) = &args.probe {
         info!("Invoking probe");
-        handlers::probe_other_peer(p2p_client.clone(), to_probe).await
+        handlers::probe_other_peer(p2p_client.clone(), to_probe).await?;
+        other_peer_id = libp2p::PeerId::try_from_multiaddr(to_probe);
     } else if let Some(to_dial) = &args.peer {
         info!("Invoking dial");
-        handlers::dial_other_peer(p2p_client.clone(), to_dial).await
+        handlers::dial_other_peer(p2p_client.clone(), to_dial).await?;
+        other_peer_id = libp2p::PeerId::try_from_multiaddr(to_dial);
     } else if args.listen_only {
         info!("Pyrsia node will listen only. No attempt to connect to other nodes.");
-        Ok(())
     } else {
         info!("Looking up bootstrap node");
         let peer_addrs = load_peer_addrs(&args.bootstrap_url).await?;
         // Turbofish! https://doc.rust-lang.org/std/primitive.str.html#method.parse
         let pa = peer_addrs.parse::<libp2p::Multiaddr>()?;
         info!("Probing {:?}", pa);
-        handlers::probe_other_peer(p2p_client.clone(), &pa).await
+        handlers::probe_other_peer(p2p_client.clone(), &pa).await?;
+        other_peer_id = libp2p::PeerId::try_from_multiaddr(&pa);
     }
+
+    Ok(other_peer_id)
 }
 
 async fn load_peer_addrs(peer_url: &str) -> anyhow::Result<String> {
@@ -215,21 +235,42 @@ async fn load_peer_addrs(peer_url: &str) -> anyhow::Result<String> {
     }
 }
 
-fn setup_blockchain_service(p2p_client: Client) -> Result<Arc<Mutex<BlockchainService>>> {
-    let local_keypair =
-        keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
+fn setup_blockchain_service(
+    local_keypair: Keypair,
+    p2p_client: Client,
+    args: &PyrsiaNodeArgs,
+) -> Result<Arc<Mutex<BlockchainService>>> {
+    let blockchain_service: BlockchainService;
 
-    let ed25519_keypair = match local_keypair {
+    let local_ed25519_keypair = match local_keypair {
         libp2p::identity::Keypair::Ed25519(v) => v,
         _ => {
             bail!("Keypair Format Error");
         }
     };
 
-    Ok(Arc::new(Mutex::new(BlockchainService::new(
-        &ed25519_keypair,
-        p2p_client,
-    ))))
+    if args.init_blockchain {
+        let blockchain_keypair =
+            keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
+
+        let blockchain_ed25519_keypair = match blockchain_keypair {
+            libp2p::identity::Keypair::Ed25519(v) => v,
+            _ => {
+                bail!("Keypair Format Error");
+            }
+        };
+        // Refactor to overloading(trait) later
+        blockchain_service = BlockchainService::init_first_blockchain_node(
+            &local_ed25519_keypair,
+            &blockchain_ed25519_keypair,
+            p2p_client,
+        );
+    } else {
+        blockchain_service =
+            BlockchainService::init_other_blockchain_node(&local_ed25519_keypair, p2p_client);
+    }
+
+    Ok(Arc::new(Mutex::new(blockchain_service)))
 }
 
 fn setup_transparency_log_service(
@@ -351,17 +392,23 @@ fn setup_http(
     tokio::spawn(server);
 }
 
-#[cfg(test)]
-#[cfg(not(tarpaulin_include))]
-mod tests {
-    use pyrsia::network::p2p;
+async fn pull_block_from_other_nodes(
+    mut artifact_service: ArtifactService,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
+    other_peer_id: Option<PeerId>,
+) -> anyhow::Result<()> {
+    if let Some(other_peer_id) = other_peer_id {
+        debug!("Blockchain start pulling from other nodes");
 
-    use crate::setup_blockchain_service;
+        let mut blockchain_service = blockchain_service.lock().await;
 
-    #[test]
-    fn setup_blockchain_success() {
-        let (p2p_client, _, _) = p2p::setup_libp2p_swarm(100).unwrap();
-        let blockchain_service = setup_blockchain_service(p2p_client);
-        assert!(blockchain_service.is_ok());
+        let ordinal = blockchain_service
+            .init_pull_from_others(&other_peer_id)
+            .await?;
+        for block in blockchain_service.pull_blocks(1, ordinal).await? {
+            let payloads = block.fetch_payload();
+            artifact_service.handle_block_added(payloads).await?;
+        }
     }
+    Ok(())
 }

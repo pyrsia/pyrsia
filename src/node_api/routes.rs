@@ -129,7 +129,7 @@ mod tests {
             }
         };
 
-        BlockchainService::new(ed25519_keypair, p2p_client)
+        BlockchainService::init_first_blockchain_node(ed25519_keypair, ed25519_keypair, p2p_client)
     }
 
     fn create_artifact_service<P: AsRef<Path>>(
