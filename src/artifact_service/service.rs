@@ -174,8 +174,13 @@ impl ArtifactService {
     ) -> Result<(), anyhow::Error> {
         if payloads.len() == 1 {
             let transparency_log: TransparencyLog = serde_json::from_slice(&payloads[0])?;
-            self.transparency_log_service
-                .write_transparency_log(&transparency_log)?;
+            if let Err(TransparencyLogError::LogNotFound { .. }) = self
+                .transparency_log_service
+                .find_transparency_log(&transparency_log.id)
+            {
+                self.transparency_log_service
+                    .write_transparency_log(&transparency_log)?;
+            }
         }
 
         Ok(())

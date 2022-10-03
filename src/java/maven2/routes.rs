@@ -112,11 +112,11 @@ mod tests {
             .reply(&filter)
             .await;
 
-        let not_found_error = TransparencyLogError::NotFound {
+        let artifact_not_found_error = TransparencyLogError::ArtifactNotFound {
             package_type: PackageType::Maven2,
             package_specific_artifact_id: "com.company/artifact/1.8/artifact-1.8.pom".to_owned(),
         };
-        let expected_error: RegistryError = not_found_error.into();
+        let expected_error: RegistryError = artifact_not_found_error.into();
         let expected_body = format!("Unhandled rejection: {:?}", expected_error);
 
         assert_eq!(response.status(), 500);

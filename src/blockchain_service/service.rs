@@ -225,7 +225,7 @@ impl BlockchainService {
     pub async fn init_pull_from_others(
         &mut self,
         other_peer_id: &PeerId,
-    ) -> Result<(), BlockchainError> {
+    ) -> Result<Ordinal, BlockchainError> {
         // Always start with the genesis block
         let ordinal = self.query_blockchain_ordinal(other_peer_id).await?;
 
@@ -239,7 +239,7 @@ impl BlockchainService {
             self.add_block(ordinal, Box::new(block)).await?;
         }
 
-        Ok(())
+        Ok(ordinal)
     }
 }
 

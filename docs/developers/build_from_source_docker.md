@@ -91,12 +91,12 @@ cp target/debug/pyrsia_node nodeA
 cd nodeA
 ```
 
-And then run node A in listen-only mode, listening on a non-default port (because
+And then run node A in listen-only and init mode, listening on a non-default port (because
 we will run node B with default settings).
 
 ```sh
 RUST_LOG=pyrsia=debug DEV_MODE=on \
-./pyrsia_node --pipeline-service-endpoint http://localhost:8080 -p 7889 --listen-only true --init-blockchain true
+./pyrsia_node --pipeline-service-endpoint http://localhost:8080 -p 7889 --listen-only --init-blockchain
 ```
 
 Watch out for this kind of log:

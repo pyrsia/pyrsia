@@ -43,13 +43,13 @@ pub struct PyrsiaNodeArgs {
     #[clap(long, short = 'P')]
     pub peer: Option<Multiaddr>,
     /// Initialization mode, used only for the first authorized node in the Pyrsia network to initialize the Pyrsia network
-    #[clap(long, action = clap::ArgAction::Set, default_value = "false")]
+    #[clap(long)]
     pub init_blockchain: bool,
     /// An address to use for probing AutoNAT connections
     #[clap(long, short = 'R')]
     pub probe: Option<Multiaddr>,
     /// listen_only mode - don't try to connect to any peers at startup
-    #[clap(long, action = clap::ArgAction::Set, default_value = "false")]
+    #[clap(long)]
     pub listen_only: bool,
     #[clap(long, short = 'B', default_value = DEFAULT_BOOTSTRAP_URL)]
     pub bootstrap_url: String,
