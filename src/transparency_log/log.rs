@@ -639,6 +639,72 @@ mod tests {
     }
 
     #[test]
+    fn test_find_transparency_log() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = create_transparency_log_service(&tmp_dir);
+
+        let transparency_log = TransparencyLog {
+            id: String::from("id"),
+            package_type: Some(PackageType::Maven2),
+            package_specific_id: String::from("package_specific_id"),
+            num_artifacts: 8,
+            package_specific_artifact_id: String::from("package_specific_artifact_id"),
+            artifact_hash: String::from("artifact_hash"),
+            source_hash: String::from("source_hash"),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
+            timestamp: 1234567890,
+            operation: Operation::AddArtifact,
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        let result_write = log.write_transparency_log(&transparency_log);
+        assert!(result_write.is_ok());
+
+        let result_find =
+            log.find_transparency_log("id");
+        assert!(result_find.is_ok());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    fn test_find_transparency_log_not_found() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = create_transparency_log_service(&tmp_dir);
+
+        let transparency_log = TransparencyLog {
+            id: String::from("id"),
+            package_type: Some(PackageType::Maven2),
+            package_specific_id: String::from("package_specific_id"),
+            num_artifacts: 8,
+            package_specific_artifact_id: String::from("package_specific_artifact_id"),
+            artifact_hash: String::from("artifact_hash"),
+            source_hash: String::from("source_hash"),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
+            timestamp: 1234567890,
+            operation: Operation::AddArtifact,
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        let result_write = log.write_transparency_log(&transparency_log);
+        assert!(result_write.is_ok());
+
+        let result_find =
+            log.find_transparency_log("unknown_id").expect_err("Find transparency log should have failed.");
+        assert_eq!(result_find, TransparencyLogError::LogNotFound {
+            id: "unknown_id".to_owned(),
+        });
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
     fn test_read_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
