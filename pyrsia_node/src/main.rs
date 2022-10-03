@@ -402,7 +402,9 @@ async fn pull_block_from_other_nodes(
 
         let mut blockchain_service = blockchain_service.lock().await;
 
-        let ordinal = blockchain_service.init_pull_from_others(&other_peer_id).await?;
+        let ordinal = blockchain_service
+            .init_pull_from_others(&other_peer_id)
+            .await?;
         for block in blockchain_service.pull_blocks(1, ordinal).await? {
             let payloads = block.fetch_payload();
             artifact_service.handle_block_added(payloads).await?;

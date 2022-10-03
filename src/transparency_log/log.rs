@@ -33,10 +33,12 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum TransparencyLogError {
+    #[error("TransparencyLog with ID {id} not found")]
+    LogNotFound { id: String },
     #[error(
-        "ID {package_specific_artifact_id} for type {package_type} not found in transparency log"
+        "Artifact ID {package_specific_artifact_id} for type {package_type} not found in transparency log"
     )]
-    NotFound {
+    ArtifactNotFound {
         package_type: PackageType,
         package_specific_artifact_id: String,
     },
@@ -94,7 +96,7 @@ impl ToSql for Operation {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TransparencyLog {
-    id: String,
+    pub id: String,
     pub package_type: Option<PackageType>,
     pub package_specific_id: String,
     pub num_artifacts: u32,
@@ -289,6 +291,18 @@ impl TransparencyLogService {
         }
     }
 
+    pub fn find_transparency_log(&self, id: &str) -> Result<TransparencyLog, TransparencyLogError> {
+        let query = ["SELECT * FROM TRANSPARENCYLOG WHERE id = '", id, "';"];
+
+        let results = self.process_query(query.join("").as_str())?;
+
+        if results.len() == 1 {
+            Ok(results.into_iter().next().unwrap())
+        } else {
+            Err(TransparencyLogError::LogNotFound { id: id.to_owned() })
+        }
+    }
+
     pub fn write_transparency_log(
         &self,
         transparency_log: &TransparencyLog,
@@ -349,13 +363,14 @@ impl TransparencyLogService {
 
         vector.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
 
-        let latest_record = vector
-            .into_iter()
-            .next()
-            .ok_or(TransparencyLogError::NotFound {
-                package_type: *package_type,
-                package_specific_artifact_id: package_specific_artifact_id.to_owned(),
-            })?;
+        let latest_record =
+            vector
+                .into_iter()
+                .next()
+                .ok_or(TransparencyLogError::ArtifactNotFound {
+                    package_type: *package_type,
+                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
+                })?;
 
         if latest_record.operation == Operation::RemoveArtifact {
             return Err(TransparencyLogError::InvalidOperation {
@@ -685,7 +700,7 @@ mod tests {
         assert!(result_read.is_err());
         assert_eq!(
             result_read.err().unwrap().to_string(),
-            TransparencyLogError::NotFound {
+            TransparencyLogError::ArtifactNotFound {
                 package_type: PackageType::Maven2,
                 package_specific_artifact_id: String::from("invalid_package_specific_artifact_id"),
             }
