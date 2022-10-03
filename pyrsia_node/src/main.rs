@@ -84,7 +84,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let other_peer_id = setup_p2p(p2p_client.clone(), &args).await?;
 
     if !args.init_blockchain {
-        pull_block_from_other_nodes(blockchain_service.clone(), other_peer_id).await?;
+        pull_block_from_other_nodes(
+            artifact_service.clone(),
+            blockchain_service.clone(),
+            other_peer_id,
+        )
+        .await?;
     }
 
     debug!("Listen for p2p events");
@@ -388,6 +393,7 @@ fn setup_http(
 }
 
 async fn pull_block_from_other_nodes(
+    mut artifact_service: ArtifactService,
     blockchain_service: Arc<Mutex<BlockchainService>>,
     other_peer_id: Option<PeerId>,
 ) -> anyhow::Result<()> {
@@ -395,9 +401,12 @@ async fn pull_block_from_other_nodes(
         debug!("Blockchain start pulling from other nodes");
 
         let mut blockchain_service = blockchain_service.lock().await;
-        blockchain_service
-            .init_pull_from_others(&other_peer_id)
-            .await?;
+
+        let ordinal = blockchain_service.init_pull_from_others(&other_peer_id).await?;
+        for block in blockchain_service.pull_blocks(1, ordinal).await? {
+            let payloads = block.fetch_payload();
+            artifact_service.handle_block_added(payloads).await?;
+        }
     }
     Ok(())
 }
