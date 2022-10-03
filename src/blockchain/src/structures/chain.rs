@@ -141,10 +141,12 @@ impl Chain {
     pub async fn read_blocks(&mut self, path: impl AsRef<Path>) -> Result<(), BlockchainError> {
         let mut files = fs::read_dir(path).await?;
         while let Some(entry) = files.next_entry().await? {
-            if let Ok(file_type) = entry.file_type().await {
-                if file_type.is_file() {
-                    let block_bytes = fs::read(entry.path()).await?;
-                    self.add_block(bincode::deserialize(&block_bytes)?);
+            if let Some(file_name) = entry.file_name().as_os_str().to_str() {
+                if let Ok(file_type) = entry.file_type().await {
+                    if file_type.is_file() && file_name.ends_with(".ser") {
+                        let block_bytes = fs::read(entry.path()).await?;
+                        self.add_block(bincode::deserialize(&block_bytes)?);
+                    }
                 }
             }
         }

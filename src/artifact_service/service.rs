@@ -341,12 +341,13 @@ mod tests {
         (command_receiver, p2p_client)
     }
 
-    fn create_artifact_service<P: AsRef<Path>>(
+    async fn create_artifact_service<P: AsRef<Path>>(
         artifact_path: P,
         keypair: &Keypair,
         p2p_client: Client,
     ) -> (mpsc::Receiver<BuildEvent>, ArtifactService) {
         let blockchain_service = BlockchainService::new(keypair, p2p_client.clone())
+            .await
             .expect("Creating BlockchainService failed");
 
         let transparency_log_service =
@@ -375,7 +376,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -446,7 +447,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -514,7 +515,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             tokio::select! {
@@ -549,7 +550,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -606,7 +607,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -675,7 +676,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -728,7 +729,7 @@ mod tests {
 
         let (_command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
@@ -755,7 +756,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (mut build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -809,7 +810,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {

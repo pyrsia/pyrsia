@@ -482,11 +482,14 @@ mod tests {
         }
     }
 
-    fn create_transparency_log_service<P: AsRef<Path>>(artifact_path: P) -> TransparencyLogService {
+    async fn create_transparency_log_service<P: AsRef<Path>>(
+        artifact_path: P,
+    ) -> TransparencyLogService {
         let ed25519_keypair = identity::ed25519::Keypair::generate();
         let p2p_client = create_p2p_client(identity::Keypair::Ed25519(ed25519_keypair.clone()));
 
         let blockchain_service = BlockchainService::new(&ed25519_keypair, p2p_client)
+            .await
             .expect("Creating BlockchainService failed");
 
         TransparencyLogService::new(&artifact_path, Arc::new(Mutex::new(blockchain_service)))
@@ -542,11 +545,11 @@ mod tests {
         assert_eq!(transparency_log.node_public_key, node_public_key);
     }
 
-    #[test]
-    fn test_open_db() {
+    #[tokio::test]
+    async fn test_open_db() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let result = log.open_db();
         assert!(result.is_ok());
@@ -562,11 +565,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_write_tranparency_log() {
+    #[tokio::test]
+    async fn test_write_tranparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -590,11 +593,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_write_twice_transparency_log_error() {
+    #[tokio::test]
+    async fn test_write_twice_transparency_log_error() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -620,11 +623,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_read_transparency_log() {
+    #[tokio::test]
+    async fn test_read_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -652,11 +655,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_read_transparency_log_invalid_id() {
+    #[tokio::test]
+    async fn test_read_transparency_log_invalid_id() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -692,11 +695,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_read_latest_transparency_log() {
+    #[tokio::test]
+    async fn test_read_latest_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),
@@ -743,11 +746,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_read_transparency_logs() {
+    #[tokio::test]
+    async fn test_read_transparency_logs() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),
@@ -799,11 +802,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_read_remove_artifact_transparency_log() {
+    #[tokio::test]
+    async fn test_read_remove_artifact_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -843,7 +846,7 @@ mod tests {
     async fn test_add_artifact() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut log = create_transparency_log_service(&tmp_dir);
+        let mut log = create_transparency_log_service(&tmp_dir).await;
 
         let result = log
             .add_artifact(AddArtifactRequest {
@@ -859,11 +862,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_get_authorized_nodes_empty() {
+    #[tokio::test]
+    async fn test_get_authorized_nodes_empty() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let result_read = log.get_authorized_nodes();
         assert!(result_read.is_ok());
@@ -876,7 +879,7 @@ mod tests {
     async fn test_add_authorized_nodes() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
@@ -908,11 +911,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_get_authorized_nodes_add() {
+    #[tokio::test]
+    async fn test_get_authorized_nodes_add() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -942,11 +945,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_get_authorized_nodes_add_and_remove() {
+    #[tokio::test]
+    async fn test_get_authorized_nodes_add_and_remove() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),

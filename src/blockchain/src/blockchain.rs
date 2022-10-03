@@ -59,25 +59,32 @@ impl Debug for Blockchain {
 }
 
 impl Blockchain {
-    pub fn new(keypair: &identity::ed25519::Keypair, blockchain_path: impl AsRef<Path>) -> Self {
-        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let transaction = Transaction::new(
-            TransactionType::Create,
-            local_id,
-            "this is the first reserved transaction".as_bytes().to_vec(),
-            keypair,
-        );
+    pub async fn new(
+        keypair: &identity::ed25519::Keypair,
+        blockchain_path: impl AsRef<Path>,
+    ) -> Result<Self, BlockchainError> {
+        let mut chain: Chain = Default::default();
+        chain.read_blocks(&blockchain_path).await?;
 
         // Make the "genesis" blocks
-        let block = Block::new(HashDigest::new(b""), 0, Vec::from([transaction]), keypair);
-        let mut chain: Chain = Default::default();
-        chain.add_block(block);
+        if chain.is_empty() {
+            let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
+            let transaction = Transaction::new(
+                TransactionType::Create,
+                local_id,
+                "this is the first reserved transaction".as_bytes().to_vec(),
+                keypair,
+            );
 
-        Self {
+            let block = Block::new(HashDigest::new(b""), 0, Vec::from([transaction]), keypair);
+            chain.add_block(block);
+        }
+
+        Ok(Self {
             trans_observers: Default::default(),
             chain,
             blockchain_path: blockchain_path.as_ref().to_path_buf(),
-        }
+        })
     }
 
     pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction) + Send + Sync>(
@@ -151,7 +158,7 @@ impl Blockchain {
             .save_block(
                 block_ordinal,
                 block_ordinal,
-                &self.blockchain_path.join(block_ordinal.to_string()),
+                &self.blockchain_path.join(format!("{}.ser", block_ordinal)),
             )
             .await
     }
@@ -190,7 +197,9 @@ mod tests {
         let tmp_dir = create_tmp_dir();
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let mut blockchain = Blockchain::new(&keypair, &tmp_dir);
+        let mut blockchain = Blockchain::new(&keypair, &tmp_dir)
+            .await
+            .expect("Blockchain should have been created.");
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
@@ -217,12 +226,14 @@ mod tests {
         remove_tmp_dir(tmp_dir);
     }
 
-    #[test]
-    fn test_add_trans_listener() {
+    #[tokio::test]
+    async fn test_add_trans_listener() {
         let tmp_dir = create_tmp_dir();
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let mut chain = Blockchain::new(&keypair, &tmp_dir);
+        let mut blockchain = Blockchain::new(&keypair, &tmp_dir)
+            .await
+            .expect("Blockchain should have been created.");
 
         let transaction = Transaction::new(
             TransactionType::Create,
@@ -231,7 +242,7 @@ mod tests {
             &keypair,
         );
         let called = Arc::new(Mutex::new(false));
-        chain
+        blockchain
             .submit_transaction(transaction.clone(), {
                 let called = called.clone();
                 let transaction = transaction.clone();
@@ -251,7 +262,9 @@ mod tests {
         let tmp_dir = create_tmp_dir();
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let mut blockchain = Blockchain::new(&keypair, &tmp_dir);
+        let mut blockchain = Blockchain::new(&keypair, &tmp_dir)
+            .await
+            .expect("Blockchain should have been created.");
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
@@ -285,7 +298,9 @@ mod tests {
             Ed25519(some) => some,
             _ => panic!("Key format is wrong"),
         };
-        let mut blockchain = Blockchain::new(&ed25519_key, &tmp_dir);
+        let mut blockchain = Blockchain::new(&ed25519_key, &tmp_dir)
+            .await
+            .expect("Blockchain should have been created.");
 
         let data = "Hello First Transaction";
 
@@ -310,7 +325,9 @@ mod tests {
             _ => panic!("Key format is wrong"),
         };
 
-        let mut blockchain = Blockchain::new(&ed25519_key, &tmp_dir);
+        let mut blockchain = Blockchain::new(&ed25519_key, &tmp_dir)
+            .await
+            .expect("Blockchain should have been created.");
 
         let block = Box::new(Block::new(HashDigest::new(b""), 1, vec![], &ed25519_key));
 
@@ -325,7 +342,9 @@ mod tests {
         let tmp_dir = create_tmp_dir();
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let mut blockchain = Blockchain::new(&keypair, &tmp_dir);
+        let mut blockchain = Blockchain::new(&keypair, &tmp_dir)
+            .await
+            .expect("Blockchain should have been created.");
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";

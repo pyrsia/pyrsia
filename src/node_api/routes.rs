@@ -121,7 +121,10 @@ mod tests {
         (command_receiver, p2p_client)
     }
 
-    fn create_blockchain_service(local_keypair: &Keypair, p2p_client: Client) -> BlockchainService {
+    async fn create_blockchain_service(
+        local_keypair: &Keypair,
+        p2p_client: Client,
+    ) -> BlockchainService {
         let ed25519_keypair = match local_keypair {
             libp2p::identity::Keypair::Ed25519(ref v) => v,
             _ => {
@@ -130,6 +133,7 @@ mod tests {
         };
 
         BlockchainService::new(ed25519_keypair, p2p_client)
+            .await
             .expect("Creating BlockchainService failed")
     }
 
@@ -152,12 +156,12 @@ mod tests {
         (build_event_receiver, artifact_service)
     }
 
-    fn create_transparency_log_service<P: AsRef<Path>>(
+    async fn create_transparency_log_service<P: AsRef<Path>>(
         artifact_path: P,
         local_keypair: Keypair,
         p2p_client: Client,
     ) -> TransparencyLogService {
-        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client);
+        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client).await;
 
         TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
             .expect("Creating ArtifactService failed")
@@ -170,7 +174,8 @@ mod tests {
         let local_keypair = Keypair::generate_ed25519();
         let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair.clone(), p2p_client.clone());
+            create_transparency_log_service(&tmp_dir, local_keypair.clone(), p2p_client.clone())
+                .await;
 
         let (_build_event_receiver, artifact_service) = create_artifact_service(
             &tmp_dir,
@@ -213,7 +218,8 @@ mod tests {
         let local_keypair = Keypair::generate_ed25519();
         let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair.clone(), p2p_client.clone());
+            create_transparency_log_service(&tmp_dir, local_keypair.clone(), p2p_client.clone())
+                .await;
 
         let (mut build_event_receiver, artifact_service) = create_artifact_service(
             &tmp_dir,
@@ -275,7 +281,8 @@ mod tests {
         let local_keypair = Keypair::generate_ed25519();
         let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair.clone(), p2p_client.clone());
+            create_transparency_log_service(&tmp_dir, local_keypair.clone(), p2p_client.clone())
+                .await;
 
         let (mut build_event_receiver, artifact_service) = create_artifact_service(
             &tmp_dir,
@@ -337,7 +344,7 @@ mod tests {
         let local_keypair = Keypair::generate_ed25519();
         let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone());
+            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone()).await;
         let (_build_event_receiver, artifact_service) = create_artifact_service(
             &tmp_dir,
             transparency_log_service.clone(),
@@ -380,7 +387,7 @@ mod tests {
         let local_keypair = Keypair::generate_ed25519();
         let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone());
+            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone()).await;
         let (_build_event_receiver, artifact_service) = create_artifact_service(
             &tmp_dir,
             transparency_log_service.clone(),

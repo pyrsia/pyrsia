@@ -77,14 +77,14 @@ fn load_blockchain_path() -> Result<PathBuf, BlockchainError> {
 }
 
 impl BlockchainService {
-    pub fn new(
+    pub async fn new(
         keypair: &identity::ed25519::Keypair,
         p2p_client: Client,
     ) -> Result<Self, BlockchainError> {
         let blockchain_path = load_blockchain_path()?;
 
         Ok(Self {
-            blockchain: Blockchain::new(keypair, blockchain_path),
+            blockchain: Blockchain::new(keypair, blockchain_path).await?,
             keypair: keypair.to_owned(),
             p2p_client,
         })
@@ -178,7 +178,7 @@ mod tests {
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
     use tokio::sync::mpsc;
 
-    fn create_blockchain_service() -> BlockchainService {
+    async fn create_blockchain_service() -> BlockchainService {
         let (sender, _) = mpsc::channel(1);
         let ed25519_keypair = identity::ed25519::Keypair::generate();
         let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
@@ -188,12 +188,13 @@ mod tests {
         };
 
         BlockchainService::new(&ed25519_keypair, client)
+            .await
             .expect("BlockchainService should be created.")
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_add_payload() {
-        let mut blockchain_service = create_blockchain_service();
+        let mut blockchain_service = create_blockchain_service().await;
 
         let payload = vec![];
         assert!(blockchain_service.blockchain.last_block().is_some());
@@ -202,7 +203,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_add_block() {
-        let mut blockchain_service = create_blockchain_service();
+        let mut blockchain_service = create_blockchain_service().await;
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
 
@@ -229,7 +230,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_notify_blockchain() {
-        let mut blockchain_service = create_blockchain_service();
+        let mut blockchain_service = create_blockchain_service().await;
 
         let block = Box::new(Block::new(
             HashDigest::new(b""),
@@ -240,9 +241,9 @@ mod tests {
         assert!(blockchain_service.broadcast_blockchain(block).await.is_ok());
     }
 
-    #[test]
-    fn test_debug() {
-        let blockchain_service = create_blockchain_service();
+    #[tokio::test]
+    async fn test_debug() {
+        let blockchain_service = create_blockchain_service().await;
 
         assert_ne!(
             format!("This is blockchain service {blockchain_service:?}"),

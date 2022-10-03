@@ -60,7 +60,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tokio::spawn(event_loop.run());
 
     debug!("Create blockchain service component");
-    let blockchain_service = setup_blockchain_service(p2p_client.clone())?;
+    let blockchain_service = setup_blockchain_service(p2p_client.clone()).await?;
 
     debug!("Create transparency log service");
     let transparency_log_service = setup_transparency_log_service(blockchain_service.clone())?;
@@ -215,7 +215,7 @@ async fn load_peer_addrs(peer_url: &str) -> anyhow::Result<String> {
     }
 }
 
-fn setup_blockchain_service(p2p_client: Client) -> Result<Arc<Mutex<BlockchainService>>> {
+async fn setup_blockchain_service(p2p_client: Client) -> Result<Arc<Mutex<BlockchainService>>> {
     let local_keypair =
         keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
 
@@ -226,10 +226,9 @@ fn setup_blockchain_service(p2p_client: Client) -> Result<Arc<Mutex<BlockchainSe
         }
     };
 
-    Ok(Arc::new(Mutex::new(BlockchainService::new(
-        &ed25519_keypair,
-        p2p_client,
-    )?)))
+    Ok(Arc::new(Mutex::new(
+        BlockchainService::new(&ed25519_keypair, p2p_client).await?,
+    )))
 }
 
 fn setup_transparency_log_service(
@@ -358,10 +357,10 @@ mod tests {
 
     use crate::setup_blockchain_service;
 
-    #[test]
-    fn setup_blockchain_success() {
+    #[tokio::test]
+    async fn setup_blockchain_success() {
         let (p2p_client, _, _) = p2p::setup_libp2p_swarm(100).unwrap();
-        let blockchain_service = setup_blockchain_service(p2p_client);
+        let blockchain_service = setup_blockchain_service(p2p_client).await;
         assert!(blockchain_service.is_ok());
     }
 }

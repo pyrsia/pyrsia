@@ -277,7 +277,10 @@ mod tests {
         }
     }
 
-    fn create_blockchain_service(local_keypair: &Keypair, p2p_client: Client) -> BlockchainService {
+    async fn create_blockchain_service(
+        local_keypair: &Keypair,
+        p2p_client: Client,
+    ) -> BlockchainService {
         let ed25519_keypair = match local_keypair {
             libp2p::identity::Keypair::Ed25519(ref v) => v,
             _ => {
@@ -286,14 +289,17 @@ mod tests {
         };
 
         BlockchainService::new(ed25519_keypair, p2p_client)
+            .await
             .expect("Creating BlockchainService failed")
     }
 
-    fn create_transparency_log_service<P: AsRef<Path>>(artifact_path: P) -> TransparencyLogService {
+    async fn create_transparency_log_service<P: AsRef<Path>>(
+        artifact_path: P,
+    ) -> TransparencyLogService {
         let local_keypair = Keypair::generate_ed25519();
         let p2p_client = create_p2p_client(&local_keypair);
 
-        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client);
+        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client).await;
 
         TransparencyLogService::new(&artifact_path, Arc::new(Mutex::new(blockchain_service)))
             .unwrap()
@@ -303,7 +309,7 @@ mod tests {
     async fn test_verify_add_artifact_transaction() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut transparency_log_service = create_transparency_log_service(&tmp_dir);
+        let mut transparency_log_service = create_transparency_log_service(&tmp_dir).await;
 
         let package_type = PackageType::Docker;
         let package_specific_id = "alpine:3.15.1";
@@ -357,7 +363,7 @@ mod tests {
     async fn test_verify_add_artifact_transaction_starts_build_when_num_artifacts_reached() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut transparency_log_service = create_transparency_log_service(&tmp_dir);
+        let mut transparency_log_service = create_transparency_log_service(&tmp_dir).await;
 
         let mut payloads = vec![];
         for i in 1..=3 {
@@ -424,7 +430,7 @@ mod tests {
     async fn test_handle_build_result_notifies_sender() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut transparency_log_service = create_transparency_log_service(&tmp_dir);
+        let mut transparency_log_service = create_transparency_log_service(&tmp_dir).await;
 
         let package_type = PackageType::Docker;
         let package_specific_id = "alpine:3.15.1";
@@ -491,7 +497,7 @@ mod tests {
     async fn test_handle_build_result_with_missing_artifact_notifies_sender() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut transparency_log_service = create_transparency_log_service(&tmp_dir);
+        let mut transparency_log_service = create_transparency_log_service(&tmp_dir).await;
 
         let package_type = PackageType::Docker;
         let package_specific_id = "alpine:3.15.1";
@@ -566,7 +572,7 @@ mod tests {
     async fn test_handle_build_result_with_different_hash_notifies_sender() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut transparency_log_service = create_transparency_log_service(&tmp_dir);
+        let mut transparency_log_service = create_transparency_log_service(&tmp_dir).await;
 
         let package_type = PackageType::Docker;
         let package_specific_id = "alpine:3.15.1";
@@ -643,7 +649,7 @@ mod tests {
     async fn test_handle_failed_build_notifies_sender() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut transparency_log_service = create_transparency_log_service(&tmp_dir);
+        let mut transparency_log_service = create_transparency_log_service(&tmp_dir).await;
 
         let package_type = PackageType::Docker;
         let package_specific_id = "alpine:3.15.1";
