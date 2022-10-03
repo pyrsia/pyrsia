@@ -22,6 +22,8 @@ After the process ends, check the path C:\Pyrsia\Pyrsia. It should contain:
    - pyrsia.exe
 + service
    - pyrsia_node.exe
+   - InstallPyrsiaNodeAsWindowsService.ps1
+   - InstallNSSM.ps1
 + Readme.txt
 
 and also check the log file C:\tmp\log.txt if needed.
@@ -31,21 +33,26 @@ The pyrsia CLI is added to the system PATH. For instance, to test it run:
 > pyrsia -s
 Connected Peers Count:       1
 
-The service folder contains the pyrsia_node executable that can be launched from any terminal.
+The service is installed and started. You can check it running:
 
-For convenience, set these environment variables:
+> nssm status PyrsiaService
+SERVICE_RUNNING
 
-> set DEV_MODE=ON
-> set RUST_LOG=pyrsia=debug
+If everything works as expected, the files under C:\Pyrsia\Pyrsia should be:
 
-before running the file:
++ bin
+   - pyrsia.exe
++ service
+   - pyrsia_node.exe
+   - InstallPyrsiaNodeAsWindowsService.ps1
+   - InstallNSSM.ps1
+   - pyrsia_logs.txt
+   + pyrsia
+      -  p2p_keypair.ser
++ Readme.txt
 
-> pyrsia_node.exe
- 2022-10-03T17:54:20.328Z DEBUG pyrsia_node > Parse CLI arguments
- 2022-10-03T17:54:20.329Z DEBUG pyrsia_node > Create p2p components
- 2022-10-03T17:54:20.336Z DEBUG pyrsia_node > Start p2p event loop
- 2022-10-03T17:54:20.337Z DEBUG pyrsia_node > Create blockchain service component
-...
+Note: scoop [https://scoop.sh/] and nssm [https://nssm.cc/] packages are installed during the process.
+NSSM is required to create and run the PyrsiaService service, so it can not be removed once the MSI is installed.
 
 
 Uninstalling Pyrsia
@@ -53,6 +60,21 @@ Uninstalling Pyrsia
 
 To uninstall the Pyrsia software:
 
+- Press Win+R, type `cmd` and press Ctrl+Shift+Enter to open a command prompt with admin rights.
+
+- Type:
+> nssm stop PyrsiaService
+> nssm remove PyrsiaService confirm
+
 - Uninstall via Settings->Apps & features->Pyrsia, and press Uninstall
 
-- Remove C:\Pyrsia folder (as it might contain some files created by the service)
+- Remove C:\Pyrsia folder (as it still contains some files created by the service)
+
+- Uninstall NSSM, if needed:
+
+> scoop uninstall nssm
+
+- Uninstall Scoop, if needed:
+
+> scoop uninstall scoop
+
