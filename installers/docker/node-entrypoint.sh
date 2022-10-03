@@ -15,7 +15,7 @@ if [ -f /var/run/secrets/kubernetes.io/serviceaccount/namespace ]; then
     # detemine if I am pyrsia-node-0.pyrsia.link (first boot node ever) if so be the primary boot node
     # need to use wget since nslookup, dig and ping are not installed
     if wget --timeout=2 -v pyrsia-node-0.pyrsia.link 2>&1 | grep Connecting | grep -q "${PYRSIA_EXTERNAL_IP}" ; then  
-        /usr/bin/pyrsia_node $* --listen-only true  
+        /usr/bin/pyrsia_node $* --listen-only --init-blockchain
     else
         # I am not pyrsia-node-0.pyrsia.link so use boot.pyrsia.link for boot address and connect to it
         /usr/bin/pyrsia_node $*
