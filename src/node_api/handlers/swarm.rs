@@ -15,16 +15,41 @@
 */
 
 use crate::artifact_service::model::PackageType;
-use crate::docker::error_util::RegistryError;
+use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::network::client::Client;
 use crate::node_api::model::cli::{
-    RequestDockerBuild, RequestDockerLog, RequestMavenBuild, RequestMavenLog,
+    RequestAddAuthorizedNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild,
+    RequestMavenLog,
 };
 use crate::transparency_log::log::TransparencyLogService;
 
 use crate::artifact_service::service::ArtifactService;
+use libp2p::PeerId;
 use log::debug;
+use std::str::FromStr;
 use warp::{http::StatusCode, Rejection, Reply};
+
+pub async fn handle_add_authorized_node(
+    request_add_authorized_node: RequestAddAuthorizedNode,
+    transparency_log_service: TransparencyLogService,
+) -> Result<impl Reply, Rejection> {
+    let peer_id =
+        PeerId::from_str(&request_add_authorized_node.peer_id).map_err(|_| RegistryError {
+            code: RegistryErrorCode::BadRequest(format!(
+                "PeerId has invalid format: {}",
+                request_add_authorized_node.peer_id
+            )),
+        })?;
+
+    transparency_log_service
+        .add_authorized_node(peer_id)
+        .await
+        .map_err(RegistryError::from)?;
+
+    Ok(warp::http::response::Builder::new()
+        .status(StatusCode::CREATED)
+        .body(""))
+}
 
 pub async fn handle_build_docker(
     request_docker_build: RequestDockerBuild,

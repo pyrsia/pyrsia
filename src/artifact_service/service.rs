@@ -755,9 +755,22 @@ mod tests {
 
         let keypair = Keypair::generate();
 
-        let (_command_receiver, p2p_client) = create_p2p_client(&keypair);
+        let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (mut build_event_receiver, artifact_service) =
             create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let mut set = HashSet::new();
+                        set.insert(p2p_client.local_peer_id);
+                        let _ = sender.send(set);
+                    }
+                    _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
 
         tokio::spawn(async move {
             loop {
@@ -773,6 +786,7 @@ mod tests {
         artifact_service
             .transparency_log_service
             .add_authorized_node(p2p_client.local_peer_id)
+            .await
             .unwrap();
 
         let package_type = PackageType::Docker;
@@ -802,10 +816,16 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    }
                     Some(Command::RequestBuild { sender, .. }) => {
                         let _ = sender.send(Ok(String::from("request_build_ok")));
                     }
-                    _ => panic!("Command must match Command::RequestBuild"),
+                    other => panic!(
+                        "Command must match Command::ListPeers or Command::RequestBuild, was: {:?}",
+                        other
+                    ),
                 }
             }
         });
@@ -815,6 +835,7 @@ mod tests {
         artifact_service
             .transparency_log_service
             .add_authorized_node(other_peer_id)
+            .await
             .unwrap();
 
         let package_type = PackageType::Docker;

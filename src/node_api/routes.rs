@@ -18,7 +18,7 @@ use super::handlers::swarm::*;
 use super::model::cli::{RequestDockerBuild, RequestMavenBuild};
 use crate::artifact_service::service::ArtifactService;
 use crate::network::client::Client;
-use crate::node_api::model::cli::{RequestDockerLog, RequestMavenLog};
+use crate::node_api::model::cli::{RequestAddAuthorizedNode, RequestDockerLog, RequestMavenLog};
 use crate::transparency_log::log::TransparencyLogService;
 use warp::Filter;
 
@@ -30,6 +30,14 @@ pub fn make_node_routes(
     let artifact_service_filter = warp::any().map(move || artifact_service.clone());
     let p2p_client_filter = warp::any().map(move || p2p_client.clone());
     let transparency_log_service_filter = warp::any().map(move || transparency_log_service.clone());
+
+    let add_authorized_node = warp::path!("authorized_node")
+        .and(warp::post())
+        .and(warp::path::end())
+        .and(warp::body::content_length_limit(1024 * 8))
+        .and(warp::body::json::<RequestAddAuthorizedNode>())
+        .and(transparency_log_service_filter.clone())
+        .and_then(handle_add_authorized_node);
 
     let build_docker = warp::path!("build" / "docker")
         .and(warp::post())
@@ -76,7 +84,8 @@ pub fn make_node_routes(
         .and_then(handle_inspect_log_maven);
 
     warp::any().and(
-        build_docker
+        add_authorized_node
+            .or(build_docker)
             .or(build_maven)
             .or(peers)
             .or(status)
@@ -154,11 +163,54 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn node_routes_add_authorized_node() {
+        let tmp_dir = test_util::tests::setup();
+
+        let local_keypair = Keypair::generate_ed25519();
+        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let transparency_log_service =
+            create_transparency_log_service(&tmp_dir, local_keypair.clone(), p2p_client.clone());
+
+        let (_build_event_receiver, artifact_service) = create_artifact_service(
+            &tmp_dir,
+            transparency_log_service.clone(),
+            p2p_client.clone(),
+        );
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    }
+                    _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
+
+        let filter = make_node_routes(artifact_service, p2p_client, transparency_log_service);
+        let request = RequestAddAuthorizedNode {
+            peer_id: local_keypair.public().to_peer_id().to_string(),
+        };
+        let response = warp::test::request()
+            .method("POST")
+            .path("/authorized_node")
+            .json(&request)
+            .reply(&filter)
+            .await;
+
+        assert_eq!(response.status(), 201);
+        assert_eq!(response.body(), "");
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
     async fn node_routes_build_docker() {
         let tmp_dir = test_util::tests::setup();
 
         let local_keypair = Keypair::generate_ed25519();
-        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let transparency_log_service =
             create_transparency_log_service(&tmp_dir, local_keypair.clone(), p2p_client.clone());
 
@@ -168,8 +220,20 @@ mod tests {
             p2p_client.clone(),
         );
 
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    }
+                    _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
+
         transparency_log_service
             .add_authorized_node(local_keypair.public().to_peer_id())
+            .await
             .expect("Error adding authorized node");
 
         let build_id = uuid::Uuid::new_v4();
@@ -208,7 +272,7 @@ mod tests {
         let tmp_dir = test_util::tests::setup();
 
         let local_keypair = Keypair::generate_ed25519();
-        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let transparency_log_service =
             create_transparency_log_service(&tmp_dir, local_keypair.clone(), p2p_client.clone());
 
@@ -218,8 +282,20 @@ mod tests {
             p2p_client.clone(),
         );
 
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    }
+                    _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
+
         transparency_log_service
             .add_authorized_node(local_keypair.public().to_peer_id())
+            .await
             .expect("Error adding authorized node");
 
         let build_id = uuid::Uuid::new_v4();

@@ -7,15 +7,52 @@ Microservice Configuration Management - Track, Version, Find, Share and Deploy M
 ## TL;DR - Google
 
 ```console
-gcloud projects add-iam-policy-binding <PROJECT> --member=serviceAccount:service-<PROJECT_NUMBER>@compute-system.iam.gserviceaccount.com --role=roles/cloudkms.cryptoKeyEncrypterDecrypter
+#!/usr/bin/env bash
 
-kubectl create namespace pyrsia
+# GKE Project Details
+export GKE_PROJECT_ID=$(gcloud config get project)
+export GKE_PROJECT_NUMBER=$(gcloud projects list --filter="${GKE_PROJECT_ID}" --format="value(PROJECT_NUMBER)")
+
+# External DNS
+export DNS_SA_EMAIL="${DNS_SA_NAME}@${GKE_PROJECT_ID}.iam.gserviceaccount.com"
+export DNS_SA_NAME="external-dns-sa"
+export EXTERNALDNS_NS="external-dns"
+export EXTERNALDNS_DOMAIN="example.com"
+
+# Pyrsia P2P
+export KEY="pyrsia-p2p-key"
+export KEYRING="pyrsia-keyring"
+export PYRSIA_NS="pyrsia"
+
+# Assign google service account to cloudkms.cryptoKeyEncrypterDecrypter role in project
+gcloud projects add-iam-policy-binding ${GKE_PROJECT_ID} --member=serviceAccount:service-${GKE_PROJECT_NUMBER}@compute-system.iam.gserviceaccount.com --role=roles/cloudkms.cryptoKeyEncrypterDecrypter
+
+# Create GSA used to access the Cloud DNS zone
+gcloud iam service-accounts create ${DNS_SA_NAME} --display-name ${DNS_SA_NAME}
+
+# Assign google service account to dns.admin role in project
+gcloud projects add-iam-policy-binding ${GKE_PROJECT_ID} --member serviceAccount:${DNS_SA_EMAIL} --role "roles/dns.admin"
+
+# Download static credentials for ExternalDNS
+gcloud iam service-accounts keys create credentials.json --iam-account ${DNS_SA_EMAIL}
+
+# Save the credentials as a Secret for ExternalDNS
+kubectl create namespace ${EXTERNALDNS_NS}
+kubectl create secret generic "external-dns" --namespace ${EXTERNALDNS_NS} --from-file credentials.json
+
+# Create Keyring and Key for Pyrsia P2P
+gcloud kms keyrings create ${KEYRING} --project ${GKE_PROJECT_ID} --location global
+gcloud kms keys create ${KEY} --keyring ${KEYRING} --project ${GKE_PROJECT_ID} --location global --purpose "Symmetric encrypt/decrypt"
+
+# Install Pyrsia
+kubectl create namespace ${PYRSIA_NS}
 helm repo add pyrsiaoss https://helmrepo.pyrsia.io/repos/nightly
 helm repo update
-helm upgrade --install pyrsia -n pyrsia pyrsiaoss/pyrsia-node --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/<PROJECT>/locations/global/keyRings/<KEYRING>/cryptoKeys/<KEY>"
+helm upgrade pyrsia pyrsiaoss/pyrsia-node -n ${PYRSIA_NS} --install --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/${GKE_PROJECT_ID}/locations/global/keyRings/${KEYRING}/cryptoKeys/${KEY}" --set external_dns_ns=${EXTERNALDNS_NS} --set dnsname=${EXTERNALDNS_DOMAIN}
+
 ```
 
-## TL;DR - Oracle
+## TL;DR - Oracle (WIP)
 
 ```console
 oci .......
@@ -82,6 +119,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | ------------------------ | ----------------------------------------------| --------------- |
 | `k8s_provider`           | Environment that is running Kubernetes        | gke, aks, eks, oke |
 | `p2pkeys.kms_key_id`     | KMS Key to Encrypt Pyrsia Keys Volume         | Name of the CSI Key.  For example, under GKE: `projects/<PROJECT>locations/global/keyRings/<KEYRING>/cryptoKeys/<KEY>` |
+| `external_dns_ns`        | Namespace for the External DNS pod/service | external-dns |
 
 > NOTE: Once this chart is deployed, it is not possible to change the application's access credentials, such as usernames or passwords, using Helm. To change these application credentials after deployment, delete any persistent volumes (PVs) used by the chart and re-deploy it, or use the application's built-in administrative tools if available.
 
