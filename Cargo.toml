@@ -22,7 +22,7 @@ systemd-units = { unit-name = "pyrsia", unit-scripts = "installers/debian/" }
 [dependencies]
 pyrsia_blockchain_network = { path = "src/blockchain" }
 
-anyhow = "1.0.64"
+anyhow = "1.0.65"
 async-trait = "0.1.57"
 base64 = "0.13.0"
 bincode = "1.3.3"
@@ -50,7 +50,7 @@ log = { version = "0.4.17", features = ["max_level_trace", "release_max_level_tr
 maplit = "1.0.2"
 multihash = {version = "0.16.0", features = ["serde-codec"]}
 num-traits = "0.2.15"
-once_cell = "1.13"
+once_cell = "1.15"
 pin-utils = "0.1.0"
 pretty_env_logger = "0.4.0"
 rand = "0.8.5"
@@ -92,9 +92,6 @@ members = [
     "src/blockchain"
 ]
 
-[[example]]
-name = "blockchain_node_example"
-path = "src/blockchain/examples/simple_node.rs"
 
 [profile.dev]
 opt-level = 0

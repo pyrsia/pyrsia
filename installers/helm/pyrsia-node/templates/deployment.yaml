@@ -16,7 +16,7 @@ spec:
   template:
     metadata:
       labels:
-        app: pyrsia-node
+        app: {{ include "pyrsia-node.name" . }}
         tier: frontend
         track: stable
     spec:
