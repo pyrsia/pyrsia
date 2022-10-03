@@ -663,8 +663,7 @@ mod tests {
         let result_write = log.write_transparency_log(&transparency_log);
         assert!(result_write.is_ok());
 
-        let result_find =
-            log.find_transparency_log("id");
+        let result_find = log.find_transparency_log("id");
         assert!(result_find.is_ok());
 
         test_util::tests::teardown(tmp_dir);
@@ -695,11 +694,15 @@ mod tests {
         let result_write = log.write_transparency_log(&transparency_log);
         assert!(result_write.is_ok());
 
-        let result_find =
-            log.find_transparency_log("unknown_id").expect_err("Find transparency log should have failed.");
-        assert_eq!(result_find, TransparencyLogError::LogNotFound {
-            id: "unknown_id".to_owned(),
-        });
+        let result_find = log
+            .find_transparency_log("unknown_id")
+            .expect_err("Find transparency log should have failed.");
+        assert_eq!(
+            result_find,
+            TransparencyLogError::LogNotFound {
+                id: "unknown_id".to_owned(),
+            }
+        );
 
         test_util::tests::teardown(tmp_dir);
     }
