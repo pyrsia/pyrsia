@@ -238,3 +238,13 @@ will receive updated transparency logs via the blockchain and you will be able t
 pull the image from the Pyrsia network.
 
 To find out if an image is available, use the `inspect-log` described above.
+
+Alternatively, you can also explicitly request the build of a new Docker image:
+
+```sh
+pyrsia build docker --image alpine:3.16.3
+```
+
+This will send the build request to one of the authorized build nodes, which will
+start a build. When consensus about that build is reached, it will be available
+in the transparency logs and can be retrieved by all nodes in the network.
