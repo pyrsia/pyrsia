@@ -6,9 +6,11 @@ EXPOSE 44000
 
 # Send logging to stdout and stderr
 ENV RUST_LOG=info
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYRSIA_BOOTDNS=boot.pyrsia.link
 
 RUN apt-get update; \
-    apt-get -y install ca-certificates wget gnupg2 jq curl; \
+    apt-get -y install ca-certificates wget gnupg2 jq curl dnsutils; \
     wget -O - https://pyrsia.io/install.sh | sh; 
 
 # Need to run an entrypoint script that will determine if the docker container
