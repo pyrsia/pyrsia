@@ -64,8 +64,7 @@ n4 --- n5
 ```
 
 The result is a high-available peer-to-peer network of trusted open source build
-artifacts that no single entity can control. See [Can I run a build node?](#Can-I-run-a-build-node)
-below for more information.
+artifacts that no single entity can control.
 
 ## Why do I need Pyrsia?
 
@@ -146,14 +145,3 @@ and one of the package specific tutorials on [Docker](docker) or [Maven](maven).
 
 The more nodes participate in artifact distribution, the better of course. But if
 you only want to run a Pyrsia node to consume artifacts, that works as well.
-
-### Can I run a build node?
-
-The number of build nodes is limited because the consensus algorithm uses a
-proof-of-authority (PoA) algorithm. This means all new authorized node candidates
-will have to be approved by an absolute majority of the existing authorized nodes
-before they can effectively participate in the consensus algorithm.
-
-The procedure to become an authorized node is currently being worked out. Reach
-out to us (GitHub issue, Slack, ...) if you are interested in running an authorized
-node. In the meantime, you can start off by running a regular Pyrsia node.
