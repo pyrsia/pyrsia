@@ -1,4 +1,8 @@
-# mvn User scenarios
+---
+sidebar_position: 6
+---
+
+# Maven user scenarios
 
 __This assumes that Pyrsia network has a set of well known java binaries (jars) that have been built from source and are available on the cloud node. Adding new java binaries to the Pyrsia network is not in scope for this use case.__
 

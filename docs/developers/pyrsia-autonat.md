@@ -1,3 +1,7 @@
+---
+sidebar_position: 4
+---
+
 # Pyrsia AutoNAT Implementation (IETF STUN)
 
 > **Warning:** This document is a work-in-progress.

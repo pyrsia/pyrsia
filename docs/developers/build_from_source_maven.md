@@ -1,4 +1,8 @@
-# How to setup a Pyrsia node to build Maven libraries from source
+---
+sidebar_position: 2
+---
+
+# Pyrsia demo: build Docker images from source
 
 > **Warning:** The build-from-source demo is still work-in-progress.
 
@@ -21,7 +25,7 @@ Ultimately, the following scenario will be used, but for now some steps
 - Create a transparency log about the artifact publication
 - Publish the artifact on the p2p network
 
-See the [architecture and use-cases](../developers/pyrsia-architecture-and-use-cases.md)
+See the [architecture and use-cases](pyrsia-architecture-and-use-cases.md)
 document for more information.
 
 Because this demo scenario results in a published Maven artifact in the Pyrsia
@@ -122,7 +126,7 @@ build output as a download.
 Ensure that JAVA_HOME is setup correctly
 
 ```sh
-export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_45.jdk/Contents/Home
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_jdk/Contents/Home
 ```
 
 and maven is available on the PATH
@@ -155,12 +159,9 @@ You will see the following output indicating that the build pipeline is ready fo
  INFO  actix_server::server  > Tokio runtime found; starting in existing Tokio runtime
 ```
 
-## Trigger a build from source for a given artifact
+## Authorize node A as a build node
 
-In this demo we trigger a build for `commons-codec:commons-codec:1.15`.
-The mapping repository already contains the [source repository mapping](https://github.com/pyrsia/pyrsia-mappings/blob/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.mapping).
-
-We will use the Pyrsia CLI to trigger a build from source. In a new terminal, while
+We will use the Pyrsia CLI to authorize node A as a build node. In a new terminal, while
 the Pyrsia node and build pipeline prototype are running, check if your Pyrsia CLI
 config is correct:
 
@@ -174,6 +175,24 @@ disk_allocated = '5.84 GB'
 
 If you're not using the default port for your Pyrsia node, make sure to configure
 the CLI using `./pyrsia config --add`.
+
+Next you'll need to find out the peer id of node A. You can see that in its logs
+or you can query the `/status` endpoint like this: (assuming you have `jq` installed)
+
+```shell
+curl -s http://localhost:7888/status | jq  .peer_id
+```
+
+Once you know the peer id, authorize it like this:
+
+```shell
+./pyrsia authorize --peer <PEER_ID>
+```
+
+## Trigger a build from source for a given artifact
+
+In this demo we trigger a build for `commons-codec:commons-codec:1.15`.
+The mapping repository already contains the [source repository mapping](https://github.com/pyrsia/pyrsia-mappings/blob/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.mapping).
 
 Then trigger the build from source, like this:
 

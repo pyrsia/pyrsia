@@ -1,3 +1,7 @@
+---
+sidebar_position: 6
+---
+
 # How to start and debug Pyrsia Node using IDE
 
 This tutorial describes how to start and debug Pyrsia using Microsoft Visual Code and IntelliJ IDEA.
