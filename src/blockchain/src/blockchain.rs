@@ -87,6 +87,14 @@ impl Blockchain {
         })
     }
 
+    pub fn empty_new(blockchain_path: impl AsRef<Path>) -> Self {
+        Self {
+            trans_observers: Default::default(),
+            chain: Default::default(),
+            blockchain_path: blockchain_path.as_ref().to_path_buf(),
+        }
+    }
+
     pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction) + Send + Sync>(
         &mut self,
         trans: Transaction,

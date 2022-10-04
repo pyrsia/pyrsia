@@ -504,11 +504,12 @@ mod tests {
         let p2p_client = create_p2p_client(identity::Keypair::Ed25519(ed25519_keypair.clone()));
 
         let blockchain_service = BlockchainService::init_first_blockchain_node(
-                &ed25519_keypair,
-                &ed25519_keypair,
-                p2p_client)
-            .await
-            .expect("Creating BlockchainService failed");
+            &ed25519_keypair,
+            &ed25519_keypair,
+            p2p_client,
+        )
+        .await
+        .expect("Creating BlockchainService failed");
 
         TransparencyLogService::new(&artifact_path, Arc::new(Mutex::new(blockchain_service)))
             .unwrap()

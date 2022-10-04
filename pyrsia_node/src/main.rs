@@ -63,7 +63,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tokio::spawn(event_loop.run());
 
     debug!("Create blockchain service component");
-    let blockchain_service = setup_blockchain_service(local_keypair, p2p_client.clone(), &args).await?;
+    let blockchain_service =
+        setup_blockchain_service(local_keypair, p2p_client.clone(), &args).await?;
+    let blockchain_service = Arc::new(Mutex::new(blockchain_service));
 
     debug!("Create transparency log service");
     let transparency_log_service = setup_transparency_log_service(blockchain_service.clone())?;
@@ -239,9 +241,7 @@ async fn setup_blockchain_service(
     local_keypair: Keypair,
     p2p_client: Client,
     args: &PyrsiaNodeArgs,
-) -> Result<Arc<Mutex<BlockchainService>>> {
-    let blockchain_service: BlockchainService;
-
+) -> Result<BlockchainService> {
     let local_ed25519_keypair = match local_keypair {
         libp2p::identity::Keypair::Ed25519(v) => v,
         _ => {
@@ -259,18 +259,19 @@ async fn setup_blockchain_service(
                 bail!("Keypair Format Error");
             }
         };
+
         // Refactor to overloading(trait) later
-        blockchain_service = BlockchainService::init_first_blockchain_node(
+        BlockchainService::init_first_blockchain_node(
             &local_ed25519_keypair,
             &blockchain_ed25519_keypair,
             p2p_client,
-        );
+        )
+        .await
+        .map_err(|e| e.into())
     } else {
-        blockchain_service =
-            BlockchainService::init_other_blockchain_node(&local_ed25519_keypair, p2p_client);
+        BlockchainService::init_other_blockchain_node(&local_ed25519_keypair, p2p_client)
+            .map_err(|e| e.into())
     }
-
-    Ok(Arc::new(Mutex::new(blockchain_service)))
 }
 
 fn setup_transparency_log_service(

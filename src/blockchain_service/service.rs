@@ -74,7 +74,7 @@ impl Debug for BlockchainService {
 }
 
 fn load_blockchain_path() -> Result<PathBuf, BlockchainError> {
-    let pyrsia_blockchain_file = read_var("PYRSIA_BLOCKCHAIN", "pyrsia/blockchain");
+    let pyrsia_blockchain_file = read_var("PYRSIA_BLOCKCHAIN_PATH", "pyrsia/blockchain");
     let pyrsia_blockchain_path = Path::new(&pyrsia_blockchain_file);
     match std::fs::create_dir_all(pyrsia_blockchain_path) {
         Ok(()) => Ok(pyrsia_blockchain_path.to_path_buf()),
@@ -85,29 +85,31 @@ fn load_blockchain_path() -> Result<PathBuf, BlockchainError> {
 }
 
 impl BlockchainService {
-    pub fn init_first_blockchain_node(
+    pub async fn init_first_blockchain_node(
         local_keypair: &identity::ed25519::Keypair,
         blockchain_keypair: &identity::ed25519::Keypair,
         p2p_client: Client,
-    ) -> Self {
+    ) -> Result<Self, BlockchainError> {
         let blockchain_path = load_blockchain_path()?;
 
-        Self {
-            blockchain: Blockchain::new(blockchain_keypair, blockchain_path),
+        Ok(Self {
+            blockchain: Blockchain::new(blockchain_keypair, blockchain_path).await?,
             keypair: local_keypair.to_owned(),
             p2p_client,
-        }
+        })
     }
 
     pub fn init_other_blockchain_node(
         local_keypair: &identity::ed25519::Keypair,
         p2p_client: Client,
-    ) -> Self {
-        Self {
-            blockchain: Default::default(),
+    ) -> Result<Self, BlockchainError> {
+        let blockchain_path = load_blockchain_path()?;
+
+        Ok(Self {
+            blockchain: Blockchain::empty_new(blockchain_path),
             keypair: local_keypair.to_owned(),
             p2p_client,
-        }
+        })
     }
 
     /// Add payload to blockchain. It will be called by other services (e.g. transparent logging service)
@@ -265,6 +267,7 @@ impl BlockchainService {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
+    use crate::util::test_util;
     use libp2p::identity::Keypair;
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
     use tokio::sync::mpsc;
@@ -283,17 +286,36 @@ mod tests {
             .expect("BlockchainService should be created.")
     }
 
+    fn create_other_blockchain_service() -> BlockchainService {
+        let (sender, _) = mpsc::channel(1);
+        let ed25519_keypair = identity::ed25519::Keypair::generate();
+        let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
+        let client = Client {
+            sender,
+            local_peer_id,
+        };
+
+        BlockchainService::init_other_blockchain_node(&ed25519_keypair, client)
+            .expect("BlockchainService should be created.")
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn test_add_payload() {
+        let tmp_dir = test_util::tests::setup();
+
         let mut blockchain_service = create_blockchain_service().await;
 
         let payload = vec![];
         assert!(blockchain_service.blockchain.last_block().is_some());
         assert!(blockchain_service.add_payload(payload).await.is_ok());
+
+        test_util::tests::teardown(tmp_dir);
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_add_block() {
+        let tmp_dir = test_util::tests::setup();
+
         let mut blockchain_service = create_blockchain_service().await;
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
@@ -317,57 +339,47 @@ mod tests {
             .add_block(3, Box::new(block.clone()))
             .await
             .is_err());
+
+        test_util::tests::teardown(tmp_dir);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_init_first_blockchain_node() -> Result<(), String> {
-        let (sender, _) = mpsc::channel(1);
-        let ed25519_keypair = identity::ed25519::Keypair::generate();
-        let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
-        let client = Client {
-            sender,
-            local_peer_id,
-        };
+    async fn test_init_first_blockchain_node() {
+        let tmp_dir = test_util::tests::setup();
 
-        let blockchain_service = BlockchainService::init_first_blockchain_node(
-            &ed25519_keypair,
-            &ed25519_keypair,
-            client,
-        );
+        let blockchain_service = create_blockchain_service().await;
+
         let block = blockchain_service.query_last_block().await.unwrap();
         assert_eq!(0, block.header.ordinal);
 
-        Ok(())
+        test_util::tests::teardown(tmp_dir);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_init_other_blockchain_node() -> Result<(), String> {
-        let (sender, _) = mpsc::channel(1);
-        let ed25519_keypair = identity::ed25519::Keypair::generate();
-        let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
-        let client = Client {
-            sender,
-            local_peer_id,
-        };
+    async fn test_init_other_blockchain_node() {
+        let tmp_dir = test_util::tests::setup();
 
-        let blockchain_service =
-            BlockchainService::init_other_blockchain_node(&ed25519_keypair, client);
+        let blockchain_service = create_other_blockchain_service();
         assert_eq!(None, blockchain_service.query_last_block().await);
 
-        Ok(())
+        test_util::tests::teardown(tmp_dir);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_pull_blocks() -> Result<(), String> {
-        let blockchain_service = create_blockchain_service();
+    async fn test_pull_blocks() {
+        let tmp_dir = test_util::tests::setup();
+
+        let blockchain_service = create_blockchain_service().await;
         assert_eq!(1, blockchain_service.pull_blocks(0, 0).await.unwrap().len());
 
-        Ok(())
+        test_util::tests::teardown(tmp_dir);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_query_last_block() -> Result<(), String> {
-        let mut blockchain_service = create_blockchain_service();
+    async fn test_query_last_block() {
+        let tmp_dir = test_util::tests::setup();
+
+        let mut blockchain_service = create_blockchain_service().await;
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
 
@@ -391,12 +403,14 @@ mod tests {
                 .ordinal
         );
 
-        Ok(())
+        test_util::tests::teardown(tmp_dir);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_query_blockchain_ordinal_with_invalid_other_peer() -> Result<(), String> {
-        let mut blockchain_service = create_blockchain_service();
+    async fn test_query_blockchain_ordinal_with_invalid_other_peer() {
+        let tmp_dir = test_util::tests::setup();
+
+        let mut blockchain_service = create_blockchain_service().await;
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
@@ -405,12 +419,14 @@ mod tests {
             .await
             .is_err());
 
-        Ok(())
+        test_util::tests::teardown(tmp_dir);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_init_pull_from_others_with_invalid_other_peer() -> Result<(), String> {
-        let mut blockchain_service = create_blockchain_service();
+    async fn test_init_pull_from_others_with_invalid_other_peer() {
+        let tmp_dir = test_util::tests::setup();
+
+        let mut blockchain_service = create_blockchain_service().await;
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
@@ -419,11 +435,13 @@ mod tests {
             .await
             .is_err());
 
-        Ok(())
+        test_util::tests::teardown(tmp_dir);
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_notify_blockchain() {
+        let tmp_dir = test_util::tests::setup();
+
         let mut blockchain_service = create_blockchain_service().await;
 
         let block = Box::new(Block::new(
@@ -433,16 +451,22 @@ mod tests {
             &blockchain_service.keypair,
         ));
         assert!(blockchain_service.broadcast_blockchain(block).await.is_ok());
+
+        test_util::tests::teardown(tmp_dir);
     }
 
     #[tokio::test]
     async fn test_debug() {
+        let tmp_dir = test_util::tests::setup();
+
         let blockchain_service = create_blockchain_service().await;
 
         assert_ne!(
             format!("This is blockchain service {blockchain_service:?}"),
             "This is blockchain service"
         );
+
+        test_util::tests::teardown(tmp_dir);
     }
 
     #[test]
