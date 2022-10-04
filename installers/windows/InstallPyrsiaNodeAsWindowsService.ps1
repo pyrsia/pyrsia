@@ -26,7 +26,7 @@ Function Install-Service {
 
     $testNSSM = (Get-Command nssm -ErrorAction SilentlyContinue).Path
     if ($testNSSM -eq $null) {
-        # if not in path, check custom env variable
+        # if nssm is not found in path, check the custom env variable
         $scoopPath = [System.Environment]::GetEnvironmentVariable('ScoopPath', "Machine")
         if ($scoopPath -eq $null) {
             # Error: this shouldn't happen, but for now don't install the service and
@@ -34,7 +34,7 @@ Function Install-Service {
             Write-Host "Error: nssm not found in path: ${env:PATH}" -foreground "red"
             exit 0
         } else {
-            Write-Host "nssm found in custom env var at $scoopPath" -foreground "red"
+            Write-Host "nssm found in custom env var at $scoopPath"
             $env:PATH = "${scoopPath};${env:PATH}"
             # Remove custom env variable
             [Environment]::SetEnvironmentVariable("ScoopPath", "", "Machine")

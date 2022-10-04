@@ -39,7 +39,7 @@ Function Install-NSSM {
     $NSSMPath = (Get-Item (Get-Command nssm).Path).DirectoryName
     Write-Host nssm found at $NSSMPath -foreground "green"
 
-    # add path of scoop to a system custom env variable, so it is available for the next (elevated) script
+    # add path of scoop to a system custom env variable, to make it available to the next (elevated) script
     [Environment]::SetEnvironmentVariable("ScoopPath", $NSSMPath, "Machine")
 }
 
