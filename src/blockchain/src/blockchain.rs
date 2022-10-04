@@ -77,7 +77,7 @@ impl Blockchain {
             );
 
             let block = Block::new(HashDigest::new(b""), 0, Vec::from([transaction]), keypair);
-            chain.add_block(block);
+            Blockchain::save_block(&mut chain, block, &blockchain_path).await?
         }
 
         Ok(Self {
@@ -160,15 +160,7 @@ impl Blockchain {
 
     /// Commit block and notify block listeners
     async fn commit_block(&mut self, block: Block) -> Result<(), BlockchainError> {
-        let block_ordinal = block.header.ordinal;
-        self.chain.add_block(block);
-        self.chain
-            .save_block(
-                block_ordinal,
-                block_ordinal,
-                &self.blockchain_path.join(format!("{}.ser", block_ordinal)),
-            )
-            .await
+        Self::save_block(&mut self.chain, block, self.blockchain_path.as_path()).await
     }
 
     pub fn last_block(&self) -> Option<Block> {
@@ -177,6 +169,25 @@ impl Blockchain {
 
     pub fn pull_blocks(&self, start: Ordinal, end: Ordinal) -> Result<Vec<Block>, BlockchainError> {
         self.chain.retrieve_blocks(start, end)
+    }
+
+    async fn save_block(
+        chain: &mut Chain,
+        block: Block,
+        blockchain_path: impl AsRef<Path>,
+    ) -> Result<(), BlockchainError> {
+        let block_ordinal = block.header.ordinal;
+        chain.add_block(block);
+        chain
+            .save_block(
+                block_ordinal,
+                block_ordinal,
+                blockchain_path
+                    .as_ref()
+                    .to_path_buf()
+                    .join(format!("{}.ser", block_ordinal)),
+            )
+            .await
     }
 }
 
