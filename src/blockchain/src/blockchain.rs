@@ -149,7 +149,7 @@ impl Blockchain {
     }
 
     pub fn pull_blocks(&self, start: Ordinal, end: Ordinal) -> Result<Vec<Block>, BlockchainError> {
-        self.chain.retrieve_blocks(start, end)
+        Ok(self.chain.retrieve_blocks(start, end))
     }
 }
 
@@ -311,7 +311,7 @@ mod tests {
             .await;
 
         assert_eq!(1, blockchain.pull_blocks(0, 0).unwrap().len());
-        assert!(blockchain.pull_blocks(0, 2).is_err());
+        assert_eq!(0, blockchain.pull_blocks(0, 2).unwrap().len());
         Ok(())
     }
 }
