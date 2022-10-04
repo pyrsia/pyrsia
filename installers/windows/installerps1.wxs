@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+  xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <Product Id="{925B98D8-4C2B-44AA-A249-18992A46A020}" Name="Pyrsia" Language="1033" Version="1.0.0.0" Manufacturer="Pyrsia" UpgradeCode="{F4E9DD77-416A-4AD7-962A-6CB0442F7987}">
+	<Package InstallerVersion="400" Compressed="yes" InstallScope="perMachine" Platform="x64"/>
+
+    <Property Id="POWERSHELLEXE">
+        <RegistrySearch Id="POWERSHELLEXE" Type="raw" Root="HKLM" Key="SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell" Name="Path" />
+    </Property>
+    <Condition Message="This application requires Windows PowerShell"><![CDATA[Installed OR POWERSHELLEXE]]></Condition>
+
+    <Media Id='1' Cabinet='PyrsiaCAB.cab' EmbedCab='yes' />
+
+    <Directory Id='TARGETDIR' Name='SourceDir'>
+  	    <Directory Id='LocalAppData'>
+    	    <Directory Id='Pyrsia' Name='Pyrsia'>
+      	        <Directory Id='INSTALLDIR' Name='Pyrsia'>
+                    <Component Id='ReadmeComponent' Guid='{925B98D8-4C2B-44AA-A249-18992A46A021}' Win64="yes">
+                        <File Id="Readme" Name="Readme.txt" DiskId="1" Source="Readme_service.txt"/>
+                    </Component>
+                    <Directory Id='BINDIR' Name='bin'>
+                        <Component Id='PathComponent' Guid='925B98D8-4C2B-44AA-A249-18992A46A022' KeyPath='yes'>
+                            <Environment Id='PATH' Name='PATH' Value='[BINDIR]' Permanent='no' Part='last' Action='set' System='yes'/>
+                        </Component>
+                        <Component Id='CLIComponent' Guid='{925B98D8-4C2B-44AA-A249-18992A46A023}' Win64="yes">
+                            <File Id="pyrsia" Name="pyrsia.exe" DiskId="1" Source="..\..\target\release\pyrsia.exe"/>
+                        </Component>
+                    </Directory>
+                    <Directory Id='SERVICEDIR' Name='service'>
+                        <Component Id='PrePS1Component' Guid='{925B98D8-4C2B-44AA-A249-18992A46A024}' Win64="yes">
+                            <File Id="nssmInstaller" Name="InstallNSSM.ps1" DiskId="1" Source="InstallNSSM.ps1"/>
+                        </Component>
+                        <Component Id='PS1Component' Guid='{925B98D8-4C2B-44AA-A249-18992A46A025}' Win64="yes">
+                            <File Id="pyrsiaNodeInstaller" Name="InstallPyrsiaNodeAsWindowsService.ps1" DiskId="1" Source="InstallPyrsiaNodeAsWindowsService.ps1"/>
+                        </Component>
+                        <Component Id='ServiceComponent' Guid='{925B98D8-4C2B-44AA-A249-18992A46A026}' Win64="yes">
+                            <File Id="pyrsia_node" Name="pyrsia_node.exe" DiskId="1" Source="..\..\target\release\pyrsia_node.exe"/>
+                        </Component>
+                    </Directory>
+                </Directory>
+        	</Directory>
+      	</Directory>
+    </Directory>
+
+    <Feature Id='PyrsiaFeature' Title='Pyrsia Features' Level='1'>
+       	<ComponentRef Id='ReadmeComponent'/>
+       	<ComponentRef Id='CLIComponent' />
+       	<ComponentRef Id='PrePS1Component'/>
+       	<ComponentRef Id='PS1Component'/>
+       	<ComponentRef Id='ServiceComponent'/>
+       	<Feature Id='Environment' Title='PATH Environment Variable' Description='Add the install location of the [ProductName] executable to the PATH system environment variable. This allows the [ProductName] executable to be called from any location.' Level='1' Absent='allow'>
+       	    <ComponentRef Id='PathComponent'/>
+       	</Feature>
+  	</Feature>
+
+    <SetProperty Id="InstallNSSM"
+            Before ="InstallNSSM"
+            Sequence="execute"
+            Value="&quot;[POWERSHELLEXE]&quot; -NonInteractive -ExecutionPolicy Bypass -InputFormat None -NoProfile -File &quot;[SERVICEDIR]InstallNSSM.ps1&quot;" />
+
+  	<CustomAction Id="InstallNSSM" BinaryKey="WixCA" DllEntry="WixQuietExec" Execute="deferred" Return="check" Impersonate="yes" />
+
+    <SetProperty Id="RunStartScript"
+            Before ="RunStartScript"
+            Sequence="execute"
+            Value="&quot;[POWERSHELLEXE]&quot; -NonInteractive -ExecutionPolicy Bypass -InputFormat None -NoProfile -File &quot;[SERVICEDIR]InstallPyrsiaNodeAsWindowsService.ps1&quot;" />
+
+    <CustomAction Id="RunStartScript" BinaryKey="WixCA" DllEntry="WixQuietExec" Execute="deferred" Return="check" Impersonate="no" />
+
+    <InstallExecuteSequence>
+          <Custom Action="InstallNSSM" Before="InstallFinalize"><![CDATA[NOT Installed]]></Custom>
+          <Custom Action="RunStartScript" Before="InstallFinalize"><![CDATA[NOT Installed]]></Custom>
+    </InstallExecuteSequence>
+
+    <Property Id='ARPHELPLINK' Value='https://github.com/pyrsia/pyrsia'/>
+
+    </Product>
+</Wix>
