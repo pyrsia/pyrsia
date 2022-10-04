@@ -20,6 +20,7 @@ spec:
         tier: frontend
         track: stable
     spec:
+      serviceAccount: {{ printf "%s-service-reader" (include "pyrsia-node.name" .) }}
       containers:
         - name: {{ include "pyrsia-node.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -34,6 +35,8 @@ spec:
               value: "/usr/local/var/pyrsia"
             - name: PYRSIA_KEYPAIR
               value: /usr/local/var/pyrsia-p2p-keys/ed25519.ser
+            - name: PYRSIA_BOOTDNS
+              value: {{ printf "%s-0.%s" (include "pyrsia-node.name" .) (.Values.bootdns | default "pyrsia.link") }}   
           volumeMounts:
             # name must match the volume name below
             - name: pyrsia-storage
