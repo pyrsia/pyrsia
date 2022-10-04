@@ -24,6 +24,7 @@ use crate::util::keypair_util;
 use crate::util::keypair_util::KEYPAIR_FILENAME;
 
 use crate::network::build_protocol::{BuildExchangeCodec, BuildExchangeProtocol};
+use libp2p::identity::Keypair;
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
 use libp2p::swarm::{Swarm, SwarmBuilder};
@@ -103,10 +104,18 @@ use tokio_stream::Stream;
 ///  * the PyrsiaEventLoop
 pub fn setup_libp2p_swarm(
     max_provided_keys: usize,
-) -> Result<(Client, impl Stream<Item = PyrsiaEvent>, PyrsiaEventLoop), Box<dyn Error>> {
+) -> Result<
+    (
+        Client,
+        Keypair,
+        impl Stream<Item = PyrsiaEvent>,
+        PyrsiaEventLoop,
+    ),
+    Box<dyn Error>,
+> {
     let local_keypair = keypair_util::load_or_generate_ed25519(KEYPAIR_FILENAME.as_str());
 
-    let (swarm, local_peer_id) = create_swarm(local_keypair, max_provided_keys)?;
+    let (swarm, local_peer_id) = create_swarm(local_keypair.clone(), max_provided_keys)?;
     let (command_sender, command_receiver) = mpsc::channel(32);
     let (event_sender, event_receiver) = mpsc::channel(32);
 
@@ -115,6 +124,7 @@ pub fn setup_libp2p_swarm(
             sender: command_sender,
             local_peer_id,
         },
+        local_keypair,
         ReceiverStream::new(event_receiver),
         PyrsiaEventLoop::new(swarm, command_receiver, event_sender),
     ))

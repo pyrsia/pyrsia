@@ -14,7 +14,9 @@
    limitations under the License.
 */
 
+use bincode::{deserialize, serialize};
 use libp2p::identity;
+use libp2p::PeerId;
 use log::warn;
 use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::error::BlockchainError;
@@ -26,6 +28,12 @@ use std::path::{Path, PathBuf};
 
 use crate::network::client::Client;
 use crate::util::env_util::read_var;
+
+/// Blockchain command length is 1 byte
+pub const BLOCKCHAIN_COMMAND_LENGTH: usize = 1;
+
+/// Blockchain ordinal length is 16 bytes
+pub const BLOCKCHAIN_ORDINAL_LENGTH: usize = 16;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -77,17 +85,29 @@ fn load_blockchain_path() -> Result<PathBuf, BlockchainError> {
 }
 
 impl BlockchainService {
-    pub async fn new(
-        keypair: &identity::ed25519::Keypair,
+    pub fn init_first_blockchain_node(
+        local_keypair: &identity::ed25519::Keypair,
+        blockchain_keypair: &identity::ed25519::Keypair,
         p2p_client: Client,
-    ) -> Result<Self, BlockchainError> {
+    ) -> Self {
         let blockchain_path = load_blockchain_path()?;
 
-        Ok(Self {
-            blockchain: Blockchain::new(keypair, blockchain_path).await?,
-            keypair: keypair.to_owned(),
+        Self {
+            blockchain: Blockchain::new(blockchain_keypair, blockchain_path),
+            keypair: local_keypair.to_owned(),
             p2p_client,
-        })
+        }
+    }
+
+    pub fn init_other_blockchain_node(
+        local_keypair: &identity::ed25519::Keypair,
+        p2p_client: Client,
+    ) -> Self {
+        Self {
+            blockchain: Default::default(),
+            keypair: local_keypair.to_owned(),
+            p2p_client,
+        }
     }
 
     /// Add payload to blockchain. It will be called by other services (e.g. transparent logging service)
@@ -114,8 +134,8 @@ impl BlockchainService {
         log::debug!("Blockchain get block to broadcast:{:?}", block);
 
         buf.push(cmd);
-        buf.append(&mut bincode::serialize(&block_ordinal).unwrap());
-        buf.append(&mut bincode::serialize(&block).unwrap());
+        buf.append(&mut serialize(&block_ordinal).unwrap());
+        buf.append(&mut serialize(&block).unwrap());
 
         for peer_id in peer_list.iter() {
             self.p2p_client
@@ -124,6 +144,56 @@ impl BlockchainService {
         }
 
         Ok(())
+    }
+
+    async fn query_blockchain_ordinal(
+        &mut self,
+        other_peer_id: &PeerId,
+    ) -> Result<Ordinal, BlockchainError> {
+        let cmd = BlockchainCommand::QueryHighestBlockOrdinal as u8;
+
+        let mut buf: Vec<u8> = vec![];
+
+        log::debug!("Blockchain query ordinal from : {:?}", other_peer_id);
+
+        buf.push(cmd);
+
+        let ordinal = deserialize(
+            &self
+                .p2p_client
+                .request_blockchain(other_peer_id, buf.clone())
+                .await?,
+        )
+        .unwrap();
+
+        Ok(ordinal)
+    }
+
+    async fn pull_block_from_other_nodes(
+        &mut self,
+        other_peer_id: &PeerId,
+        start: Ordinal,
+        end: Ordinal,
+    ) -> Result<Vec<Block>, BlockchainError> {
+        let cmd = BlockchainCommand::PullFromPeer as u8;
+
+        let mut buf: Vec<u8> = vec![];
+
+        log::debug!("Blockchain query ordinal from : {:?}", other_peer_id);
+
+        buf.push(cmd);
+        buf.append(&mut serialize(&start).unwrap());
+        buf.append(&mut serialize(&end).unwrap());
+
+        let blocks = deserialize(
+            &self
+                .p2p_client
+                .request_blockchain(other_peer_id, buf.clone())
+                .await?,
+        )
+        .unwrap();
+
+        Ok(blocks)
     }
 
     /// Add a new block to local blockchain.
@@ -169,12 +239,33 @@ impl BlockchainService {
     pub async fn query_last_block(&self) -> Option<Block> {
         self.blockchain.last_block()
     }
+
+    pub async fn init_pull_from_others(
+        &mut self,
+        other_peer_id: &PeerId,
+    ) -> Result<Ordinal, BlockchainError> {
+        // Always start with the genesis block
+        let ordinal = self.query_blockchain_ordinal(other_peer_id).await?;
+
+        for block in self
+            .pull_block_from_other_nodes(other_peer_id, 0, ordinal)
+            .await?
+            .iter()
+        {
+            let ordinal = block.header.ordinal;
+            let block = block.clone();
+            self.add_block(ordinal, Box::new(block)).await?;
+        }
+
+        Ok(ordinal)
+    }
 }
 
 #[cfg(test)]
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
+    use libp2p::identity::Keypair;
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
     use tokio::sync::mpsc;
 
@@ -187,7 +278,7 @@ mod tests {
             local_peer_id,
         };
 
-        BlockchainService::new(&ed25519_keypair, client)
+        BlockchainService::init_first_blockchain_node(&ed25519_keypair, &ed25519_keypair, client)
             .await
             .expect("BlockchainService should be created.")
     }
@@ -226,6 +317,109 @@ mod tests {
             .add_block(3, Box::new(block.clone()))
             .await
             .is_err());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_init_first_blockchain_node() -> Result<(), String> {
+        let (sender, _) = mpsc::channel(1);
+        let ed25519_keypair = identity::ed25519::Keypair::generate();
+        let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
+        let client = Client {
+            sender,
+            local_peer_id,
+        };
+
+        let blockchain_service = BlockchainService::init_first_blockchain_node(
+            &ed25519_keypair,
+            &ed25519_keypair,
+            client,
+        );
+        let block = blockchain_service.query_last_block().await.unwrap();
+        assert_eq!(0, block.header.ordinal);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_init_other_blockchain_node() -> Result<(), String> {
+        let (sender, _) = mpsc::channel(1);
+        let ed25519_keypair = identity::ed25519::Keypair::generate();
+        let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
+        let client = Client {
+            sender,
+            local_peer_id,
+        };
+
+        let blockchain_service =
+            BlockchainService::init_other_blockchain_node(&ed25519_keypair, client);
+        assert_eq!(None, blockchain_service.query_last_block().await);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_pull_blocks() -> Result<(), String> {
+        let blockchain_service = create_blockchain_service();
+        assert_eq!(1, blockchain_service.pull_blocks(0, 0).await.unwrap().len());
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_query_last_block() -> Result<(), String> {
+        let mut blockchain_service = create_blockchain_service();
+
+        let last_block = blockchain_service.blockchain.last_block().unwrap();
+
+        let block = Block::new(
+            last_block.header.hash(),
+            1,
+            vec![],
+            &blockchain_service.keypair,
+        );
+        let _ = blockchain_service
+            .add_block(1, Box::new(block.clone()))
+            .await;
+
+        assert_eq!(
+            1,
+            blockchain_service
+                .query_last_block()
+                .await
+                .unwrap()
+                .header
+                .ordinal
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_query_blockchain_ordinal_with_invalid_other_peer() -> Result<(), String> {
+        let mut blockchain_service = create_blockchain_service();
+
+        let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+
+        assert!(blockchain_service
+            .query_blockchain_ordinal(&other_peer_id)
+            .await
+            .is_err());
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_init_pull_from_others_with_invalid_other_peer() -> Result<(), String> {
+        let mut blockchain_service = create_blockchain_service();
+
+        let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+
+        assert!(blockchain_service
+            .init_pull_from_others(&other_peer_id)
+            .await
+            .is_err());
+
+        Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread")]

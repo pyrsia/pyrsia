@@ -68,7 +68,7 @@ Now we will set the following env vars and start a pyrsia node:
 
 ```sh
 RUST_LOG=pyrsia=debug DEV_MODE=on PYRSIA_ARTIFACT_PATH=/tmp/pyrsia \
-cargo run --package pyrsia_node -- --pipeline-service-endpoint http://localhost:8080 --listen-only true
+cargo run --package pyrsia_node -- --pipeline-service-endpoint http://localhost:8080 --listen-only --init-blockchain
 ```
 
 As you can see, we specified the `--pipeline-service-endpoint` argument to point

@@ -174,8 +174,13 @@ impl ArtifactService {
     ) -> Result<(), anyhow::Error> {
         if payloads.len() == 1 {
             let transparency_log: TransparencyLog = serde_json::from_slice(&payloads[0])?;
-            self.transparency_log_service
-                .write_transparency_log(&transparency_log)?;
+            if let Err(TransparencyLogError::LogNotFound { .. }) = self
+                .transparency_log_service
+                .find_transparency_log(&transparency_log.id)
+            {
+                self.transparency_log_service
+                    .write_transparency_log(&transparency_log)?;
+            }
         }
 
         Ok(())
@@ -346,9 +351,10 @@ mod tests {
         keypair: &Keypair,
         p2p_client: Client,
     ) -> (mpsc::Receiver<BuildEvent>, ArtifactService) {
-        let blockchain_service = BlockchainService::new(keypair, p2p_client.clone())
+        let blockchain_service = Arc::new(Mutex::new(
+            BlockchainService::init_first_blockchain_node(keypair, keypair, p2p_client.clone())
             .await
-            .expect("Creating BlockchainService failed");
+            .expect("Creating BlockchainService failed")));
 
         let transparency_log_service =
             TransparencyLogService::new(&artifact_path, Arc::new(Mutex::new(blockchain_service)))

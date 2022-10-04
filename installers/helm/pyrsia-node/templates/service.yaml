@@ -2,12 +2,15 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: pyrsia-node-0
+  name: {{ printf "%s-0" (include "pyrsia-node.name" .) }}
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: {{ printf "%s-0.%s" (include "pyrsia-node.name" .) .Values.dnsname }} 
+    external-dns.alpha.kubernetes.io/ttl: "60"
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
   selector:
-    statefulset.kubernetes.io/pod-name: pyrsia-node-0
+    statefulset.kubernetes.io/pod-name: {{ printf "%s-0" (include "pyrsia-node.name" .) }}
   ports:
     - port: 80
       targetPort: 7888
@@ -21,12 +24,15 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: pyrsia-node-1
+  name: {{ printf "%s-1" (include "pyrsia-node.name" .) }}
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: {{ printf "%s-1.%s" (include "pyrsia-node.name" .) .Values.dnsname }}
+    external-dns.alpha.kubernetes.io/ttl: "60"     
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
   selector:
-    statefulset.kubernetes.io/pod-name: pyrsia-node-1
+    statefulset.kubernetes.io/pod-name: {{ printf "%s-1" (include "pyrsia-node.name" .) }}
   ports:
     - port: 80
       targetPort: 7888
@@ -40,12 +46,14 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: pyrsia-node-2
+  name: {{ printf "%s-2" (include "pyrsia-node.name" .) }}
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: {{ printf "%s-2.%s" (include "pyrsia-node.name" .) .Values.dnsname }} 
+    external-dns.alpha.kubernetes.io/ttl: "60"   
 spec:
   type: LoadBalancer
-  externalTrafficPolicy: Local
   selector:
-    statefulset.kubernetes.io/pod-name: pyrsia-node-2
+    statefulset.kubernetes.io/pod-name: {{ printf "%s-2" (include "pyrsia-node.name" .) }}
   ports:
     - port: 80
       targetPort: 7888

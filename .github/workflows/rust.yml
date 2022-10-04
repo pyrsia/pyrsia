@@ -147,8 +147,8 @@ jobs:
       run: |
         sudo go install github.com/mikefarah/yq/v4@latest
         yq e '.image.tag |= "0.1.0-${{ github.run_number }}"' -i installers/helm/pyrsia-node/values.yaml
-        yq e '.version |= "0.1.0-${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
-        yq e '.appVersion |= "0.1.0-${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
+        yq e '.version |= "0.1.0+${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
+        yq e '.appVersion |= "0.1.0+${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
 
     # Add the updated helm chart to the helm NIGHTLY repo
     - name: Add the updated helm chart to the helm NIGHTLY repo

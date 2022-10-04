@@ -228,11 +228,11 @@ mod tests {
 
     #[test]
     fn from_transparency_log_error() {
-        let transparency_log_error_1 = TransparencyLogError::NotFound {
+        let transparency_log_error_1 = TransparencyLogError::ArtifactNotFound {
             package_type: PackageType::Docker,
             package_specific_artifact_id: "package_specific_artifact_id".to_owned(),
         };
-        let transparency_log_error_2 = TransparencyLogError::NotFound {
+        let transparency_log_error_2 = TransparencyLogError::ArtifactNotFound {
             package_type: PackageType::Docker,
             package_specific_artifact_id: "package_specific_artifact_id".to_owned(),
         };

@@ -39,7 +39,7 @@ pub type TransactionCallback = dyn FnOnce(Transaction) + Send + Sync;
 pub enum SignatureAlgorithm {
     Ed25519,
 }
-
+#[derive(Default)]
 pub struct Blockchain {
     // trans_observers may be only used internally by blockchain service
     trans_observers: HashMap<Transaction, Box<TransactionCallback>>,

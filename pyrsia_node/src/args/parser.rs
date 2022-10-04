@@ -42,11 +42,14 @@ pub struct PyrsiaNodeArgs {
     /// An address to connect with another Pyrsia Node (eg /ip4/127.0.0.1/tcp/45153/p2p/12D3KooWKsHbKbcVgyiRRgeXGCK4bp3MngnSU7ioeKTfQzd18B2v)
     #[clap(long, short = 'P')]
     pub peer: Option<Multiaddr>,
+    /// Initialization mode, used only for the first authorized node in the Pyrsia network to initialize the Pyrsia network
+    #[clap(long)]
+    pub init_blockchain: bool,
     /// An address to use for probing AutoNAT connections
     #[clap(long, short = 'R')]
     pub probe: Option<Multiaddr>,
     /// listen_only mode - don't try to connect to any peers at startup
-    #[clap(long, action = clap::ArgAction::Set, default_value = "false")]
+    #[clap(long)]
     pub listen_only: bool,
     #[clap(long, short = 'B', default_value = DEFAULT_BOOTSTRAP_URL)]
     pub bootstrap_url: String,
