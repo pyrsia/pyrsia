@@ -14,6 +14,7 @@
    limitations under the License.
 */
 use codec::{Decode, Encode};
+use log::warn;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tokio::fs::{self, OpenOptions};
@@ -86,7 +87,8 @@ impl Chain {
         ordinal: Ordinal,
         file_path: impl AsRef<Path>,
     ) -> Result<(), BlockchainError> {
-        let block_position = self.get_block_position(ordinal)?;
+        let block_position = self.get_block_position(ordinal)
+            .ok_or_else(|| BlockchainError::InvalidBlockchainLength(self.len()))?;
 
         let file = OpenOptions::new()
             .create(true)
