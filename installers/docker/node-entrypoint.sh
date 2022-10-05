@@ -38,7 +38,11 @@ if [ -f /var/run/secrets/kubernetes.io/serviceaccount/namespace ]; then
 
     BOOTZERO=$(echo "${DNSREADY}" | grep "${PYRSIA_BOOTDNS}")
     if  [ "${BOOTZERO}" != "" ]; then  
-        /usr/bin/pyrsia_node $* --listen-only --init-blockchain
+        if [ "${PYRSIA_BUILDNODE}" == "" ]; then
+            /usr/bin/pyrsia_node $* --listen-only --init-blockchain
+        else
+            /usr/bin/pyrsia_node $* --listen-only --init-blockchain --pipeline-service-endpoint ${PYRSIA_BUILDNODE}
+        fi
         exit $?
     fi
 fi

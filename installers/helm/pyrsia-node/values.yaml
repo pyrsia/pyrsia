@@ -1,7 +1,5 @@
 ---
 
-dnsname: pyrsia.link
-
 replicaCount: 1
 
 image:
@@ -13,5 +11,3 @@ p2pkeys:
   kms_key_id: ""
 
 k8s_provider: gke # "gke, oke, aks, eks"
-
-external_dns_ns: "external-dns"

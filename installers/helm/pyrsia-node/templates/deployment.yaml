@@ -36,7 +36,11 @@ spec:
             - name: PYRSIA_KEYPAIR
               value: /usr/local/var/pyrsia-p2p-keys/ed25519.ser
             - name: PYRSIA_BOOTDNS
-              value: {{ printf "%s-0.%s" (include "pyrsia-node.name" .) (.Values.bootdns | default "pyrsia.link") }}   
+              value: {{ printf "%s-0.%s" (include "pyrsia-node.name" .) (.Values.bootdns | default "pyrsia.link") }} 
+            {{- if .Values.buildnode }}
+            - name: PYRSIA_BUILDNODE
+              value: {{ .Values.buildnode }}
+            {{- end }}
           volumeMounts:
             # name must match the volume name below
             - name: pyrsia-storage
