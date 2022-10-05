@@ -22,8 +22,13 @@ Function Install-NSSM {
         $testScoop = (Get-Command scoop -ErrorAction SilentlyContinue).Path
         if ($testScoop -eq $null) {
             # if scoop is not installed, install it
-            Write-Host Installing scoop... -foreground "green"
-            iwr -useb get.scoop.sh | iex
+            if ([Security.Principal.WindowsIdentity]::GetCurrent().Groups -contains 'S-1-5-32-544') {
+                 Write-Host Installing scoop as admin... -foreground "green"
+                 iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+            } else {
+                 Write-Host Installing scoop... -foreground "green"
+                 iwr -useb get.scoop.sh | iex
+            }
         }
         # install nssm
         Write-Host installing nssm... -foreground "green"
@@ -33,6 +38,9 @@ Function Install-NSSM {
     # full path of nssm
     $NSSMPath = (Get-Item (Get-Command nssm).Path).DirectoryName
     Write-Host nssm found at $NSSMPath -foreground "green"
+
+    # add path of scoop to a system custom env variable, to make it available to the next (elevated) script
+    [Environment]::SetEnvironmentVariable("ScoopPath", $NSSMPath, "Machine")
 }
 
 Install-NSSM
