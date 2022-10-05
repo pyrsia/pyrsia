@@ -119,7 +119,9 @@ The command removes all the Kubernetes components associated with the chart and 
 | ------------------------ | ----------------------------------------------| --------------- |
 | `k8s_provider`           | Environment that is running Kubernetes        | gke, aks, eks, oke |
 | `p2pkeys.kms_key_id`     | KMS Key to Encrypt Pyrsia Keys Volume         | Name of the CSI Key.  For example, under GKE: `projects/<PROJECT>locations/global/keyRings/<KEYRING>/cryptoKeys/<KEY>` |
-| `external_dns_ns`        | Namespace for the External DNS pod/service | external-dns |
+| `external_dns_ns`        | Namespace for the External DNS pod/service | default: external-dns |
+| `dnsname`                | DNS Name for the nodes                     | default: pyrsia.link  |
+| `buildnode`              | URL for the Build Node                     | |
 
 > NOTE: Once this chart is deployed, it is not possible to change the application's access credentials, such as usernames or passwords, using Helm. To change these application credentials after deployment, delete any persistent volumes (PVs) used by the chart and re-deploy it, or use the application's built-in administrative tools if available.
 
