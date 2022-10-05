@@ -4,7 +4,7 @@ replicaCount: 1
 
 image:
   repository: pyrsiaoss/pyrsia-node
-  tag: 0.1.0-fix
+  tag: 0.1.0-2305
   pullPolicy: Always
 
 p2pkeys:
