@@ -7,8 +7,7 @@ on:
       - '**/*.rs'
       - '**/Cargo.toml'
       - Cargo.lock
-      - '**/*.ps1'
-      - '**/*.wxs'
+      - 'installers/windows/*'
 
 env:
   CARGO_TERM_COLOR: always

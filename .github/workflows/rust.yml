@@ -9,8 +9,7 @@ on:
       - '**/*.rs'
       - '**/Cargo.toml'
       - Cargo.lock
-      - '**/*.ps1'
-      - '**/*.wxs'
+      - 'installers/windows/*'
   release:
     types: [published]
 
