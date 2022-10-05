@@ -50,42 +50,35 @@ impl Chain {
         self.blocks().last().cloned()
     }
 
-    pub fn get_block_position(&self, ordinal: Ordinal) -> Result<usize, BlockchainError> {
+    pub fn get_block_position(&self, ordinal: Ordinal) -> Option<usize> {
         if ordinal >= self.len() as Ordinal {
-            return Err(BlockchainError::InvalidBlockchainLength(self.len()));
+            warn!("Blockchain try to get non-exsit block {:?}", ordinal);
+            return None;
         }
 
         if ordinal > self.last_block().unwrap().header.ordinal {
-            return Err(BlockchainError::InvalidBlockchainLength(self.len()));
-        }
-
-        if ordinal >= usize::MAX as Ordinal - 1 {
-            return Err(BlockchainError::InvalidBlockchainOrdinal(ordinal));
+            warn!("Blockchain try to get non-exsit block {:?}", ordinal);
+            return None;
         }
 
         if self.blocks[ordinal as usize].header.ordinal != ordinal {
-            return Err(BlockchainError::InvalidBlockchainOrdinal(ordinal));
+            warn!("Blockchain try to get non-exsit block {:?}", ordinal);
+            return None;
         }
 
-        Ok(ordinal as usize)
+        Some(ordinal as usize)
     }
 
-    pub fn retrieve_blocks(
-        &self,
-        start: Ordinal,
-        end: Ordinal,
-    ) -> Result<Vec<Block>, BlockchainError> {
-        let start_pos = self.get_block_position(start)?;
+    pub fn retrieve_blocks(&self, start: Ordinal, end: Ordinal) -> Vec<Block> {
+        let start_pos = self.get_block_position(start);
 
-        let end_pos = self.get_block_position(end)?;
+        let end_pos = self.get_block_position(end);
 
-        if start_pos > end_pos {
-            return Err(BlockchainError::InvalidBlockchainPosition(
-                start_pos, end_pos,
-            ));
+        if start_pos == None || end_pos == None || start_pos.unwrap() > end_pos.unwrap() {
+            Default::default()
+        } else {
+            self.blocks[start_pos.unwrap()..=end_pos.unwrap()].to_vec()
         }
-
-        Ok(self.blocks[start_pos..=end_pos].to_vec())
     }
 
     pub async fn save_block(
@@ -282,7 +275,7 @@ mod tests {
         assert_eq!(1, chain.len());
         chain.blocks[0].header.ordinal = 3;
         assert_eq!(
-            "Err(InvalidBlockchainOrdinal(0))",
+            "Err(InvalidBlockchainLength(1))",
             format!("{:?}", chain.save_block(0, temp_file).await)
         );
     }
@@ -360,8 +353,8 @@ mod tests {
         assert_eq!(1, chain.len());
 
         let blocks = chain.retrieve_blocks(0, 0);
-        assert_eq!(0, blocks.unwrap()[0].header.ordinal);
+        assert_eq!(0, blocks[0].header.ordinal);
 
-        assert!(chain.retrieve_blocks(0, 1).is_err());
+        assert_eq!(0, chain.retrieve_blocks(0, 1).len());
     }
 }

@@ -59,7 +59,7 @@ rusqlite = { version = "0.28.0", features = ["bundled"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.82"
 serial_test = "0.9.0"
-sha2 = { version = "0.10.5" }
+sha2 = { version = "0.10.6" }
 stringreader = "0.1.1"
 strum = "0.24.1"
 strum_macros = "0.24.3"
@@ -82,7 +82,7 @@ features = []
 [dev-dependencies]
 httptest = "0.15.4"
 tempfile = "3.2.0"
-time = { version = "0.3.14", features = ["formatting", "parsing"] }
+time = { version = "0.3.15", features = ["formatting", "parsing"] }
 tokio-test = "0.4.2"
 
 [workspace]

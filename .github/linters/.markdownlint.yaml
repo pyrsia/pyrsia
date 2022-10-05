@@ -9,3 +9,4 @@ MD026:
   punctuation: ".,;:!。，；:"  # List of not allowed
 MD029: false                  # Ordered list item prefix
 MD033: false                  # Allow inline HTML
+MD051: false                  # allow #GitHub-style-anchor-links
