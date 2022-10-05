@@ -778,8 +778,6 @@ mod tests {
             loop {
                 match command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
-                        // let mut set = HashSet::new();
-                        // set.insert(p2p_client.local_peer_id);
                         let _ = sender.send(HashSet::new());
                     }
                     _ => panic!("Command must match Command::ListPeers"),
