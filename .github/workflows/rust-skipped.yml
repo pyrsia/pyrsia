@@ -7,6 +7,8 @@ on:
       - '**/*.rs'
       - '**/Cargo.toml'
       - Cargo.lock
+      - '**/*.ps1'
+      - '**/*.wxs'
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,6 +16,11 @@ env:
 jobs:
   build-osx:
     runs-on: macos-latest
+    steps:
+      - run: echo "No build required"
+
+  build-windows:
+    runs-on: windows-latest
     steps:
       - run: echo "No build required"
 

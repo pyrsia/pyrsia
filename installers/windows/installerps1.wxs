@@ -69,7 +69,7 @@
 
     <InstallExecuteSequence>
           <Custom Action="InstallNSSM" Before="InstallFinalize"><![CDATA[NOT Installed]]></Custom>
-          <Custom Action="RunStartScript" Before="InstallFinalize"><![CDATA[NOT Installed]]></Custom>
+          <Custom Action="RunStartScript" After="InstallNSSM" ><![CDATA[NOT Installed]]></Custom>
     </InstallExecuteSequence>
 
     <Property Id='ARPHELPLINK' Value='https://github.com/pyrsia/pyrsia'/>
