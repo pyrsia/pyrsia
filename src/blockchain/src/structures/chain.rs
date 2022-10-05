@@ -87,7 +87,8 @@ impl Chain {
         ordinal: Ordinal,
         file_path: impl AsRef<Path>,
     ) -> Result<(), BlockchainError> {
-        let block_position = self.get_block_position(ordinal)
+        let block_position = self
+            .get_block_position(ordinal)
             .ok_or_else(|| BlockchainError::InvalidBlockchainLength(self.len()))?;
 
         let file = OpenOptions::new()
