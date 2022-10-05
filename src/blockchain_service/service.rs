@@ -24,10 +24,9 @@ use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::network::client::Client;
-use crate::util::env_util::read_var;
 
 /// Blockchain command length is 1 byte
 pub const BLOCKCHAIN_COMMAND_LENGTH: usize = 1;
@@ -73,24 +72,14 @@ impl Debug for BlockchainService {
     }
 }
 
-fn load_blockchain_path() -> Result<PathBuf, BlockchainError> {
-    let pyrsia_blockchain_file = read_var("PYRSIA_BLOCKCHAIN_PATH", "pyrsia/blockchain");
-    let pyrsia_blockchain_path = Path::new(&pyrsia_blockchain_file);
-    match std::fs::create_dir_all(pyrsia_blockchain_path) {
-        Ok(()) => Ok(pyrsia_blockchain_path.to_path_buf()),
-        Err(_) => Err(BlockchainError::InvalidStoragePath(
-            pyrsia_blockchain_path.to_path_buf(),
-        )),
-    }
-}
-
 impl BlockchainService {
     pub async fn init_first_blockchain_node(
         local_keypair: &identity::ed25519::Keypair,
         blockchain_keypair: &identity::ed25519::Keypair,
         p2p_client: Client,
+        blockchain_path: impl AsRef<Path>,
     ) -> Result<Self, BlockchainError> {
-        let blockchain_path = load_blockchain_path()?;
+        std::fs::create_dir_all(&blockchain_path)?;
 
         Ok(Self {
             blockchain: Blockchain::new(blockchain_keypair, blockchain_path).await?,
@@ -102,8 +91,9 @@ impl BlockchainService {
     pub fn init_other_blockchain_node(
         local_keypair: &identity::ed25519::Keypair,
         p2p_client: Client,
+        blockchain_path: impl AsRef<Path>,
     ) -> Result<Self, BlockchainError> {
-        let blockchain_path = load_blockchain_path()?;
+        std::fs::create_dir_all(&blockchain_path)?;
 
         Ok(Self {
             blockchain: Blockchain::empty_new(blockchain_path),
@@ -272,7 +262,7 @@ mod tests {
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
     use tokio::sync::mpsc;
 
-    async fn create_blockchain_service() -> BlockchainService {
+    async fn create_blockchain_service(tmp_dir: impl AsRef<Path>) -> BlockchainService {
         let (sender, _) = mpsc::channel(1);
         let ed25519_keypair = identity::ed25519::Keypair::generate();
         let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
@@ -281,12 +271,17 @@ mod tests {
             local_peer_id,
         };
 
-        BlockchainService::init_first_blockchain_node(&ed25519_keypair, &ed25519_keypair, client)
-            .await
-            .expect("BlockchainService should be created.")
+        BlockchainService::init_first_blockchain_node(
+            &ed25519_keypair,
+            &ed25519_keypair,
+            client,
+            tmp_dir,
+        )
+        .await
+        .expect("BlockchainService should be created.")
     }
 
-    fn create_other_blockchain_service() -> BlockchainService {
+    fn create_other_blockchain_service(tmp_dir: impl AsRef<Path>) -> BlockchainService {
         let (sender, _) = mpsc::channel(1);
         let ed25519_keypair = identity::ed25519::Keypair::generate();
         let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
@@ -295,7 +290,7 @@ mod tests {
             local_peer_id,
         };
 
-        BlockchainService::init_other_blockchain_node(&ed25519_keypair, client)
+        BlockchainService::init_other_blockchain_node(&ed25519_keypair, client, tmp_dir)
             .expect("BlockchainService should be created.")
     }
 
@@ -303,7 +298,7 @@ mod tests {
     async fn test_add_payload() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut blockchain_service = create_blockchain_service().await;
+        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
 
         let payload = vec![];
         assert!(blockchain_service.blockchain.last_block().is_some());
@@ -316,7 +311,7 @@ mod tests {
     async fn test_add_block() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut blockchain_service = create_blockchain_service().await;
+        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
 
@@ -347,7 +342,7 @@ mod tests {
     async fn test_init_first_blockchain_node() {
         let tmp_dir = test_util::tests::setup();
 
-        let blockchain_service = create_blockchain_service().await;
+        let blockchain_service = create_blockchain_service(&tmp_dir).await;
 
         let block = blockchain_service.query_last_block().await.unwrap();
         assert_eq!(0, block.header.ordinal);
@@ -359,7 +354,7 @@ mod tests {
     async fn test_init_other_blockchain_node() {
         let tmp_dir = test_util::tests::setup();
 
-        let blockchain_service = create_other_blockchain_service();
+        let blockchain_service = create_other_blockchain_service(&tmp_dir);
         assert_eq!(None, blockchain_service.query_last_block().await);
 
         test_util::tests::teardown(tmp_dir);
@@ -369,7 +364,7 @@ mod tests {
     async fn test_pull_blocks() {
         let tmp_dir = test_util::tests::setup();
 
-        let blockchain_service = create_blockchain_service().await;
+        let blockchain_service = create_blockchain_service(&tmp_dir).await;
         assert_eq!(1, blockchain_service.pull_blocks(0, 0).await.unwrap().len());
 
         test_util::tests::teardown(tmp_dir);
@@ -379,7 +374,7 @@ mod tests {
     async fn test_query_last_block() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut blockchain_service = create_blockchain_service().await;
+        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
 
@@ -410,7 +405,7 @@ mod tests {
     async fn test_query_blockchain_ordinal_with_invalid_other_peer() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut blockchain_service = create_blockchain_service().await;
+        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
@@ -426,7 +421,7 @@ mod tests {
     async fn test_init_pull_from_others_with_invalid_other_peer() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut blockchain_service = create_blockchain_service().await;
+        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
@@ -442,7 +437,7 @@ mod tests {
     async fn test_notify_blockchain() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut blockchain_service = create_blockchain_service().await;
+        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
 
         let block = Box::new(Block::new(
             HashDigest::new(b""),
@@ -459,7 +454,7 @@ mod tests {
     async fn test_debug() {
         let tmp_dir = test_util::tests::setup();
 
-        let blockchain_service = create_blockchain_service().await;
+        let blockchain_service = create_blockchain_service(&tmp_dir).await;
 
         assert_ne!(
             format!("This is blockchain service {blockchain_service:?}"),

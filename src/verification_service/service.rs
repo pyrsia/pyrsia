@@ -280,6 +280,7 @@ mod tests {
     async fn create_blockchain_service(
         local_keypair: &Keypair,
         p2p_client: Client,
+        blockchain_path: impl AsRef<Path>,
     ) -> BlockchainService {
         let ed25519_keypair = match local_keypair {
             libp2p::identity::Keypair::Ed25519(ref v) => v,
@@ -288,18 +289,24 @@ mod tests {
             }
         };
 
-        BlockchainService::init_first_blockchain_node(ed25519_keypair, ed25519_keypair, p2p_client)
-            .await
-            .expect("Creating BlockchainService failed")
+        BlockchainService::init_first_blockchain_node(
+            ed25519_keypair,
+            ed25519_keypair,
+            p2p_client,
+            blockchain_path,
+        )
+        .await
+        .expect("Creating BlockchainService failed")
     }
 
-    async fn create_transparency_log_service<P: AsRef<Path>>(
-        artifact_path: P,
+    async fn create_transparency_log_service(
+        artifact_path: impl AsRef<Path>,
     ) -> TransparencyLogService {
         let local_keypair = Keypair::generate_ed25519();
         let p2p_client = create_p2p_client(&local_keypair);
 
-        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client).await;
+        let blockchain_service =
+            create_blockchain_service(&local_keypair, p2p_client, &artifact_path).await;
 
         TransparencyLogService::new(&artifact_path, Arc::new(Mutex::new(blockchain_service)))
             .unwrap()

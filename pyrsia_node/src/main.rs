@@ -35,6 +35,7 @@ use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
 use pyrsia::transparency_log::log::TransparencyLogService;
+use pyrsia::util::env_util::read_var;
 use pyrsia::util::keypair_util::{self, KEYPAIR_FILENAME};
 use pyrsia::verification_service::service::VerificationService;
 
@@ -249,6 +250,8 @@ async fn setup_blockchain_service(
         }
     };
 
+    let pyrsia_blockchain_path = read_var("PYRSIA_BLOCKCHAIN_PATH", "pyrsia/blockchain");
+
     if args.init_blockchain {
         let blockchain_keypair =
             keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
@@ -265,12 +268,17 @@ async fn setup_blockchain_service(
             &local_ed25519_keypair,
             &blockchain_ed25519_keypair,
             p2p_client,
+            pyrsia_blockchain_path,
         )
         .await
         .map_err(|e| e.into())
     } else {
-        BlockchainService::init_other_blockchain_node(&local_ed25519_keypair, p2p_client)
-            .map_err(|e| e.into())
+        BlockchainService::init_other_blockchain_node(
+            &local_ed25519_keypair,
+            p2p_client,
+            pyrsia_blockchain_path,
+        )
+        .map_err(|e| e.into())
     }
 }
 

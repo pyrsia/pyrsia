@@ -64,9 +64,9 @@ impl Blockchain {
         blockchain_path: impl AsRef<Path>,
     ) -> Result<Self, BlockchainError> {
         let mut chain: Chain = Default::default();
-        chain.read_blocks(&blockchain_path).await?;
+        chain.load_blocks(&blockchain_path).await?;
 
-        // Make the "genesis" blocks
+        // Make the "genesis" block
         if chain.is_empty() {
             let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
             let transaction = Transaction::new(
@@ -180,7 +180,6 @@ impl Blockchain {
         chain.add_block(block);
         chain
             .save_block(
-                block_ordinal,
                 block_ordinal,
                 blockchain_path
                     .as_ref()

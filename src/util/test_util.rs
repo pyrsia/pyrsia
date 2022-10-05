@@ -27,10 +27,6 @@ pub mod tests {
             .into_path();
 
         env::set_var("PYRSIA_ARTIFACT_PATH", tmp_dir.to_str().unwrap());
-        env::set_var(
-            "PYRSIA_BLOCKCHAIN_PATH",
-            tmp_dir.join("blockchain").to_str().unwrap(),
-        );
         env::set_var("DEV_MODE", "on");
 
         tmp_dir
@@ -43,7 +39,6 @@ pub mod tests {
         }
 
         env::remove_var("PYRSIA_ARTIFACT_PATH");
-        env::remove_var("PYRSIA_BLOCKCHAIN_PATH");
         env::remove_var("DEV_MODE");
     }
 }

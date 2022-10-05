@@ -18,6 +18,7 @@ use crate::artifact_service::model::PackageType;
 use crate::blockchain_service::service::BlockchainService;
 use libp2p::PeerId;
 use log::{debug, error};
+use pyrsia_blockchain_network::error::BlockchainError;
 use rusqlite::types::{ToSqlOutput, Value};
 use rusqlite::{params, Connection, ToSql};
 use serde::{Deserialize, Serialize};
@@ -31,7 +32,7 @@ use thiserror::Error;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Error, Eq, PartialEq)]
+#[derive(Debug, Error)]
 pub enum TransparencyLogError {
     #[error("TransparencyLog with ID {id} not found")]
     LogNotFound { id: String },
@@ -54,21 +55,11 @@ pub enum TransparencyLogError {
         invalid_operation: Operation,
     },
     #[error("Failure while accessing underlying storage: {0}")]
-    StorageFailure(String),
+    DatabaseFailure(#[from] rusqlite::Error),
+    #[error("Failure while accessing underlying storage: {0}")]
+    StorageFailure(#[from] io::Error),
     #[error("Failure while adding block to the blockchain: {0}")]
-    BlockchainFailure(String),
-}
-
-impl From<io::Error> for TransparencyLogError {
-    fn from(err: io::Error) -> TransparencyLogError {
-        TransparencyLogError::StorageFailure(err.to_string())
-    }
-}
-
-impl From<rusqlite::Error> for TransparencyLogError {
-    fn from(err: rusqlite::Error) -> TransparencyLogError {
-        TransparencyLogError::StorageFailure(err.to_string())
-    }
+    BlockchainFailure(#[from] BlockchainError),
 }
 
 #[derive(
@@ -174,12 +165,11 @@ impl TransparencyLogService {
         };
 
         let payload = serde_json::to_string(&transparency_log).unwrap();
-        let _ = self
-            .blockchain_service
+        self.blockchain_service
             .lock()
             .await
             .add_payload(payload.into_bytes())
-            .await;
+            .await?;
 
         self.write_transparency_log(&transparency_log)
     }
@@ -214,12 +204,11 @@ impl TransparencyLogService {
         };
 
         let payload = serde_json::to_string(&transparency_log).unwrap();
-        let _ = self
-            .blockchain_service
+        self.blockchain_service
             .lock()
             .await
             .add_payload(payload.into_bytes())
-            .await;
+            .await?;
 
         Ok(transparency_log)
     }
@@ -497,8 +486,8 @@ mod tests {
         }
     }
 
-    async fn create_transparency_log_service<P: AsRef<Path>>(
-        artifact_path: P,
+    async fn create_transparency_log_service(
+        artifact_path: impl AsRef<Path>,
     ) -> TransparencyLogService {
         let ed25519_keypair = identity::ed25519::Keypair::generate();
         let p2p_client = create_p2p_client(identity::Keypair::Ed25519(ed25519_keypair.clone()));
@@ -507,11 +496,12 @@ mod tests {
             &ed25519_keypair,
             &ed25519_keypair,
             p2p_client,
+            &artifact_path,
         )
         .await
         .expect("Creating BlockchainService failed");
 
-        TransparencyLogService::new(&artifact_path, Arc::new(Mutex::new(blockchain_service)))
+        TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
             .unwrap()
     }
 
@@ -698,15 +688,17 @@ mod tests {
         let result_write = log.write_transparency_log(&transparency_log);
         assert!(result_write.is_ok());
 
-        let result_find = log
+        let find_error = log
             .find_transparency_log("unknown_id")
             .expect_err("Find transparency log should have failed.");
-        assert_eq!(
-            result_find,
-            TransparencyLogError::LogNotFound {
-                id: "unknown_id".to_owned(),
+        match find_error {
+            TransparencyLogError::LogNotFound { id } => {
+                assert_eq!("unknown_id".to_owned(), id);
             }
-        );
+            e => {
+                panic!("Invalid Error encountered: {:?}", e);
+            }
+        }
 
         test_util::tests::teardown(tmp_dir);
     }
