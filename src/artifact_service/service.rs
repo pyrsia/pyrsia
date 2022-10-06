@@ -346,17 +346,22 @@ mod tests {
         (command_receiver, p2p_client)
     }
 
-    fn create_artifact_service<P: AsRef<Path>>(
-        artifact_path: P,
+    async fn create_artifact_service(
+        artifact_path: impl AsRef<Path>,
         keypair: &Keypair,
         p2p_client: Client,
     ) -> (mpsc::Receiver<BuildEvent>, ArtifactService) {
-        let blockchain_service = Arc::new(Mutex::new(
-            BlockchainService::init_first_blockchain_node(keypair, keypair, p2p_client.clone()),
-        ));
+        let blockchain_service = BlockchainService::init_first_blockchain_node(
+            keypair,
+            keypair,
+            p2p_client.clone(),
+            &artifact_path,
+        )
+        .await
+        .expect("Creating BlockchainService failed");
 
         let transparency_log_service =
-            TransparencyLogService::new(&artifact_path, blockchain_service)
+            TransparencyLogService::new(&artifact_path, Arc::new(Mutex::new(blockchain_service)))
                 .expect("Creating TransparencyLogService failed");
 
         let (build_event_sender, build_event_receiver) = mpsc::channel(1);
@@ -381,7 +386,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -452,7 +457,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -520,7 +525,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             tokio::select! {
@@ -555,7 +560,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -612,7 +617,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -657,18 +662,24 @@ mod tests {
             .get_artifact(&package_type, package_specific_artifact_id)
             .unwrap();
 
-        let result = artifact_service
+        let verify_error = artifact_service
             .verify_artifact(&transparency_log, b"OTHER_SAMPLE_DATA")
-            .await;
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
+            .await
+            .expect_err("Verify artifact should have failed.");
+        match verify_error {
             TransparencyLogError::InvalidHash {
-                id: package_specific_artifact_id.to_string(),
-                invalid_hash: random_other_hash,
-                actual_hash: random_hash
+                id,
+                invalid_hash,
+                actual_hash,
+            } => {
+                assert_eq!(id, package_specific_artifact_id.to_string());
+                assert_eq!(invalid_hash, random_other_hash);
+                assert_eq!(actual_hash, random_hash);
             }
-        );
+            e => {
+                panic!("Invalid Error encountered: {:?}", e);
+            }
+        }
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -681,7 +692,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -734,7 +745,7 @@ mod tests {
 
         let (_command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
@@ -761,15 +772,13 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (mut build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
                 match command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
-                        let mut set = HashSet::new();
-                        set.insert(p2p_client.local_peer_id);
-                        let _ = sender.send(set);
+                        let _ = sender.send(HashSet::new());
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
@@ -815,7 +824,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone());
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {

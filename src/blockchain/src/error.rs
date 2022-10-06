@@ -15,6 +15,7 @@
 */
 
 use std::io;
+use std::path::PathBuf;
 use thiserror::Error;
 
 use crate::structures::header::Ordinal;
@@ -23,8 +24,12 @@ use crate::structures::header::Ordinal;
 pub enum BlockchainError {
     #[error("Anyhow Error")]
     AnyhowError(#[from] anyhow::Error),
+    #[error("Serialization Error")]
+    SerializationError(#[from] bincode::Error),
     #[error("IO Error")]
     IOError(#[from] io::Error),
+    #[error("Local Blockchain does not exist!")]
+    EmptyBlockchain,
     #[error("Invalid Blockchain Argument")]
     InvalidBlockchainArgument,
     #[error("Invalid Blockchain Command")]
@@ -35,6 +40,10 @@ pub enum BlockchainError {
     InvalidBlockchainPosition(usize, usize),
     #[error("Invalid Blockchain Ordinal: {0}")]
     InvalidBlockchainOrdinal(Ordinal),
+    #[error("Blockchain: Key {0} is not valid Ed25519 format")]
+    InvalidKey(String),
     #[error("Lagging Blockchain Data")]
     LaggingBlockchainData,
+    #[error("Invalid storage path: {0}")]
+    InvalidStoragePath(PathBuf),
 }

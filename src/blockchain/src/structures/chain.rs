@@ -16,7 +16,9 @@
 use codec::{Decode, Encode};
 use log::warn;
 use serde::{Deserialize, Serialize};
-use tokio::{fs::OpenOptions, io::AsyncWriteExt};
+use std::path::Path;
+use tokio::fs::{self, OpenOptions};
+use tokio::io::AsyncWriteExt;
 
 use super::header::Ordinal;
 use crate::error::BlockchainError;
@@ -82,50 +84,23 @@ impl Chain {
 
     pub async fn save_block(
         &self,
-        start: Ordinal,
-        mut end: Ordinal,
-        file_path: String,
+        ordinal: Ordinal,
+        file_path: impl AsRef<Path>,
     ) -> Result<(), BlockchainError> {
-        match self.last_block() {
-            None => return Err(BlockchainError::InvalidBlockchainLength(self.len())),
-            Some(block) => {
-                if start > block.header.ordinal {
-                    return Err(BlockchainError::InvalidBlockchainLength(self.len()));
-                }
-                // The end ordinal out of range is currently allowed, replacing it with the ordinal of the last block.
-                if end > block.header.ordinal {
-                    warn!("The end ordinal {:?} out of bounds ", end);
-                    end = block.header.ordinal;
-                }
-            }
-        }
-
-        let start_pos = self.get_block_position(start);
-
-        let end_pos = self.get_block_position(end);
-
-        let (start_pos, end_pos) = match (start_pos, end_pos) {
-            (Some(s), Some(e)) => (s, e),
-            _ => return Err(BlockchainError::InvalidBlockchainLength(self.len())),
-        };
-
-        if start_pos > end_pos {
-            return Err(BlockchainError::InvalidBlockchainPosition(
-                start_pos, end_pos,
-            ));
-        }
+        let block_position = self
+            .get_block_position(ordinal)
+            .ok_or_else(|| BlockchainError::InvalidBlockchainLength(self.len()))?;
 
         let file = OpenOptions::new()
             .create(true)
             .write(true)
-            .read(true)
-            .append(true)
+            .append(false)
             .open(file_path)
             .await;
 
         match file {
             Ok(mut file) => {
-                file.write_all(&serde_json::to_vec(&self.blocks[start_pos..=end_pos]).unwrap())
+                file.write_all(&bincode::serialize(&self.blocks[block_position])?)
                     .await?;
 
                 file.sync_all().await?;
@@ -135,27 +110,50 @@ impl Chain {
 
         Ok(())
     }
+
+    /// Reads a list of blocks from the specified directory path
+    /// and adds them to the chain.
+    pub async fn load_blocks(&mut self, path: impl AsRef<Path>) -> Result<(), BlockchainError> {
+        let blockchain_path = path.as_ref().to_path_buf();
+        let mut ordinal = 0;
+        loop {
+            let block_path = blockchain_path.join(format!("{}.ser", ordinal));
+            if let Ok(block_metadata) = fs::metadata(&block_path).await {
+                if block_metadata.is_file() {
+                    let block_bytes = fs::read(block_path).await?;
+                    self.add_block(bincode::deserialize(&block_bytes)?);
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+
+            ordinal += 1;
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 #[cfg(not(tarpaulin_include))]
 mod tests {
-    use std::env;
+    use super::*;
+    use std::path::PathBuf;
 
     use crate::{
         crypto::hash_algorithm::HashDigest,
         structures::{
-            block::Block,
             chain::Chain,
             header::Address,
             transaction::{Transaction, TransactionType},
         },
     };
     use libp2p::identity;
-    use tokio::fs;
 
     #[test]
-    fn test_add_block() -> Result<(), String> {
+    fn test_add_block() {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
 
@@ -174,44 +172,36 @@ mod tests {
         let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
         chain.add_block(block);
         assert_eq!(1, chain.len());
-        Ok(())
     }
 
     #[test]
-    fn test_chain_is_empty() -> Result<(), String> {
+    fn test_chain_is_empty() {
         let chain: Chain = Default::default();
-
         assert!(chain.is_empty());
-
-        Ok(())
     }
 
     #[test]
-    fn test_chain_is_not_empty() -> Result<(), String> {
+    fn test_chain_is_not_empty() {
         let mut chain: Chain = Default::default();
         let keypair = identity::ed25519::Keypair::generate();
         let transactions = vec![];
         let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
         chain.add_block(block);
-        assert_eq!(false, chain.is_empty());
-
-        Ok(())
+        assert!(!chain.is_empty());
     }
 
     #[test]
-    fn test_blocks() -> Result<(), String> {
+    fn test_blocks() {
         let mut chain: Chain = Default::default();
         let keypair = identity::ed25519::Keypair::generate();
         let transactions = vec![];
         let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
         chain.add_block(block);
         assert_eq!(chain.len(), chain.blocks().len());
-
-        Ok(())
     }
 
     #[test]
-    fn test_chain_length() -> Result<(), String> {
+    fn test_chain_length() {
         let mut chain: Chain = Default::default();
         let keypair = identity::ed25519::Keypair::generate();
         let transactions = vec![];
@@ -219,12 +209,10 @@ mod tests {
         chain.add_block(block.clone());
         chain.add_block(block);
         assert_eq!(2, chain.len());
-
-        Ok(())
     }
 
     #[test]
-    fn test_get_last_block() -> Result<(), String> {
+    fn test_get_last_block() {
         let mut chain: Chain = Default::default();
         assert_eq!(None, chain.last_block());
         let keypair = identity::ed25519::Keypair::generate();
@@ -232,32 +220,26 @@ mod tests {
         let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
         chain.add_block(block.clone());
         assert_eq!(block, chain.last_block().unwrap());
-        Ok(())
     }
 
     #[tokio::test]
-    async fn test_save_block_succeed() -> Result<(), String> {
-        let temp_file: &str = &get_temp_file().unwrap();
+    async fn test_save_block_succeed() {
+        let temp_file = get_temp_file();
         let mut chain: Chain = Default::default();
         let keypair = identity::ed25519::Keypair::generate();
-        let transactions = vec![];
-        let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
-        chain.add_block(block.clone());
+        let block_1 = Block::new(HashDigest::new(b""), 0, vec![], &keypair);
+        chain.add_block(block_1.clone());
         assert_eq!(1, chain.len());
-        chain.add_block(block.clone());
-        assert!(chain.save_block(0, 1, temp_file.to_string()).await.is_ok());
-        let contents = fs::read(temp_file).await.unwrap();
-        assert_eq!(
-            "[{\"header\":{\"parent_h",
-            std::str::from_utf8(&contents[..=20]).unwrap()
-        );
+        assert!(chain.save_block(0, &temp_file).await.is_ok());
+        let serialized_block = bincode::serialize(&block_1.clone()).unwrap();
+        let file_contents = fs::read(&temp_file).await.unwrap();
+        assert_eq!(serialized_block, file_contents);
         assert!(fs::remove_file(temp_file).await.is_ok());
-        Ok(())
     }
 
     #[tokio::test]
     // Attempt to create file without permission, failed
-    async fn test_save_block_failed_for_ioerror() -> Result<(), String> {
+    async fn test_save_block_failed_for_ioerror() {
         let temp_file = "/tests/resources/blockchain.json";
         let mut chain: Chain = Default::default();
         let keypair = identity::ed25519::Keypair::generate();
@@ -265,14 +247,13 @@ mod tests {
         let block = Block::new(HashDigest::new(b""), 0, transactions, &keypair);
         chain.add_block(block.clone());
         assert_eq!(1, chain.len());
-        assert!(chain.save_block(0, 0, temp_file.to_string()).await.is_err());
-        Ok(())
+        assert!(chain.save_block(0, temp_file.to_string()).await.is_err());
     }
 
     #[tokio::test]
     // Attempt to save blocks whose starting ordinal exceeds the current blockchain length, failed
-    async fn test_save_block_failed_for_invalid_blockhain_length() -> Result<(), String> {
-        let temp_file = get_temp_file().unwrap();
+    async fn test_save_block_failed_for_invalid_blockhain_length() {
+        let temp_file = get_temp_file();
         let mut chain: Chain = Default::default();
         let keypair = identity::ed25519::Keypair::generate();
         let transactions = vec![];
@@ -281,15 +262,14 @@ mod tests {
         assert_eq!(1, chain.len());
         assert_eq!(
             "Err(InvalidBlockchainLength(1))",
-            format!("{:?}", chain.save_block(5, 0, temp_file.to_string()).await)
+            format!("{:?}", chain.save_block(5, temp_file).await)
         );
-        Ok(())
     }
 
     #[tokio::test]
     // Attempt to save blocks with invalid ordinal, failed
-    async fn test_save_block_failed_for_invalid_blockhain_ordinal() -> Result<(), String> {
-        let temp_file = get_temp_file().unwrap();
+    async fn test_save_block_failed_for_invalid_blockhain_ordinal() {
+        let temp_file = get_temp_file();
         let mut chain: Chain = Default::default();
         let keypair = identity::ed25519::Keypair::generate();
         let transactions = vec![];
@@ -299,20 +279,62 @@ mod tests {
         chain.blocks[0].header.ordinal = 3;
         assert_eq!(
             "Err(InvalidBlockchainLength(1))",
-            format!("{:?}", chain.save_block(0, 0, temp_file.to_string()).await)
+            format!("{:?}", chain.save_block(0, temp_file).await)
         );
-        Ok(())
     }
 
-    fn get_temp_file() -> Result<String, anyhow::Error> {
-        // test blockchain file in tests/resources/ dir
-        let mut curr_dir = env::temp_dir();
-        curr_dir.push("blockchain.json");
-        Ok(String::from(curr_dir.to_string_lossy()))
+    #[tokio::test]
+    async fn test_load_empty_blocks() {
+        let temp_dir = tempfile::tempdir().unwrap().into_path();
+        let mut chain: Chain = Default::default();
+
+        chain
+            .load_blocks(temp_dir)
+            .await
+            .expect("blocks should have been loaded");
+
+        assert!(chain.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_load_blocks() {
+        let temp_dir = tempfile::tempdir().unwrap().into_path();
+
+        let keypair = identity::ed25519::Keypair::generate();
+        let block1 = Block::new(HashDigest::new(b""), 0, vec![], &keypair);
+        let block2 = Block::new(HashDigest::new(b""), 1, vec![], &keypair);
+
+        let mut chain: Chain = Default::default();
+        chain.add_block(block1);
+        chain.add_block(block2);
+
+        chain
+            .save_block(0, temp_dir.join("0.ser"))
+            .await
+            .expect("block should be saved");
+        chain
+            .save_block(1, temp_dir.join("1.ser"))
+            .await
+            .expect("block should be saved");
+
+        let mut chain2: Chain = Default::default();
+        chain2
+            .load_blocks(temp_dir)
+            .await
+            .expect("blocks should have been loaded");
+
+        assert_eq!(2, chain2.len());
+    }
+
+    fn get_temp_file() -> PathBuf {
+        tempfile::tempdir()
+            .expect("could not create temporary directory")
+            .into_path()
+            .join("blockchain.ser")
     }
 
     #[test]
-    fn test_retrieve_block() -> Result<(), String> {
+    fn test_retrieve_block() {
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
 
@@ -337,6 +359,5 @@ mod tests {
         assert_eq!(0, blocks[0].header.ordinal);
 
         assert_eq!(0, chain.retrieve_blocks(0, 1).len());
-        Ok(())
     }
 }

@@ -82,7 +82,11 @@ mod tests {
         (command_receiver, p2p_client)
     }
 
-    fn create_blockchain_service(local_keypair: &Keypair, p2p_client: Client) -> BlockchainService {
+    async fn create_blockchain_service(
+        local_keypair: &Keypair,
+        p2p_client: Client,
+        blockchain_path: impl AsRef<Path>,
+    ) -> BlockchainService {
         let ed25519_keypair = match local_keypair {
             libp2p::identity::Keypair::Ed25519(ref v) => v,
             _ => {
@@ -90,15 +94,23 @@ mod tests {
             }
         };
 
-        BlockchainService::init_first_blockchain_node(ed25519_keypair, ed25519_keypair, p2p_client)
+        BlockchainService::init_first_blockchain_node(
+            ed25519_keypair,
+            ed25519_keypair,
+            p2p_client,
+            blockchain_path,
+        )
+        .await
+        .expect("Creating BlockchainService failed")
     }
 
-    fn create_transparency_log_service<P: AsRef<Path>>(
-        artifact_path: P,
+    async fn create_transparency_log_service(
+        artifact_path: impl AsRef<Path>,
         local_keypair: Keypair,
         p2p_client: Client,
     ) -> TransparencyLogService {
-        let blockchain_service = create_blockchain_service(&local_keypair, p2p_client);
+        let blockchain_service =
+            create_blockchain_service(&local_keypair, p2p_client, &artifact_path).await;
 
         TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
             .expect("Creating TransparencyLogService failed")
@@ -125,7 +137,7 @@ mod tests {
         let local_keypair = Keypair::generate_ed25519();
         let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone());
+            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone()).await;
 
         let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
@@ -166,7 +178,7 @@ mod tests {
         let local_keypair = Keypair::generate_ed25519();
         let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone());
+            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {

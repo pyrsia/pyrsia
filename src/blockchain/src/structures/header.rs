@@ -150,7 +150,7 @@ mod tests {
 
         let header = Header::new(HashDigest::new(b""), HashDigest::new(b""), local_id, 5);
 
-        let partial: PartialHeader = header.clone().into();
+        let partial: PartialHeader = header.into();
         let expected_hash = calculate_hash(&partial).unwrap();
 
         assert_eq!(5, header.ordinal);

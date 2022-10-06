@@ -19,6 +19,7 @@ use libp2p::identity::Keypair::Ed25519;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
+use std::path::{Path, PathBuf};
 
 use crate::error::BlockchainError;
 use crate::structures::header::Ordinal;
@@ -44,6 +45,8 @@ pub struct Blockchain {
     trans_observers: HashMap<Transaction, Box<TransactionCallback>>,
     // chain is the blocks of the blockchain
     chain: Chain,
+    // the directory on the local file system to use for persisting the blocks in the blockchain
+    blockchain_path: PathBuf,
 }
 
 impl Debug for Blockchain {
@@ -56,21 +59,39 @@ impl Debug for Blockchain {
 }
 
 impl Blockchain {
-    pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
-        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let transaction = Transaction::new(
-            TransactionType::Create,
-            local_id,
-            "this is the first reserved transaction".as_bytes().to_vec(),
-            keypair,
-        );
-        // Make the "genesis" blocks
-        let block = Block::new(HashDigest::new(b""), 0, Vec::from([transaction]), keypair);
+    pub async fn new(
+        keypair: &identity::ed25519::Keypair,
+        blockchain_path: impl AsRef<Path>,
+    ) -> Result<Self, BlockchainError> {
         let mut chain: Chain = Default::default();
-        chain.add_block(block);
-        Self {
+        chain.load_blocks(&blockchain_path).await?;
+
+        // Make the "genesis" block
+        if chain.is_empty() {
+            let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
+            let transaction = Transaction::new(
+                TransactionType::Create,
+                local_id,
+                "this is the first reserved transaction".as_bytes().to_vec(),
+                keypair,
+            );
+
+            let block = Block::new(HashDigest::new(b""), 0, Vec::from([transaction]), keypair);
+            Blockchain::save_block(&mut chain, block, &blockchain_path).await?
+        }
+
+        Ok(Self {
             trans_observers: Default::default(),
             chain,
+            blockchain_path: blockchain_path.as_ref().to_path_buf(),
+        })
+    }
+
+    pub fn empty_new(blockchain_path: impl AsRef<Path>) -> Self {
+        Self {
+            trans_observers: Default::default(),
+            chain: Default::default(),
+            blockchain_path: blockchain_path.as_ref().to_path_buf(),
         }
     }
 
@@ -95,18 +116,15 @@ impl Blockchain {
         &mut self,
         payload: Vec<u8>,
         local_key: &identity::Keypair,
-    ) -> anyhow::Result<()> {
-        let submitter = Address::from(local_key.public());
+    ) -> Result<(), BlockchainError> {
         let ed25519_key = match local_key {
             Ed25519(some) => some,
             _ => {
-                anyhow::bail!(
-                    "Blockchain: Key {:?} is not valid Ed25519 format",
-                    local_key
-                );
+                return Err(BlockchainError::InvalidKey(format!("{:?}", local_key)));
             }
         };
 
+        let submitter = Address::from(local_key.public());
         let trans_vec = vec![Transaction::new(
             TransactionType::Create,
             submitter,
@@ -117,7 +135,7 @@ impl Blockchain {
         let last_block = match self.last_block() {
             Some(block) => block,
             None => {
-                anyhow::bail!("Blockchain: Local blockchain does non exist!!");
+                return Err(BlockchainError::EmptyBlockchain);
             }
         };
 
@@ -129,19 +147,20 @@ impl Blockchain {
         );
 
         // TODO: Consensus algorithm will be refactored
-        self.commit_block(block.clone()).await;
-
-        Ok(())
+        self.commit_block(block.clone()).await
     }
 
     /// Update block after receiving the new block from other peers
-    pub async fn update_block_from_peers(&mut self, block: Box<Block>) {
-        self.commit_block(*block).await;
+    pub async fn update_block_from_peers(
+        &mut self,
+        block: Box<Block>,
+    ) -> Result<(), BlockchainError> {
+        self.commit_block(*block).await
     }
 
     /// Commit block and notify block listeners
-    async fn commit_block(&mut self, block: Block) {
-        self.chain.add_block(block);
+    async fn commit_block(&mut self, block: Block) -> Result<(), BlockchainError> {
+        Self::save_block(&mut self.chain, block, self.blockchain_path.as_path()).await
     }
 
     pub fn last_block(&self) -> Option<Block> {
@@ -151,20 +170,54 @@ impl Blockchain {
     pub fn pull_blocks(&self, start: Ordinal, end: Ordinal) -> Result<Vec<Block>, BlockchainError> {
         Ok(self.chain.retrieve_blocks(start, end))
     }
+
+    async fn save_block(
+        chain: &mut Chain,
+        block: Block,
+        blockchain_path: impl AsRef<Path>,
+    ) -> Result<(), BlockchainError> {
+        let block_ordinal = block.header.ordinal;
+        chain.add_block(block);
+        chain
+            .save_block(
+                block_ordinal,
+                blockchain_path
+                    .as_ref()
+                    .to_path_buf()
+                    .join(format!("{}.ser", block_ordinal)),
+            )
+            .await
+    }
 }
 
 #[cfg(test)]
 #[cfg(not(tarpaulin_include))]
 mod tests {
+    use super::*;
+    use std::fs;
     use std::sync::{Arc, Mutex};
 
-    use super::*;
+    fn create_tmp_dir() -> PathBuf {
+        tempfile::tempdir()
+            .expect("could not create temporary directory")
+            .into_path()
+    }
+
+    fn remove_tmp_dir(tmp_dir: PathBuf) {
+        if tmp_dir.exists() {
+            fs::remove_dir_all(&tmp_dir)
+                .unwrap_or_else(|_| panic!("unable to remove test directory {:?}", tmp_dir));
+        }
+    }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_build_blockchain() -> Result<(), String> {
+    async fn test_build_blockchain() {
+        let tmp_dir = create_tmp_dir();
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let mut blockchain = Blockchain::new(&keypair);
+        let mut blockchain = Blockchain::new(&keypair, &tmp_dir)
+            .await
+            .expect("Blockchain should have been created.");
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
@@ -183,17 +236,22 @@ mod tests {
                 transactions,
                 &keypair,
             ))
-            .await;
-        assert_eq!(true, blockchain.chain.blocks().last().unwrap().verify());
+            .await
+            .expect("Block should have been committed.");
+        assert!(blockchain.chain.blocks().last().unwrap().verify());
         assert_eq!(2, blockchain.chain.len());
-        Ok(())
+
+        remove_tmp_dir(tmp_dir);
     }
 
-    #[test]
-    fn test_add_trans_listener() -> Result<(), String> {
+    #[tokio::test]
+    async fn test_add_trans_listener() {
+        let tmp_dir = create_tmp_dir();
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let mut chain = Blockchain::new(&keypair);
+        let mut blockchain = Blockchain::new(&keypair, &tmp_dir)
+            .await
+            .expect("Blockchain should have been created.");
 
         let transaction = Transaction::new(
             TransactionType::Create,
@@ -202,7 +260,7 @@ mod tests {
             &keypair,
         );
         let called = Arc::new(Mutex::new(false));
-        chain
+        blockchain
             .submit_transaction(transaction.clone(), {
                 let called = called.clone();
                 let transaction = transaction.clone();
@@ -213,14 +271,18 @@ mod tests {
             })
             .notify_transaction_settled(transaction);
         assert!(*called.lock().unwrap());
-        Ok(())
+
+        remove_tmp_dir(tmp_dir);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_last_block() -> Result<(), String> {
+    async fn test_last_block() {
+        let tmp_dir = create_tmp_dir();
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let mut blockchain = Blockchain::new(&keypair);
+        let mut blockchain = Blockchain::new(&keypair, &tmp_dir)
+            .await
+            .expect("Blockchain should have been created.");
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
@@ -239,57 +301,68 @@ mod tests {
                 transactions,
                 &keypair,
             ))
-            .await;
+            .await
+            .expect("Block should have been committed.");
         assert_ne!(None, blockchain.chain.last_block());
-        Ok(())
+
+        remove_tmp_dir(tmp_dir);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_add_block() -> Result<(), String> {
+    async fn test_add_block() {
+        let tmp_dir = create_tmp_dir();
         let keypair = identity::Keypair::generate_ed25519();
         let ed25519_key = match keypair.clone() {
             Ed25519(some) => some,
-            _ => return Err("Key format is wrong".to_string()),
+            _ => panic!("Key format is wrong"),
         };
-
-        let mut blockchain = Blockchain::new(&ed25519_key);
+        let mut blockchain = Blockchain::new(&ed25519_key, &tmp_dir)
+            .await
+            .expect("Blockchain should have been created.");
 
         let data = "Hello First Transaction";
 
         let result = blockchain
             .add_block(data.as_bytes().to_vec(), &keypair)
             .await;
-        assert_eq!(result.is_ok(), true);
+        assert!(result.is_ok());
         assert_eq!(
             b"Hello First Transaction".to_vec(),
             blockchain.chain.last_block().unwrap().transactions[0].payload()
         );
-        Ok(())
+
+        remove_tmp_dir(tmp_dir);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_update_block_from_peer() -> Result<(), String> {
+    async fn test_update_block_from_peer() {
+        let tmp_dir = create_tmp_dir();
         let keypair = identity::Keypair::generate_ed25519();
         let ed25519_key = match keypair.clone() {
             Ed25519(some) => some,
-            _ => return Err("Key format is wrong".to_string()),
+            _ => panic!("Key format is wrong"),
         };
 
-        let mut blockchain = Blockchain::new(&ed25519_key);
+        let mut blockchain = Blockchain::new(&ed25519_key, &tmp_dir)
+            .await
+            .expect("Blockchain should have been created.");
 
         let block = Box::new(Block::new(HashDigest::new(b""), 1, vec![], &ed25519_key));
 
         let result = blockchain.update_block_from_peers(block).await;
-        assert_eq!(result, ());
+        assert!(result.is_ok());
 
-        Ok(())
+        remove_tmp_dir(tmp_dir);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_pull_block() -> Result<(), String> {
+    async fn test_pull_block() {
+        let tmp_dir = create_tmp_dir();
         let keypair = identity::ed25519::Keypair::generate();
         let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let mut blockchain = Blockchain::new(&keypair);
+        let mut blockchain = Blockchain::new(&keypair, &tmp_dir)
+            .await
+            .expect("Blockchain should have been created.");
 
         let mut transactions = vec![];
         let data = "Hello First Transaction";
@@ -308,10 +381,12 @@ mod tests {
                 transactions,
                 &keypair,
             ))
-            .await;
+            .await
+            .expect("Block should have been committed.");
 
         assert_eq!(1, blockchain.pull_blocks(0, 0).unwrap().len());
         assert_eq!(0, blockchain.pull_blocks(0, 2).unwrap().len());
-        Ok(())
+
+        remove_tmp_dir(tmp_dir);
     }
 }

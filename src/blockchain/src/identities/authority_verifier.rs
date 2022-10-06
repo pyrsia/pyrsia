@@ -86,7 +86,7 @@ mod tests {
 
         assert_eq!(verifier.node_count(), 0.into());
         assert_eq!(verifier.threshold(), 1);
-        assert_eq!(verifier.is_complete(b"hello world", &multi_signs), false);
+        assert!(!verifier.is_complete(b"hello world", &multi_signs));
     }
 
     #[test]
@@ -100,7 +100,7 @@ mod tests {
 
         assert_eq!(verifier.node_count(), 0.into());
         assert_eq!(verifier.threshold(), 1);
-        assert_eq!(verifier.is_complete(b"hello world", &multi_signs), false);
+        assert!(!verifier.is_complete(b"hello world", &multi_signs));
     }
 
     #[test]
@@ -117,6 +117,6 @@ mod tests {
 
         assert_eq!(verifier.node_count(), 1.into());
         assert_eq!(verifier.threshold(), 1);
-        assert_eq!(verifier.is_complete(b"hello world", &multi_signs), false);
+        assert!(!verifier.is_complete(b"hello world", &multi_signs));
     }
 }

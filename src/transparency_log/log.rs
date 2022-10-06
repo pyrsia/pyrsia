@@ -18,6 +18,7 @@ use crate::artifact_service::model::PackageType;
 use crate::blockchain_service::service::BlockchainService;
 use libp2p::PeerId;
 use log::{debug, error};
+use pyrsia_blockchain_network::error::BlockchainError;
 use rusqlite::types::{ToSqlOutput, Value};
 use rusqlite::{params, Connection, ToSql};
 use serde::{Deserialize, Serialize};
@@ -31,7 +32,7 @@ use thiserror::Error;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Error, Eq, PartialEq)]
+#[derive(Debug, Error)]
 pub enum TransparencyLogError {
     #[error("TransparencyLog with ID {id} not found")]
     LogNotFound { id: String },
@@ -54,21 +55,11 @@ pub enum TransparencyLogError {
         invalid_operation: Operation,
     },
     #[error("Failure while accessing underlying storage: {0}")]
-    StorageFailure(String),
+    DatabaseFailure(#[from] rusqlite::Error),
+    #[error("Failure while accessing underlying storage: {0}")]
+    StorageFailure(#[from] io::Error),
     #[error("Failure while adding block to the blockchain: {0}")]
-    BlockchainFailure(String),
-}
-
-impl From<io::Error> for TransparencyLogError {
-    fn from(err: io::Error) -> TransparencyLogError {
-        TransparencyLogError::StorageFailure(err.to_string())
-    }
-}
-
-impl From<rusqlite::Error> for TransparencyLogError {
-    fn from(err: rusqlite::Error) -> TransparencyLogError {
-        TransparencyLogError::StorageFailure(err.to_string())
-    }
+    BlockchainFailure(#[from] BlockchainError),
 }
 
 #[derive(
@@ -174,12 +165,11 @@ impl TransparencyLogService {
         };
 
         let payload = serde_json::to_string(&transparency_log).unwrap();
-        let _ = self
-            .blockchain_service
+        self.blockchain_service
             .lock()
             .await
             .add_payload(payload.into_bytes())
-            .await;
+            .await?;
 
         self.write_transparency_log(&transparency_log)
     }
@@ -214,12 +204,11 @@ impl TransparencyLogService {
         };
 
         let payload = serde_json::to_string(&transparency_log).unwrap();
-        let _ = self
-            .blockchain_service
+        self.blockchain_service
             .lock()
             .await
             .add_payload(payload.into_bytes())
-            .await;
+            .await?;
 
         Ok(transparency_log)
     }
@@ -497,18 +486,23 @@ mod tests {
         }
     }
 
-    fn create_transparency_log_service<P: AsRef<Path>>(artifact_path: P) -> TransparencyLogService {
+    async fn create_transparency_log_service(
+        artifact_path: impl AsRef<Path>,
+    ) -> TransparencyLogService {
         let ed25519_keypair = identity::ed25519::Keypair::generate();
         let p2p_client = create_p2p_client(identity::Keypair::Ed25519(ed25519_keypair.clone()));
 
-        let blockchain_service =
-            Arc::new(Mutex::new(BlockchainService::init_first_blockchain_node(
-                &ed25519_keypair,
-                &ed25519_keypair,
-                p2p_client,
-            )));
+        let blockchain_service = BlockchainService::init_first_blockchain_node(
+            &ed25519_keypair,
+            &ed25519_keypair,
+            p2p_client,
+            &artifact_path,
+        )
+        .await
+        .expect("Creating BlockchainService failed");
 
-        TransparencyLogService::new(&artifact_path, blockchain_service).unwrap()
+        TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
+            .unwrap()
     }
 
     #[test]
@@ -560,11 +554,11 @@ mod tests {
         assert_eq!(transparency_log.node_public_key, node_public_key);
     }
 
-    #[test]
-    fn test_open_db() {
+    #[tokio::test]
+    async fn test_open_db() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let result = log.open_db();
         assert!(result.is_ok());
@@ -580,11 +574,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_write_tranparency_log() {
+    #[tokio::test]
+    async fn test_write_tranparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -608,11 +602,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_write_twice_transparency_log_error() {
+    #[tokio::test]
+    async fn test_write_twice_transparency_log_error() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -638,11 +632,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_find_transparency_log() {
+    #[tokio::test]
+    async fn test_find_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -669,11 +663,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_find_transparency_log_not_found() {
+    #[tokio::test]
+    async fn test_find_transparency_log_not_found() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -694,24 +688,26 @@ mod tests {
         let result_write = log.write_transparency_log(&transparency_log);
         assert!(result_write.is_ok());
 
-        let result_find = log
+        let find_error = log
             .find_transparency_log("unknown_id")
             .expect_err("Find transparency log should have failed.");
-        assert_eq!(
-            result_find,
-            TransparencyLogError::LogNotFound {
-                id: "unknown_id".to_owned(),
+        match find_error {
+            TransparencyLogError::LogNotFound { id } => {
+                assert_eq!("unknown_id".to_owned(), id);
             }
-        );
+            e => {
+                panic!("Invalid Error encountered: {:?}", e);
+            }
+        }
 
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_read_transparency_log() {
+    #[tokio::test]
+    async fn test_read_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -739,11 +735,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_read_transparency_log_invalid_id() {
+    #[tokio::test]
+    async fn test_read_transparency_log_invalid_id() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -779,11 +775,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_read_latest_transparency_log() {
+    #[tokio::test]
+    async fn test_read_latest_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),
@@ -830,11 +826,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_read_transparency_logs() {
+    #[tokio::test]
+    async fn test_read_transparency_logs() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),
@@ -886,11 +882,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_read_remove_artifact_transparency_log() {
+    #[tokio::test]
+    async fn test_read_remove_artifact_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -930,7 +926,7 @@ mod tests {
     async fn test_add_artifact() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut log = create_transparency_log_service(&tmp_dir);
+        let mut log = create_transparency_log_service(&tmp_dir).await;
 
         let result = log
             .add_artifact(AddArtifactRequest {
@@ -946,11 +942,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_get_authorized_nodes_empty() {
+    #[tokio::test]
+    async fn test_get_authorized_nodes_empty() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let result_read = log.get_authorized_nodes();
         assert!(result_read.is_ok());
@@ -963,7 +959,7 @@ mod tests {
     async fn test_add_authorized_nodes() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
@@ -995,11 +991,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_get_authorized_nodes_add() {
+    #[tokio::test]
+    async fn test_get_authorized_nodes_add() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -1029,11 +1025,11 @@ mod tests {
         test_util::tests::teardown(tmp_dir);
     }
 
-    #[test]
-    fn test_get_authorized_nodes_add_and_remove() {
+    #[tokio::test]
+    async fn test_get_authorized_nodes_add_and_remove() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir);
+        let log = create_transparency_log_service(&tmp_dir).await;
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),
