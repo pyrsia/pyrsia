@@ -69,7 +69,7 @@ thiserror = "1.0.35"
 tokio = { version = "1.21.1", features = [ "macros", "rt-multi-thread", "io-std" ] }
 tokio-stream = "0.1.9"
 toml = "0.5.9"
-url = "2.2.2"
+url = "2.3.0"
 uuid = { version = "1.1.2", features = [ "v4" ] }
 warp = { version = "0.3.1", default-features = false }
 walkdir = "2.3.2"
