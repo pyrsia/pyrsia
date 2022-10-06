@@ -102,13 +102,17 @@ jobs:
           cd ../..
 
       # for now, upload installers
-      - name: Upload Artifact
+      - name: Upload Installer
         uses: actions/upload-artifact@v3
         with:
-          name: windows-installers
-          path: |
-            ${{ github.workspace }}/installers/windows/pyrsia.msi
-            ${{ github.workspace }}/installers/windows/pyrsia_service.msi
+          name: windows-installer
+          path: ${{ github.workspace }}/installers/windows/pyrsia.msi
+
+      - name: Upload Installer_with_Service
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-installer-with-service
+          path: ${{ github.workspace }}/installers/windows/pyrsia_service.msi
 
   build-push-linux:
     permissions:
