@@ -15,17 +15,76 @@ Currently our team is working very hard on core features and installers for othe
 :::
 
 - Ubuntu Focal (x86_64)
+- Windows (x86_64)
 
 Until we provide installers for other operating systems, you can start using Pyrsia
 by running our [pre-built Docker image](#run-pyrsia-in-docker) or [build Pyrsia from source](/docs/community/get_involved/local_dev_setup.md).
 
-## Using the Web Script
+## Windows
+
+:::warning Minimal installer functionality
+
+In version 0.2 we chose to include a mininal Windows installer. It simply installs the node and cli executables that needs
+to be run manually. Also the installer is not yet signed, so you need to ignore some warnings. We plan to fix this is subsequent releases.
+
+:::
+
+- Download the latest Windows installer from our [release page](https://github.com/pyrsia/pyrsia/releases/).
+
+- Run the installer - you will have to ignore the warning because we didn't sign our installer yet.
+
+- The installer will now install Pyrsia (pyrsia_node.exe and pyrsia.exe) in `C:\Pyrsia` - we will make this configurable in future releases.
+  You're free to move this to a better suited location after installation.
+
+- Open a command prompt and type
+
+```shell
+SET RUST_LOG=info
+cd c:\Pyrsia\Pyrsia\service
+pyrsia_node.exe
+```
+
+This will start your local Pyrsia node with `info` logs. (you can also skip this if you don't want logs, or set this to `debug` to see even more logs)
+
+When you first start the Pyrsia node, Windows might ask you to allow Pyrsia to make network connections.
+
+- Once your Pyrsia node is running, open another command prompt and verify it's running:
+
+```shell
+pyrsia --version
+pyrsia_cli 0.2.0
+pyrsia ping
+Connection Successful !!
+```
+
+If the pyrsia command cannot be found, make sure `C:\Pyria\Pyrsia\bin` is in your `%PATH%` or simply `cd` to that path
+and run pyrsia from there.
+
+To verify you received the transparency logs from the network, run this:
+
+```shell
+pyrsia inspect-log docker --image alpine:3.16.0
+```
+
+This should output something like this:
+
+```text
+Inspect log request returns the following logs: ...
+```
+
+Including the JSON output of the retrieved transparency logs for `alpine:3.16.0`
+
+Now you are ready to follow the instructions in [Configure Docker to use Pyrsia](docker.md) to make actual use of Pyrsia.
+
+## Linux
+
+### Using the Web Script
 
 ```sh
 curl -sS https://pyrsia.io/install.sh | sh
 ```
 
-## From the Command Line
+### From the Command Line
 
 ```sh
 # Update system and install base tooling
@@ -43,13 +102,13 @@ sudo apt-get update
 sudo apt-get install -y pyrsia
 ```
 
-## Verify everything is running smoothly
+### Verify everything is running smoothly
 
 ```sh
 $ pyrsia --version
-pyrsia 0.1.0
+pyrsia 0.2.0
 $ pyrsia ping
-Connection Successful !! {}
+Connection Successful !!
 ```
 
 If you see the following output, then your installation has failed.
@@ -58,6 +117,22 @@ If you see the following output, then your installation has failed.
 $ pyrsia ping
 Error: error sending request for url (http://localhost:7888/v2): error trying to connect: tcp connect error: Connection refused (os error 111)
 ```
+
+To verify you received the transparency logs from the network, run this:
+
+```shell
+pyrsia inspect-log docker --image alpine:3.16.0
+```
+
+This should output something like this:
+
+```text
+Inspect log request returns the following logs: ...
+```
+
+Including the JSON output of the retrieved transparency logs for `alpine:3.16.0`
+
+Now you are ready to follow the instructions in [Configure Docker to use Pyrsia](docker.md) to make actual use of Pyrsia.
 
 ## Run Pyrsia in Docker
 
