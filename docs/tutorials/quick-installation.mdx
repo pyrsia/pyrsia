@@ -31,12 +31,19 @@ to be run manually. Also the installer is not yet signed, so you need to ignore 
 
 - Download the latest Windows installer from our [release page](https://github.com/pyrsia/pyrsia/releases/).
 
-- Run the installer - you will have to ignore a warning because we didn't sign our installer yet.
+- Run the installer
+    - Either simply double-click or use the `msiexec` command described below
+    - You need to ignore a warning because we didn't sign our installer yet
 
-- The installer will now install Pyrsia (pyrsia_node.exe and pyrsia.exe) in `C:\Pyrsia` - we will make this configurable in future releases.
-  You can move this to a better suited location after installation.
+Instead of double-clicking the installer, you can also run it like this, open a command prompt (type: Win+R + cmd):
+```shell
+msiexec /i Downloads/pyrsia-installer-0.2.0.msi ROOTDRIVE="C:"
+```
 
-- Open a command prompt and type
+- The installer will now install Pyrsia (pyrsia_node.exe and pyrsia.exe) in `C:\Pyrsia` unless you specified a different
+  ROOTDRIVE in the previous step.
+
+- Open a command prompt (type Win+R + cmd) and type
 
 ```shell
 SET RUST_LOG=info
@@ -47,7 +54,8 @@ pyrsia_node.exe
 This will start your local Pyrsia node with `info` logs. (you can also skip `SET RUST_LOG=info` if you don't want logs,
 or set this to `SET RUST_LOG=debug` to see even more logs)
 
-When you first start the Pyrsia node, Windows might ask you to allow Pyrsia to make network connections.
+When you first start the Pyrsia node, Windows might ask you to allow Pyrsia to make network connections, so make sure to
+allow this.
 
 - Once your Pyrsia node is running, open another command prompt and verify it's running:
 
@@ -67,7 +75,7 @@ pyrsia ping
 Connection Successful !!
 ```
 
-If the pyrsia command cannot be found, make sure `C:\Pyria\Pyrsia\bin` is in your `%PATH%` or simply `cd` to that path
+If the pyrsia command cannot be found, make sure `C:\Pyrsia\Pyrsia\bin` is in your `%PATH%` or simply `cd` to that path
 and run pyrsia from there.
 
 To verify you received the transparency logs from the network, run this:
@@ -82,7 +90,7 @@ This should output something like this:
 Inspect log request returns the following logs: ...
 ```
 
-Including the JSON output of the retrieved transparency logs for `alpine:3.16.0`
+Including the JSON output of the retrieved transparency logs for `alpine:3.16.0`.
 
 Now you are ready to follow the instructions in [Configure Docker to use Pyrsia](docker.md) to make actual use of Pyrsia.
 
