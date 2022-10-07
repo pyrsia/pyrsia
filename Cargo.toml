@@ -1,9 +1,9 @@
 [package]
 name = "pyrsia"
 readme = "readme.md"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Prysia Node and CLI"
+description = "Pyrsia Node and CLI"
 authors = ["pyrsiaoss <pyrsiaopensource@gmail.com>"]
 license = "Apache-2"
 repository = "https://github.com/pyrsia/pyrsia"
