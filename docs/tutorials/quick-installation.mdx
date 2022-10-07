@@ -160,7 +160,7 @@ you can also choose to run our pre-built Docker image available in [Docker Hub](
 Make sure you have Docker installed on your system and run:
 
 ```sh
-docker run -p 7888:7888 pyrsiaoss/pyrsia-node
+docker run -p 7888:7888 pyrsiaoss/pyrsia-node:0.1.0-2338
 ```
 
 Or use this `docker-compose.yml` file:
@@ -168,7 +168,7 @@ Or use this `docker-compose.yml` file:
 ```yaml
 services:
   pyrsia:
-    image: pyrsiaoss/pyrsia-node
+    image: pyrsiaoss/pyrsia-node:0.1.0-2338
     ports:
       - "7888:7888"
     volumes:
