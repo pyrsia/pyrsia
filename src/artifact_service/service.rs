@@ -232,6 +232,29 @@ impl ArtifactService {
         Ok(artifact)
     }
 
+    /// Retrieve the artifact data for the specified package. If the artifact
+    /// is not found, the service start a request to build it on an authorized
+    /// node.
+    pub async fn get_artifact_or_build(
+        &mut self,
+        package_type: PackageType,
+        package_specific_id: &str,
+        package_specific_artifact_id: &str,
+    ) -> anyhow::Result<Vec<u8>> {
+        self.get_artifact(package_type, package_specific_artifact_id).await.map_err(|e| {
+                warn!("Error looking for artifact: {:?}. A new build will be started. Try again later", e);
+                let new_artifact_service = self.clone();
+                let new_package_specific_id = package_specific_id.to_string();
+                tokio::spawn(async move {
+                    debug!("Spawning a build...");
+                    let build_result = new_artifact_service.clone().request_build(package_type, new_package_specific_id).await;
+                    debug!("Build result {:?}", build_result);
+                });
+                // in any case, return the error
+                e
+            })
+    }
+
     /// Retrieve the artifact data specified by `artifact_id` from the local storage.
     pub async fn get_artifact_locally(
         &mut self,

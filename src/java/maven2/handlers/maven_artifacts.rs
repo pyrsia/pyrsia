@@ -26,6 +26,13 @@ pub async fn handle_get_maven_artifact(
     mut artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
     debug!("Requesting maven artifact: {}", full_path);
+    let package_specific_id = get_package_specific_id(&full_path).map_err(|err| {
+        debug!("Error getting package specific id for artifact: {:?}", err);
+        warp::reject::custom(RegistryError {
+            code: RegistryErrorCode::Unknown(err.to_string()),
+        })
+    })?;
+
     let package_specific_artifact_id =
         get_package_specific_artifact_id(&full_path).map_err(|err| {
             debug!(
@@ -39,11 +46,16 @@ pub async fn handle_get_maven_artifact(
 
     // request artifact
     debug!(
-        "Requesting artifact for id {}",
-        package_specific_artifact_id
+        "Requesting artifact for id {} and artifact id {}. If not found a build will be requested",
+        package_specific_id, package_specific_artifact_id
     );
+
     let artifact_content = artifact_service
-        .get_artifact(PackageType::Maven2, &package_specific_artifact_id)
+        .get_artifact_or_build(
+            PackageType::Maven2,
+            &package_specific_id,
+            &package_specific_artifact_id,
+        )
         .await
         .map_err(|err| {
             debug!("Error retrieving artifact: {:?}", err);
@@ -59,7 +71,22 @@ pub async fn handle_get_maven_artifact(
         .unwrap())
 }
 
+fn get_package_specific_id(full_path: &str) -> Result<String, anyhow::Error> {
+    let (group_id, version, artifact_id, _file_name) = parse_artifact_from_full_path(full_path)?;
+    Ok(format!("{}:{}:{}", group_id, artifact_id, version))
+}
+
 fn get_package_specific_artifact_id(full_path: &str) -> Result<String, anyhow::Error> {
+    let (group_id, version, artifact_id, file_name) = parse_artifact_from_full_path(full_path)?;
+    Ok(format!(
+        "{}/{}/{}/{}",
+        group_id, artifact_id, version, file_name
+    ))
+}
+
+fn parse_artifact_from_full_path(
+    full_path: &str,
+) -> Result<(String, String, String, String), anyhow::Error> {
     // maven coordinates like "com.company:test:1.0" will produce a request
     // like: "GET /maven2/com/company/test/1.0/test-1.0.jar"
 
@@ -68,15 +95,12 @@ fn get_package_specific_artifact_id(full_path: &str) -> Result<String, anyhow::E
     if pieces.len() < 4 {
         bail!(format!("Error, invalid full path: {}", full_path));
     }
-    let file_name = pieces.pop().unwrap();
-    let version = pieces.pop().unwrap();
-    let artifact_id = pieces.pop().unwrap();
+    let file_name = pieces.pop().unwrap().to_string();
+    let version = pieces.pop().unwrap().to_string();
+    let artifact_id = pieces.pop().unwrap().to_string();
     let group_id = pieces.join(".");
 
-    Ok(format!(
-        "{}/{}/{}/{}",
-        group_id, artifact_id, version, file_name
-    ))
+    Ok((group_id, version, artifact_id, file_name))
 }
 
 #[cfg(test)]
@@ -148,6 +172,29 @@ mod tests {
 
         TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
             .expect("Creating TransparencyLogService failed")
+    }
+
+    #[test]
+    fn parse_full_path_test() {
+        let (group_id, version, artifact_id, file_name) =
+            parse_artifact_from_full_path(VALID_FULL_PATH).unwrap();
+        assert_eq!(group_id, "test");
+        assert_eq!(artifact_id, "test");
+        assert_eq!(version, "1.0");
+        assert_eq!(file_name, "test-1.0.jar");
+    }
+
+    #[test]
+    fn get_package_specific_id_test() {
+        assert_eq!(
+            get_package_specific_id(VALID_FULL_PATH).unwrap(),
+            VALID_MAVEN_ID
+        );
+    }
+
+    #[test]
+    fn get_package_specific_id_with_invalid_path_test() {
+        assert!(get_package_specific_id(INVALID_FULL_PATH).is_err());
     }
 
     #[test]
