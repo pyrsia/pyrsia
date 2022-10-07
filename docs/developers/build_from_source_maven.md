@@ -5,7 +5,7 @@ sidebar_position: 2
 # Pyrsia demo: build Docker images from source
 
 > **Warning:** This tutorial is aimed at developers actively contributing to the
-> Pyrsia codebase. If you simply want to use Pyrsia, please have a look at [Configure Maven to use Pyrsia](/docs/tutorials/maven)
+> Pyrsia codebase. If you simply want to use Pyrsia, please have a look at [Configure Maven to use Pyrsia](/docs/tutorials/maven.md)
 
 This tutorial describes how to setup a Pyrsia node that can build Maven artifacts
 from source with the goal to publish them in the Pyrsia network.

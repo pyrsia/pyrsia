@@ -5,7 +5,7 @@ sidebar_position: 1
 # Pyrsia demo: build Docker images from source
 
 > **Warning:** This tutorial is aimed at developers actively contributing to the
-> Pyrsia codebase. If you simply want to use Pyrsia, please have a look at [Configure Docker to use Pyrsia](/docs/tutorials/docker)
+> Pyrsia codebase. If you simply want to use Pyrsia, please have a look at [Configure Docker to use Pyrsia](/docs/tutorials/docker.md)
 
 This tutorial describes how to setup two Pyrsia nodes: one that acts as the authorized
 node and builds Docker images from source and makes them available in the Pyrsia network,
