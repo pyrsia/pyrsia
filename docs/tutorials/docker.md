@@ -76,11 +76,8 @@ docker pull alpine:3.16.2
 ```
 
 Congratulations! The alpine Docker image was now retrieved from the Pyrsia network.
-You can verify this in the Pyrsia logs. e.g. on Linux:
-
-```sh
-tail -f /var/log/syslog
-```
+You can verify this in the Pyrsia logs. On Linux you will find the logs in `/var/log/syslog`.
+On Windows you can see the logs in the command prompt you used to run the Pyrsia node.
 
 You will see something like this:
 
@@ -120,7 +117,8 @@ If you ran through all the steps of the [installation tutorial](/docs/tutorials/
 You can use this CLI tool to configure your local Pyrsia node, but also to inspect
 the transparency logs for a given artifact.
 
-First configure the CLI tool:
+If you have started your Pyrsia node with default settings, you can skip this step.
+Otherwise configure the CLI tool with your required settings:
 
 ```sh
  pyrsia config --edit
@@ -134,6 +132,7 @@ localhost
 Enter port:
 7888
 Enter disk space to be allocated to pyrsia(Please enter with units ex: 10 GB):
+10 GB
 
 Node configuration Saved !!
 ```
