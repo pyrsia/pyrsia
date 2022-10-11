@@ -17,7 +17,7 @@
 use crate::artifact_service::model::PackageType;
 use crate::artifact_service::service::ArtifactService;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use log::debug;
 use warp::{http::StatusCode, Rejection, Reply};
 
@@ -46,7 +46,7 @@ pub async fn handle_get_maven_artifact(
 
     // request artifact
     debug!(
-        "Requesting artifact for id {} and artifact id {}. If not found a build will be requested",
+        "Requesting artifact with package specific id: {}, and package specific artifact id: {}. If not found a build will be requested",
         package_specific_id, package_specific_artifact_id
     );
 
@@ -95,9 +95,18 @@ fn parse_artifact_from_full_path(
     if pieces.len() < 4 {
         bail!(format!("Error, invalid full path: {}", full_path));
     }
-    let file_name = pieces.pop().unwrap().to_string();
-    let version = pieces.pop().unwrap().to_string();
-    let artifact_id = pieces.pop().unwrap().to_string();
+    let file_name = pieces
+        .pop()
+        .ok_or_else(|| anyhow!("Error extracting the file name"))?
+        .to_string();
+    let version = pieces
+        .pop()
+        .ok_or_else(|| anyhow!("Error extracting the version"))?
+        .to_string();
+    let artifact_id = pieces
+        .pop()
+        .ok_or_else(|| anyhow!("Error extracting the artifact id"))?
+        .to_string();
     let group_id = pieces.join(".");
 
     Ok((group_id, version, artifact_id, file_name))
