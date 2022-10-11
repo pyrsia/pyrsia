@@ -210,6 +210,7 @@ impl BlockchainService {
                     )
                     .unwrap(),
                 );
+                cur_start = end;
             }
         }
 
@@ -394,6 +395,32 @@ mod tests {
 
         let blockchain_service = create_blockchain_service(&tmp_dir).await;
         assert_eq!(1, blockchain_service.pull_blocks(0, 0).await.unwrap().len());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_pull_50_blocks() {
+        let tmp_dir = test_util::tests::setup();
+
+        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
+
+        for _i in 1..50 {
+            let payload = vec![0];
+            blockchain_service
+                .blockchain
+                .add_block(
+                    payload,
+                    &identity::Keypair::Ed25519(blockchain_service.keypair.clone()),
+                )
+                .await
+                .unwrap();
+        }
+
+        assert_eq!(
+            50,
+            blockchain_service.pull_blocks(0, 49).await.unwrap().len()
+        );
 
         test_util::tests::teardown(tmp_dir);
     }
