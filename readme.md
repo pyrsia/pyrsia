@@ -25,39 +25,66 @@ You can join our community on [Slack](https://openssf.slack.com/archives/C02RC7Y
 
 ## Install Pyrsia and Join the Network
 
-There's a web script that will set everything up.
+There are mutiple options to run Pyrsia:
 
-```sh
-curl -sS https://pyrsia.io/install.sh | sh
+- [Build Pyrsia from source](/docs/community/get_involved/local_dev_setup.md).
+
+- [Use a pre-built installer](https://pyrsia.io/docs/tutorials/quick-installation/)
+
+- [Run Pyrsia inside Docker](https://pyrsia.io/docs/tutorials/quick-installation/#run-pyrsia-in-docker)
+
+Once you have a `pyrsia_node` binary, just run it like this:
+
+```shell
+pyrsia_node
 ```
 
-For more options and information, checkout our [online tutorial](https://pyrsia.io/docs/tutorials/quick-installation/)
+Optionally setting an environment variable `RUST_LOG=debug` first if you want to
+see debug output.
 
 ### Downloading Your First Artifact
 
-Let's exercise the [Docker](https://www.docker.com/) and [Docker Hub](https://hub.docker.com/) integration.
+Let's exercise the [Docker](https://www.docker.com/) integration.
 
-```sh
-docker pull ubuntu
+Configure your Docker installation to use Pyrsia as a registry mirror.
+
+On Windows or macOS, open your Docker desktop installation -> Settings ->
+Docker Engine where Docker allows you to set registry-mirrors. Configure your node
+as a registry mirror by adding/editing the following in the configuration:
+
+```jsonc
+ "registry-mirrors": [
+   "http://192.168.0.110:7888" // (IP address of your host machine and port number
+                               //  of your Pyrsia node, which is 7888 by default)
+ ]
 ```
 
-### Node and CLI
+On Linux, you'll find this configuration in the file `/etc/docker/daemon.json`.
 
-There are two components of this project
+Let's try to pull an artifact from the Pyrsia network, but first make sure it is
+not yet in your local Docker cache:
 
-- **[CLI](pyrsia_cli/)**: A basic interface which communicates with a node.
-- **[Node](pyrsia_node/)**: An instance of the Pyrsia daemon which can participate in the network with other nodes.
+```sh
+docker rmi alpine:3.16.2
+```
+
+Then pull the image:
+
+```sh
+docker pull alpine:3.16.2
+```
+
+Congratulations! The alpine Docker image was now retrieved from the Pyrsia network.
+You can verify this in the Pyrsia logs.
 
 ### Connecting with other Nodes
 
-The Pyrsia node will always join the "main net" and connect with other peers. You can see this using the CLI's "status" command:
+The Pyrsia node will always join the Pyrsia network and connect with other peers.
+You can see this in the logs or use the CLI's "status" command:
 
 ```sh
 $ ./pyrsia status
-Connected Peers Count:   17 # Shows the number of visible peers
-Artifacts Count:         3 {"manifests": 1, "blobs": 2} # Total number of artifacts cached locally
-Total Disk Space Allocated:  5.84 GB
-Disk Space Used:             0.0002%
+Connected Peers Count:   1
 ```
 
 ### Integration Tests
