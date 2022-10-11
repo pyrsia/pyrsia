@@ -51,7 +51,7 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let buffer = read_length_prefixed(io, 1_500_000).await?;
+        let buffer = read_length_prefixed(io, 30_000_000).await?;
         if buffer.is_empty() {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
@@ -70,7 +70,7 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let buffer = read_length_prefixed(io, 1_500_000).await?;
+        let buffer = read_length_prefixed(io, 30_000_000).await?;
         if buffer.is_empty() {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }

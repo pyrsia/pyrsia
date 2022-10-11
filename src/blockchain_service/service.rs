@@ -168,22 +168,50 @@ impl BlockchainService {
         end: Ordinal,
     ) -> Result<Vec<Block>, BlockchainError> {
         let cmd = BlockchainCommand::PullFromPeer as u8;
+        let mut blocks = Vec::new();
+        log::debug!(
+            "Blockchain pull blocks {:?} to {:?} from PeerID {:?}",
+            start,
+            end,
+            other_peer_id
+        );
+        let mut cur_start = start;
 
-        let mut buf: Vec<u8> = vec![];
+        while end > cur_start {
+            if end >= cur_start + 4 {
+                let mut buf: Vec<u8> = vec![];
+                buf.push(cmd);
+                buf.append(&mut serialize(&cur_start).unwrap());
+                let cur_end = cur_start + 4;
+                buf.append(&mut serialize(&cur_end).unwrap());
 
-        log::debug!("Blockchain query ordinal from : {:?}", other_peer_id);
+                blocks.extend(
+                    deserialize::<Vec<Block>>(
+                        &self
+                            .p2p_client
+                            .request_blockchain(other_peer_id, buf.clone())
+                            .await?,
+                    )
+                    .unwrap(),
+                );
+                cur_start = cur_end;
+            } else {
+                let mut buf: Vec<u8> = vec![];
+                buf.push(cmd);
+                buf.append(&mut serialize(&cur_start).unwrap());
+                buf.append(&mut serialize(&end).unwrap());
 
-        buf.push(cmd);
-        buf.append(&mut serialize(&start).unwrap());
-        buf.append(&mut serialize(&end).unwrap());
-
-        let blocks = deserialize(
-            &self
-                .p2p_client
-                .request_blockchain(other_peer_id, buf.clone())
-                .await?,
-        )
-        .unwrap();
+                blocks.extend(
+                    deserialize::<Vec<Block>>(
+                        &self
+                            .p2p_client
+                            .request_blockchain(other_peer_id, buf.clone())
+                            .await?,
+                    )
+                    .unwrap(),
+                );
+            }
+        }
 
         Ok(blocks)
     }
