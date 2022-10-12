@@ -18,35 +18,37 @@ The MSI installer can be executed by double-clicking on it, but it is more conve
 
 After the process ends, check the path C:\Pyrsia\Pyrsia. It should contain:
 
-+ bin
-   - pyrsia.exe
-+ service
-   - pyrsia_node.exe
+C:\Pyrsia\Pyrsia\
++ bin\
+   |_ pyrsia.exe
++ service\
+   |_ pyrsia_node.exe
 + Readme.txt
 
-and also check the log file C:\tmp\log.txt if needed.
-
-The pyrsia CLI is added to the system PATH. For instance, to test it run:
-
-> pyrsia -s
-Connected Peers Count:       1
+and also check the log file C:\tmp\log.txt if needed. The log file can help you troubleshoot if the installation did not succeed.
 
 The service folder contains the pyrsia_node executable that can be launched from any terminal.
 
 For convenience, set these environment variables:
 
 > set DEV_MODE=ON
-> set RUST_LOG=pyrsia=debug
+> set RUST_LOG=debug
 
 before running the file:
-
-> pyrsia_node.exe
+C:\Pyrsia\Pyrsia\service> pyrsia_node.exe
  2022-10-03T17:54:20.328Z DEBUG pyrsia_node > Parse CLI arguments
  2022-10-03T17:54:20.329Z DEBUG pyrsia_node > Create p2p components
  2022-10-03T17:54:20.336Z DEBUG pyrsia_node > Start p2p event loop
  2022-10-03T17:54:20.337Z DEBUG pyrsia_node > Create blockchain service component
 ...
 
+In another command prompt
+
+The pyrsia CLI(C:\Pyrsia\Pyrsia\bin\pyrsia.exe) is added to the system PATH.
+If the service pyrsia_node started correctly and was able to connect to the Pyrsia network you will see the following:
+
+> pyrsia -s
+Connected Peers Count:       1
 
 Uninstalling Pyrsia
 -------------------
