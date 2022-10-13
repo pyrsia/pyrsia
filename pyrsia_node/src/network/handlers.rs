@@ -114,7 +114,7 @@ pub async fn handle_request_blockchain(
     data: Vec<u8>,
     channel: ResponseChannel<BlockchainResponse>,
 ) -> anyhow::Result<()> {
-    debug!("Handling request blockchain: {:?}", data);
+    debug!("Handling request blockchain");
     match BlockchainCommand::try_from(data[0])? {
         BlockchainCommand::Broadcast => {
             debug!("Blockchain get BlockchainCommand::Broadcast");
