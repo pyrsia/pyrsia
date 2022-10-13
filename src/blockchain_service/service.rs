@@ -34,6 +34,12 @@ pub const BLOCKCHAIN_COMMAND_LENGTH: usize = 1;
 /// Blockchain ordinal length is 16 bytes
 pub const BLOCKCHAIN_ORDINAL_LENGTH: usize = 16;
 
+/// The maximum number of blocks in the message is 5
+pub const MAX_BLOCK_NUMBER_PER_MESSAGE: usize = 5;
+
+/// The maximum size of a block is 1MB
+pub const MAX_BLOCK_SIZE: usize = 1_000_000;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum BlockchainCommand {
@@ -178,11 +184,12 @@ impl BlockchainService {
         let mut cur_start = start;
 
         while end > cur_start {
-            if end >= cur_start + 4 {
+            // Number of blocks from start to end (inclusive start and end) should be less than MAX_BLOCK_NUMBER_PER_MESSAGE
+            if end >= cur_start + MAX_BLOCK_NUMBER_PER_MESSAGE as Ordinal - 1 {
                 let mut buf: Vec<u8> = vec![];
                 buf.push(cmd);
                 buf.append(&mut serialize(&cur_start).unwrap());
-                let cur_end = cur_start + 4;
+                let cur_end = cur_start + MAX_BLOCK_NUMBER_PER_MESSAGE as Ordinal - 1;
                 buf.append(&mut serialize(&cur_end).unwrap());
 
                 blocks.extend(

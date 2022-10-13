@@ -21,6 +21,8 @@ use libp2p::request_response::RequestResponseCodec;
 use log::debug;
 use std::io;
 
+use crate::blockchain_service::service::{MAX_BLOCK_NUMBER_PER_MESSAGE, MAX_BLOCK_SIZE};
+
 #[derive(Debug, Clone)]
 pub struct BlockchainExchangeProtocol();
 
@@ -51,7 +53,8 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let buffer = read_length_prefixed(io, 30_000_000).await?;
+        let buffer =
+            read_length_prefixed(io, (MAX_BLOCK_NUMBER_PER_MESSAGE + 1) * MAX_BLOCK_SIZE).await?;
         if buffer.is_empty() {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
