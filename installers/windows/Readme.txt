@@ -32,7 +32,7 @@ The service folder contains the pyrsia_node executable that can be launched from
 For convenience, set these environment variables:
 
 > set DEV_MODE=ON
-> set RUST_LOG=debug
+> set RUST_LOG="pyrsia=debug"
 
 before running the file:
 C:\Pyrsia\Pyrsia\service> pyrsia_node.exe
