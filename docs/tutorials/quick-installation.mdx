@@ -159,7 +159,7 @@ you can also choose to run our pre-built Docker image available in [Docker Hub](
 
 ### Docker
 
-Make sure you have Docker installed on your system and run in the background:
+Make sure you have Docker installed on your system and run in the background:  
 (Add an option `-e RUST_LOG=debug` to change the log level from the default value, `info`.)
 
 ```sh
@@ -201,7 +201,7 @@ Add the following setting to change the log level (`info` is set as a default va
 ```yaml
 services:
   pyrsia:
-    environment:       # This is optional.
+    environment: # This is optional.
       - RUST_LOG=debug
 ```
 
