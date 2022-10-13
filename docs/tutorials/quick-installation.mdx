@@ -155,15 +155,33 @@ Now you are ready to follow the instructions in [Configure Docker to use Pyrsia]
 ## Run Pyrsia in Docker
 
 As a temporary alternative to the installation scripts for the supported platforms,
-you can also choose to run our pre-built Docker image available in [Docker Hub](https://hub.docker.com/r/pyrsiaoss/pyrsia-node)
+you can also choose to run our pre-built Docker image available in [Docker Hub](https://hub.docker.com/r/pyrsiaoss/pyrsia-node).
 
-Make sure you have Docker installed on your system and run:
+### Docker
+
+Make sure you have Docker installed on your system and run in the background:
+(Add an option `-e RUST_LOG=debug` to change the log level from the default value, `info`.)
 
 ```sh
-docker run -p 7888:7888 pyrsiaoss/pyrsia-node:0.2.0-2342
+docker run -d -p 7888:7888 --name pyrsia_node pyrsiaoss/pyrsia-node:0.2.0-2342
 ```
 
-Or use this `docker-compose.yml` file:
+Tail the logs to check if Pyrsia started correctly:
+
+```sh
+docker logs -f pyrsia_node
+```
+
+Or use the pyrsia CLI like this:
+
+```sh
+docker exec pyrsia_node pyrsia ping
+Connection Successful !!
+```
+
+### Docker Compose
+
+Use this `docker-compose.yml` file:
 
 ```yaml
 services:
@@ -178,7 +196,16 @@ volumes:
   pyrsia:
 ```
 
-And start running Pyrsia in the background:
+Add the following setting to change the log level (`info` is set as a default value):
+
+```yaml
+services:
+  pyrsia:
+    environment:       # This is optional.
+      - RUST_LOG=debug
+```
+
+Start running Pyrsia in the background:
 
 ```sh
 docker-compose up -d
