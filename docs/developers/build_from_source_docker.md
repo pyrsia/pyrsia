@@ -180,7 +180,7 @@ Next you'll need to find out the peer id of node A. You can see that in its logs
 or you can query the `/status` endpoint like this: (assuming you have `jq` installed)
 
 ```shell
-curl -s http://localhost:7888/status | jq  .peer_id
+curl -s http://localhost:7889/status | jq  .peer_id
 ```
 
 Once you know the peer id, authorize it like this:
