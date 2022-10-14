@@ -2,7 +2,7 @@
 sidebar_position: 2
 ---
 
-# Pyrsia demo: build Docker images from source
+# Pyrsia demo: build Maven images from source
 
 > **Warning:** This tutorial is aimed at developers actively contributing to the
 > Pyrsia codebase. If you simply want to use Pyrsia, please have a look at [Configure Maven to use Pyrsia](/docs/tutorials/maven.md)
