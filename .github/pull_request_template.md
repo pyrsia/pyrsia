@@ -36,7 +36,7 @@ This PR does... by accomplishing... and it can be reviewed by... you can also te
 This section applies to code modifications, you may remove it otherwise.
 
 Make sure your Pull Request will pass the CI/CD pipeline.
-For a complete list of steps, check out the [developer workflow](https://github.com/pyrsia/pyrsia/blob/main/docs/community/get_involved/submit_pr.md)!
+For a complete list of steps, check out the [developer PR guidlines](https://github.com/pyrsia/pyrsia/blob/main/docs/community/get_involved/submit_pr.md)!
 
 -->
 
