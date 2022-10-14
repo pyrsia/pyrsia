@@ -21,7 +21,7 @@ To get off the ground the focus is strictly on the peer-to-peer distribution of 
 ## Looking to Contribute
 
 Take a moment to review our [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md).
-You can join our community on [Slack](https://openssf.slack.com/archives/C02RC7Y5EUV) or participate in a [meeting](https://pyrsia.io/docs/social/#calendar) to pick up an issue. We also have our [Local Setup Guide](https://pyrsia.io/docs/get_involved/local_dev_setup/) to help.
+You can join our community on [Slack](https://join.slack.com/t/cdeliveryfdn/shared_invite/zt-1eryue9cw-9YpgrfIfsTcDS~hGHchURg) or participate in a [meeting](https://pyrsia.io/docs/social/#calendar) to pick up an issue. We also have our [Local Setup Guide](https://pyrsia.io/docs/get_involved/local_dev_setup/) to help.
 
 ## Install Pyrsia and Join the Network
 
