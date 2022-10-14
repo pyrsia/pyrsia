@@ -159,8 +159,9 @@ In a new terminal, while the Pyrsia nodes and the build pipeline prototype are
 running, run:
 
 ```sh
- ./pyrsia config --edit
- ```
+cd $PYRSIA_HOME/target/debug
+./pyrsia config --edit
+```
 
 And enter the correct values:
 
@@ -227,8 +228,9 @@ In a new terminal, while the Pyrsia nodes and the build pipeline prototype are
 running, run:
 
 ```sh
- ./pyrsia config --edit
- ```
+cd $PYRSIA_HOME/target/debug
+./pyrsia config --edit
+```
 
 And enter the correct values:
 
@@ -363,7 +365,7 @@ on node A and provided on the p2p network.
  INFO  pyrsia::artifact_service::service > put_artifact with id: da341557-9150-4208-9474-f5884f799338
  INFO  pyrsia::artifact_service::storage > An artifact is being pushed to the artifact manager da341557-9150-4208-9474-f5884f799338
  DEBUG pyrsia::network::client           > p2p::Client::provide "da341557-9150-4208-9474-f5884f799338"
- ```
+```
 
 Now we are ready to use the published artifacts in our build workflow on node B
 as shown in the sample section below.
