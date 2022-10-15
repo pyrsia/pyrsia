@@ -53,14 +53,16 @@ jobs:
       run: |
         cargo test --workspace --verbose --release
 
+    # Exports fully qualified build version number into variable TAG_NAME
     - id: export-fqbvn
       name: Output Fully Qualified Build Version number
       run: |
         echo '::set-output name=TAG_NAME::$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)'
 
+    # Creates installer archive of pyrsia and pyrsia_node
     - id: generate-homebrew-archives
       name: Create Pyrsia Homebrew archives
-      run: tar -C target/release -czf pyrsia-${{ steps.export-fqbvn.outputs.TAG_NAME }}.tar.gz pyrsia
+      run: tar -C target/release -czf pyrsia-${{ steps.export-fqbvn.outputs.TAG_NAME }}.tar.gz pyrsia pyrsia_node
 
     - id: build-osx-google-auth
       name: Google Auth
@@ -75,19 +77,21 @@ jobs:
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       uses: 'google-github-actions/setup-gcloud@v0'
 
+    # Publish nightly version of installer archive to cloud bucket
     - id: build-osx-publish-nightly-gcs-repo
       name: Publish Build to NIGHTLY GCS repo
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       run: |
-        .github/workflows/aptly.sh target/debian/pyrsia_0.1.0+${{ github.run_number }}_amd64.deb nightly
+        .github/workflows/homebrew-installer-upload.sh pyrsia-${{ steps.export-fqbvn.outputs.TAG_NAME }}.tar.gz ${{ steps.export-fqbvn.outputs.TAG_NAME }} nightly x86_64
       env:
         GPG_KEY: ${{ secrets.GPG_KEY }}
 
-    - id: qqq
+    # Publish stable version of installer archive to cloud bucket
+    - id: build-osx-publish-stable-gcs-repo
       name: Publish Release to STABLE GCS repo
       if: github.repository_owner == 'pyrsia' && github.event_name == 'release'
       run: |
-        .github/workflows/aptly.sh target/debian/pyrsia_0.1.0+${{ github.run_number }}_amd64.deb stable
+        .github/workflows/homebrew-installer-upload.sh pyrsia-${{ steps.export-fqbvn.outputs.TAG_NAME }}.tar.gz ${{ steps.export-fqbvn.outputs.TAG_NAME }} stable x86_64
       env:
         GPG_KEY: ${{ secrets.GPG_KEY }}
 
