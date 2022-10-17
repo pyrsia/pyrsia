@@ -25,6 +25,8 @@ use pyrsia_blockchain_network::structures::header::Ordinal;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::network::client::Client;
 
@@ -181,15 +183,19 @@ impl BlockchainService {
             end,
             other_peer_id
         );
-        let mut cur_start = start;
 
-        while end > cur_start {
+        let start_mutex = Arc::new(Mutex::new(start));
+
+        let cur_start_mutex = Arc::clone(&start_mutex);
+
+        while end >= *cur_start_mutex.lock().unwrap() {
             // Number of blocks from start to end (inclusive start and end) should be less than MAX_BLOCK_NUMBER_PER_MESSAGE
-            if end >= cur_start + MAX_BLOCK_NUMBER_PER_MESSAGE as Ordinal - 1 {
+            let cur_start = *cur_start_mutex.lock().unwrap();
+            let cur_end = cur_start + MAX_BLOCK_NUMBER_PER_MESSAGE as Ordinal - 1;
+            if end >= cur_end {
                 let mut buf: Vec<u8> = vec![];
                 buf.push(cmd);
                 buf.append(&mut serialize(&cur_start).unwrap());
-                let cur_end = cur_start + MAX_BLOCK_NUMBER_PER_MESSAGE as Ordinal - 1;
                 buf.append(&mut serialize(&cur_end).unwrap());
 
                 blocks.extend(
@@ -201,7 +207,7 @@ impl BlockchainService {
                     )
                     .unwrap(),
                 );
-                cur_start = cur_end;
+                *cur_start_mutex.lock().unwrap() = cur_end + 1;
             } else {
                 let mut buf: Vec<u8> = vec![];
                 buf.push(cmd);
@@ -217,7 +223,7 @@ impl BlockchainService {
                     )
                     .unwrap(),
                 );
-                cur_start = end;
+                *cur_start_mutex.lock().unwrap() = end + 1;
             }
         }
 
