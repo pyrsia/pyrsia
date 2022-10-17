@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use crate::blockchain_service;
 use async_trait::async_trait;
 use futures::prelude::*;
 use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
@@ -51,7 +52,11 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let buffer = read_length_prefixed(io, 1_500_000).await?;
+        let buffer = read_length_prefixed(
+            io,
+            blockchain_service::service::BLOCKCHAIN_MAX_SIZE_PER_MESSAGE,
+        )
+        .await?;
         if buffer.is_empty() {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
@@ -70,7 +75,11 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let buffer = read_length_prefixed(io, 1_500_000).await?;
+        let buffer = read_length_prefixed(
+            io,
+            blockchain_service::service::BLOCKCHAIN_MAX_SIZE_PER_MESSAGE,
+        )
+        .await?;
         if buffer.is_empty() {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
