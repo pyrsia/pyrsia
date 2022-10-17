@@ -42,10 +42,11 @@ jobs:
         sccache --show-stats
 
     # Need to add build number to version number
-    - name: Add Build Number to Version Number on PR Merge
-#      if:  github.repository_owner == 'pyrsia' && github.event_name == 'push' && github.event.pull_request.merged == true
+    - name: Add Build Number to Version Number
+      #      if:  github.repository_owner == 'pyrsia' && github.event_name == 'push' && github.event.pull_request.merged == true
       run: |
         sed -ir.bak '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\1\2\4+${{ github.run_number }}\5/' Cargo.toml
+      shell: /bin/zsh -e {0}
 
     - name: Build Release and Test Binaries
       run: |
@@ -60,12 +61,18 @@ jobs:
     - id: export-fqbvn
       name: Output Fully Qualified Build Version number
       run: |
-        echo '::set-output name=TAG_NAME::$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)'
+        echo "TAG_NAME=$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)" >> $GITHUB_OUTPUT
+#        echo '::set-output name=TAG_NAME::$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)'
+      shell: /bin/zsh -e {0}
 
     # Creates installer archive of pyrsia and pyrsia_node
     - id: generate-homebrew-archives
       name: Create Pyrsia Homebrew archives
-      run: tar -C target/release -czf pyrsia-${{ steps.export-fqbvn.outputs.TAG_NAME }}.tar.gz pyrsia pyrsia_node
+      run: |
+        echo ${{ steps.export-fqbvn.outputs.TAG_NAME }}
+        tar -C target/release -czf pyrsia-${{ steps.export-fqbvn.outputs.TAG_NAME }}.tar.gz pyrsia pyrsia_node
+        ls -ltr
+      shell: /bin/zsh -e {0}
 
     - id: build-osx-google-auth
       name: Google Auth
@@ -83,9 +90,10 @@ jobs:
     # Publish nightly version of installer archive to cloud bucket
     - id: build-osx-publish-nightly-gcs-repo
       name: Publish Build to NIGHTLY GCS repo
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'release')
       run: |
         .github/workflows/homebrew-installer-upload.sh pyrsia-${{ steps.export-fqbvn.outputs.TAG_NAME }}.tar.gz ${{ steps.export-fqbvn.outputs.TAG_NAME }} nightly x86_64
+      shell: /bin/zsh -e {0}
       env:
         GPG_KEY: ${{ secrets.GPG_KEY }}
 
