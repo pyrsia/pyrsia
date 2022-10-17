@@ -18,7 +18,7 @@ First, make sure to complete the steps in the [installation tutorial](/docs/tuto
 
 Next, configure your Docker installation to use Pyrsia as a registry mirror.
 
-On Windows or macOS, open your Docker desktop installation -> Settings ->
+On Windows or macOS, open your Docker Desktop -> Settings ->
 Docker Engine where Docker allows you to set registry-mirrors. Configure your node
 as a registry mirror by adding/editing the following in the configuration:
 
