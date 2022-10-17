@@ -19,6 +19,9 @@ env:
 jobs:
   # OS/X  Build Job
   build-osx:
+    permissions:
+      contents: 'read'
+      id-token: 'write'
     runs-on: macos-latest
     env:
       RUSTC_WRAPPER: /Users/runner/.cargo/bin/sccache
