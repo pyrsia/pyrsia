@@ -35,7 +35,7 @@ pub const BLOCKCHAIN_COMMAND_LENGTH: usize = 1;
 pub const BLOCKCHAIN_ORDINAL_LENGTH: usize = 16;
 
 /// The maximum size of each message in the blockchain is 10MB
-pub const BLOCKCHAIN_MAX_SIZE_PER_MESSAGE: usize = 10_000_000;
+pub const BLOCKCHAIN_MAX_SIZE_PER_MESSAGE: usize = 10 * 1024 * 1024;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
