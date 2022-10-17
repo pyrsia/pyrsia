@@ -43,7 +43,7 @@ jobs:
 
     # Need to add build number to version number
     - name: Add Build Number to Version Number on PR Merge
-      if:  github.repository_owner == 'pyrsia' && github.event_name == 'push' && github.event.pull_request.merged == true
+#      if:  github.repository_owner == 'pyrsia' && github.event_name == 'push' && github.event.pull_request.merged == true
       run: |
         sed -ir.bak '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\1\2\4+${{ github.run_number }}\5/' Cargo.toml
 
