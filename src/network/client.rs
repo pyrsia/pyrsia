@@ -324,7 +324,7 @@ impl Client {
         peer: &PeerId,
         data: Vec<u8>,
     ) -> anyhow::Result<Vec<u8>> {
-        debug!("p2p::Client::request_blockchain from peer node {:?}", peer);
+        debug!("p2p::Client::request_blockchain from peer {:?}", peer);
 
         let (sender, receiver) = oneshot::channel();
         self.sender
