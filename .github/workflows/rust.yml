@@ -45,7 +45,7 @@ jobs:
     - name: Install gnu-sed
       run: |
         brew install gnu-sed
-        echo -n 'export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH' >> ~/.zshrc
+        echo -n 'export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"' >> ~/.zshrc
         . ~/.zshrc
       shell: /bin/zsh -e {0}
 
