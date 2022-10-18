@@ -8,13 +8,16 @@ if [ "$#" -lt 3 ]; then
   exit 1
 fi
 
+#Fully Qualified Build Version Number. E.g. 1.0.1+5678
 FQBVN=$1
+#Release Type
 RELTYPE=$2
+#Architecture Type
 ARCHTYPE=$3
 
 case $RELTYPE in
-  (nightly|stable) ;;
-  (*) echo "Invalid RELTYPE. Valid RELTYPE: nightly|stable"; exit 1;;
+  (latest|stable) ;;
+  (*) echo "Invalid RELTYPE. Valid RELTYPE: latest|stable"; exit 1;;
 esac
 
 case $ARCHTYPE in

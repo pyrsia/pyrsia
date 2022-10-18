@@ -89,7 +89,7 @@ jobs:
       name: Publish Build to NIGHTLY GCS repo
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'release')
       run: |
-        .github/workflows/homebrew-installer-upload.sh pyrsia-${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }}.tar.gz ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} nightly x86_64
+        .github/workflows/homebrew-installer-upload.sh ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} latest x86_64
       shell: /bin/zsh -e {0}
       env:
         GPG_KEY: ${{ secrets.GPG_KEY }}
@@ -99,7 +99,8 @@ jobs:
       name: Publish Release to STABLE GCS repo
       if: github.repository_owner == 'pyrsia' && github.event_name == 'release'
       run: |
-        .github/workflows/homebrew-installer-upload.sh pyrsia-${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }}.tar.gz ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} stable x86_64
+        .github/workflows/homebrew-installer-upload.sh ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} stable x86_64
+      shell: /bin/zsh -e {0}
       env:
         GPG_KEY: ${{ secrets.GPG_KEY }}
 
