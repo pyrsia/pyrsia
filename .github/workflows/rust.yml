@@ -66,9 +66,7 @@ jobs:
     - id: generate-homebrew-archives
       name: Create Pyrsia Homebrew archives
       run: |
-        echo ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }}
         tar -C target/release -czf pyrsia-${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }}.tar.gz pyrsia pyrsia_node
-        ls -ltr
       shell: /bin/zsh -e {0}
 
     - id: build-osx-google-auth
@@ -87,7 +85,7 @@ jobs:
     # Publish nightly version of installer archive to cloud bucket
     - id: build-osx-publish-nightly-gcs-repo
       name: Publish Build to NIGHTLY GCS repo
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'release')
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       run: |
         .github/workflows/homebrew-installer-upload.sh ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} latest x86_64
       shell: /bin/zsh -e {0}
