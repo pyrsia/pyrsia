@@ -61,7 +61,7 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
 
-        debug!("Blockchain::read_request receives: {:?}", buffer);
+        debug!("Blockchain::read_request received");
 
         Ok(BlockchainRequest(buffer))
     }
@@ -84,7 +84,7 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
 
-        debug!("Blockchain::read_response receives: {:?}", buffer);
+        debug!("Blockchain::read_response received");
 
         Ok(BlockchainResponse(buffer))
     }
@@ -99,7 +99,7 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        debug!("Blockchain::write_request sends: {:?}", data);
+        debug!("Blockchain::write_request sent");
 
         write_length_prefixed(io, data).await?;
         io.close().await?;
@@ -117,7 +117,7 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        debug!("Blockchain::write_response sends: {:?}", data);
+        debug!("Blockchain::write_response sent");
 
         write_length_prefixed(io, data).await?;
         io.close().await?;

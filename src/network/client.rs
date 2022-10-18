@@ -324,7 +324,7 @@ impl Client {
         peer: &PeerId,
         data: Vec<u8>,
     ) -> anyhow::Result<Vec<u8>> {
-        debug!("p2p::Client::request_blockchain {:?} form {:?}", data, peer);
+        debug!("p2p::Client::request_blockchain form {:?}", peer);
 
         let (sender, receiver) = oneshot::channel();
         self.sender
@@ -342,7 +342,7 @@ impl Client {
         data: Vec<u8>,
         channel: ResponseChannel<BlockchainResponse>,
     ) -> anyhow::Result<()> {
-        debug!("p2p::Client::repond_blockchain {:?}", data);
+        debug!("p2p::Client::repond_blockchain sent");
 
         self.sender
             .send(Command::RespondBlockchain { data, channel })
