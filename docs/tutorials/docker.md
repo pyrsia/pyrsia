@@ -36,7 +36,9 @@ performed for you.
 > In general you would specify `localhost:7888` as the registry mirror but on MacOS
 > and Windows this won't work because Docker Engine is running in a VM, which is
 > not the same as the local host your Pyrsia is running on. Using `0.0.0.0` works
-> around this issue.
+> around this issue. In case you're having issues, try specifying your host IP address
+> as the registry-mirror and bind your local Pyrsia node to that IP (using `-H`
+> with an explicit IP address or using `-H 0.0.0.0`)
 
 You will need to restart Docker Desktop. Once restarted you should be able to
 pull Docker images through Pyrsia.
