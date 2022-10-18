@@ -205,7 +205,7 @@ of node A. This multiaddress can be found in the logs of node A (see section
 
 ```sh
 RUST_LOG=pyrsia=debug DEV_MODE=on \
-./pyrsia_node -H 0.0.0.0 --peer /ip4/127.0.0.1/tcp/56662/p2p/12D3KooWBgWeXNT1EKXo2omRhZVmkbvPgzZ5BcGjTfgKr586BSAn
+./pyrsia_node --peer /ip4/127.0.0.1/tcp/56662/p2p/12D3KooWBgWeXNT1EKXo2omRhZVmkbvPgzZ5BcGjTfgKr586BSAn
 ```
 
 **Important**: do not simply copy/paste this command, the multiaddress on your
