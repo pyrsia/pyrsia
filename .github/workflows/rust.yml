@@ -49,11 +49,7 @@ jobs:
         brew install gnu-sed
         echo -n 'export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"' >> ~/.zshrc
         . ~/.zshrc
-#        sed --version
-#        which sed
         sed -ir.bak "0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\1\2\4+${{ github.run_number }}\5/" Cargo.toml
-#        ls -ltr
-#        cat Cargo.toml
         echo "TAG_NAME=$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)" >> $GITHUB_OUTPUT
       shell: /bin/zsh -e {0}
 
@@ -65,16 +61,6 @@ jobs:
     - name: Execute Test Cases
       run: |
         cargo test --workspace --verbose --release
-
-#    # Exports fully qualified build version number into variable TAG_NAME
-#    - id: export-fqbvn
-#      name: Output Fully Qualified Build Version number
-#      run: |
-#        sed --version
-#        which sed
-#        echo "TAG_NAME=$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)" >> $GITHUB_OUTPUT
-##        echo '::set-output name=TAG_NAME::$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)'
-#      shell: /bin/zsh -e {0}
 
     # Creates installer archive of pyrsia and pyrsia_node
     - id: generate-homebrew-archives
