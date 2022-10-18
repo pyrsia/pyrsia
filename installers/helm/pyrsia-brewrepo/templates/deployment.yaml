@@ -1,0 +1,38 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "brewrepo-nginx.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app:  {{ include "brewrepo-nginx.name" . }}
+      tier: frontend
+      track: stable
+  template:
+    metadata:
+      labels:
+        app: brewrepo-nginx
+        tier: frontend
+        track: stable
+    spec:
+      containers:
+        - name: {{ include "brewrepo-nginx.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}        
+          ports:
+            - name: http
+              containerPort: 80
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - SYS_ADMIN
+          lifecycle:
+            postStart:
+              exec:
+                command: ["mount", "homebrewrepo"]
+            preStop:
+              exec:
+                command: ["fusermount", "-u", "/var/www/html"]
