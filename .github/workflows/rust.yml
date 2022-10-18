@@ -41,18 +41,15 @@ jobs:
         sccache --start-server
         sccache --show-stats
 
-    # Install gnu-sed
-    - name: Install gnu-sed
-      run: |
-        brew install gnu-sed
-        echo -n 'export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"' >> ~/.zshrc
-        . ~/.zshrc
-      shell: /bin/zsh -e {0}
-
     # Need to add build number to version number
     - name: Add Build Number to Version Number
       #      if:  github.repository_owner == 'pyrsia' && github.event_name == 'push' && github.event.pull_request.merged == true
       run: |
+        brew install gnu-sed
+        echo -n 'export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"' >> ~/.zshrc
+        . ~/.zshrc
+        sed --version
+        which sed
         sed -ir.bak "0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\1\2\4+${{ github.run_number }}\5/" Cargo.toml
         ls -ltr
         cat Cargo.toml
@@ -71,6 +68,8 @@ jobs:
     - id: export-fqbvn
       name: Output Fully Qualified Build Version number
       run: |
+        sed --version
+        which sed
         echo "TAG_NAME=$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)" >> $GITHUB_OUTPUT
 #        echo '::set-output name=TAG_NAME::$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)'
       shell: /bin/zsh -e {0}
