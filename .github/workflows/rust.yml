@@ -46,6 +46,8 @@ jobs:
       #      if:  github.repository_owner == 'pyrsia' && github.event_name == 'push' && github.event.pull_request.merged == true
       run: |
         sed -ir.bak '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\1\2\4+${{ github.run_number }}\5/' Cargo.toml
+        ls -ltr
+        cat Cargo.toml
       shell: /bin/zsh -e {0}
 
     - name: Build Release and Test Binaries
