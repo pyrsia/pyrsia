@@ -22,11 +22,11 @@ use pyrsia::node_api::model::cli::{
     RequestMavenLog,
 };
 use regex::Regex;
+use serde_json::Value;
 use std::collections::HashSet;
 use std::io;
 use std::io::BufRead;
 use std::net::Ipv4Addr;
-use serde_json::Value;
 
 const CONF_REMINDER_MESSAGE: &str = "Please make sure the pyrsia CLI config is up to date and matches the node configuration. For more information, run 'pyrsia config --show'";
 
