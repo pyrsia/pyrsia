@@ -42,17 +42,19 @@ jobs:
         sccache --show-stats
 
     # Need to add build number to version number
-    - name: Add Build Number to Version Number
+    - id: add-fqbvn-and-export
+      name: Add Build Number to Version Number and Export to Output
       #      if:  github.repository_owner == 'pyrsia' && github.event_name == 'push' && github.event.pull_request.merged == true
       run: |
         brew install gnu-sed
         echo -n 'export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"' >> ~/.zshrc
         . ~/.zshrc
-        sed --version
-        which sed
+#        sed --version
+#        which sed
         sed -ir.bak "0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\1\2\4+${{ github.run_number }}\5/" Cargo.toml
-        ls -ltr
-        cat Cargo.toml
+#        ls -ltr
+#        cat Cargo.toml
+        echo "TAG_NAME=$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)" >> $GITHUB_OUTPUT
       shell: /bin/zsh -e {0}
 
     - name: Build Release and Test Binaries
@@ -64,22 +66,22 @@ jobs:
       run: |
         cargo test --workspace --verbose --release
 
-    # Exports fully qualified build version number into variable TAG_NAME
-    - id: export-fqbvn
-      name: Output Fully Qualified Build Version number
-      run: |
-        sed --version
-        which sed
-        echo "TAG_NAME=$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)" >> $GITHUB_OUTPUT
-#        echo '::set-output name=TAG_NAME::$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)'
-      shell: /bin/zsh -e {0}
+#    # Exports fully qualified build version number into variable TAG_NAME
+#    - id: export-fqbvn
+#      name: Output Fully Qualified Build Version number
+#      run: |
+#        sed --version
+#        which sed
+#        echo "TAG_NAME=$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)" >> $GITHUB_OUTPUT
+##        echo '::set-output name=TAG_NAME::$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)'
+#      shell: /bin/zsh -e {0}
 
     # Creates installer archive of pyrsia and pyrsia_node
     - id: generate-homebrew-archives
       name: Create Pyrsia Homebrew archives
       run: |
-        echo ${{ steps.export-fqbvn.outputs.TAG_NAME }}
-        tar -C target/release -czf pyrsia-${{ steps.export-fqbvn.outputs.TAG_NAME }}.tar.gz pyrsia pyrsia_node
+        echo ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }}
+        tar -C target/release -czf pyrsia-${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }}.tar.gz pyrsia pyrsia_node
         ls -ltr
       shell: /bin/zsh -e {0}
 
@@ -101,7 +103,7 @@ jobs:
       name: Publish Build to NIGHTLY GCS repo
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'release')
       run: |
-        .github/workflows/homebrew-installer-upload.sh pyrsia-${{ steps.export-fqbvn.outputs.TAG_NAME }}.tar.gz ${{ steps.export-fqbvn.outputs.TAG_NAME }} nightly x86_64
+        .github/workflows/homebrew-installer-upload.sh pyrsia-${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }}.tar.gz ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} nightly x86_64
       shell: /bin/zsh -e {0}
       env:
         GPG_KEY: ${{ secrets.GPG_KEY }}
@@ -111,7 +113,7 @@ jobs:
       name: Publish Release to STABLE GCS repo
       if: github.repository_owner == 'pyrsia' && github.event_name == 'release'
       run: |
-        .github/workflows/homebrew-installer-upload.sh pyrsia-${{ steps.export-fqbvn.outputs.TAG_NAME }}.tar.gz ${{ steps.export-fqbvn.outputs.TAG_NAME }} stable x86_64
+        .github/workflows/homebrew-installer-upload.sh pyrsia-${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }}.tar.gz ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} stable x86_64
       env:
         GPG_KEY: ${{ secrets.GPG_KEY }}
 
