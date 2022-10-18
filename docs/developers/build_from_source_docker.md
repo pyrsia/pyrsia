@@ -159,8 +159,9 @@ In a new terminal, while the Pyrsia nodes and the build pipeline prototype are
 running, run:
 
 ```sh
- ./pyrsia config --edit
- ```
+cd $PYRSIA_HOME/target/debug
+./pyrsia config --edit
+```
 
 And enter the correct values:
 
@@ -179,7 +180,7 @@ Next you'll need to find out the peer id of node A. You can see that in its logs
 or you can query the `/status` endpoint like this: (assuming you have `jq` installed)
 
 ```shell
-curl -s http://localhost:7888/status | jq  .peer_id
+curl -s http://localhost:7889/status | jq  .peer_id
 ```
 
 Once you know the peer id, authorize it like this:
@@ -227,8 +228,9 @@ In a new terminal, while the Pyrsia nodes and the build pipeline prototype are
 running, run:
 
 ```sh
- ./pyrsia config --edit
- ```
+cd $PYRSIA_HOME/target/debug
+./pyrsia config --edit
+```
 
 And enter the correct values:
 
@@ -363,7 +365,7 @@ on node A and provided on the p2p network.
  INFO  pyrsia::artifact_service::service > put_artifact with id: da341557-9150-4208-9474-f5884f799338
  INFO  pyrsia::artifact_service::storage > An artifact is being pushed to the artifact manager da341557-9150-4208-9474-f5884f799338
  DEBUG pyrsia::network::client           > p2p::Client::provide "da341557-9150-4208-9474-f5884f799338"
- ```
+```
 
 Now we are ready to use the published artifacts in our build workflow on node B
 as shown in the sample section below.
