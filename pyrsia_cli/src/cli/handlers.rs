@@ -26,6 +26,7 @@ use std::collections::HashSet;
 use std::io;
 use std::io::BufRead;
 use std::net::Ipv4Addr;
+use serde_json::Value;
 
 const CONF_REMINDER_MESSAGE: &str = "Please make sure the pyrsia CLI config is up to date and matches the node configuration. For more information, run 'pyrsia config --show'";
 
@@ -153,7 +154,7 @@ pub async fn inspect_docker_transparency_log(image: &str) {
     .await;
     match result {
         Ok(logs) => {
-            println!("Inspect log request returns the following logs: {}", logs);
+            print_logs(logs);
         }
         Err(error) => {
             println!("Inspect log request failed with error: {:?}", error);
@@ -168,12 +169,17 @@ pub async fn inspect_maven_transparency_log(gav: &str) {
     .await;
     match result {
         Ok(logs) => {
-            println!("Inspect log request returns the following logs: {}", logs);
+            print_logs(logs);
         }
         Err(error) => {
             println!("Inspect log request failed with error: {:?}", error);
         }
     };
+}
+
+fn print_logs(logs: String) {
+    let logs_as_json: Value = serde_json::from_str(logs.as_str()).unwrap();
+    println!("{}", serde_json::to_string_pretty(&logs_as_json).unwrap());
 }
 
 /// Read user input interactively until the validation passed
