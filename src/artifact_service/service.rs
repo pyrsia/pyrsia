@@ -101,6 +101,11 @@ impl ArtifactService {
             None => panic!("Error unexpected looking for authorized nodes"),
         };
 
+        // prevent duplicated builds
+        self.transparency_log_service
+            .verify_package_can_be_added_to_transparency_logs(&package_type, &package_specific_id)
+            .map_err(|t| BuildError::ArtifactAlreadyExists(format!("{:?}", t)))?;
+
         if local_peer_id.eq(&peer_id) {
             debug!("Start local build in authorized node");
             self.build_event_client

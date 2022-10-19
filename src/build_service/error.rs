@@ -24,6 +24,8 @@ pub enum BuildError {
     Failure(String, String),
     #[error("Failed to initialize a build: {0}")]
     InitializationFailed(String),
+    #[error("Failed to start a build: {0}")]
+    ArtifactAlreadyExists(String),
     #[error("Invalid response from mapping service endpoint: {0}")]
     InvalidMappingResponse(String),
     #[error("Invalid response from pipeline service endpoint: {0}")]
