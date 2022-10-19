@@ -42,13 +42,12 @@ C:\Pyrsia\Pyrsia\service> pyrsia_node.exe
  2022-10-03T17:54:20.337Z DEBUG pyrsia_node > Create blockchain service component
 ...
 
-In another command prompt
+If the service pyrsia_node started correctly and was able to connect to the Pyrsia network you should be able to see connected peers.
 
-The pyrsia CLI(C:\Pyrsia\Pyrsia\bin\pyrsia.exe) is added to the system PATH.
-If the service pyrsia_node started correctly and was able to connect to the Pyrsia network you will see the following:
-
+From another command prompt, the following to verify the same:
 > pyrsia -s
 Connected Peers Count:       1
+(The pyrsia CLI (C:\Pyrsia\Pyrsia\bin\pyrsia.exe) is added to the system PATH, so this should work. If not find the path to pyrsia.exe and run it like above.)
 
 Uninstalling Pyrsia
 -------------------
