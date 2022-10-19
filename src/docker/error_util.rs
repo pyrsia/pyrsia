@@ -58,8 +58,13 @@ impl From<anyhow::Error> for RegistryError {
 
 impl From<BuildError> for RegistryError {
     fn from(err: BuildError) -> RegistryError {
-        RegistryError {
-            code: RegistryErrorCode::Unknown(err.to_string()),
+        match err {
+            BuildError::ArtifactAlreadyExists(_) => RegistryError {
+                code: RegistryErrorCode::BadRequest(err.to_string()),
+            },
+            _ => RegistryError {
+                code: RegistryErrorCode::Unknown(err.to_string()),
+            },
         }
     }
 }

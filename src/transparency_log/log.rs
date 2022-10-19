@@ -43,6 +43,13 @@ pub enum TransparencyLogError {
         package_type: PackageType,
         package_specific_artifact_id: String,
     },
+    #[error(
+        "Artifact ID {package_specific_id} for type {package_type} already exists in transparency log"
+    )]
+    ArtifactAlreadyExists {
+        package_type: PackageType,
+        package_specific_id: String,
+    },
     #[error("Node with node ID {node_id} already exists in transparency log")]
     NodeAlreadyExists { node_id: String },
     #[error("Hash Verification failed for ID {id}: {invalid_hash} vs {actual_hash}")]
@@ -245,6 +252,36 @@ impl TransparencyLogService {
         package_specific_id: &str,
     ) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
         self.read_transparency_logs(package_type, package_specific_id)
+    }
+
+    /// Verifies that a specified package can be added to the transparency log database.
+    /// For that, the database should not contain the artifact yet, or if it does,
+    /// its latest operation is not RemoveArtifact. If that is not the case,
+    /// an ArtifactAlreadyExists error is returned
+    pub fn verify_package_can_be_added_to_transparency_logs(
+        &self,
+        package_type: &PackageType,
+        package_specific_id: &str,
+    ) -> Result<(), TransparencyLogError> {
+        let result = self.read_transparency_logs(package_type, package_specific_id);
+        match result.as_ref().ok().and(result.as_ref().unwrap().last()) {
+            None => {
+                // no logs or error, can be added
+                Ok(())
+            }
+            Some(t) => {
+                if t.operation == Operation::RemoveArtifact {
+                    // was removed, can be added
+                    Ok(())
+                } else {
+                    // the artifact exists, can't be added again
+                    Err(TransparencyLogError::ArtifactAlreadyExists {
+                        package_type: package_type.to_owned(),
+                        package_specific_id: package_specific_id.to_owned(),
+                    })
+                }
+            }
+        }
     }
 
     /// Gets a list of transparency logs of which the operation is AddNode. Returns an error
@@ -908,6 +945,77 @@ mod tests {
             log.read_transparency_logs(&PackageType::Maven2, "other_package_specific_id");
         assert!(result_read2.is_ok());
         assert_eq!(result_read2.unwrap().len(), 0);
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_verify_artifact_can_be_added_to_transparency_logs() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = create_transparency_log_service(&tmp_dir).await;
+        let result1 = log.verify_package_can_be_added_to_transparency_logs(
+            &PackageType::Docker,
+            "package_specific_id",
+        );
+        assert!(result1.is_ok());
+
+        let transparency_log1 = TransparencyLog {
+            id: String::from("id1"),
+            package_type: Some(PackageType::Docker),
+            package_specific_id: String::from("package_specific_id"),
+            num_artifacts: 8,
+            package_specific_artifact_id: String::from("package_specific_artifact_id"),
+            artifact_hash: String::from("artifact_hash1"),
+            source_hash: String::from("source_hash1"),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
+            timestamp: 10000000,
+            operation: Operation::AddArtifact,
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+        let result_write1 = log.write_transparency_log(&transparency_log1);
+        assert!(result_write1.is_ok());
+
+        let result2 = log.verify_package_can_be_added_to_transparency_logs(
+            &PackageType::Docker,
+            "package_specific_id",
+        );
+        assert!(result2.is_err());
+        assert_eq!(
+            result2.err().unwrap().to_string(),
+            TransparencyLogError::ArtifactAlreadyExists {
+                package_type: PackageType::Docker,
+                package_specific_id: String::from("package_specific_id"),
+            }
+            .to_string()
+        );
+
+        let transparency_log2 = TransparencyLog {
+            id: String::from("id2"),
+            package_type: Some(PackageType::Docker),
+            package_specific_id: String::from("package_specific_id"),
+            num_artifacts: 8,
+            package_specific_artifact_id: String::from("package_specific_artifact_id"),
+            artifact_hash: String::from("artifact_hash1"),
+            source_hash: String::from("source_hash1"),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
+            timestamp: 20000000,
+            operation: Operation::RemoveArtifact,
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        let result_write2 = log.write_transparency_log(&transparency_log2);
+        assert!(result_write2.is_ok());
+
+        let result3 = log.verify_package_can_be_added_to_transparency_logs(
+            &PackageType::Docker,
+            "package_specific_id",
+        );
+        assert!(result3.is_ok());
 
         test_util::tests::teardown(tmp_dir);
     }
