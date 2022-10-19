@@ -155,6 +155,60 @@ Now you are ready to follow the instructions in [Configure Docker to use Pyrsia]
 
 ## macOS
 
+:::warning Minimal installer functionality
+
+In version 0.2 we choose to include minimalistic macOS installer. The installer is available through Homebrew package manager.
+
+:::
+
+### Using Homebrew Package Manager
+
+- Use [Pyrsia Taps](https://github.com/pyrsia/homebrew-pyrsia) (Third-Party Repositories)
+
+```shell
+brew tap pyrsia/pyrsia
+```
+- Use brew installer to install Pyrsia
+```shell
+brew install pyrsia
+```
+- Open a terminal and try to start Pyrsia Node using the following
+```shell
+export RUST_LOG=info
+pyrsia_node
+```
+This will start Pyrsia node in you local machine with `info` logs. (you can also skip `export RUST_LOG=info` if you
+don't want logs. You can also set this to `export RUST_LOG=debug` to see even more logs)
+
+When you start the Pyrsia node for first time, macOS might ask for network connection permission. So make sure to
+allow this.
+
+- Once Pyrsia node is running, open another terminal to verify everything is running smoothly.
+-- To verify Pyrsia version
+```shell
+pyrsia --version
+```
+Display the version `pyrsia_cli 0.2.0`
+
+-- To verify your local Pyrsia node connected to Pyrsia network
+```shell
+pyrsia ping
+```
+Successful node inclusion in the network will display `Connection Successful !!`
+
+-- To verify you received the transparency logs from the network, run this:
+```shell
+pyrsia inspect-log docker --image alpine:3.16.0
+```
+This should output something like this:
+
+```text
+Inspect log request returns the following logs: ...
+```
+
+Including the JSON output of the retrieved transparency logs for `alpine:3.16.0`.
+
+Now you are ready to follow the instructions in [Configure Docker to use Pyrsia](docker.md) to make actual use of Pyrsia.
 
 ## Run Pyrsia in Docker
 
