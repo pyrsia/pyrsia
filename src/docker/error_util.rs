@@ -66,8 +66,13 @@ impl From<BuildError> for RegistryError {
 
 impl From<TransparencyLogError> for RegistryError {
     fn from(err: TransparencyLogError) -> RegistryError {
-        RegistryError {
-            code: RegistryErrorCode::Unknown(err.to_string()),
+        match err {
+            TransparencyLogError::NodeAlreadyExists { .. } => RegistryError {
+                code: RegistryErrorCode::BadRequest(err.to_string()),
+            },
+            _ => RegistryError {
+                code: RegistryErrorCode::Unknown(err.to_string()),
+            },
         }
     }
 }
@@ -146,7 +151,7 @@ pub async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
             }
             RegistryErrorCode::BadRequest(m) => {
                 status_code = StatusCode::BAD_REQUEST;
-                error_message.message = m.clone();
+                error_message.code = RegistryErrorCode::BadRequest(m.clone());
             }
             RegistryErrorCode::Unknown(m) => {
                 error_message.message = m.clone();
