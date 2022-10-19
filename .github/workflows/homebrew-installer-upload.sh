@@ -25,4 +25,8 @@ case $ARCHTYPE in
   (*) echo "Invalid ARCHTYPE. Valid ARCHTYPE: x86_64|arm64"; exit 1;;
 esac
 
+mkdir syncdir
 gsutil -m cp pyrsia-${FQBVN}.tar.gz  gs://homebrewrepo/${RELTYPE}/${ARCHTYPE}/pyrsia-${FQBVN}.tar.gz
+gsutil -m rsync -r gs://homebrewrepo ./syncdir/
+python3 .github/workflows/genlisting.py syncdir -r
+gsutil -m rsync -r ./syncdir/ gs://homebrewrepo
