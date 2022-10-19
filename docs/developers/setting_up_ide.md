@@ -20,7 +20,7 @@ Before continuing please make sure that you have cloned and compiled the Pyrsia 
 - Rename the configuration to `Run Node`.
 - In the `Command` field past the following:
 
-`run --package pyrsia_node -- --pipeline-service-endpoint http://localhost:8080 --host 0.0.0.0 --port 7888 --listen /ip4/0.0.0.0/tcp/44002`
+`run --package pyrsia_node -- --pipeline-service-endpoint http://localhost:8080 --port 7888 --listen /ip4/0.0.0.0/tcp/44002`
 
 - Add the following vars to the `Environment Variables`:
 
