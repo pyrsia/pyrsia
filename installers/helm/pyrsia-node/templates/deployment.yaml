@@ -32,7 +32,9 @@ spec:
               containerPort: 44000
           env:
             - name: PYRSIA_ARTIFACT_PATH
-              value: "/usr/local/var/pyrsia"
+              value: /usr/local/var/pyrsia
+            - name: PYRSIA_BLOCKCHAIN_PATH 
+              value: /usr/local/var/pyrsia/blockchain
             - name: PYRSIA_KEYPAIR
               value: /usr/local/var/pyrsia-p2p-keys/ed25519.ser
             - name: PYRSIA_BOOTDNS
