@@ -88,7 +88,23 @@ pyrsia inspect-log docker --image alpine:3.16.0
 This should output something like this:
 
 ```text
-Inspect log request returns the following logs: ...
+[
+  {
+    "artifact_hash": "2408cc74d12b6cd092bb8b516ba7d5e290f485d3eb9672efc00f0583730179e8",
+    "artifact_id": "f3f2c69c-3387-47d0-96c8-cb57b3e9f1ae",
+    "id": "70d17e31-14b5-4e00-9107-acc95e8bf5c8",
+    "node_id": "bde95c7a-1397-470a-8f07-d9f13e97dffe",
+    "node_public_key": "a65f7c06-cdc9-4210-b0c1-1a08311231ec",
+    "num_artifacts": 4,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "alpine@sha256:2408cc74d12b6cd092bb8b516ba7d5e290f485d3eb9672efc00f0583730179e8",
+    "package_specific_id": "alpine:3.16.0",
+    "package_type": "Docker",
+    "source_id": "ddd37612-5da8-4b74-b884-5fa1e2fb1a52",
+    "timestamp": 1666096808
+  },
+  ...
+]
 ```
 
 Including the JSON output of the retrieved transparency logs for `alpine:3.16.0`.
@@ -146,7 +162,23 @@ pyrsia inspect-log docker --image alpine:3.16.0
 This should output something like this:
 
 ```text
-Inspect log request returns the following logs: ...
+[
+  {
+    "artifact_hash": "2408cc74d12b6cd092bb8b516ba7d5e290f485d3eb9672efc00f0583730179e8",
+    "artifact_id": "f3f2c69c-3387-47d0-96c8-cb57b3e9f1ae",
+    "id": "70d17e31-14b5-4e00-9107-acc95e8bf5c8",
+    "node_id": "bde95c7a-1397-470a-8f07-d9f13e97dffe",
+    "node_public_key": "a65f7c06-cdc9-4210-b0c1-1a08311231ec",
+    "num_artifacts": 4,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "alpine@sha256:2408cc74d12b6cd092bb8b516ba7d5e290f485d3eb9672efc00f0583730179e8",
+    "package_specific_id": "alpine:3.16.0",
+    "package_type": "Docker",
+    "source_id": "ddd37612-5da8-4b74-b884-5fa1e2fb1a52",
+    "timestamp": 1666096808
+  },
+  ...
+]
 ```
 
 Including the JSON output of the retrieved transparency logs for `alpine:3.16.0`

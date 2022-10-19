@@ -126,7 +126,7 @@ impl BlockchainService {
 
         let block = *block;
 
-        log::debug!("Blockchain get block to broadcast:{:?}", block);
+        log::debug!("Blockchain sends broadcast block:{:?}", block);
 
         buf.push(cmd);
         buf.append(&mut serialize(&block_ordinal).unwrap());
@@ -149,7 +149,10 @@ impl BlockchainService {
 
         let mut buf: Vec<u8> = vec![];
 
-        log::debug!("Blockchain query ordinal from : {:?}", other_peer_id);
+        log::debug!(
+            "Blockchain query block ordinal of the peer node: {:?}",
+            other_peer_id
+        );
 
         buf.push(cmd);
 
@@ -175,7 +178,7 @@ impl BlockchainService {
         let mut buf: Vec<u8> = vec![];
 
         log::debug!(
-            "Blockchain pull block {:?} to {:?} from Peer: {:?}",
+            "Blockchain pull blocks {:?} to {:?} from peer: {:?}",
             start,
             end,
             other_peer_id
