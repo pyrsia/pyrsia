@@ -44,7 +44,7 @@ pub enum TransparencyLogError {
         package_specific_artifact_id: String,
     },
     #[error(
-        "Artifact ID {package_specific_id} for type {package_type} already exist in transparency log"
+        "Artifact ID {package_specific_id} for type {package_type} already exists in transparency log"
     )]
     ArtifactAlreadyExists {
         package_type: PackageType,
