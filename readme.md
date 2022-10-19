@@ -54,12 +54,14 @@ as a registry mirror by adding/editing the following in the configuration:
 
 ```jsonc
  "registry-mirrors": [
-   "http://192.168.0.110:7888" // (IP address of your host machine and port number
-                               //  of your Pyrsia node, which is 7888 by default)
+   "http://0.0.0.0:7888"
  ]
 ```
 
 On Linux, you'll find this configuration in the file `/etc/docker/daemon.json`.
+
+See [this page](/docs/tutorials/docker/#configure-docker) for more information about
+configuring Docker.
 
 Let's try to pull an artifact from the Pyrsia network, but first make sure it is
 not yet in your local Docker cache:
