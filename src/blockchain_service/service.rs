@@ -133,9 +133,17 @@ impl BlockchainService {
         buf.append(&mut serialize(&block).unwrap());
 
         for peer_id in peer_list.iter() {
-            self.p2p_client
+            if let Err(e) = self
+                .p2p_client
                 .request_blockchain(peer_id, buf.clone())
-                .await?;
+                .await
+            {
+                log::info!(
+                    "Failed to send request_blockchain to peer {:?}. Error = {:?}",
+                    peer_id,
+                    e
+                );
+            }
         }
 
         Ok(())
