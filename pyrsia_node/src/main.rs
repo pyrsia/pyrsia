@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     debug!("Start p2p event loop");
     tokio::spawn(event_loop.run());
 
-    debug!("Create blockchain service component");
+    debug!("Create blockchain service");
     let blockchain_service =
         setup_blockchain_service(local_keypair, p2p_client.clone(), &args).await?;
     let blockchain_service = Arc::new(Mutex::new(blockchain_service));
@@ -407,7 +407,7 @@ async fn pull_block_from_other_nodes(
     other_peer_id: Option<PeerId>,
 ) -> anyhow::Result<()> {
     if let Some(other_peer_id) = other_peer_id {
-        debug!("Blockchain start pulling from other nodes");
+        debug!("Blockchain start pulling blocks from other peers");
 
         let mut blockchain_service = blockchain_service.lock().await;
 
