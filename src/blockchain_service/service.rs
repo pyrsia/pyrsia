@@ -133,9 +133,10 @@ impl BlockchainService {
         buf.append(&mut serialize(&block).unwrap());
 
         for peer_id in peer_list.iter() {
-            self.p2p_client
+            let _ = self
+                .p2p_client
                 .request_blockchain(peer_id, buf.clone())
-                .await?;
+                .await;
         }
 
         Ok(())
