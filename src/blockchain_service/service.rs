@@ -136,8 +136,13 @@ impl BlockchainService {
             if let Err(e) = self
                 .p2p_client
                 .request_blockchain(peer_id, buf.clone())
-                .await {
-                log::info!("Failed to send request_blockchain to peer {:?}. Error = {:?}", peer_id, e);
+                .await
+            {
+                log::info!(
+                    "Failed to send request_blockchain to peer {:?}. Error = {:?}",
+                    peer_id,
+                    e
+                );
             }
         }
 
