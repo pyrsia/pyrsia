@@ -47,7 +47,7 @@ If the service pyrsia_node started correctly and was able to connect to the Pyrs
 From another command prompt, the following to verify the same:
 > pyrsia -s
 Connected Peers Count:       1
-(The pyrsia CLI (C:\Pyrsia\Pyrsia\bin\pyrsia.exe) is added to the system PATH, so this should work. If not find the path to pyrsia.exe and run it like above.)
+(The pyrsia CLI (C:\Pyrsia\Pyrsia\bin\pyrsia.exe) is added to the system PATH, so this should work. If not, find the path to pyrsia.exe and run it like above.)
 
 Uninstalling Pyrsia
 -------------------
