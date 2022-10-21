@@ -264,15 +264,12 @@ impl ArtifactService {
 
     pub async fn provide_local_artifacts(&self) -> anyhow::Result<()> {
         for path in self.artifact_storage.list_artifacts()? {
-            match path.file_stem() {
-                Some(artifact_id) => {
-                    debug!("Providing artifact_id: {:?}", artifact_id);
-                    self.p2p_client
-                        .clone()
-                        .provide(artifact_id.to_str().expect("error getting artifact_id"))
-                        .await?
-                }
-                None => (),
+            if let Some(artifact_id) = path.file_stem() {
+                debug!("Providing artifact_id: {:?}", artifact_id);
+                self.p2p_client
+                    .clone()
+                    .provide(artifact_id.to_str().expect("error getting artifact_id"))
+                    .await?
             }
         }
         Ok(())
