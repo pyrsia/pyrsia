@@ -216,6 +216,10 @@ make up the Docker image `alpine:3.16.2`:
 
 ## Requesting a build
 
+> **This feature is WIP** Currently a build is not requested automatically
+> if an artifact is not available in the Pyrsia network.
+> Please run the command below to request a build.
+
 While it's Pyrsia intention to build and publish all official Docker images, there
 is a possibility that a Docker image is not yet built/available.
 
