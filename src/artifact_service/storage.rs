@@ -17,7 +17,7 @@
 use crate::util::env_util::read_var;
 use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
-use log::{error, info};
+use log::{debug, error, info};
 use std::fs::{File, OpenOptions};
 use std::io::{self, BufWriter, Read, Write};
 use std::panic::UnwindSafe;
@@ -139,6 +139,27 @@ impl ArtifactStorage {
         let artifact_file_path = self.artifact_file_path(artifact_id)?;
         File::open(artifact_file_path)
     }
+
+    /// List all artifacts found in the repository path.
+    /// The current implementation only looks in the local node's repository.
+    pub fn list_artifacts(&self) -> Result<Vec<PathBuf>> {
+        let root: PathBuf = PathBuf::from(&self.repository_path);
+        debug!("Finding stored artifacts");
+        if root.is_dir() {
+            let vec: Vec<PathBuf> = std::fs::read_dir(root)?
+                .filter_map(|entry| {
+                    let path = entry.unwrap().path();
+                    match path.extension() {
+                        Some(ext) if ext.eq(FILE_EXTENSION) => Some(path),
+                        _ => None,
+                    }
+                })
+                .collect();
+            debug!("There are {} stored artifacts ", vec.len());
+            return Ok(vec);
+        }
+        Ok(Vec::new())
+    }
 }
 
 #[cfg(test)]
@@ -232,6 +253,27 @@ mod tests {
         let artifact_storage =
             ArtifactStorage::new(&tmp_dir).expect("Error creating ArtifactManager");
         assert!(artifact_storage.pull_artifact(&artifact_id).is_err());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[test]
+    pub fn list_artifacts_test() {
+        let tmp_dir = test_util::tests::setup();
+
+        let mut string_reader = StringReader::new(TEST_ARTIFACT_DATA);
+        let artifact_id = Uuid::new_v4().to_string();
+        let artifact_storage =
+            ArtifactStorage::new(&tmp_dir).expect("Error creating ArtifactManager");
+
+        artifact_storage
+            .push_artifact(&mut string_reader, &artifact_id)
+            .context("Error from push_artifact")
+            .unwrap();
+
+        let result = artifact_storage.list_artifacts();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 1);
 
         test_util::tests::teardown(tmp_dir);
     }

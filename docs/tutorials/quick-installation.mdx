@@ -15,6 +15,7 @@ Currently our team is working very hard on core features and installers for othe
 :::
 
 - Windows (x86_64)
+- macOS (x86_64)
 - Ubuntu Focal (x86_64)
 
 Until we provide installers for other operating systems, you can start using Pyrsia
@@ -104,6 +105,75 @@ This should output something like this:
   },
   ...
 ]
+```
+
+Including the JSON output of the retrieved transparency logs for `alpine:3.16.0`.
+
+Now you are ready to follow the instructions in [Configure Docker to use Pyrsia](docker.md) to make actual use of Pyrsia.
+
+## macOS
+
+:::warning Minimal installer functionality
+
+In version 0.2 we choose to include minimalistic macOS installer. The installer is available through Homebrew package manager.
+
+:::
+
+### Using Homebrew Package Manager
+
+- Homebrew is a free macOS package manager that allows you to install, update, or remove software by running commands in
+the terminal. Homebrew makes it easy to install the latest versions of various software for macOS. Find the
+Homebrew installation [link](https://brew.sh/) here.
+
+- Use [Pyrsia Taps](https://github.com/pyrsia/homebrew-pyrsia) (Third-Party Repositories)
+
+```shell
+brew tap pyrsia/pyrsia
+```
+- Use brew installer to install Pyrsia
+```shell
+brew install pyrsia
+```
+- Open a terminal and start Pyrsia Node using the following
+```shell
+export RUST_LOG=info
+pyrsia_node
+```
+This will start Pyrsia node in you local machine with logging level set to `info`. (For additional level of logging, you can also set this to `export RUST_LOG=debug`.)
+
+When you start the Pyrsia node for first time, macOS might ask for network connection permission. So make sure to
+allow this.
+
+- Once Pyrsia node is running state, the log will display similar kind of logs in the terminal
+```
+ $ pyrsia_node -H 0.0.0.0
+ 2022-10-20T07:45:57.707Z INFO  pyrsia_node > Pyrsia Docker Node will start running on 0.0.0.0:7888
+ 2022-10-20T07:45:57.708Z INFO  pyrsia_node > Looking up bootstrap node
+ 2022-10-20T07:45:57.709Z INFO  pyrsia::network::event_loop > Local node is listening on "/ip4/192.168.86.171/tcp/54690/p2p/12D3KooWL8xbhUABLVUAmpcVoCZSghRX1XZZmoyMPo4VC28CEx6P"
+ 2022-10-20T07:45:57.709Z INFO  pyrsia::network::event_loop > Local node is listening on "/ip4/127.0.0.1/tcp/54690/p2p/12D3KooWL8xbhUABLVUAmpcVoCZSghRX1XZZmoyMPo4VC28CEx6P"
+ 2022-10-20T07:45:57.709Z INFO  pyrsia::network::event_loop > Local node is listening on "/ip4/100.64.0.1/tcp/54690/p2p/12D3KooWL8xbhUABLVUAmpcVoCZSghRX1XZZmoyMPo4VC28CEx6P"
+ 2022-10-20T07:45:57.929Z INFO  pyrsia_node                 > Found bootstrap peer_addr "/ip4/104.198.178.107/tcp/44000/p2p/12D3KooWERQcvMrdmRc8a3oSuEDU2AmMZ974ADpisbbpFDrSZ8hx"
+ 2022-10-20T07:45:57.930Z INFO  pyrsia_node                 > Probing "/ip4/104.198.178.107/tcp/44000/p2p/12D3KooWERQcvMrdmRc8a3oSuEDU2AmMZ974ADpisbbpFDrSZ8hx"
+ 2022-10-20T07:46:23.248Z INFO  pyrsia::network::event_loop > Autonat status changed from Unknown to Private
+```
+- Open another terminal to verify everything is running smoothly.
+    - To verify Pyrsia version
+```shell
+pyrsia --version
+```
+Display the version `pyrsia_cli 0.2.0`
+    - To verify your local Pyrsia node connected to Pyrsia network
+```shell
+pyrsia ping
+```
+If your node successfully connected to the Pyrsia network you will see `Connection Successful !!`
+    - To verify you received the transparency logs from the network, run this:
+```shell
+pyrsia inspect-log docker --image alpine:3.16.0
+```
+This should output something like this:
+```text
+Inspect log request returns the following logs: ...
 ```
 
 Including the JSON output of the retrieved transparency logs for `alpine:3.16.0`.
