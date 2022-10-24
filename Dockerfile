@@ -26,6 +26,7 @@ RUN mkdir -p /out
 ENV RUST_BACKTRACE=1
 ENV DEV_MODE=on
 ENV PYRSIA_ARTIFACT_PATH=pyrsia
+ENV PYRSIA_BLOCKCHAIN_PATH=pyrsia/blockchain
 RUN --mount=target=/src \
     --mount=type=cache,target=/target \
     --mount=type=cache,target=/usr/local/cargo/git/db \
@@ -51,4 +52,5 @@ RUN chmod 755 /tmp/entrypoint.sh; mkdir -p /usr/local/var/pyrsia
 WORKDIR /usr/local/var
 
 ENV PYRSIA_ARTIFACT_PATH /usr/local/var/pyrsia
+ENV PYRSIA_BLOCKCHAIN_PATH /usr/local/var/pyrsia/blockchain
 ENV RUST_LOG debug

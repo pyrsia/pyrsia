@@ -117,7 +117,7 @@ pub async fn handle_request_blockchain(
     debug!("Handling request blockchain");
     match BlockchainCommand::try_from(data[0])? {
         BlockchainCommand::Broadcast => {
-            debug!("Blockchain get BlockchainCommand::Broadcast");
+            debug!("Blockchain receives BlockchainCommand::Broadcast");
             let block_ordinal: Ordinal = deserialize(&data[1..17])?;
             let block: Block = deserialize(&data[17..])?;
             handle_broadcast_blockchain(
@@ -131,7 +131,7 @@ pub async fn handle_request_blockchain(
         }
 
         BlockchainCommand::PullFromPeer => {
-            debug!("Blockchain get BlockchainCommand::PullFromPeer");
+            debug!("Blockchain receives BlockchainCommand::PullFromPeer");
             let start_ordinal: Ordinal = deserialize(&data[1..17])?;
             let end_ordinal: Ordinal = deserialize(&data[17..])?;
             handle_pull_blockchain_from_peer(
@@ -144,12 +144,12 @@ pub async fn handle_request_blockchain(
         }
 
         BlockchainCommand::QueryHighestBlockOrdinal => {
-            debug!("Blockchain get BlockchainCommand::QueryHighestBlockOrdinal");
+            debug!("Blockchain receives BlockchainCommand::QueryHighestBlockOrdinal");
             handle_query_block_ordinal_from_peer(blockchain_service, channel).await
         }
 
         _ => {
-            debug!("Blockchain get other command");
+            debug!("Blockchain receives other command");
             todo!()
         }
     }
@@ -162,7 +162,7 @@ pub async fn handle_broadcast_blockchain(
     block: Block,
     channel: ResponseChannel<BlockchainResponse>,
 ) -> anyhow::Result<()> {
-    debug!("Handling broadcast blockchain: {:?}", block);
+    debug!("Handling broadcast blocks");
 
     let mut blockchain_service = blockchain_service.lock().await;
 
@@ -188,7 +188,7 @@ pub async fn handle_pull_blockchain_from_peer(
     channel: ResponseChannel<BlockchainResponse>,
 ) -> anyhow::Result<()> {
     debug!(
-        "Handling pull blockchain start from {:?} to {:?} ",
+        "Handling pull blocks from {:?} to {:?} ",
         start_ordinal, end_ordinal
     );
 

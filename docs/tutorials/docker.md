@@ -24,8 +24,7 @@ as a registry mirror by adding/editing the following in the configuration:
 
 ```jsonc
  "registry-mirrors": [
-   "http://192.168.0.110:7888" // (IP address of your host machine and port number
-                               //  of your Pyrsia node, which is 7888 by default)
+   "http://0.0.0.0:7888"
  ]
 ```
 
@@ -33,9 +32,13 @@ On Linux, you'll find this configuration in the file `/etc/docker/daemon.json`.
 If you've run the apt installation, this step was already automatically
 performed for you.
 
-> On macOS or Windows, you can't specify `localhost` because the request to Pyrsia
-will originate from the Docker Desktop VM, so you will need to specify the IP
-address of your host machine. On Linux you can use localhost.
+> **Why 0.0.0.0?** \
+> In general you would specify `localhost:7888` as the registry mirror but on MacOS
+> and Windows this won't work because Docker Engine is running in a VM, which is
+> not the same as the local host your Pyrsia is running on. Using `0.0.0.0` works
+> around this issue. In case you're having issues, try specifying your host IP address
+> as the registry-mirror and bind your local Pyrsia node to that IP (using `-H`
+> with an explicit IP address or using `-H 0.0.0.0`)
 
 You will need to restart Docker Desktop. Once restarted you should be able to
 pull Docker images through Pyrsia.
@@ -212,6 +215,10 @@ make up the Docker image `alpine:3.16.2`:
 ```
 
 ## Requesting a build
+
+> **This feature is WIP** Currently a build is not going to be requested automatically
+> if an artifact is not available in the Pyrsia network.
+> Please run the command below to request a build.
 
 While it's Pyrsia intention to build and publish all official Docker images, there
 is a possibility that a Docker image is not yet built/available.

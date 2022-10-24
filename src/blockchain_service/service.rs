@@ -39,8 +39,8 @@ pub const BLOCKCHAIN_ORDINAL_LENGTH: usize = 16;
 /// The maximum number of blocks in the message is 5
 pub const MAX_BLOCK_NUMBER_PER_MESSAGE: usize = 5;
 
-/// The maximum size of a block is 1MB
-pub const MAX_BLOCK_SIZE: usize = 1_000_000;
+/// The maximum size of each message in the blockchain is 10MB
+pub const BLOCKCHAIN_MAX_SIZE_PER_MESSAGE: usize = 10 * 1024 * 1024;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -131,16 +131,24 @@ impl BlockchainService {
 
         let block = *block;
 
-        log::debug!("Blockchain get block to broadcast:{:?}", block);
+        log::debug!("Blockchain sends broadcast block:{:?}", block);
 
         buf.push(cmd);
         buf.append(&mut serialize(&block_ordinal).unwrap());
         buf.append(&mut serialize(&block).unwrap());
 
         for peer_id in peer_list.iter() {
-            self.p2p_client
+            if let Err(e) = self
+                .p2p_client
                 .request_blockchain(peer_id, buf.clone())
-                .await?;
+                .await
+            {
+                log::info!(
+                    "Failed to send request_blockchain to peer {:?}. Error = {:?}",
+                    peer_id,
+                    e
+                );
+            }
         }
 
         Ok(())
@@ -154,7 +162,10 @@ impl BlockchainService {
 
         let mut buf: Vec<u8> = vec![];
 
-        log::debug!("Blockchain query ordinal from : {:?}", other_peer_id);
+        log::debug!(
+            "Blockchain query block ordinal of the peer node: {:?}",
+            other_peer_id
+        );
 
         buf.push(cmd);
 
@@ -187,6 +198,12 @@ impl BlockchainService {
         let start_mutex = Arc::new(Mutex::new(start));
 
         let cur_start_mutex = Arc::clone(&start_mutex);
+        log::debug!(
+            "Blockchain pull blocks {:?} to {:?} from peer: {:?}",
+            start,
+            end,
+            other_peer_id
+        );
 
         while end >= *cur_start_mutex.lock().unwrap() {
             // Number of blocks from start to end (inclusive start and end) should be less than MAX_BLOCK_NUMBER_PER_MESSAGE
