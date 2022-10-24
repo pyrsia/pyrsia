@@ -95,6 +95,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await?;
     }
 
+    debug!("Provide local artifacts");
+    artifact_service.clone().provide_local_artifacts().await?;
+
     debug!("Listen for p2p events");
     loop {
         if let Some(event) = p2p_events.next().await {
