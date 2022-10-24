@@ -43,6 +43,12 @@ spec:
             - name: PYRSIA_BUILDNODE
               value: {{ .Values.buildnode }}
             {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: 7888
+            initialDelaySeconds: 360
+            periodSeconds: 60
           volumeMounts:
             # name must match the volume name below
             - name: pyrsia-storage
