@@ -16,8 +16,8 @@ RELTYPE=$2
 ARCHTYPE=$3
 
 case $RELTYPE in
-  (latest|stable) ;;
-  (*) echo "Invalid RELTYPE. Valid RELTYPE: latest|stable"; exit 1;;
+  (latest|stable|testdir) ;;
+  (*) echo "Invalid RELTYPE. Valid RELTYPE: latest|stable|testdir"; exit 1;;
 esac
 
 case $ARCHTYPE in
@@ -25,8 +25,8 @@ case $ARCHTYPE in
   (*) echo "Invalid ARCHTYPE. Valid ARCHTYPE: x86_64|arm64"; exit 1;;
 esac
 
-mkdir syncdir
+mkdir -p syncdir
 gsutil -m cp pyrsia-${FQBVN}.tar.gz  gs://homebrewrepo/${RELTYPE}/${ARCHTYPE}/pyrsia-${FQBVN}.tar.gz
-gsutil -m rsync -r gs://homebrewrepo ./syncdir/
+gsutil -m -o "GSUtil:parallel_process_count=1" rsync -r -i gs://homebrewrepo syncdir
 python3 .github/workflows/genlisting.py syncdir -r
-gsutil -m rsync -r ./syncdir/ gs://homebrewrepo
+gsutil -m -o "GSUtil:parallel_process_count=1" rsync -r -i syncdir gs://homebrewrepo
