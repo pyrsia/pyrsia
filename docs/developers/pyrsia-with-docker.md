@@ -4,7 +4,7 @@ sidebar_position: 5
 
 # Pyrsia and Docker
 
-Once you have setup your [local environment](docs/community/get_involved/local_dev_setup.md) with Pyrsia you are now ready to run Pyrsia with Docker support.
+Once you have setup your [local environment](/docs/community/get_involved/local_dev_setup.md) with Pyrsia you are now ready to run Pyrsia with Docker support.
 
 ## Integrating and Building with Docker
 
