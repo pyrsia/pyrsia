@@ -16,8 +16,8 @@ RELTYPE=$2
 ARCHTYPE=$3
 
 case $RELTYPE in
-  (latest|stable|testdir) ;;
-  (*) echo "Invalid RELTYPE. Valid RELTYPE: latest|stable|testdir"; exit 1;;
+  (latest|stable) ;;
+  (*) echo "Invalid RELTYPE. Valid RELTYPE: latest|stable"; exit 1;;
 esac
 
 case $ARCHTYPE in
