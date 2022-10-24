@@ -8,7 +8,7 @@ This tutorial describes how to start and debug Pyrsia using Microsoft Visual Cod
 
 ## Prerequisites
 
-Before continuing please make sure that you have cloned and compiled the Pyrsia sources. For more information please see [Developer Environment Setup](../get_involved/local_dev_setup.md). In this tutorial `PYRSIA_HOME` refers to the Pyrsia repository folder.
+Before continuing please make sure that you have cloned and compiled the Pyrsia sources. For more information please see [Developer Environment Setup](/docs/community/get_involved/local_dev_setup.md). In this tutorial `PYRSIA_HOME` refers to the Pyrsia repository folder.
 
 ## IntelliJ IDEA Configuration
 
@@ -20,7 +20,7 @@ Before continuing please make sure that you have cloned and compiled the Pyrsia 
 - Rename the configuration to `Run Node`.
 - In the `Command` field past the following:
 
-`run --package pyrsia_node -- --pipeline-service-endpoint http://localhost:8080 --host 0.0.0.0 --port 7888 --listen /ip4/0.0.0.0/tcp/44002`
+`run --package pyrsia_node -- --pipeline-service-endpoint http://localhost:8080 --port 7888 --listen /ip4/0.0.0.0/tcp/44002`
 
 - Add the following vars to the `Environment Variables`:
 

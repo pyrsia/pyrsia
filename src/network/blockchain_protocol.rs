@@ -21,7 +21,7 @@ use libp2p::request_response::RequestResponseCodec;
 use log::debug;
 use std::io;
 
-use crate::blockchain_service::service::{MAX_BLOCK_NUMBER_PER_MESSAGE, MAX_BLOCK_SIZE};
+use crate::blockchain_service;
 
 #[derive(Debug, Clone)]
 pub struct BlockchainExchangeProtocol();
@@ -53,13 +53,16 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let buffer =
-            read_length_prefixed(io, (MAX_BLOCK_NUMBER_PER_MESSAGE + 1) * MAX_BLOCK_SIZE).await?;
+        let buffer = read_length_prefixed(
+            io,
+            blockchain_service::service::BLOCKCHAIN_MAX_SIZE_PER_MESSAGE,
+        )
+        .await?;
         if buffer.is_empty() {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
 
-        debug!("Blockchain::read_request starts");
+        debug!("Blockchain::read_request received");
 
         Ok(BlockchainRequest(buffer))
     }
@@ -73,13 +76,16 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let buffer =
-            read_length_prefixed(io, (MAX_BLOCK_NUMBER_PER_MESSAGE + 1) * MAX_BLOCK_SIZE).await?;
+        let buffer = read_length_prefixed(
+            io,
+            blockchain_service::service::BLOCKCHAIN_MAX_SIZE_PER_MESSAGE,
+        )
+        .await?;
         if buffer.is_empty() {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
 
-        debug!("Blockchain::read_response starts");
+        debug!("Blockchain::read_response received");
 
         Ok(BlockchainResponse(buffer))
     }
@@ -94,7 +100,7 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        debug!("Blockchain::write_request starts");
+        debug!("Blockchain::write_request sent");
 
         write_length_prefixed(io, data).await?;
         io.close().await?;
@@ -112,7 +118,7 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        debug!("Blockchain::write_response starts");
+        debug!("Blockchain::write_response sent");
 
         write_length_prefixed(io, data).await?;
         io.close().await?;
