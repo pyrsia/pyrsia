@@ -1,8 +1,9 @@
-Docker Image Downloaded from Pyrsia Decentralized Network - Verification
-========================================================================
+
+# Docker Image Downloaded from Pyrsia Decentralized Network - Verification
+
 Here we will demonstrate how you will confirm that docker images are getting downloaded from Pyrsia network Docker registry provided you configure your Docker daemon config and image available to Pyrsia network.
 
-# Remove all local images
+## Remove all local images
 Script removes all docker images from local
 ```
 for imgid in $(docker images -q); do
@@ -11,7 +12,7 @@ for imgid in $(docker images -q); do
 done
 ```
 
-# Setup Local Docker Registry
+## Setup Local Docker Registry
 Run following command to have a local docker registry.
 
 ```
@@ -22,7 +23,7 @@ docker run -d \
  registry:2
 ```
 
-# Pull image from Docker Hub
+## Pull image from Docker Hub
 ```
 docker pull alpine:3.16.2
 ```
@@ -34,7 +35,7 @@ Status: Image is up to date for alpine:3.16.2
 docker.io/library/alpine:3.16.2
 ```
 
-# Tag downloaded image to upload to local registry
+## Tag downloaded image to upload to local registry
 Tag the image as `localhost:5000/alpine:3.16.2`. This creates an additional tag for the existing image. When the first part of the tag is a hostname and port, Docker interprets this as the location of a registry, when pushing.
 
 ```
@@ -52,7 +53,7 @@ docker/desktop-vpnkit-controller     v2.0      8c2c38aa676e   17 months ago   21
 docker/desktop-storage-provisioner   v2.0      99f89471f470   18 months ago   41.9MB
 ```
 
-# Push image to local registry
+## Push image to local registry
 Push to local registry using `docker push docker.localhost:5000/alpine:3.16.2`
 Logs shows something like following
 ```
@@ -67,7 +68,7 @@ total 4
 drwxr-xr-x    5 root     root          4096 Oct 25 06:51 alpine
 ```
 
-# Remove image from local cache
+## Remove image from local cache
 Remove the locally-cached alpine:3.16.2 and docker.localhost:5000/alpine:3.16.2 images, so that you can test pulling the image from your registry. This does not remove the docker.localhost:5000/alpine:3.16.2 image from your registry.
 ```
 docker rmi -f alpine:3.16.2
@@ -75,9 +76,9 @@ docker rmi -f docker.localhost:5000/alpine:3.16.2
 docker rmi -f localhost:5000/alpine:3.16.2
 ```
 
-# Let's Start Using Local Registry
+## Let's Start Using Local Registry
 
-## Pull from Local Registry
+### Pull from Local Registry
 Pull image from local registry
 ```
 docker pull docker.localhost:5000/alpine:3.16.2
@@ -91,21 +92,21 @@ Digest: sha256:1304f174557314a7ed9eddb4eab12fed12cb0cd9809e4c28f29af86979a3c870
 Status: Downloaded newer image for docker.localhost:5000/alpine:3.16.2
 docker.localhost:5000/alpine:3.16.2
 ```
-## API verification from Local Registry
+### API verification from Local Registry
 
 Verify v2 version support `curl -i -X GET http://docker.localhost:5000/v2/`.
 
 Pulling an Image Manifest `curl -i -X GET http://docker.localhost:5000/v2/alpine/manifests/3.16.2`
 
 
-## Change the mirror registry to use Local Registry
+### Change the mirror registry to use Local Registry
 Add following `key:value` pair to Docker daemon configuration file.
 ```
   "insecure-registries": ["http://docker.localhost:5000"],
   "registry-mirrors": ["http://docker.localhost:5000"]
 ```
 
-## Test Docker Pull without specifying registry host:port explicitly
+### Test Docker Pull without specifying registry host:port explicitly
 Remove all the images from cache. Follow [Remove image from local cache](#remove-image-from-local-cache)
 
 | Pull an image available in local registry      | Pull an image not available in local registry  |
@@ -148,23 +149,23 @@ sequenceDiagram
     Note right of Docker Hub: 9621f1afde84: Pull complete
 ```
 
-# Set Pyrsia Decentralize Network as Docker Registry Mirror
+## Set Pyrsia Decentralize Network as Docker Registry Mirror
 Set Pyrsia Decentralize Network as Docker Registry Mirror in the same way we did it local Docker Registry
 
-## Get Pyrsia Node cofig
+### Get Pyrsia Node cofig
 Use `pyrsia config --show` to get your node config details. Assume your node details are like below.
 ```
 host = '0.0.0.0'
 port = '7888'
 disk_allocated = '10 GB'
 ```
-## Change Docker daemon config
+### Change Docker daemon config
 Create a following `key:value` pair for Docker daemon config and append to the existing config
 - `"insecure-registries": ["http://0.0.0.0:7888"]`
 - `"registry-mirrors": ["http://0.0.0.0:7888"]`
   Apply the config & restart Docker daemon process. **Wait for Docker to daemon to restart cleanly**.
 
-## Pull Image from Pyrsia
+### Pull Image from Pyrsia
 Try to get inspect log from Pyrsia using `pyrsia inspect-log docker --image alpine:3.16.2`.
 
 If you find the image in Pyrsia
