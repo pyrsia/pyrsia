@@ -120,10 +120,8 @@ Pulling an Image Manifest `curl -i -X GET http://docker.localhost:5000/v2/alpine
 
 Add following `key:value` pair to Docker daemon configuration file.
 
-```shell
-  "insecure-registries": ["http://docker.localhost:5000"],
-  "registry-mirrors": ["http://docker.localhost:5000"]
-```
+- `"insecure-registries": ["http://docker.localhost:5000"]`
+- `"registry-mirrors": ["http://docker.localhost:5000"]`
 
 ### Test Docker Pull without specifying registry host:port explicitly
 
