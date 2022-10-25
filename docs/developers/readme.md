@@ -2,7 +2,7 @@
 sidebar_position: 3
 ---
 
-# Developer's Hub
+# Contributor documentation
 
 - [Architecture and use cases](/docs/developers/pyrsia-architecture-and-use-cases.md)
 - [Pyrsia demo: build Docker images from source](/docs/developers/build_from_source_docker.md)
