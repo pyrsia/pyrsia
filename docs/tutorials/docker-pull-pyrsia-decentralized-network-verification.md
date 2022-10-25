@@ -43,10 +43,17 @@ docker.io/library/alpine:3.16.2
 
 ## Tag downloaded image to upload to local registry
 
-Tag the image as `localhost:5000/alpine:3.16.2`. This creates an additional tag for the existing image. When the first part of the tag is a hostname and port, Docker interprets this as the location of a registry, when pushing.
+Create a mapping from hostname `docker.localhost` to IP `127.0.0.1` in `/etc/hosts` file.
 
 ```shell
-docker tag alpine:3.16.2 localhost:5000/alpine:3.16.2
+# Added manually for Docker Desktop
+127.0.0.1 docker.localhost
+```
+
+Tag the image as `docker.localhost:5000/alpine:3.16.2`. This creates an additional tag for the existing image. When the first part of the tag is a hostname and port, Docker interprets this as the location of a registry, when pushing.
+
+```shell
+docker tag alpine:3.16.2 docker.localhost:5000/alpine:3.16.2
 ```
 
 Now list all the images `docker images` and in the list includes following entries
