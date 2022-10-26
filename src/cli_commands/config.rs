@@ -14,9 +14,11 @@
    limitations under the License.
 */
 
+use std::fmt::{Display, Formatter};
+use std::path::PathBuf;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
 
 const CONF_FILE: &str = "pyrsia-cli";
 
@@ -67,6 +69,11 @@ pub fn get_config() -> Result<CliConfig> {
     let cfg: CliConfig = confy::load(CONF_FILE, None)?;
 
     Ok(cfg)
+}
+
+pub fn get_config_file_path() -> Result<PathBuf> {
+    let path_buf: PathBuf = confy::get_configuration_file_path(CONF_FILE, None)?;
+    Ok(path_buf)
 }
 
 #[cfg(test)]

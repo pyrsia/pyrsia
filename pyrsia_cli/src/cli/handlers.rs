@@ -53,6 +53,17 @@ pub fn config_add() {
 }
 
 pub fn config_show() {
+    match config::get_config_file_path() {
+        Ok(path_buf) => {
+            println!(
+                "Config file path: {}",
+                path_buf.into_os_string().into_string().unwrap()
+            )
+        }
+        Err(error) => {
+            println!("Error retrieving config file path:       {}", error);
+        }
+    }
     let result = config::get_config();
     match result {
         Ok(config) => {
