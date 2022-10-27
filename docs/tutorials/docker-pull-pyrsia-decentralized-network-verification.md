@@ -142,7 +142,6 @@ Remove all the images from cache. Follow [Remove image from local cache](#remove
 
 Therefore, in `docker pull <image>` log says `Already exists`, it means that it is getting pulled from one of the mirror. Configuring mirrors doesn't ensure that you are always pulling from internal mirror. Docker checks at the mirror first and then falls back to DockerHub registry.
 
-
 ```mermaid
 sequenceDiagram
     participant Docker Client
