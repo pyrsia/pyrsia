@@ -140,9 +140,8 @@ Remove all the images from cache. Follow [Remove image from local cache](#remove
 | **Logs** <br />3.16.2: Pulling from library/alpine<br />213ec9aee27d: **_Already exists_**<br />Digest: sha256:bc41182d7ef5ffc53a40b044e725193bc10142a1243f395ee852a8d9730fc2ad<br />Status: Downloaded newer image for alpine:3.16.2<br />docker.io/library/alpine:3.16.2 | **Logs** <br />3.15.6: Pulling from library/alpine<br />9621f1afde84: **_Pull complete_**<br />Digest: sha256:69463fdff1f025c908939e86d4714b4d5518776954ca627cbeff4c74bcea5b22<br />Status: Downloaded newer image for alpine:3.15.6<br />docker.io/library/alpine:3.15.6 |
 | When it already in local registry, in the log it shows **_Already exists_** | While it is not in local registry, it shows **_Pull complete_** |
 
-Therefore, in `docker pull <image>` log says `Already exists`, it means that it is getting pulled from one of the mirror. Configuring mirrors doesn't ensure that you are always pulling from internal mirror. Docker checks at the mirror first and then goes to
+Therefore, in `docker pull <image>` log says `Already exists`, it means that it is getting pulled from one of the mirror. Configuring mirrors doesn't ensure that you are always pulling from internal mirror. Docker checks at the mirror first and then falls back to DockerHub registry.
 
-Docker pull without specifying the registry explicitly `docker pull alpine:3.16.2`
 
 ```mermaid
 sequenceDiagram
