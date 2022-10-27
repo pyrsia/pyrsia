@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use crate::CONF_FILE_PATH_MSG_STARTER;
 use lazy_static::lazy_static;
 use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::node;
@@ -56,12 +57,13 @@ pub fn config_show() {
     match config::get_config_file_path() {
         Ok(path_buf) => {
             println!(
-                "Config file path: {}",
+                "{} {}",
+                CONF_FILE_PATH_MSG_STARTER,
                 path_buf.into_os_string().into_string().unwrap()
             )
         }
         Err(error) => {
-            println!("Error retrieving config file path:       {}", error);
+            println!("Error retrieving config file path: {}", error);
         }
     }
     let result = config::get_config();
@@ -70,7 +72,7 @@ pub fn config_show() {
             println!("{}", config)
         }
         Err(error) => {
-            println!("No Node Configured:       {}", error);
+            println!("No Node Configured: {}", error);
         }
     };
 }
