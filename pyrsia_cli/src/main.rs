@@ -79,7 +79,6 @@ mod tests {
     use crate::CONF_FILE_PATH_MSG_STARTER;
     use assert_cmd::Command;
     use predicates::prelude::*;
-
     #[tokio::test(flavor = "multi_thread")]
     async fn test_config_show_file_path_info_availability() {
         let mut cmd = Command::cargo_bin("pyrsia").unwrap();
