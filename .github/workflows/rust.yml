@@ -288,11 +288,15 @@ jobs:
       with:
         toolchain: stable
         override: true
+      run: |
+        cargo clean
+        cargo build --all-targets --workspace
+      shell: /bin/bash -e {0}
 
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1
       with:
-        args: '--all-targets --workspace -- --test-threads 1'
+        args: '--skip-clean --all-targets --workspace -- --test-threads 1'
 
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v3
