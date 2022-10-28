@@ -8,21 +8,19 @@ Pyrsia can easily be setup on a local Ubuntu (or Debian based) machine by using 
 
 ## Supported Platforms
 
-:::warning Limited platform support
+We support the following platforms to run Pyrsia.
 
-Currently our team is working very hard on core features and installers for other operating systems.
+- [Windows (x86_64)](#windows)
+- [macOS (x86_64)](#macos)
+- [Ubuntu Focal (x86_64)](#linux)
+- [pre-built Docker image](#run-pyrsia-in-docker)
+- [build Pyrsia from source](/docs/community/get_involved/local_dev_setup.md)
 
-:::
-
-- Windows (x86_64)
-- Ubuntu Focal (x86_64)
-
-Until we provide installers for other operating systems, you can start using Pyrsia
-by running our [pre-built Docker image](#run-pyrsia-in-docker) or [build Pyrsia from source](/docs/community/get_involved/local_dev_setup.md).
+Please let us know if the platform of your choice is not yet supported.
 
 ## Windows
 
-:::warning Minimal installer functionality
+:::note Minimal installer functionality
 
 In version 0.2 we chose to include a minimal Windows installer. It simply installs the node and cli executables that need
 to be run manually. Also the installer is not yet signed, so you need to ignore some warnings. We plan to fix this in subsequent releases.
@@ -87,6 +85,91 @@ pyrsia inspect-log docker --image alpine:3.16.0
 This should output something like this:
 
 ```text
+[
+  {
+    "artifact_hash": "2408cc74d12b6cd092bb8b516ba7d5e290f485d3eb9672efc00f0583730179e8",
+    "artifact_id": "f3f2c69c-3387-47d0-96c8-cb57b3e9f1ae",
+    "id": "70d17e31-14b5-4e00-9107-acc95e8bf5c8",
+    "node_id": "bde95c7a-1397-470a-8f07-d9f13e97dffe",
+    "node_public_key": "a65f7c06-cdc9-4210-b0c1-1a08311231ec",
+    "num_artifacts": 4,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "alpine@sha256:2408cc74d12b6cd092bb8b516ba7d5e290f485d3eb9672efc00f0583730179e8",
+    "package_specific_id": "alpine:3.16.0",
+    "package_type": "Docker",
+    "source_id": "ddd37612-5da8-4b74-b884-5fa1e2fb1a52",
+    "timestamp": 1666096808
+  },
+  ...
+]
+```
+
+Including the JSON output of the retrieved transparency logs for `alpine:3.16.0`.
+
+Now you are ready to follow the instructions in [Configure Docker to use Pyrsia](docker.md) to make actual use of Pyrsia.
+
+## macOS
+
+:::note Minimal installer functionality
+
+In version 0.2 we choose to include minimalistic macOS installer. The installer is available through Homebrew package manager.
+
+:::
+
+### Using Homebrew Package Manager
+
+- Homebrew is a free macOS package manager that allows you to install, update, or remove software by running commands in
+the terminal. Homebrew makes it easy to install the latest versions of various software for macOS. Find the
+Homebrew installation [link](https://brew.sh/) here.
+
+- Use [Pyrsia Taps](https://github.com/pyrsia/homebrew-pyrsia) (Third-Party Repositories)
+
+```shell
+brew tap pyrsia/pyrsia
+```
+- Use brew installer to install Pyrsia
+```shell
+brew install pyrsia
+```
+- Open a terminal and start Pyrsia Node using the following
+```shell
+export RUST_LOG=info
+pyrsia_node
+```
+This will start Pyrsia node in you local machine with logging level set to `info`. (For additional level of logging, you can also set this to `export RUST_LOG=debug`.)
+
+When you start the Pyrsia node for first time, macOS might ask for network connection permission. So make sure to
+allow this.
+
+- Once Pyrsia node is running state, the log will display similar kind of logs in the terminal
+```
+ $ pyrsia_node -H 0.0.0.0
+ 2022-10-20T07:45:57.707Z INFO  pyrsia_node > Pyrsia Docker Node will start running on 0.0.0.0:7888
+ 2022-10-20T07:45:57.708Z INFO  pyrsia_node > Looking up bootstrap node
+ 2022-10-20T07:45:57.709Z INFO  pyrsia::network::event_loop > Local node is listening on "/ip4/192.168.86.171/tcp/54690/p2p/12D3KooWL8xbhUABLVUAmpcVoCZSghRX1XZZmoyMPo4VC28CEx6P"
+ 2022-10-20T07:45:57.709Z INFO  pyrsia::network::event_loop > Local node is listening on "/ip4/127.0.0.1/tcp/54690/p2p/12D3KooWL8xbhUABLVUAmpcVoCZSghRX1XZZmoyMPo4VC28CEx6P"
+ 2022-10-20T07:45:57.709Z INFO  pyrsia::network::event_loop > Local node is listening on "/ip4/100.64.0.1/tcp/54690/p2p/12D3KooWL8xbhUABLVUAmpcVoCZSghRX1XZZmoyMPo4VC28CEx6P"
+ 2022-10-20T07:45:57.929Z INFO  pyrsia_node                 > Found bootstrap peer_addr "/ip4/104.198.178.107/tcp/44000/p2p/12D3KooWERQcvMrdmRc8a3oSuEDU2AmMZ974ADpisbbpFDrSZ8hx"
+ 2022-10-20T07:45:57.930Z INFO  pyrsia_node                 > Probing "/ip4/104.198.178.107/tcp/44000/p2p/12D3KooWERQcvMrdmRc8a3oSuEDU2AmMZ974ADpisbbpFDrSZ8hx"
+ 2022-10-20T07:46:23.248Z INFO  pyrsia::network::event_loop > Autonat status changed from Unknown to Private
+```
+- Open another terminal to verify everything is running smoothly.
+    - To verify Pyrsia version
+```shell
+pyrsia --version
+```
+Display the version `pyrsia_cli 0.2.0`
+    - To verify your local Pyrsia node connected to Pyrsia network
+```shell
+pyrsia ping
+```
+If your node successfully connected to the Pyrsia network you will see `Connection Successful !!`
+    - To verify you received the transparency logs from the network, run this:
+```shell
+pyrsia inspect-log docker --image alpine:3.16.0
+```
+This should output something like this:
+```text
 Inspect log request returns the following logs: ...
 ```
 
@@ -145,7 +228,23 @@ pyrsia inspect-log docker --image alpine:3.16.0
 This should output something like this:
 
 ```text
-Inspect log request returns the following logs: ...
+[
+  {
+    "artifact_hash": "2408cc74d12b6cd092bb8b516ba7d5e290f485d3eb9672efc00f0583730179e8",
+    "artifact_id": "f3f2c69c-3387-47d0-96c8-cb57b3e9f1ae",
+    "id": "70d17e31-14b5-4e00-9107-acc95e8bf5c8",
+    "node_id": "bde95c7a-1397-470a-8f07-d9f13e97dffe",
+    "node_public_key": "a65f7c06-cdc9-4210-b0c1-1a08311231ec",
+    "num_artifacts": 4,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "alpine@sha256:2408cc74d12b6cd092bb8b516ba7d5e290f485d3eb9672efc00f0583730179e8",
+    "package_specific_id": "alpine:3.16.0",
+    "package_type": "Docker",
+    "source_id": "ddd37612-5da8-4b74-b884-5fa1e2fb1a52",
+    "timestamp": 1666096808
+  },
+  ...
+]
 ```
 
 Including the JSON output of the retrieved transparency logs for `alpine:3.16.0`

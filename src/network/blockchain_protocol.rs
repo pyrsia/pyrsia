@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use crate::blockchain_service;
 use async_trait::async_trait;
 use futures::prelude::*;
 use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
@@ -51,12 +52,16 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let buffer = read_length_prefixed(io, 1_500_000).await?;
+        let buffer = read_length_prefixed(
+            io,
+            blockchain_service::service::BLOCKCHAIN_MAX_SIZE_PER_MESSAGE,
+        )
+        .await?;
         if buffer.is_empty() {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
 
-        debug!("Blockchain::read_request receives: {:?}", buffer);
+        debug!("Blockchain::read_request received");
 
         Ok(BlockchainRequest(buffer))
     }
@@ -70,12 +75,16 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let buffer = read_length_prefixed(io, 1_500_000).await?;
+        let buffer = read_length_prefixed(
+            io,
+            blockchain_service::service::BLOCKCHAIN_MAX_SIZE_PER_MESSAGE,
+        )
+        .await?;
         if buffer.is_empty() {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
 
-        debug!("Blockchain::read_response receives: {:?}", buffer);
+        debug!("Blockchain::read_response received");
 
         Ok(BlockchainResponse(buffer))
     }
@@ -90,7 +99,7 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        debug!("Blockchain::write_request sends: {:?}", data);
+        debug!("Blockchain::write_request sent");
 
         write_length_prefixed(io, data).await?;
         io.close().await?;
@@ -108,7 +117,7 @@ impl RequestResponseCodec for BlockchainExchangeCodec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        debug!("Blockchain::write_response sends: {:?}", data);
+        debug!("Blockchain::write_response sent");
 
         write_length_prefixed(io, data).await?;
         io.close().await?;

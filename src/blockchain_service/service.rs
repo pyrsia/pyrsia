@@ -34,6 +34,9 @@ pub const BLOCKCHAIN_COMMAND_LENGTH: usize = 1;
 /// Blockchain ordinal length is 16 bytes
 pub const BLOCKCHAIN_ORDINAL_LENGTH: usize = 16;
 
+/// The maximum size of each message in the blockchain is 10MB
+pub const BLOCKCHAIN_MAX_SIZE_PER_MESSAGE: usize = 10 * 1024 * 1024;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum BlockchainCommand {
@@ -123,16 +126,24 @@ impl BlockchainService {
 
         let block = *block;
 
-        log::debug!("Blockchain get block to broadcast:{:?}", block);
+        log::debug!("Blockchain sends broadcast block:{:?}", block);
 
         buf.push(cmd);
         buf.append(&mut serialize(&block_ordinal).unwrap());
         buf.append(&mut serialize(&block).unwrap());
 
         for peer_id in peer_list.iter() {
-            self.p2p_client
+            if let Err(e) = self
+                .p2p_client
                 .request_blockchain(peer_id, buf.clone())
-                .await?;
+                .await
+            {
+                log::info!(
+                    "Failed to send request_blockchain to peer {:?}. Error = {:?}",
+                    peer_id,
+                    e
+                );
+            }
         }
 
         Ok(())
@@ -146,7 +157,10 @@ impl BlockchainService {
 
         let mut buf: Vec<u8> = vec![];
 
-        log::debug!("Blockchain query ordinal from : {:?}", other_peer_id);
+        log::debug!(
+            "Blockchain query block ordinal of the peer node: {:?}",
+            other_peer_id
+        );
 
         buf.push(cmd);
 
@@ -171,7 +185,12 @@ impl BlockchainService {
 
         let mut buf: Vec<u8> = vec![];
 
-        log::debug!("Blockchain query ordinal from : {:?}", other_peer_id);
+        log::debug!(
+            "Blockchain pull blocks {:?} to {:?} from peer: {:?}",
+            start,
+            end,
+            other_peer_id
+        );
 
         buf.push(cmd);
         buf.append(&mut serialize(&start).unwrap());

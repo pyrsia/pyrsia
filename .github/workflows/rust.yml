@@ -19,6 +19,9 @@ env:
 jobs:
   # OS/X  Build Job
   build-osx:
+    permissions:
+      contents: 'read'
+      id-token: 'write'
     runs-on: macos-latest
     env:
       RUSTC_WRAPPER: /Users/runner/.cargo/bin/sccache
@@ -39,9 +42,16 @@ jobs:
         sccache --show-stats
 
     # Need to add build number to version number
-    - name: Add Build to Version Number
+    - id: add-fqbvn-and-export
+      name: Add Build Number to Version Number and Export to Output
+      #      if:  github.repository_owner == 'pyrsia' && github.event_name == 'push' && github.event.pull_request.merged == true
       run: |
-        sed -i.bak "/^version = \"0.2.0\"/s/\"\$/+${{ github.run_number }}\"/" Cargo.toml
+        brew install gnu-sed
+        echo -n 'export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"' >> ~/.zshrc
+        . ~/.zshrc
+        sed -ir.bak "0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\1\2\4+${{ github.run_number }}\5/" Cargo.toml
+        echo "TAG_NAME=$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)" >> $GITHUB_OUTPUT
+      shell: /bin/zsh -e {0}
 
     - name: Build Release and Test Binaries
       run: |
@@ -51,6 +61,46 @@ jobs:
     - name: Execute Test Cases
       run: |
         cargo test --workspace --verbose --release
+
+    # Creates installer archive of pyrsia and pyrsia_node
+    - id: generate-homebrew-archives
+      name: Create Pyrsia Homebrew archives
+      run: |
+        tar -C target/release -czf pyrsia-${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }}.tar.gz pyrsia pyrsia_node
+      shell: /bin/zsh -e {0}
+
+    - id: build-osx-google-auth
+      name: Google Auth
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+      uses: 'google-github-actions/auth@v0'
+      with:
+        workload_identity_provider: 'projects/679352079717/locations/global/workloadIdentityPools/pyrsia-pool/providers/github-provider'
+        service_account: 'pyrsia-ghaction@pyrsia-sandbox.iam.gserviceaccount.com'
+
+    - id: build-osx-setup-cloud-sdk
+      name: Set up Cloud SDK
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+      uses: 'google-github-actions/setup-gcloud@v0'
+
+    # Publish nightly version of installer archive to cloud bucket
+    - id: build-osx-publish-nightly-gcs-repo
+      name: Publish Build to NIGHTLY GCS repo
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+      run: |
+        .github/workflows/homebrew-installer-upload.sh ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} latest x86_64
+      shell: /bin/zsh -e {0}
+      env:
+        GPG_KEY: ${{ secrets.GPG_KEY }}
+
+    # Publish stable version of installer archive to cloud bucket
+    - id: build-osx-publish-stable-gcs-repo
+      name: Publish Release to STABLE GCS repo
+      if: github.repository_owner == 'pyrsia' && github.event_name == 'release'
+      run: |
+        .github/workflows/homebrew-installer-upload.sh ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} stable x86_64
+      shell: /bin/zsh -e {0}
+      env:
+        GPG_KEY: ${{ secrets.GPG_KEY }}
 
   # Windows Build Job
   build-windows:
@@ -254,7 +304,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     needs: [build-push-linux]
-    if: github.repository_owner == 'pyrsia' && github.event_name == 'push'
+    if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
     steps:
     - uses: actions/checkout@v3
       with:

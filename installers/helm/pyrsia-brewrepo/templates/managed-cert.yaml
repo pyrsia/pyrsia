@@ -1,0 +1,8 @@
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: managed-cert-brewrepo
+spec:
+  domains:
+    - brewrepo.pyrsia.io
