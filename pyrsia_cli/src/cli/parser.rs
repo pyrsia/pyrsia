@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use clap::{arg, command, crate_version, AppSettings, ArgMatches, Command};
+use clap::{arg, command, crate_version, AppSettings, ArgGroup, ArgMatches, Command};
 use const_format::formatcp;
 
 pub fn cli_parser() -> ArgMatches {
@@ -53,12 +53,24 @@ pub fn cli_parser() -> ArgMatches {
                 .short_flag('c')
                 .about("Configure Pyrsia")
                 .arg_required_else_help(true)
-                .args(&[
+                .subcommands(vec![
+                    Command::new("edit")
+                        .short_flag('e')
+                        .about("Edits a node configuration")
+                        .arg_required_else_help(true)
+                        .group(ArgGroup::new("pyrsia_node_config").multiple(true))
+                        .args([
+                            arg!(-H --host <HOST> "Hostname").group("pyrsia_node_config"),
+                            arg!(-p --port <PORT> "Port number").group("pyrsia_node_config"),
+                            arg!(-d --diskspace <DISK_SPACE> "Disk space to be allocated to pyrsia node").group("pyrsia_node_config"),
+                        ])
+                ]),
+                /*.args(&[
                     arg!(-a --add      "Adds a node configuration"),
                     arg!(-e --edit     "Edits a node configuration"),
                     arg!(-r --remove   "Removes the stored node configuration").visible_alias("rm"),
                     arg!(-s --show     "Shows the stored node configuration"),
-                ]),
+                ]),*/
             Command::new("inspect-log")
                 .about("Show transparency logs")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
