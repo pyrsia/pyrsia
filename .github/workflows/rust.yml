@@ -288,6 +288,10 @@ jobs:
       with:
         toolchain: stable
         override: true
+
+    # This cargo build creates all binaries under target/debug/ directory. These files get used by unit test cases
+    # designed to test CLI commands. This step is to complement cargo tarpaulin which doesn't create binaries.
+    - name: Cargo build for Cargo Tarpaulin
       run: |
         cargo clean
         cargo build --all-targets --workspace
