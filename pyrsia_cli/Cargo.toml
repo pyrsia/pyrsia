@@ -24,6 +24,11 @@ walkdir = "2.3.2"
 name = "pyrsia"
 path = "src/main.rs"
 
+[dev-dependencies]
+assert_cmd = "2.0.5"
+predicates = "2.1.1"
+
 [build-dependencies]
 anyhow = "1.0"
 vergen = "7.4.0"
+

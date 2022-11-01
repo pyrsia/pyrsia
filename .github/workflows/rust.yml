@@ -289,10 +289,18 @@ jobs:
         toolchain: stable
         override: true
 
+    # This cargo build creates all binaries under target/debug/ directory. These files get used by unit test cases
+    # designed to test CLI commands. This step is to complement cargo tarpaulin which doesn't create binaries.
+    - name: Cargo build for Cargo Tarpaulin
+      run: |
+        cargo clean
+        cargo build --all-targets --workspace
+      shell: /bin/bash -e {0}
+
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1
       with:
-        args: '--all-targets --workspace -- --test-threads 1'
+        args: '--skip-clean --all-targets --workspace -- --test-threads 1'
 
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v3
