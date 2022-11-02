@@ -109,4 +109,16 @@ mod tests {
         std::env::set_var("HOME", env_home_original);
         std::fs::remove_dir_all(tmp_dir).expect("failed to clean up temporary directory");
     }
+
+    #[test]
+    fn test_get_config_file_path() {
+        let config_file_path = get_config_file_path();
+        assert!(config_file_path.is_ok());
+    }
+
+    #[test]
+    fn test_get_config() {
+        let config = get_config();
+        assert!(config.is_ok());
+    }
 }
