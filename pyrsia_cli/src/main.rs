@@ -72,3 +72,20 @@ async fn main() {
         _ => {} //this should be handled by clap arg_required_else_help
     }
 }
+
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
+mod tests {
+    use crate::CONF_FILE_PATH_MSG_STARTER;
+    use assert_cmd::Command;
+    use predicates::prelude::*;
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_config_show_file_path_info_availability() {
+        let mut cmd = Command::cargo_bin("pyrsia").unwrap();
+        cmd.arg("config")
+            .arg("--show")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(CONF_FILE_PATH_MSG_STARTER));
+    }
+}
