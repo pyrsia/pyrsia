@@ -71,8 +71,13 @@ impl From<BuildError> for RegistryError {
 
 impl From<TransparencyLogError> for RegistryError {
     fn from(err: TransparencyLogError) -> RegistryError {
-        RegistryError {
-            code: RegistryErrorCode::Unknown(err.to_string()),
+        match err {
+            TransparencyLogError::NodeAlreadyExists { .. } => RegistryError {
+                code: RegistryErrorCode::BadRequest(err.to_string()),
+            },
+            _ => RegistryError {
+                code: RegistryErrorCode::Unknown(err.to_string()),
+            },
         }
     }
 }
