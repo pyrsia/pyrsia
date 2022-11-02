@@ -8,13 +8,16 @@ if [ "$#" -lt 3 ]; then
   exit 1
 fi
 
+#Fully Qualified Build Version Number. E.g. 1.0.1+5678
 FQBVN=$1
+#Release Type
 RELTYPE=$2
+#Architecture Type
 ARCHTYPE=$3
 
 case $RELTYPE in
-  (nightly|stable) ;;
-  (*) echo "Invalid RELTYPE. Valid RELTYPE: nightly|stable"; exit 1;;
+  (latest|stable) ;;
+  (*) echo "Invalid RELTYPE. Valid RELTYPE: latest|stable"; exit 1;;
 esac
 
 case $ARCHTYPE in
@@ -22,4 +25,8 @@ case $ARCHTYPE in
   (*) echo "Invalid ARCHTYPE. Valid ARCHTYPE: x86_64|arm64"; exit 1;;
 esac
 
+mkdir -p syncdir
 gsutil -m cp pyrsia-${FQBVN}.tar.gz  gs://homebrewrepo/${RELTYPE}/${ARCHTYPE}/pyrsia-${FQBVN}.tar.gz
+gsutil -m -o "GSUtil:parallel_process_count=1" rsync -r -i gs://homebrewrepo syncdir
+python3 .github/workflows/genlisting.py syncdir -r
+gsutil -m -o "GSUtil:parallel_process_count=1" rsync -r -i syncdir gs://homebrewrepo

@@ -16,6 +16,7 @@ lazy_static = "1.4.0"
 regex = "1.6.0"
 reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 tokio = { version = "1", features = [ "full"] }
 walkdir = "2.3.2"
 
@@ -23,6 +24,11 @@ walkdir = "2.3.2"
 name = "pyrsia"
 path = "src/main.rs"
 
+[dev-dependencies]
+assert_cmd = "2.0.5"
+predicates = "2.1.1"
+
 [build-dependencies]
 anyhow = "1.0"
 vergen = "7.4.0"
+

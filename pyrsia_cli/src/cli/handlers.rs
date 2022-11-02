@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use crate::CONF_FILE_PATH_MSG_STARTER;
 use lazy_static::lazy_static;
 use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::node;
@@ -22,6 +23,7 @@ use pyrsia::node_api::model::cli::{
     RequestMavenLog,
 };
 use regex::Regex;
+use serde_json::Value;
 use std::collections::HashSet;
 use std::io;
 use std::io::BufRead;
@@ -52,13 +54,25 @@ pub fn config_add() {
 }
 
 pub fn config_show() {
+    match config::get_config_file_path() {
+        Ok(path_buf) => {
+            println!(
+                "{} {}",
+                CONF_FILE_PATH_MSG_STARTER,
+                path_buf.into_os_string().into_string().unwrap()
+            )
+        }
+        Err(error) => {
+            println!("Error retrieving config file path: {}", error);
+        }
+    }
     let result = config::get_config();
     match result {
         Ok(config) => {
             println!("{}", config)
         }
         Err(error) => {
-            println!("No Node Configured:       {}", error);
+            println!("No Node Configured: {}", error);
         }
     };
 }
@@ -153,7 +167,7 @@ pub async fn inspect_docker_transparency_log(image: &str) {
     .await;
     match result {
         Ok(logs) => {
-            println!("Inspect log request returns the following logs: {}", logs);
+            print_logs(logs);
         }
         Err(error) => {
             println!("Inspect log request failed with error: {:?}", error);
@@ -168,12 +182,17 @@ pub async fn inspect_maven_transparency_log(gav: &str) {
     .await;
     match result {
         Ok(logs) => {
-            println!("Inspect log request returns the following logs: {}", logs);
+            print_logs(logs);
         }
         Err(error) => {
             println!("Inspect log request failed with error: {:?}", error);
         }
     };
+}
+
+fn print_logs(logs: String) {
+    let logs_as_json: Value = serde_json::from_str(logs.as_str()).unwrap();
+    println!("{}", serde_json::to_string_pretty(&logs_as_json).unwrap());
 }
 
 /// Read user input interactively until the validation passed
