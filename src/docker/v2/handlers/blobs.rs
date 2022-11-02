@@ -26,11 +26,15 @@ pub async fn handle_get_blobs(
     digest: String,
     mut artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
-    debug!("Getting blob with digest: {:?}", digest);
+    debug!(
+        "Getting blob with digest: {:?}. If not found a build will be requested",
+        digest
+    );
 
     let blob_content = artifact_service
-        .get_artifact(
+        .get_artifact_or_build(
             PackageType::Docker,
+            &get_package_specific_artifact_id(&name, &digest),
             &get_package_specific_artifact_id(&name, &digest),
         )
         .await
