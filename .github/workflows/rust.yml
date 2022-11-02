@@ -42,10 +42,16 @@ jobs:
         sccache --show-stats
 
     # Need to add build number to version number
-    - name: Add Build Number to Version Number on PR Merge
-      if:  github.repository_owner == 'pyrsia' && github.event_name == 'push' && github.event.pull_request.merged == true
+    - id: add-fqbvn-and-export
+      name: Add Build Number to Version Number and Export to Output
+      #      if:  github.repository_owner == 'pyrsia' && github.event_name == 'push' && github.event.pull_request.merged == true
       run: |
-        sed -ir.bak '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\1\2\4+${{ github.run_number }}\5/' Cargo.toml
+        brew install gnu-sed
+        echo -n 'export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"' >> ~/.zshrc
+        . ~/.zshrc
+        sed -ir.bak "0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\1\2\4+${{ github.run_number }}\5/" Cargo.toml
+        echo "TAG_NAME=$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)" >> $GITHUB_OUTPUT
+      shell: /bin/zsh -e {0}
 
     - name: Build Release and Test Binaries
       run: |
@@ -56,16 +62,12 @@ jobs:
       run: |
         cargo test --workspace --verbose --release
 
-    # Exports fully qualified build version number into variable TAG_NAME
-    - id: export-fqbvn
-      name: Output Fully Qualified Build Version number
-      run: |
-        echo '::set-output name=TAG_NAME::$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)'
-
     # Creates installer archive of pyrsia and pyrsia_node
     - id: generate-homebrew-archives
       name: Create Pyrsia Homebrew archives
-      run: tar -C target/release -czf pyrsia-${{ steps.export-fqbvn.outputs.TAG_NAME }}.tar.gz pyrsia pyrsia_node
+      run: |
+        tar -C target/release -czf pyrsia-${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }}.tar.gz pyrsia pyrsia_node
+      shell: /bin/zsh -e {0}
 
     - id: build-osx-google-auth
       name: Google Auth
@@ -85,7 +87,8 @@ jobs:
       name: Publish Build to NIGHTLY GCS repo
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       run: |
-        .github/workflows/homebrew-installer-upload.sh pyrsia-${{ steps.export-fqbvn.outputs.TAG_NAME }}.tar.gz ${{ steps.export-fqbvn.outputs.TAG_NAME }} nightly x86_64
+        .github/workflows/homebrew-installer-upload.sh ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} latest x86_64
+      shell: /bin/zsh -e {0}
       env:
         GPG_KEY: ${{ secrets.GPG_KEY }}
 
@@ -94,7 +97,8 @@ jobs:
       name: Publish Release to STABLE GCS repo
       if: github.repository_owner == 'pyrsia' && github.event_name == 'release'
       run: |
-        .github/workflows/homebrew-installer-upload.sh pyrsia-${{ steps.export-fqbvn.outputs.TAG_NAME }}.tar.gz ${{ steps.export-fqbvn.outputs.TAG_NAME }} stable x86_64
+        .github/workflows/homebrew-installer-upload.sh ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} stable x86_64
+      shell: /bin/zsh -e {0}
       env:
         GPG_KEY: ${{ secrets.GPG_KEY }}
 
@@ -285,10 +289,18 @@ jobs:
         toolchain: stable
         override: true
 
+    # This cargo build creates all binaries under target/debug/ directory. These files get used by unit test cases
+    # designed to test CLI commands. This step is to complement cargo tarpaulin which doesn't create binaries.
+    - name: Cargo build for Cargo Tarpaulin
+      run: |
+        cargo clean
+        cargo build --all-targets --workspace
+      shell: /bin/bash -e {0}
+
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1
       with:
-        args: '--all-targets --workspace -- --test-threads 1'
+        args: '--skip-clean --all-targets --workspace -- --test-threads 1'
 
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v3
@@ -300,7 +312,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     needs: [build-push-linux]
-    if: github.repository_owner == 'pyrsia' && github.event_name == 'push'
+    if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
     steps:
     - uses: actions/checkout@v3
       with:
@@ -321,7 +333,7 @@ jobs:
         tags: pyrsiaoss/pyrsia-node:0.2.0-${{ github.run_number }}
 
     - name: Only build if CodeCoverage.Dockerfile changed
-      uses: tj-actions/changed-files@v32
+      uses: tj-actions/changed-files@v34
       id: changed-files
 
     - name: Build and Push Code Coverage Base Image

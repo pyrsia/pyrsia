@@ -237,6 +237,29 @@ impl ArtifactService {
         Ok(artifact)
     }
 
+    /// Retrieve the artifact data for the specified package. If the artifact
+    /// is not found, the service start a request to build it on an authorized
+    /// node.
+    pub async fn get_artifact_or_build(
+        &mut self,
+        package_type: PackageType,
+        package_specific_id: &str,
+        package_specific_artifact_id: &str,
+    ) -> anyhow::Result<Vec<u8>> {
+        self.get_artifact(package_type, package_specific_artifact_id).await.map_err(|e| {
+                warn!("Error looking for artifact: {:?}. A new build will be started. Try again later", e);
+                let new_artifact_service = self.clone();
+                let new_package_specific_id = package_specific_id.to_string();
+                tokio::spawn(async move {
+                    debug!("Spawning a build...");
+                    let build_result = new_artifact_service.clone().request_build(package_type, new_package_specific_id).await;
+                    debug!("Build result {:?}", build_result);
+                });
+                // in any case, return the error
+                e
+            })
+    }
+
     /// Retrieve the artifact data specified by `artifact_id` from the local storage.
     pub async fn get_artifact_locally(
         &mut self,
@@ -260,6 +283,19 @@ impl ArtifactService {
             .search_transparency_logs(&package_type, package_specific_id)?;
 
         Ok(transparency_logs)
+    }
+
+    pub async fn provide_local_artifacts(&self) -> anyhow::Result<()> {
+        for path in self.artifact_storage.list_artifacts()? {
+            if let Some(artifact_id) = path.file_stem() {
+                debug!("Providing artifact_id: {:?}", artifact_id);
+                self.p2p_client
+                    .clone()
+                    .provide(artifact_id.to_str().expect("error getting artifact_id"))
+                    .await?
+            }
+        }
+        Ok(())
     }
 
     async fn get_artifact_from_peers(
@@ -450,6 +486,71 @@ mod tests {
             Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
         };
         assert_eq!(s, s1);
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_put_and_list_artifact() {
+        let tmp_dir = test_util::tests::setup();
+
+        let keypair = Keypair::generate();
+
+        let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
+        let (_build_event_receiver, mut artifact_service) =
+            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    }
+                    Some(Command::Provide { sender, .. }) => {
+                        let _ = sender.send(());
+                    }
+                    _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
+
+        let package_type = PackageType::Docker;
+        let package_specific_id = "package_specific_id";
+        let package_specific_artifact_id = "package_specific_artifact_id";
+        let transparency_log = artifact_service
+            .transparency_log_service
+            .add_artifact(AddArtifactRequest {
+                package_type,
+                package_specific_id: package_specific_id.to_owned(),
+                num_artifacts: 8,
+                package_specific_artifact_id: package_specific_artifact_id.to_owned(),
+                artifact_hash: hex::encode(VALID_ARTIFACT_HASH),
+            })
+            .await
+            .unwrap();
+        artifact_service
+            .transparency_log_service
+            .write_transparency_log(&transparency_log)
+            .unwrap();
+
+        //put the artifact
+        artifact_service
+            .put_artifact(
+                &transparency_log.artifact_id,
+                &mut get_file_reader().unwrap(),
+            )
+            .context("Error from put_artifact")
+            .unwrap();
+
+        // provide artifacts
+        let future = {
+            artifact_service
+                .provide_local_artifacts()
+                .await
+                .context("Error from provide_local_artifacts")
+        };
+        let files = task::spawn_blocking(|| future).await.unwrap();
+        assert!(files.is_ok());
 
         test_util::tests::teardown(tmp_dir);
     }
