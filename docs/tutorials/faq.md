@@ -2,7 +2,7 @@
 sidebar_position: 4
 ---
 
-#  FAQ
+# FAQ
 
 ### Can I run a Pyrsia node?
 
