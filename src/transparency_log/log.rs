@@ -50,6 +50,8 @@ pub enum TransparencyLogError {
         package_type: PackageType,
         package_specific_id: String,
     },
+    #[error("Node with node ID {node_id} already exists in transparency log")]
+    NodeAlreadyExists { node_id: String },
     #[error("Hash Verification failed for ID {id}: {invalid_hash} vs {actual_hash}")]
     InvalidHash {
         id: String,
@@ -152,6 +154,8 @@ impl TransparencyLogService {
 
     /// Add a new authorized node to the p2p network.
     pub async fn add_authorized_node(&self, peer_id: PeerId) -> Result<(), TransparencyLogError> {
+        self.verify_node_can_be_added_to_transparency_logs(&peer_id.to_string())?;
+
         let transparency_log = TransparencyLog {
             id: Uuid::new_v4().to_string(),
             package_type: None,
@@ -284,6 +288,32 @@ impl TransparencyLogService {
     /// when no transparency log could be found.
     pub fn get_authorized_nodes(&self) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
         self.find_added_nodes()
+    }
+
+    /// Verifies that a specified node can be added to the transparency log database.
+    /// For that, the database should not contain the node yet. If that is not the case,
+    /// an NodeAlreadyExists error is returned
+    pub fn verify_node_can_be_added_to_transparency_logs(
+        &self,
+        peer_id: &str,
+    ) -> Result<(), TransparencyLogError> {
+        match self.get_authorized_nodes().ok() {
+            None => {
+                // error, can be added
+                Ok(())
+            }
+            Some(logs) => {
+                for log in logs {
+                    if log.node_id == *peer_id {
+                        return Err(TransparencyLogError::NodeAlreadyExists {
+                            node_id: peer_id.to_owned(),
+                        });
+                    }
+                }
+                // was removed, can be added
+                Ok(())
+            }
+        }
     }
 
     fn open_db(&self) -> Result<Connection, TransparencyLogError> {
@@ -1201,6 +1231,69 @@ mod tests {
         let vec = result_read.unwrap();
         assert_eq!(vec.len(), 1);
         assert_eq!(vec.get(0).unwrap().node_id, "node_id2");
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_verify_authorized_node_can_be_added() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log = create_transparency_log_service(&tmp_dir).await;
+
+        let result1 = log.verify_node_can_be_added_to_transparency_logs("node_id1");
+        assert!(result1.is_ok());
+
+        let transparency_log1 = TransparencyLog {
+            id: String::from("id1"),
+            package_type: None,
+            package_specific_id: String::from(""),
+            num_artifacts: 8,
+            package_specific_artifact_id: String::from(""),
+            artifact_hash: String::from(""),
+            source_hash: String::from(""),
+            artifact_id: String::from(""),
+            source_id: String::from(""),
+            timestamp: 10000000,
+            operation: Operation::AddNode,
+            node_id: String::from("node_id1"),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        let result_write1 = log.write_transparency_log(&transparency_log1);
+        assert!(result_write1.is_ok());
+
+        let result2 = log.verify_node_can_be_added_to_transparency_logs("node_id1");
+        assert!(result2.is_err());
+        assert_eq!(
+            result2.err().unwrap().to_string(),
+            TransparencyLogError::NodeAlreadyExists {
+                node_id: String::from("node_id1"),
+            }
+            .to_string()
+        );
+
+        let transparency_log3 = TransparencyLog {
+            id: String::from("id2"),
+            package_type: None,
+            package_specific_id: String::from(""),
+            num_artifacts: 8,
+            package_specific_artifact_id: String::from(""),
+            artifact_hash: String::from(""),
+            source_hash: String::from(""),
+            artifact_id: String::from(""),
+            source_id: String::from(""),
+            timestamp: 20000000,
+            operation: Operation::RemoveNode,
+            node_id: String::from("node_id1"),
+            node_public_key: Uuid::new_v4().to_string(),
+        };
+
+        let result_write2 = log.write_transparency_log(&transparency_log3);
+        assert!(result_write2.is_ok());
+
+        let result3 = log.verify_node_can_be_added_to_transparency_logs("node_id1");
+        assert!(result3.is_ok());
 
         test_util::tests::teardown(tmp_dir);
     }
