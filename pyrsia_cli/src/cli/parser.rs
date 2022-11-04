@@ -57,7 +57,6 @@ pub fn cli_parser() -> ArgMatches {
                     Command::new("edit")
                         .short_flag('e')
                         .about("Edits a node configuration")
-                        // .arg_required_else_help(true)
                         .arg(arg!(-H --host <HOST> "Hostname").required(false))
                         .arg(arg!(-p --port <PORT> "Port number").required(false))
                         .arg(arg!(-d --diskspace <DISK_SPACE> "Disk space to be allocated to Pyrsia node").required(false))
