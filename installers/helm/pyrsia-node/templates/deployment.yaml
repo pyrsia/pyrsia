@@ -31,6 +31,8 @@ spec:
             - name: p2p
               containerPort: 44000
           env:
+            - name: RUST_LOG
+              value: DEBUG
             - name: PYRSIA_ARTIFACT_PATH
               value: /usr/local/var/pyrsia
             - name: PYRSIA_BLOCKCHAIN_PATH 
