@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn test_valid_config_edit() {
         let host_name = Some(String::from("some.localhost"));
-        let port = Some(String::from("12345"));
+        let port = Some(String::from(u16::MAX.to_string()));
         let diskspace = Some(String::from("10 GB"));
         let edited_cli_config = CliConfig {
             host: host_name.clone().unwrap(),
@@ -370,7 +370,18 @@ mod tests {
         assert_eq!(edited_cli_config, updated_cli_config);
     }
 
-    /*fn test_invalid_config_edit() {
-
-    }*/
+    #[test]
+    fn test_invalid_config_edit() {
+        let host_name = Some(String::from(".some.localhost")); //e.g. host name can't start with dot i.e. "."
+        let port = Some(String::from((u16::MAX as u32 + 1).to_string()));
+        let diskspace = Some(String::from("10GB"));
+        let edited_cli_config = CliConfig {
+            host: host_name.clone().unwrap(),
+            port: port.clone().unwrap(),
+            disk_allocated: diskspace.clone().unwrap(),
+        };
+        config_edit(host_name, port, diskspace);
+        let updated_cli_config = config::get_config().unwrap();
+        assert_ne!(edited_cli_config, updated_cli_config);
+    }
 }
