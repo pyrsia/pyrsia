@@ -57,20 +57,16 @@ pub fn cli_parser() -> ArgMatches {
                     Command::new("edit")
                         .short_flag('e')
                         .about("Edits a node configuration")
-                        .arg_required_else_help(true)
-                        .group(ArgGroup::new("pyrsia_node_config").multiple(true))
-                        .args([
-                            arg!(-H --host <HOST> "Hostname").group("pyrsia_node_config"),
-                            arg!(-p --port <PORT> "Port number").group("pyrsia_node_config"),
-                            arg!(-d --diskspace <DISK_SPACE> "Disk space to be allocated to pyrsia node").group("pyrsia_node_config"),
-                        ])
-                ]),
-                /*.args(&[
-                    arg!(-a --add      "Adds a node configuration"),
-                    arg!(-e --edit     "Edits a node configuration"),
+                        // .arg_required_else_help(true)
+                        .arg(arg!(-H --host <HOST> "Hostname").required(false))
+                        .arg(arg!(-p --port <PORT> "Port number").required(false))
+                        .arg(arg!(-d --diskspace <DISK_SPACE> "Disk space to be allocated to Pyrsia node").required(false))
+                        .group(ArgGroup::new("node_config").args(&["host", "port", "diskspace"]).required(false).multiple(true))
+                ])
+                .args(&[
                     arg!(-r --remove   "Removes the stored node configuration").visible_alias("rm"),
                     arg!(-s --show     "Shows the stored node configuration"),
-                ]),*/
+                ]),
             Command::new("inspect-log")
                 .about("Show transparency logs")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
