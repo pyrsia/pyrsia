@@ -134,11 +134,12 @@ brew install pyrsia
 - Open a terminal and start Pyrsia Node using the following
 ```shell
 export RUST_LOG=info
+cd ~
 pyrsia_node
 ```
 This will start Pyrsia node in you local machine with logging level set to `info`. (For additional level of logging, you can also set this to `export RUST_LOG=debug`.)
 
-When you start the Pyrsia node for first time, macOS might ask for network connection permission. So make sure to
+When you start the Pyrsia node for first time, a directory named pyrsia is created in the current directory. Also macOS might ask for network connection permission. So make sure to
 allow this.
 
 - Once Pyrsia node is running state, the log will display similar kind of logs in the terminal
