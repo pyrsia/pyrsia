@@ -46,6 +46,14 @@ impl Display for CliConfig {
     }
 }
 
+impl PartialEq for CliConfig {
+    fn eq(&self, other: &Self) -> bool {
+        self.host.as_str() == other.host.as_str()
+            && self.port.as_str() == other.port.as_str()
+            && self.disk_allocated.as_str() == other.disk_allocated.as_str()
+    }
+}
+
 pub fn add_config(new_cfg: CliConfig) -> Result<()> {
     let mut cfg: CliConfig = confy::load(CONF_FILE, None)?;
     if !new_cfg.host.is_empty() {
