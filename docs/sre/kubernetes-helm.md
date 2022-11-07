@@ -56,7 +56,7 @@
 
 ## Using helm to deploy updates
 
-The helm charts are automatically published by the Github Actions to the http://helmrepo.pyrsia.io site. [ArtifactHub](https://artifacthub.io) pulls in chart updates every half hour.
+The helm charts are automatically published by the Github Actions to the <http://helmrepo.pyrsia.io> site. [ArtifactHub](https://artifacthub.io) pulls in chart updates every half hour.
 
 Details about the Chart Values and Installation steps are documented in the chart's ReadMe.  ArtifactHub renders the ReadMe on the [Prysia Package](https://artifacthub.io/packages/helm/pyrsia-nightly/pyrsia-node) site.
 
