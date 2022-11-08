@@ -80,7 +80,7 @@ jobs:
     - id: build-osx-setup-cloud-sdk
       name: Set up Cloud SDK
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: 'google-github-actions/setup-gcloud@v0'
+      uses: 'google-github-actions/setup-gcloud@v1'
 
     # Publish nightly version of installer archive to cloud bucket
     - id: build-osx-publish-nightly-gcs-repo
@@ -235,7 +235,7 @@ jobs:
     # Add gsutils
     - name: Set up Cloud SDK
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: 'google-github-actions/setup-gcloud@v0'
+      uses: 'google-github-actions/setup-gcloud@v1'
 
     # Add the prysia .deb file to the NIGHTLY apt repo which resides on GCS
     - name: Publish Build to NIGHTLY GCS repo
