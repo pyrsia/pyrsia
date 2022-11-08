@@ -72,7 +72,7 @@ jobs:
     - id: build-osx-google-auth
       name: Google Auth
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: 'google-github-actions/auth@v0'
+      uses: 'google-github-actions/auth@v1'
       with:
         workload_identity_provider: 'projects/679352079717/locations/global/workloadIdentityPools/pyrsia-pool/providers/github-provider'
         service_account: 'pyrsia-ghaction@pyrsia-sandbox.iam.gserviceaccount.com'
@@ -227,7 +227,7 @@ jobs:
     # Login to GCS
     - name: Google Auth
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: 'google-github-actions/auth@v0'
+      uses: 'google-github-actions/auth@v1'
       with:
         workload_identity_provider: 'projects/679352079717/locations/global/workloadIdentityPools/pyrsia-pool/providers/github-provider'
         service_account: 'pyrsia-ghaction@pyrsia-sandbox.iam.gserviceaccount.com'
