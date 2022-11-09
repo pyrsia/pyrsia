@@ -72,7 +72,7 @@ jobs:
     - id: build-osx-google-auth
       name: Google Auth
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: 'google-github-actions/auth@v0'
+      uses: 'google-github-actions/auth@v1'
       with:
         workload_identity_provider: 'projects/679352079717/locations/global/workloadIdentityPools/pyrsia-pool/providers/github-provider'
         service_account: 'pyrsia-ghaction@pyrsia-sandbox.iam.gserviceaccount.com'
@@ -80,7 +80,7 @@ jobs:
     - id: build-osx-setup-cloud-sdk
       name: Set up Cloud SDK
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: 'google-github-actions/setup-gcloud@v0'
+      uses: 'google-github-actions/setup-gcloud@v1'
 
     # Publish nightly version of installer archive to cloud bucket
     - id: build-osx-publish-nightly-gcs-repo
@@ -227,7 +227,7 @@ jobs:
     # Login to GCS
     - name: Google Auth
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: 'google-github-actions/auth@v0'
+      uses: 'google-github-actions/auth@v1'
       with:
         workload_identity_provider: 'projects/679352079717/locations/global/workloadIdentityPools/pyrsia-pool/providers/github-provider'
         service_account: 'pyrsia-ghaction@pyrsia-sandbox.iam.gserviceaccount.com'
@@ -235,7 +235,7 @@ jobs:
     # Add gsutils
     - name: Set up Cloud SDK
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: 'google-github-actions/setup-gcloud@v0'
+      uses: 'google-github-actions/setup-gcloud@v1'
 
     # Add the prysia .deb file to the NIGHTLY apt repo which resides on GCS
     - name: Publish Build to NIGHTLY GCS repo
