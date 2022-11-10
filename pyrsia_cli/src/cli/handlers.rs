@@ -15,6 +15,7 @@
 */
 
 use crate::CONF_FILE_PATH_MSG_STARTER;
+use anyhow::{anyhow, Error};
 use lazy_static::lazy_static;
 use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::node;
@@ -28,7 +29,6 @@ use std::collections::HashSet;
 use std::io;
 use std::io::BufRead;
 use std::net::Ipv4Addr;
-use anyhow::{anyhow, Error};
 
 const CONF_REMINDER_MESSAGE: &str = "Please make sure the pyrsia CLI config is up to date and matches the node configuration. For more information, run 'pyrsia config --show'";
 
@@ -54,7 +54,11 @@ pub fn config_add() {
     };
 }
 
-pub fn config_edit(host_name: Option<String>, port: Option<String>, diskspace: Option<String>) -> Result<(), Error> {
+pub fn config_edit(
+    host_name: Option<String>,
+    port: Option<String>,
+    diskspace: Option<String>,
+) -> Result<(), Error> {
     match config::get_config() {
         Ok(cur_config) => {
             let mut updated_cli_config = cur_config.clone();
@@ -98,7 +102,7 @@ pub fn config_edit(host_name: Option<String>, port: Option<String>, diskspace: O
             } else {
                 errors.into_iter().for_each(|x| println!("{}", x));
                 Err(anyhow!("Invalid pyrsia config"))
-            }
+            };
         }
         Err(error) => {
             println!("Error Saving Node Configuration:       {}", error);
