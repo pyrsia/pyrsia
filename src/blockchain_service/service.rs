@@ -188,16 +188,9 @@ impl BlockchainService {
     ) -> Result<Vec<Block>, BlockchainError> {
         let cmd = BlockchainCommand::PullFromPeer as u8;
         let mut blocks = Vec::new();
-        log::debug!(
-            "Blockchain pull blocks {:?} to {:?} from PeerID {:?}",
-            start,
-            end,
-            other_peer_id
-        );
-
         let start_mutex = Arc::new(Mutex::new(start));
-
         let cur_start_mutex = Arc::clone(&start_mutex);
+
         log::debug!(
             "Blockchain pull blocks {:?} to {:?} from peer: {:?}",
             start,
