@@ -28,6 +28,7 @@ use std::collections::HashSet;
 use std::io;
 use std::io::BufRead;
 use std::net::Ipv4Addr;
+use anyhow::{anyhow, Error};
 
 const CONF_REMINDER_MESSAGE: &str = "Please make sure the pyrsia CLI config is up to date and matches the node configuration. For more information, run 'pyrsia config --show'";
 
@@ -53,7 +54,7 @@ pub fn config_add() {
     };
 }
 
-pub fn config_edit(host_name: Option<String>, port: Option<String>, diskspace: Option<String>) {
+pub fn config_edit(host_name: Option<String>, port: Option<String>, diskspace: Option<String>) -> Result<(), Error> {
     match config::get_config() {
         Ok(cur_config) => {
             let mut updated_cli_config = cur_config.clone();
@@ -83,7 +84,7 @@ pub fn config_edit(host_name: Option<String>, port: Option<String>, diskspace: O
                 }
             }
 
-            if errors.is_empty() {
+            return if errors.is_empty() {
                 let result = config::add_config(updated_cli_config);
                 match result {
                     Ok(_) => {
@@ -93,14 +94,18 @@ pub fn config_edit(host_name: Option<String>, port: Option<String>, diskspace: O
                         println!("Error Saving Node Configuration:       {}", error);
                     }
                 }
+                Ok(())
             } else {
                 errors.into_iter().for_each(|x| println!("{}", x));
+                Err(anyhow!("Invalid pyrsia config"))
+                // return Err(InvalidConfigInput)
             }
         }
         Err(error) => {
             println!("Error Saving Node Configuration:       {}", error);
+            Err(anyhow!("Error Saving Node Configuration:       {}", error))
         }
-    };
+    }
 }
 
 pub fn config_show() {
@@ -357,6 +362,7 @@ mod tests {
 
     #[test]
     fn test_valid_config_edit() {
+        let existing_cli_config = config::get_config().unwrap();
         let host_name = Some(String::from("some.localhost"));
         let port = Some(String::from(u16::MAX.to_string()));
         let diskspace = Some(String::from("10 GB"));
@@ -365,13 +371,21 @@ mod tests {
             port: port.clone().unwrap(),
             disk_allocated: diskspace.clone().unwrap(),
         };
-        config_edit(host_name, port, diskspace);
+        let config_edit_result = config_edit(host_name, port, diskspace);
         let updated_cli_config = config::get_config().unwrap();
+        match config_edit_result {
+            Ok(_) => {
+                //restore the config to original state after test
+                let _restore_config = config::add_config(existing_cli_config);
+            }
+            Err(_) => {}
+        }
         assert_eq!(edited_cli_config, updated_cli_config);
     }
 
     #[test]
     fn test_invalid_config_edit() {
+        let existing_cli_config = config::get_config().unwrap();
         let host_name = Some(String::from(".some.localhost")); //e.g. host name can't start with dot i.e. "."
         let port = Some(String::from((u16::MAX as u32 + 1).to_string()));
         let diskspace = Some(String::from("10GB"));
@@ -380,8 +394,15 @@ mod tests {
             port: port.clone().unwrap(),
             disk_allocated: diskspace.clone().unwrap(),
         };
-        config_edit(host_name, port, diskspace);
+        let config_edit_result = config_edit(host_name, port, diskspace);
         let updated_cli_config = config::get_config().unwrap();
+        match config_edit_result {
+            Ok(_) => {
+                //restore the config to original state after test
+                let _restore_config = config::add_config(existing_cli_config);
+            }
+            Err(_) => {}
+        }
         assert_ne!(edited_cli_config, updated_cli_config);
     }
 }

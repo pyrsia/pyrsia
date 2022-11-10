@@ -41,7 +41,7 @@ async fn main() {
                         let diskspace = edit_config_matches
                             .try_get_one::<String>("diskspace")
                             .unwrap();
-                        config_edit(host_name.cloned(), port.cloned(), diskspace.cloned());
+                        config_edit(host_name.cloned(), port.cloned(), diskspace.cloned()).unwrap_or_default();
                     } else {
                         config_add();
                     }
