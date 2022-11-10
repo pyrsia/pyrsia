@@ -133,6 +133,10 @@ impl ArtifactService {
             build_id, build_result.package_type, package_specific_id
         );
 
+        info!(
+            "Adding {} artifacts to transparency log",
+            build_result.artifacts.len()
+        );
         for artifact in build_result.artifacts.iter() {
             let add_artifact_request = AddArtifactRequest {
                 package_type: build_result.package_type,
@@ -142,19 +146,15 @@ impl ArtifactService {
                 artifact_hash: artifact.artifact_hash.clone(),
             };
 
-            info!(
-                "Adding artifact to transparency log: {:?}",
-                add_artifact_request
+            debug!(
+                "Adding artifact {} to transparency log",
+                add_artifact_request.package_specific_artifact_id
             );
 
             let add_artifact_transparency_log = self
                 .transparency_log_service
                 .add_artifact(add_artifact_request)
                 .await?;
-            info!(
-                "Transparency Log for build with ID {} successfully created.",
-                build_id
-            );
 
             self.transparency_log_service
                 .write_transparency_log(&add_artifact_transparency_log)?;
@@ -165,10 +165,19 @@ impl ArtifactService {
             )
             .await?;
 
+            debug!(
+                "Provide artifact {} through P2P network",
+                &add_artifact_transparency_log.artifact_id
+            );
             self.p2p_client
                 .provide(&add_artifact_transparency_log.artifact_id)
                 .await?;
         }
+
+        info!(
+            "Transparency Log for build with ID {} successfully created.",
+            build_id
+        );
 
         Ok(())
     }

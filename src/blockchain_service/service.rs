@@ -17,7 +17,7 @@
 use bincode::{deserialize, serialize};
 use libp2p::identity;
 use libp2p::PeerId;
-use log::warn;
+use log::{debug, warn};
 use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::error::BlockchainError;
 use pyrsia_blockchain_network::structures::block::Block;
@@ -116,7 +116,7 @@ impl BlockchainService {
         Ok(())
     }
 
-    /// Notify other nodes to add a new block.
+    /// Notify other nodes to add a new block, in a non-blocking way.
     async fn broadcast_blockchain(&mut self, block: Box<Block>) -> Result<(), BlockchainError> {
         let peer_list = self.p2p_client.list_peers().await.unwrap_or_default();
         let cmd = BlockchainCommand::Broadcast as u8;
@@ -132,20 +132,23 @@ impl BlockchainService {
         buf.append(&mut serialize(&block_ordinal).unwrap());
         buf.append(&mut serialize(&block).unwrap());
 
-        for peer_id in peer_list.iter() {
-            if let Err(e) = self
-                .p2p_client
-                .request_blockchain(peer_id, buf.clone())
-                .await
-            {
-                log::info!(
-                    "Failed to send request_blockchain to peer {:?}. Error = {:?}",
-                    peer_id,
-                    e
-                );
+        let new_p2p_client = self.p2p_client.clone();
+        tokio::spawn(async move {
+            for peer_id in peer_list.iter() {
+                if let Err(e) = new_p2p_client
+                    .clone()
+                    .request_blockchain(peer_id, buf.clone())
+                    .await
+                {
+                    log::info!(
+                        "Failed to send request_blockchain to peer {:?}. Error = {:?}",
+                        peer_id,
+                        e
+                    );
+                }
             }
-        }
-
+            debug!("Blockchain broadcast finished");
+        });
         Ok(())
     }
 
@@ -276,19 +279,17 @@ impl BlockchainService {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
+    use crate::network::client::command::Command;
     use crate::util::test_util;
     use libp2p::identity::Keypair;
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
+    use std::collections::HashSet;
     use tokio::sync::mpsc;
+    use tokio::sync::mpsc::Sender;
 
     async fn create_blockchain_service(tmp_dir: impl AsRef<Path>) -> BlockchainService {
         let (sender, _) = mpsc::channel(1);
-        let ed25519_keypair = identity::ed25519::Keypair::generate();
-        let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
-        let client = Client {
-            sender,
-            local_peer_id,
-        };
+        let (ed25519_keypair, client) = create_p2p_client(sender);
 
         BlockchainService::init_first_blockchain_node(
             &ed25519_keypair,
@@ -302,15 +303,23 @@ mod tests {
 
     fn create_other_blockchain_service(tmp_dir: impl AsRef<Path>) -> BlockchainService {
         let (sender, _) = mpsc::channel(1);
-        let ed25519_keypair = identity::ed25519::Keypair::generate();
-        let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
-        let client = Client {
-            sender,
-            local_peer_id,
-        };
+        let (ed25519_keypair, client) = create_p2p_client(sender);
 
         BlockchainService::init_other_blockchain_node(&ed25519_keypair, client, tmp_dir)
             .expect("BlockchainService should be created.")
+    }
+
+    fn create_p2p_client(sender: Sender<Command>) -> (identity::ed25519::Keypair, Client) {
+        let ed25519_keypair = identity::ed25519::Keypair::generate();
+        let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
+
+        (
+            ed25519_keypair,
+            Client {
+                sender,
+                local_peer_id,
+            },
+        )
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -456,7 +465,18 @@ mod tests {
     async fn test_notify_blockchain() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
+        let (sender, mut receiver) = mpsc::channel(1);
+        let (ed25519_keypair, client) = create_p2p_client(sender);
+        let local_peer_id = client.local_peer_id;
+
+        let mut blockchain_service = BlockchainService::init_first_blockchain_node(
+            &ed25519_keypair,
+            &ed25519_keypair,
+            client,
+            &tmp_dir,
+        )
+        .await
+        .expect("BlockchainService should be created.");
 
         let block = Box::new(Block::new(
             HashDigest::new(b""),
@@ -464,7 +484,44 @@ mod tests {
             vec![],
             &blockchain_service.keypair,
         ));
-        assert!(blockchain_service.broadcast_blockchain(block).await.is_ok());
+
+        let (_, result) = tokio::join!(
+            tokio::spawn(async move {
+                blockchain_service
+                    .broadcast_blockchain(block)
+                    .await
+                    .expect("Error broadcasting block");
+            }),
+            tokio::spawn(async move {
+                let value: u8;
+                loop {
+                    match receiver.recv().await {
+                        Some(Command::ListPeers { sender, .. }) => {
+                            let mut set = HashSet::new();
+                            set.insert(local_peer_id);
+                            if let Err(e) = sender.send(set) {
+                                panic!("Error sending peer id: {:?}", e);
+                            }
+                        }
+                        Some(Command::RequestBlockchain {
+                            peer: _,
+                            data,
+                            sender: _,
+                        }) => {
+                            value = data[0];
+                            break;
+                        }
+                        None => {}
+                        other => {
+                            panic!("Command {:?} must match Command::ListPeers or Command::RequestBlockchain", other)
+                        }
+                    }
+                }
+                value
+            })
+        );
+        assert!(result.is_ok());
+        assert_eq!(BlockchainCommand::Broadcast as u8, result.unwrap());
 
         test_util::tests::teardown(tmp_dir);
     }
