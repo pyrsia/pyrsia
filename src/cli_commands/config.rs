@@ -14,9 +14,11 @@
    limitations under the License.
 */
 
+use std::fmt::{Display, Formatter};
+use std::path::PathBuf;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
 
 const CONF_FILE: &str = "pyrsia-cli";
 
@@ -44,6 +46,14 @@ impl Display for CliConfig {
     }
 }
 
+impl PartialEq for CliConfig {
+    fn eq(&self, other: &Self) -> bool {
+        self.host.as_str() == other.host.as_str()
+            && self.port.as_str() == other.port.as_str()
+            && self.disk_allocated.as_str() == other.disk_allocated.as_str()
+    }
+}
+
 pub fn add_config(new_cfg: CliConfig) -> Result<()> {
     let mut cfg: CliConfig = confy::load(CONF_FILE, None)?;
     if !new_cfg.host.is_empty() {
@@ -67,6 +77,11 @@ pub fn get_config() -> Result<CliConfig> {
     let cfg: CliConfig = confy::load(CONF_FILE, None)?;
 
     Ok(cfg)
+}
+
+pub fn get_config_file_path() -> Result<PathBuf> {
+    let path_buf: PathBuf = confy::get_configuration_file_path(CONF_FILE, None)?;
+    Ok(path_buf)
 }
 
 #[cfg(test)]
@@ -101,5 +116,17 @@ mod tests {
 
         std::env::set_var("HOME", env_home_original);
         std::fs::remove_dir_all(tmp_dir).expect("failed to clean up temporary directory");
+    }
+
+    #[test]
+    fn test_get_config_file_path() {
+        let config_file_path = get_config_file_path();
+        assert!(config_file_path.is_ok());
+    }
+
+    #[test]
+    fn test_get_config() {
+        let config = get_config();
+        assert!(config.is_ok());
     }
 }

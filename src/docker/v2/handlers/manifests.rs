@@ -54,6 +54,41 @@ pub async fn fetch_manifest(
         .unwrap())
 }
 
+pub async fn fetch_manifest_or_build(
+    name: String,
+    tag: String,
+    mut artifact_service: ArtifactService,
+) -> Result<impl Reply, Rejection> {
+    debug!(
+        "Fetching manifest for {} with tag: {}. If not found a build will be requested",
+        name, tag
+    );
+    let manifest_content = artifact_service
+        .get_artifact_or_build(
+            PackageType::Docker,
+            &get_package_specific_artifact_id(&name, &tag),
+            &get_package_specific_artifact_id(&name, &tag),
+        )
+        .await
+        .map_err(|_| {
+            warp::reject::custom(RegistryError {
+                code: RegistryErrorCode::ManifestUnknown,
+            })
+        })?;
+
+    let len = manifest_content.len();
+
+    Ok(warp::http::response::Builder::new()
+        .header(
+            "Content-Type",
+            "application/vnd.docker.distribution.manifest.v2+json",
+        )
+        .header("Content-Length", len)
+        .status(StatusCode::OK)
+        .body(manifest_content.to_vec())
+        .unwrap())
+}
+
 fn get_package_specific_artifact_id(name: &str, tag: &str) -> String {
     if tag.starts_with("sha256:") {
         format!("{}@{}", name, tag)

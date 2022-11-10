@@ -40,18 +40,28 @@ pub fn make_docker_routes(
 
     let artifact_service_filter = warp::any().map(move || artifact_service.clone());
 
-    let v2_manifests = warp::path!("v2" / "library" / String / "manifests" / String)
-        .and(warp::get().or(warp::head()).unify())
+    let v2_manifests_get = warp::path!("v2" / "library" / String / "manifests" / String)
+        .and(warp::get())
+        .and(artifact_service_filter.clone())
+        .and_then(fetch_manifest_or_build);
+
+    let v2_manifests_head = warp::path!("v2" / "library" / String / "manifests" / String)
+        .and(warp::head())
         .and(artifact_service_filter.clone())
         .and_then(fetch_manifest);
 
     let v2_blobs = warp::path!("v2" / "library" / String / "blobs" / String)
-        .and(warp::get().or(warp::head()).unify())
+        .and(warp::get())
         .and(warp::path::end())
         .and(artifact_service_filter)
         .and_then(handle_get_blobs);
 
-    warp::any().and(v2_base.or(v2_manifests).or(v2_blobs))
+    warp::any().and(
+        v2_base
+            .or(v2_manifests_get)
+            .or(v2_manifests_head)
+            .or(v2_blobs),
+    )
 }
 
 #[cfg(test)]

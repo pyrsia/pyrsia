@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use crate::CONF_FILE_PATH_MSG_STARTER;
 use lazy_static::lazy_static;
 use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::node;
@@ -52,14 +53,76 @@ pub fn config_add() {
     };
 }
 
+pub fn config_edit(host_name: Option<String>, port: Option<String>, diskspace: Option<String>) {
+    match config::get_config() {
+        Ok(cur_config) => {
+            let mut updated_cli_config = cur_config.clone();
+            let mut errors: Vec<&str> = Vec::new();
+
+            if host_name.is_some() {
+                if valid_host(host_name.clone().unwrap_or_default().as_str()) {
+                    updated_cli_config.host = host_name.unwrap();
+                } else {
+                    errors.push("Invalid value for Hostname");
+                }
+            }
+
+            if port.is_some() {
+                if valid_port(port.clone().unwrap_or_default().as_str()) {
+                    updated_cli_config.port = port.unwrap();
+                } else {
+                    errors.push("Invalid value for Port Number");
+                }
+            }
+
+            if diskspace.is_some() {
+                if valid_disk_space(diskspace.clone().unwrap_or_default().as_str()) {
+                    updated_cli_config.disk_allocated = diskspace.unwrap();
+                } else {
+                    errors.push("Invalid value for Disk Allocation");
+                }
+            }
+
+            if errors.is_empty() {
+                let result = config::add_config(updated_cli_config);
+                match result {
+                    Ok(_) => {
+                        println!("Node configuration Saved !!");
+                    }
+                    Err(error) => {
+                        println!("Error Saving Node Configuration:       {}", error);
+                    }
+                }
+            } else {
+                errors.into_iter().for_each(|x| println!("{}", x));
+            }
+        }
+        Err(error) => {
+            println!("Error Saving Node Configuration:       {}", error);
+        }
+    };
+}
+
 pub fn config_show() {
+    match config::get_config_file_path() {
+        Ok(path_buf) => {
+            println!(
+                "{} {}",
+                CONF_FILE_PATH_MSG_STARTER,
+                path_buf.into_os_string().into_string().unwrap()
+            )
+        }
+        Err(error) => {
+            println!("Error retrieving config file path: {}", error);
+        }
+    }
     let result = config::get_config();
     match result {
         Ok(config) => {
             println!("{}", config)
         }
         Err(error) => {
-            println!("No Node Configured:       {}", error);
+            println!("No Node Configured: {}", error);
         }
     };
 }
@@ -248,7 +311,9 @@ fn valid_disk_space(input: &str) -> bool {
 #[cfg(test)]
 #[cfg(not(tarpaulin_include))]
 mod tests {
-    use crate::cli::handlers::{valid_disk_space, valid_host, valid_port};
+    use crate::cli::handlers::{config_edit, valid_disk_space, valid_host, valid_port};
+    use pyrsia::cli_commands::config;
+    use pyrsia::cli_commands::config::CliConfig;
 
     #[test]
     fn test_valid_host() {
@@ -288,5 +353,35 @@ mod tests {
     fn test_invalid_disk_space() {
         let invalid_disk_space_list = vec!["0 GB", "4097 GB", "100GB", "100gb"];
         assert!(!invalid_disk_space_list.into_iter().any(valid_disk_space));
+    }
+
+    #[test]
+    fn test_valid_config_edit() {
+        let host_name = Some(String::from("some.localhost"));
+        let port = Some(String::from(u16::MAX.to_string()));
+        let diskspace = Some(String::from("10 GB"));
+        let edited_cli_config = CliConfig {
+            host: host_name.clone().unwrap(),
+            port: port.clone().unwrap(),
+            disk_allocated: diskspace.clone().unwrap(),
+        };
+        config_edit(host_name, port, diskspace);
+        let updated_cli_config = config::get_config().unwrap();
+        assert_eq!(edited_cli_config, updated_cli_config);
+    }
+
+    #[test]
+    fn test_invalid_config_edit() {
+        let host_name = Some(String::from(".some.localhost")); //e.g. host name can't start with dot i.e. "."
+        let port = Some(String::from((u16::MAX as u32 + 1).to_string()));
+        let diskspace = Some(String::from("10GB"));
+        let edited_cli_config = CliConfig {
+            host: host_name.clone().unwrap(),
+            port: port.clone().unwrap(),
+            disk_allocated: diskspace.clone().unwrap(),
+        };
+        config_edit(host_name, port, diskspace);
+        let updated_cli_config = config::get_config().unwrap();
+        assert_ne!(edited_cli_config, updated_cli_config);
     }
 }
