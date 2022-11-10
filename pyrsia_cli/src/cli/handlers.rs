@@ -98,7 +98,6 @@ pub fn config_edit(host_name: Option<String>, port: Option<String>, diskspace: O
             } else {
                 errors.into_iter().for_each(|x| println!("{}", x));
                 Err(anyhow!("Invalid pyrsia config"))
-                // return Err(InvalidConfigInput)
             }
         }
         Err(error) => {
