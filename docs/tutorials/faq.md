@@ -7,7 +7,7 @@ sidebar_position: 4
 ## Can I run a Pyrsia node?
 
 Yes, have a look at [Quick Installation](/docs/tutorials/quick-installation.mdx)
-and one of the package specific tutorials on [Docker](docker) or [Maven](maven).
+and one of the package specific tutorials on [Docker](/docs/tutorials/docker/) or [Maven](/docs/tutorials/maven/).
 
 ## Do I have to participate in artifact distribution?
 
