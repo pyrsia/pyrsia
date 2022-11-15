@@ -16,7 +16,7 @@ Please make sure to read and observe the [Code of Conduct and Community Values](
 
 ## Understand PRs
 
-All submissions, from code to content, will require a review. Where possible, GitHub pull requests will be used for this purpose. Consult [GitHub Help](https://help.github.com/articles/about-pull-requests/) for more information on using pull requests. For more details, check out our [Contributing Guidelines](./get_involved/contributing/).
+All submissions, from code to content, will require a review. Where possible, GitHub pull requests will be used for this purpose. Consult [GitHub Help](https://help.github.com/articles/about-pull-requests/) for more information on using pull requests. For more details, check out our [Contributing Guidelines](/docs/community/get_involved/contributing/).
 
 ## Development Workflow
 

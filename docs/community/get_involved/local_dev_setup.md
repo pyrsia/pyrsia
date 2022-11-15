@@ -152,6 +152,6 @@ Error: error sending request for url (http://localhost:7888/v2): error trying to
 
 then your node is likely not running. Go back to step 3 to make sure the Pyrsia Node can be started.
 
-Congratulations! You have now setup your developer environment and are ready to write code and submit a PR to Pyrsia. Head over to [contributing guidelines](https://pyrsia.io/docs/get_involved/contributing/) to start contributing to the project.
+Congratulations! You have now setup your developer environment and are ready to write code and submit a PR to Pyrsia. Head over to [contributing guidelines](/docs/community/get_involved/contributing/) to start contributing to the project.
 
 > ⚠️ Word of caution: Running the peers for a few hours does generate network traffic and hence can drain your computer power. Ensure you are plugged into power if you are running multiple peers for a long time`
