@@ -311,7 +311,9 @@ fn valid_disk_space(input: &str) -> bool {
 #[cfg(test)]
 #[cfg(not(tarpaulin_include))]
 mod tests {
-    use crate::cli::handlers::{config_edit, valid_disk_space, valid_host, valid_port};
+    use crate::cli::handlers::{
+        config_edit, config_show, valid_disk_space, valid_host, valid_port,
+    };
     use pyrsia::cli_commands::config;
     use pyrsia::cli_commands::config::CliConfig;
 
@@ -399,5 +401,10 @@ mod tests {
             Err(_) => {}
         }
         assert_ne!(edited_cli_config, updated_cli_config);
+    }
+
+    #[test]
+    fn test_config_show() {
+        config_show();
     }
 }
