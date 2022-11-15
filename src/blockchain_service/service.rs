@@ -485,43 +485,30 @@ mod tests {
             &blockchain_service.keypair,
         ));
 
-        let (_, result) = tokio::join!(
-            tokio::spawn(async move {
-                blockchain_service
-                    .broadcast_blockchain(block)
-                    .await
-                    .expect("Error broadcasting block");
-            }),
-            tokio::spawn(async move {
-                let value: u8;
-                loop {
-                    match receiver.recv().await {
-                        Some(Command::ListPeers { sender, .. }) => {
-                            let mut set = HashSet::new();
-                            set.insert(local_peer_id);
-                            if let Err(e) = sender.send(set) {
-                                panic!("Error sending peer id: {:?}", e);
-                            }
-                        }
-                        Some(Command::RequestBlockchain {
-                            peer: _,
-                            data,
-                            sender: _,
-                        }) => {
-                            value = data[0];
-                            break;
-                        }
-                        None => {}
-                        other => {
-                            panic!("Command {:?} must match Command::ListPeers or Command::RequestBlockchain", other)
+        let (_, first_item) = tokio::join!(blockchain_service.broadcast_blockchain(block), async {
+            let value: u8;
+            loop {
+                match receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let mut set = HashSet::new();
+                        set.insert(local_peer_id);
+                        if let Err(e) = sender.send(set) {
+                            panic!("Error sending peer id: {:?}", e);
                         }
                     }
+                    Some(Command::RequestBlockchain { data, .. }) => {
+                        value = data[0];
+                        break;
+                    }
+                    None => {}
+                    other => {
+                        panic!("Command {:?} must match Command::ListPeers or Command::RequestBlockchain", other)
+                    }
                 }
-                value
-            })
-        );
-        assert!(result.is_ok());
-        assert_eq!(BlockchainCommand::Broadcast as u8, result.unwrap());
+            }
+            value
+        });
+        assert_eq!(BlockchainCommand::Broadcast as u8, first_item);
 
         test_util::tests::teardown(tmp_dir);
     }
