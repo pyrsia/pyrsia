@@ -76,7 +76,7 @@ Build consensus and integrate feedback. Proposals that have broad support are mu
 ### Reviewing a Proposal
 
 Periodically, the team will attempt to review the active proposals. We try to discuss proposals at the bi-weekly team
-["Architecture"](https://pyrsia.io/docs/get_involved/#attend-a-community-meeting) meeting, we schedule additional meetings as need. Actions are recorded in the meeting minutes.
+[Architecture](/docs/community/get_involved/#attend-a-community-meeting) meeting, we schedule additional meetings as need. Actions are recorded in the meeting minutes.
 
 ### Proposal resolution
 

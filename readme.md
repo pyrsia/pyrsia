@@ -11,7 +11,7 @@ _📢 We are looking for your feedback!_
 This project is currently in "early alpha". We are actively building on our minimal viable product which will continue
 to evolve over time as we add new features and support more workflows.
 
-Have a use case or workflow you would like to see supported? Open an issue or share on [Slack](https://join.slack.com/t/cdeliveryfdn/shared_invite/zt-1eryue9cw-9YpgrfIfsTcDS~hGHchURg).
+Have a use case or workflow you would like to see supported? Open an issue or share on [Slack](https://cdeliveryfdn.slack.com/join/shared_invite/zt-1eryue9cw-9YpgrfIfsTcDS~hGHchURg).
 Check out our [Get Involved](/docs/get_involved/) page for more ways to connect.
 
 ### Primary Focus
@@ -21,7 +21,7 @@ To get off the ground the focus is strictly on the peer-to-peer distribution of 
 ## Looking to Contribute
 
 Take a moment to review our [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md).
-You can join our community on [Slack](https://join.slack.com/t/cdeliveryfdn/shared_invite/zt-1eryue9cw-9YpgrfIfsTcDS~hGHchURg) or participate in a [meeting](https://pyrsia.io/docs/social/#calendar) to pick up an issue. We also have our [Local Setup Guide](/docs/community/get_involved/local_dev_setup/) to help.
+You can join our community on [Slack](https://cdeliveryfdn.slack.com/join/shared_invite/zt-1eryue9cw-9YpgrfIfsTcDS~hGHchURg) or participate in a [meeting](https://pyrsia.io/docs/social/#calendar) to pick up an issue. We also have our [Local Setup Guide](/docs/community/get_involved/local_dev_setup/) to help.
 
 ## Install Pyrsia and Join the Network
 
