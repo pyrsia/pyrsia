@@ -91,23 +91,15 @@ pub fn config_edit(
             return if errors.is_empty() {
                 let result = config::add_config(updated_cli_config);
                 match result {
-                    Ok(_) => {
-                        println!("Node configuration Saved !!");
-                    }
-                    Err(error) => {
-                        println!("Error Saving Node Configuration:       {}", error);
-                    }
+                    Ok(_) => Ok(()),
+                    Err(error) => Err(anyhow!("Error Saving Node Configuration:       {}", error)),
                 }
-                Ok(())
             } else {
                 errors.into_iter().for_each(|x| println!("{}", x));
                 Err(anyhow!("Invalid pyrsia config"))
             };
         }
-        Err(error) => {
-            println!("Error Saving Node Configuration:       {}", error);
-            Err(anyhow!("Error Saving Node Configuration:       {}", error))
-        }
+        Err(error) => Err(anyhow!("Error Saving Node Configuration:       {}", error)),
     }
 }
 
