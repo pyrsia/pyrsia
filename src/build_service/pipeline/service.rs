@@ -74,7 +74,9 @@ impl PipelineService {
             .await
             .map_err(|e| BuildError::PipelineServiceEndpointRequestFailure(e.to_string()))?;
 
-        if get_build_status_response.status().is_success() {
+        let response = get_build_status_response.status();
+
+        if response.is_success() {
             get_build_status_response
                 .json::<BuildInfo>()
                 .await

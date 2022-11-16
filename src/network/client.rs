@@ -20,6 +20,7 @@ use crate::artifact_service::model::PackageType;
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::blockchain_protocol::BlockchainResponse;
 use crate::network::build_protocol::BuildResponse;
+use crate::network::build_status_protocol::BuildStatusResponse;
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
@@ -353,6 +354,45 @@ impl Client {
 
         self.sender
             .send(Command::RespondBlockchain { data, channel })
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn request_build_status(
+        &mut self,
+        peer_id: &PeerId,
+        build_id: String,
+    ) -> anyhow::Result<String> {
+        debug!(
+            "p2p::Client::request_build_status peer_id {:?}, build_id: {:?}",
+            peer_id, build_id
+        );
+
+        let (sender, receiver) = oneshot::channel();
+        self.sender
+            .send(Command::RequestBuildStatus {
+                peer: *peer_id,
+                build_id,
+                sender,
+            })
+            .await?;
+
+        receiver.await?
+    }
+
+    pub async fn respond_build_status(
+        &mut self,
+        status: &str,
+        channel: ResponseChannel<BuildStatusResponse>,
+    ) -> anyhow::Result<()> {
+        debug!("p2p::Client::respond_build_status status={}", status);
+
+        self.sender
+            .send(Command::RespondBuildStatus {
+                status: String::from(status),
+                channel,
+            })
             .await?;
 
         Ok(())
