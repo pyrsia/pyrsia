@@ -370,12 +370,9 @@ mod tests {
         };
         let config_edit_result = config_edit(host_name, port, diskspace);
         let updated_cli_config = config::get_config().unwrap();
-        match config_edit_result {
-            Ok(_) => {
-                //restore the config to original state after test
-                let _restore_config = config::add_config(existing_cli_config);
-            }
-            Err(_) => {}
+        if config_edit_result.is_ok() {
+            //restore the config to original state after test
+            let _restore_config = config::add_config(existing_cli_config);
         }
         assert_eq!(edited_cli_config, updated_cli_config);
     }
@@ -393,12 +390,9 @@ mod tests {
         };
         let config_edit_result = config_edit(host_name, port, diskspace);
         let updated_cli_config = config::get_config().unwrap();
-        match config_edit_result {
-            Ok(_) => {
-                //restore the config to original state after test
-                let _restore_config = config::add_config(existing_cli_config);
-            }
-            Err(_) => {}
+        if config_edit_result.is_ok() {
+            //restore the config to original state after test
+            let _restore_config = config::add_config(existing_cli_config);
         }
         assert_ne!(edited_cli_config, updated_cli_config);
     }
