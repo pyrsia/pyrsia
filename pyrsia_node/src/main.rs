@@ -83,17 +83,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         p2p_client.clone(),
     );
 
-    debug!("Start p2p components");
-    let other_peer_id = setup_p2p(p2p_client.clone(), &args).await?;
-
-    if !args.init_blockchain {
-        pull_block_from_other_nodes(
-            artifact_service.clone(),
-            blockchain_service.clone(),
-            other_peer_id,
-        )
-        .await?;
-    }
+    debug!("Establishing connection with p2p network");
+    establish_connection_with_p2p_network(
+        p2p_client.clone(),
+        artifact_service.clone(),
+        blockchain_service.clone(),
+        args.clone(),
+    )
+    .await;
 
     debug!("Provide local artifacts");
     artifact_service.clone().provide_local_artifacts().await?;
@@ -170,7 +167,36 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-async fn setup_p2p(
+async fn establish_connection_with_p2p_network(
+    p2p_client: Client,
+    artifact_service: ArtifactService,
+    blockchain_service: Arc<Mutex<BlockchainService>>,
+    args: PyrsiaNodeArgs,
+) {
+    tokio::spawn(async move {
+        if let Some(other_peer_id) = connect_to_p2p_network(p2p_client, &args)
+            .await
+            .unwrap_or_else(|err| {
+                warn!("Failed to establish connection with p2p network: {:?}", err);
+                None
+            })
+        {
+            if !args.init_blockchain {
+                if let Err(err) = pull_block_from_other_nodes(
+                    artifact_service.clone(),
+                    blockchain_service.clone(),
+                    other_peer_id,
+                )
+                .await
+                {
+                    panic!("Failed to pull blocks from p2p network: {:?}", err);
+                }
+            }
+        }
+    });
+}
+
+async fn connect_to_p2p_network(
     mut p2p_client: Client,
     args: &PyrsiaNodeArgs,
 ) -> anyhow::Result<Option<PeerId>> {
@@ -407,20 +433,19 @@ fn setup_http(
 async fn pull_block_from_other_nodes(
     mut artifact_service: ArtifactService,
     blockchain_service: Arc<Mutex<BlockchainService>>,
-    other_peer_id: Option<PeerId>,
+    other_peer_id: PeerId,
 ) -> anyhow::Result<()> {
-    if let Some(other_peer_id) = other_peer_id {
-        debug!("Blockchain start pulling blocks from other peers");
+    debug!("Blockchain start pulling blocks from other peers");
 
-        let mut blockchain_service = blockchain_service.lock().await;
+    let mut blockchain_service = blockchain_service.lock().await;
 
-        let ordinal = blockchain_service
-            .init_pull_from_others(&other_peer_id)
-            .await?;
-        for block in blockchain_service.pull_blocks(1, ordinal).await? {
-            let payloads = block.fetch_payload();
-            artifact_service.handle_block_added(payloads).await?;
-        }
+    let ordinal = blockchain_service
+        .init_pull_from_others(&other_peer_id)
+        .await?;
+    for block in blockchain_service.pull_blocks(1, ordinal).await? {
+        let payloads = block.fetch_payload();
+        artifact_service.handle_block_added(payloads).await?;
     }
+
     Ok(())
 }
