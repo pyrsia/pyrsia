@@ -27,7 +27,7 @@ const DEFAULT_PORT: &str = "7888";
 const DEFAULT_BOOTSTRAP_URL: &str = "http://boot.pyrsia.link/status";
 
 /// Application to connect to and participate in the Pyrsia network
-#[derive(Debug, Parser)]
+#[derive(Clone, Debug, Parser)]
 #[clap(name = "Pyrsia Node")]
 pub struct PyrsiaNodeArgs {
     /// The host address to bind to for the Docker API
