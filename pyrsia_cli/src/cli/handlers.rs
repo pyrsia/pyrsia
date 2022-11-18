@@ -288,19 +288,19 @@ fn valid_port(input: &str) -> bool {
 }
 
 fn valid_disk_space(input: &str) -> bool {
-    const DISK_SPACE_NUM_MIN: u16 = 0;
-    const DISK_SPACE_NUM_MAX: u16 = 4096;
+    const DISK_SPACE_NUM_MIN: f32 = 0 as f32;
+    const DISK_SPACE_NUM_MAX: f32 = 4096 as f32;
     lazy_static! {
-        static ref DISK_SPACE_RE: Regex = Regex::new(r"^([0-9]{1,4})\s+(GB)$").unwrap();
+        static ref DISK_SPACE_RE: Regex =
+            Regex::new(r"^(([0-9]{1,4})((\.){1}([0-9]{1,3})){0,1})\s+(GB)$").unwrap();
     }
-    // let disk_space_re: Regex = Regex::new(r"^([0-9]{1,4})(\s*)(GB)$").unwrap();
     if DISK_SPACE_RE.is_match(input) {
         let captured_groups = DISK_SPACE_RE.captures(input).unwrap();
         let disk_space_num = captured_groups
             .get(1)
             .unwrap()
             .as_str()
-            .parse::<u16>()
+            .parse::<f32>()
             .unwrap();
         DISK_SPACE_NUM_MIN < disk_space_num && disk_space_num <= DISK_SPACE_NUM_MAX
     } else {
@@ -347,13 +347,23 @@ mod tests {
 
     #[test]
     fn test_valid_disk_space() {
-        let valid_disk_space_list = vec!["100 GB", "1 GB", "4096 GB"];
+        let valid_disk_space_list = vec![
+            "100 GB", "1 GB", "4096 GB", "0.22 GB", "1.22 GB", "0.22 GB", "5.84 GB",
+        ];
         assert!(valid_disk_space_list.into_iter().all(valid_disk_space));
     }
 
     #[test]
     fn test_invalid_disk_space() {
-        let invalid_disk_space_list = vec!["0 GB", "4097 GB", "100GB", "100gb"];
+        let invalid_disk_space_list = vec![
+            "0 GB",
+            "4097 GB",
+            "100GB",
+            "100gb",
+            "5..84 GB",
+            "5..84 GB",
+            "5.84.22 GB",
+        ];
         assert!(!invalid_disk_space_list.into_iter().any(valid_disk_space));
     }
 
