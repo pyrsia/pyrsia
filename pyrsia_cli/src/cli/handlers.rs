@@ -15,6 +15,7 @@
 */
 
 use crate::CONF_FILE_PATH_MSG_STARTER;
+use anyhow::{anyhow, Error};
 use lazy_static::lazy_static;
 use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::node;
@@ -53,7 +54,11 @@ pub fn config_add() {
     };
 }
 
-pub fn config_edit(host_name: Option<String>, port: Option<String>, diskspace: Option<String>) {
+pub fn config_edit(
+    host_name: Option<String>,
+    port: Option<String>,
+    diskspace: Option<String>,
+) -> Result<(), Error> {
     match config::get_config() {
         Ok(cur_config) => {
             let mut updated_cli_config = cur_config.clone();
@@ -83,24 +88,19 @@ pub fn config_edit(host_name: Option<String>, port: Option<String>, diskspace: O
                 }
             }
 
-            if errors.is_empty() {
+            return if errors.is_empty() {
                 let result = config::add_config(updated_cli_config);
                 match result {
-                    Ok(_) => {
-                        println!("Node configuration Saved !!");
-                    }
-                    Err(error) => {
-                        println!("Error Saving Node Configuration:       {}", error);
-                    }
+                    Ok(_) => Ok(()),
+                    Err(error) => Err(anyhow!("Error Saving Node Configuration:       {}", error)),
                 }
             } else {
                 errors.into_iter().for_each(|x| println!("{}", x));
-            }
+                Err(anyhow!("Invalid pyrsia config"))
+            };
         }
-        Err(error) => {
-            println!("Error Saving Node Configuration:       {}", error);
-        }
-    };
+        Err(error) => Err(anyhow!("Error Saving Node Configuration:       {}", error)),
+    }
 }
 
 pub fn config_show() {
@@ -311,7 +311,9 @@ fn valid_disk_space(input: &str) -> bool {
 #[cfg(test)]
 #[cfg(not(tarpaulin_include))]
 mod tests {
-    use crate::cli::handlers::{config_edit, valid_disk_space, valid_host, valid_port};
+    use crate::cli::handlers::{
+        config_edit, config_show, valid_disk_space, valid_host, valid_port,
+    };
     use pyrsia::cli_commands::config;
     use pyrsia::cli_commands::config::CliConfig;
 
@@ -357,6 +359,7 @@ mod tests {
 
     #[test]
     fn test_valid_config_edit() {
+        let existing_cli_config = config::get_config().unwrap();
         let host_name = Some(String::from("some.localhost"));
         let port = Some(String::from(u16::MAX.to_string()));
         let diskspace = Some(String::from("10 GB"));
@@ -365,13 +368,18 @@ mod tests {
             port: port.clone().unwrap(),
             disk_allocated: diskspace.clone().unwrap(),
         };
-        config_edit(host_name, port, diskspace);
+        let config_edit_result = config_edit(host_name, port, diskspace);
         let updated_cli_config = config::get_config().unwrap();
+        if config_edit_result.is_ok() {
+            //restore the config to original state after test
+            let _restore_config = config::add_config(existing_cli_config);
+        }
         assert_eq!(edited_cli_config, updated_cli_config);
     }
 
     #[test]
     fn test_invalid_config_edit() {
+        let existing_cli_config = config::get_config().unwrap();
         let host_name = Some(String::from(".some.localhost")); //e.g. host name can't start with dot i.e. "."
         let port = Some(String::from((u16::MAX as u32 + 1).to_string()));
         let diskspace = Some(String::from("10GB"));
@@ -380,8 +388,17 @@ mod tests {
             port: port.clone().unwrap(),
             disk_allocated: diskspace.clone().unwrap(),
         };
-        config_edit(host_name, port, diskspace);
+        let config_edit_result = config_edit(host_name, port, diskspace);
         let updated_cli_config = config::get_config().unwrap();
+        if config_edit_result.is_ok() {
+            //restore the config to original state after test
+            let _restore_config = config::add_config(existing_cli_config);
+        }
         assert_ne!(edited_cli_config, updated_cli_config);
+    }
+
+    #[test]
+    fn test_config_show() {
+        config_show();
     }
 }

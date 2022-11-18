@@ -123,10 +123,4 @@ mod tests {
         let config_file_path = get_config_file_path();
         assert!(config_file_path.is_ok());
     }
-
-    #[test]
-    fn test_get_config() {
-        let config = get_config();
-        assert!(config.is_ok());
-    }
 }
