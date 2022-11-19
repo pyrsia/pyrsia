@@ -41,7 +41,10 @@ pub fn config_add() {
     new_cfg.disk_allocated = read_interactive_input(
         "Enter disk space to be allocated to pyrsia(Please enter with units ex: 10 GB): ",
         &valid_disk_space,
-    );
+    )
+    .parse::<f32>()
+    .unwrap()
+    .to_string();
 
     let result = config::add_config(new_cfg);
     match result {
@@ -65,26 +68,35 @@ pub fn config_edit(
             let mut errors: Vec<&str> = Vec::new();
 
             if host_name.is_some() {
-                if valid_host(host_name.clone().unwrap_or_default().as_str()) {
-                    updated_cli_config.host = host_name.unwrap();
-                } else {
-                    errors.push("Invalid value for Hostname");
+                match valid_host(host_name.clone().unwrap_or_default().as_str()) {
+                    Ok(validated_str) => {
+                        updated_cli_config.host = validated_str;
+                    }
+                    Err(_) => {
+                        errors.push("Invalid value for Hostname");
+                    }
                 }
             }
 
             if port.is_some() {
-                if valid_port(port.clone().unwrap_or_default().as_str()) {
-                    updated_cli_config.port = port.unwrap();
-                } else {
-                    errors.push("Invalid value for Port Number");
+                match valid_port(port.clone().unwrap_or_default().as_str()) {
+                    Ok(validated_str) => {
+                        updated_cli_config.port = validated_str;
+                    }
+                    Err(_) => {
+                        errors.push("Invalid value for Port Number");
+                    }
                 }
             }
 
             if diskspace.is_some() {
-                if valid_disk_space(diskspace.clone().unwrap_or_default().as_str()) {
-                    updated_cli_config.disk_allocated = diskspace.unwrap();
-                } else {
-                    errors.push("Invalid value for Disk Allocation");
+                match valid_disk_space(diskspace.clone().unwrap_or_default().as_str()) {
+                    Ok(validated_str) => {
+                        updated_cli_config.disk_allocated = validated_str;
+                    }
+                    Err(_) => {
+                        errors.push("Invalid value for Disk Allocation");
+                    }
                 }
             }
 
@@ -246,15 +258,19 @@ fn print_logs(logs: String) {
 }
 
 /// Read user input interactively until the validation passed
-fn read_interactive_input(cli_prompt: &str, validation_func: &dyn Fn(&str) -> bool) -> String {
+fn read_interactive_input(
+    cli_prompt: &str,
+    validation_func: &dyn Fn(&str) -> Result<String, Error>,
+) -> String {
     loop {
         println!("{}", cli_prompt);
         let mut buffer = String::new();
         if let Ok(bytes_read) = io::stdin().lock().read_line(&mut buffer) {
             if bytes_read > 0 {
                 let input = buffer.lines().next().unwrap();
-                if validation_func(input) {
-                    break input.to_string();
+                let r = validation_func(input);
+                if r.is_ok() {
+                    break r.unwrap();
                 }
             }
         }
@@ -262,7 +278,7 @@ fn read_interactive_input(cli_prompt: &str, validation_func: &dyn Fn(&str) -> bo
 }
 
 /// Returns true if input is a valid hostname or a valid IPv4 address
-fn valid_host(input: &str) -> bool {
+fn valid_host(input: &str) -> Result<String, Error> {
     /// Returns true if input is a valid hostname as per the definition
     /// at https://man7.org/linux/man-pages/man7/hostname.7.html, otherwise false
     fn valid_hostname(input: &str) -> bool {
@@ -274,37 +290,51 @@ fn valid_host(input: &str) -> bool {
         }
         HOSTNAME_REGEX.is_match(input)
     }
-
     /// Returns true if input is a valid IPv4 address, otherwise false
     fn valid_ipv4_address(input: &str) -> bool {
         input.parse::<Ipv4Addr>().is_ok()
     }
 
-    valid_ipv4_address(input) || valid_hostname(input)
+    if valid_ipv4_address(input) || valid_hostname(input) {
+        Ok(input.to_string())
+    } else {
+        Err(anyhow!("Invalid value for Hostname"))
+    }
 }
 
-fn valid_port(input: &str) -> bool {
-    input.parse::<u16>().is_ok()
+fn valid_port(input: &str) -> Result<String, Error> {
+    match input.parse::<u16>() {
+        Ok(_) => Ok(input.to_string()),
+        Err(_) => Err(anyhow!("Invalid value for Port Number")),
+    }
 }
 
-fn valid_disk_space(input: &str) -> bool {
+fn valid_disk_space(input: &str) -> Result<String, Error> {
     const DISK_SPACE_NUM_MIN: f32 = 0 as f32;
     const DISK_SPACE_NUM_MAX: f32 = 4096 as f32;
     lazy_static! {
-        static ref DISK_SPACE_RE: Regex =
-            Regex::new(r"^(([0-9]{1,4})((\.){1}([0-9]{1,3})){0,1})\s+(GB)$").unwrap();
+        static ref DISK_SPACE_RE: Regex = Regex::new(r"^([0-9,\.]+)\s+(GB)$").unwrap();
     }
     if DISK_SPACE_RE.is_match(input) {
         let captured_groups = DISK_SPACE_RE.captures(input).unwrap();
-        let disk_space_num = captured_groups
-            .get(1)
-            .unwrap()
-            .as_str()
-            .parse::<f32>()
-            .unwrap();
-        DISK_SPACE_NUM_MIN < disk_space_num && disk_space_num <= DISK_SPACE_NUM_MAX
+        //Group 1 is numeric part including decimal & Group 2 is metric part
+        let float_parsed_rslt = captured_groups.get(1).unwrap().as_str().parse::<f32>();
+        if float_parsed_rslt.is_ok() {
+            let disk_space_num = float_parsed_rslt.unwrap();
+            if DISK_SPACE_NUM_MIN < disk_space_num && disk_space_num <= DISK_SPACE_NUM_MAX {
+                Ok(format!(
+                    "{} {}",
+                    disk_space_num.to_string(),
+                    captured_groups.get(2).unwrap().as_str()
+                ))
+            } else {
+                Err(anyhow!("Invalid value for Disk Allocation"))
+            }
+        } else {
+            Err(anyhow!("Invalid value for Disk Allocation"))
+        }
     } else {
-        false
+        Err(anyhow!("Invalid value for Disk Allocation"))
     }
 }
 
@@ -320,7 +350,7 @@ mod tests {
     #[test]
     fn test_valid_host() {
         let valid_hosts = vec!["pyrsia.io", "localhost", "10.10.10.255"];
-        assert!(valid_hosts.into_iter().all(valid_host));
+        assert!(valid_hosts.into_iter().all(|x| valid_host(x).is_ok()));
     }
 
     #[test]
@@ -330,19 +360,19 @@ mod tests {
             "@localhost",
             "%*%*%*%*NO_SENSE_AS_HOST@#$*@#$*@#$*",
         ];
-        assert!(!invalid_hosts.into_iter().any(valid_host));
+        assert!(!invalid_hosts.into_iter().any(|x| valid_host(x).is_ok()));
     }
 
     #[test]
     fn test_valid_port() {
         let valid_ports = vec!["0", "8988", "65535"];
-        assert!(valid_ports.into_iter().all(valid_port));
+        assert!(valid_ports.into_iter().all(|x| valid_port(x).is_ok()));
     }
 
     #[test]
     fn test_invalid_port() {
         let invalid_ports = vec!["-1", "65536"];
-        assert!(!invalid_ports.into_iter().any(valid_port));
+        assert!(!invalid_ports.into_iter().any(|x| valid_port(x).is_ok()));
     }
 
     #[test]
@@ -350,7 +380,9 @@ mod tests {
         let valid_disk_space_list = vec![
             "100 GB", "1 GB", "4096 GB", "0.22 GB", "1.22 GB", "0.22 GB", "5.84 GB",
         ];
-        assert!(valid_disk_space_list.into_iter().all(valid_disk_space));
+        assert!(valid_disk_space_list
+            .into_iter()
+            .all(|x| valid_disk_space(x).is_ok()));
     }
 
     #[test]
@@ -364,7 +396,9 @@ mod tests {
             "5..84 GB",
             "5.84.22 GB",
         ];
-        assert!(!invalid_disk_space_list.into_iter().any(valid_disk_space));
+        assert!(!invalid_disk_space_list
+            .into_iter()
+            .any(|x| valid_disk_space(x).is_ok()));
     }
 
     #[test]
