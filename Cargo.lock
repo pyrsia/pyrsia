@@ -1708,9 +1708,9 @@ dependencies = [
 
 [[package]]
 name = "if-watch"
-version = "2.0.0"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "065c008e570a43c00de6aed9714035e5ea6a498c255323db9091722af6ee67dd"
+checksum = "ba7abdbb86e485125dad06c2691e1e393bf3b08c7b743b43aa162a00fd39062e"
 dependencies = [
  "async-io",
  "core-foundation",
@@ -3237,7 +3237,7 @@ dependencies = [
  "httptest",
  "hyper",
  "hyper-tls",
- "if-watch 2.0.0",
+ "if-watch 3.0.0",
  "itertools",
  "lazy_static",
  "libp2p",
