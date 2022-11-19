@@ -33,13 +33,29 @@ use std::net::Ipv4Addr;
 const CONF_REMINDER_MESSAGE: &str = "Please make sure the pyrsia CLI config is up to date and matches the node configuration. For more information, run 'pyrsia config --show'";
 
 pub fn config_add() {
-    let mut new_cfg = config::CliConfig {
-        host: read_interactive_input("Enter host: ", &valid_host),
+    let default_config = config::CliConfig {
         ..Default::default()
     };
-    new_cfg.port = read_interactive_input("Enter port: ", &valid_port);
+
+    let mut new_cfg = config::CliConfig {
+        host: read_interactive_input(
+            &format!("Enter host: [{}]", default_config.host),
+            &default_config.host,
+            &valid_host,
+        ),
+        ..Default::default()
+    };
+    new_cfg.port = read_interactive_input(
+        &format!("Enter port: [{}]", default_config.port),
+        &default_config.port,
+        &valid_port,
+    );
     new_cfg.disk_allocated = read_interactive_input(
-        "Enter disk space to be allocated to pyrsia(Please enter with units ex: 10 GB): ",
+        &format!(
+            "Enter disk space to be allocated to pyrsia(Please enter with units ex: 10 GB): [{}]",
+            default_config.disk_allocated
+        ),
+        &default_config.disk_allocated,
         &valid_disk_space,
     );
 
@@ -246,13 +262,20 @@ fn print_logs(logs: String) {
 }
 
 /// Read user input interactively until the validation passed
-fn read_interactive_input(cli_prompt: &str, validation_func: &dyn Fn(&str) -> bool) -> String {
+fn read_interactive_input(
+    cli_prompt: &str,
+    default_val: &str,
+    validation_func: &dyn Fn(&str) -> bool,
+) -> String {
     loop {
         println!("{}", cli_prompt);
         let mut buffer = String::new();
         if let Ok(bytes_read) = io::stdin().lock().read_line(&mut buffer) {
             if bytes_read > 0 {
-                let input = buffer.lines().next().unwrap();
+                let mut input = buffer.lines().next().unwrap();
+                if input.len() == 0 {
+                    input = default_val;
+                }
                 if validation_func(input) {
                     break input.to_string();
                 }
