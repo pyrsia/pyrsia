@@ -41,10 +41,7 @@ pub fn config_add() {
     new_cfg.disk_allocated = read_interactive_input(
         "Enter disk space to be allocated to pyrsia(Please enter with units ex: 10 GB): ",
         &valid_disk_space,
-    )
-    .parse::<f32>()
-    .unwrap()
-    .to_string();
+    );
 
     let result = config::add_config(new_cfg);
     match result {
@@ -309,16 +306,17 @@ fn valid_port(input: &str) -> Result<String, Error> {
     }
 }
 
+/// Disk space will only accept integer values. Currently we it will accept value greater than 0 GB till 4096 GB
 fn valid_disk_space(input: &str) -> Result<String, Error> {
-    const DISK_SPACE_NUM_MIN: f32 = 0 as f32;
-    const DISK_SPACE_NUM_MAX: f32 = 4096 as f32;
+    const DISK_SPACE_NUM_MIN: u16 = 0;
+    const DISK_SPACE_NUM_MAX: u16 = 4096;
     lazy_static! {
         static ref DISK_SPACE_RE: Regex = Regex::new(r"^([0-9,\.]+)\s+(GB)$").unwrap();
     }
     if DISK_SPACE_RE.is_match(input) {
         let captured_groups = DISK_SPACE_RE.captures(input).unwrap();
         //Group 1 is numeric part including decimal & Group 2 is metric part
-        let float_parsed_rslt = captured_groups.get(1).unwrap().as_str().parse::<f32>();
+        let float_parsed_rslt = captured_groups.get(1).unwrap().as_str().parse::<u16>();
         if float_parsed_rslt.is_ok() {
             let disk_space_num = float_parsed_rslt.unwrap();
             if DISK_SPACE_NUM_MIN < disk_space_num && disk_space_num <= DISK_SPACE_NUM_MAX {
@@ -377,9 +375,7 @@ mod tests {
 
     #[test]
     fn test_valid_disk_space() {
-        let valid_disk_space_list = vec![
-            "100 GB", "1 GB", "4096 GB", "0.22 GB", "1.22 GB", "0.22 GB", "5.84 GB",
-        ];
+        let valid_disk_space_list = vec!["100 GB", "1 GB", "4096 GB"];
         assert!(valid_disk_space_list
             .into_iter()
             .all(|x| valid_disk_space(x).is_ok()));
@@ -392,6 +388,7 @@ mod tests {
             "4097 GB",
             "100GB",
             "100gb",
+            "5.84 GB",
             "5..84 GB",
             "5..84 GB",
             "5.84.22 GB",
