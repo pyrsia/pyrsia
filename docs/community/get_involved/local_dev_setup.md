@@ -140,7 +140,7 @@ You can use the Pyrsia CLI to ensure that the peers are connected.
     $ ./pyrsia -s
     Connected Peers Count:       1
     Artifacts Count:             3 {"manifests": 1, "blobs": 2}
-    Total Disk Space Allocated:  5.84 GB
+    Total Disk Space Allocated:  5 GB
     Disk Space Used:             0.0002%
     ```
 
