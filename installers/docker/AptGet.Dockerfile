@@ -11,7 +11,9 @@ ENV PYRSIA_BOOTDNS=boot.pyrsia.link
 
 RUN apt-get update; \
     apt-get -y install ca-certificates wget gnupg2 jq curl dnsutils; \
-    wget -O - https://pyrsia.io/install.sh | sh; 
+    curl --fail https://pyrsia.io/install.sh -o ./install.sh; \
+    chmod 755 ./install.sh; \
+    ./install.sh; 
 
 # Need to run an entrypoint script that will determine if the docker container
 # is running under Kubernetes or not.  This is done to derive the external ip address
