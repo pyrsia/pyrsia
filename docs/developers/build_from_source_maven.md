@@ -171,7 +171,7 @@ cd $PYRSIA_HOME/target/debug
 ./pyrsia config --show
 host = 'localhost'
 port = '7888'
-disk_allocated = '5 GB'
+disk_allocated = '10 GB'
 ```
 
 If you're not using the default port for your Pyrsia node, make sure to configure
