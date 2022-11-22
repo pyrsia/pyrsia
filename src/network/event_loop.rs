@@ -26,7 +26,7 @@ use crate::util::env_util::read_var;
 use libp2p::autonat::{Event as AutonatEvent, NatStatus};
 use libp2p::core::PeerId;
 use libp2p::futures::StreamExt;
-use libp2p::identify::IdentifyEvent;
+use libp2p::identify;
 use libp2p::kad::{GetClosestPeersOk, GetProvidersOk, KademliaEvent, QueryId, QueryResult};
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{
@@ -138,13 +138,13 @@ impl PyrsiaEventLoop {
     }
 
     // Handles events from the `Identify` network behaviour.
-    async fn handle_identify_event(&mut self, event: IdentifyEvent) {
+    async fn handle_identify_event(&mut self, event: identify::Event) {
         trace!("Handle IdentifyEvent: {:?}", event);
         match event {
-            IdentifyEvent::Pushed { .. } => {}
-            IdentifyEvent::Received { .. } => {}
-            IdentifyEvent::Sent { .. } => {}
-            IdentifyEvent::Error { .. } => {}
+            identify::Event::Pushed { .. } => {}
+            identify::Event::Received { .. } => {}
+            identify::Event::Sent { .. } => {}
+            identify::Event::Error { .. } => {}
         }
     }
 
@@ -696,11 +696,12 @@ mod tests {
     };
     use libp2p::core::upgrade;
     use libp2p::core::Transport;
+    use libp2p::dns::TokioDnsConfig;
     use libp2p::identity::Keypair;
     use libp2p::swarm::SwarmBuilder;
-    use libp2p::tcp::{self, GenTcpConfig};
+    use libp2p::tcp::{GenTcpConfig, TokioTcpTransport};
     use libp2p::yamux::YamuxConfig;
-    use libp2p::{autonat, dns, identify, kad, noise, request_response};
+    use libp2p::{autonat, identify, kad, noise, request_response};
     use std::iter;
     use std::time::Duration;
 
@@ -713,8 +714,8 @@ mod tests {
             .into_authentic(&id_keys)
             .expect("Signing libp2p-noise static DH keypair failed.");
 
-        let transport = tcp::TokioTcpTransport::new(GenTcpConfig::default().nodelay(true));
-        let dns = dns::TokioDnsConfig::system(transport).unwrap();
+        let transport = TokioTcpTransport::new(GenTcpConfig::default().nodelay(true));
+        let dns = TokioDnsConfig::system(transport).unwrap();
 
         let mem_transport = dns
             .upgrade(upgrade::Version::V1)
@@ -734,7 +735,7 @@ mod tests {
                     ..Default::default()
                 },
             ),
-            identify: identify::Identify::new(identify::IdentifyConfig::new(
+            identify: identify::Behaviour::new(identify::Config::new(
                 "ipfs/1.0.0".to_owned(),
                 id_keys.public(),
             )),

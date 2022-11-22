@@ -28,8 +28,7 @@ use libp2p::identity::Keypair;
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
 use libp2p::swarm::{Swarm, SwarmBuilder};
-use libp2p::tcp::{self, GenTcpConfig};
-use libp2p::{autonat, core, dns, identify, identity, kad, mplex, noise, yamux, Transport};
+use libp2p::{autonat, core, dns, identify, identity, kad, mplex, noise, tcp, yamux, Transport};
 use std::error::Error;
 use std::iter;
 use std::time::Duration;
@@ -138,7 +137,7 @@ fn create_transport(
         .into_authentic(&keypair)
         .expect("Signing libp2p-noise static DH keypair failed.");
 
-    let transport = tcp::TokioTcpTransport::new(GenTcpConfig::default().nodelay(true));
+    let transport = tcp::TokioTcpTransport::new(tcp::GenTcpConfig::default().nodelay(true));
     let dns = dns::TokioDnsConfig::system(transport)?;
 
     Ok(dns
@@ -159,7 +158,7 @@ fn create_swarm(
 ) -> Result<(Swarm<PyrsiaNetworkBehaviour>, core::PeerId), Box<dyn Error>> {
     let peer_id = keypair.public().to_peer_id();
 
-    let identify_config = identify::IdentifyConfig::new("ipfs/1.0.0".to_owned(), keypair.public());
+    let identify_config = identify::Config::new("ipfs/1.0.0".to_owned(), keypair.public());
 
     let memory_store_config = MemoryStoreConfig {
         max_provided_keys,
@@ -180,7 +179,7 @@ fn create_swarm(
                         ..Default::default()
                     },
                 ),
-                identify: identify::Identify::new(identify_config),
+                identify: identify::Behaviour::new(identify_config),
                 kademlia: kad::Kademlia::new(
                     peer_id,
                     MemoryStore::with_config(peer_id, memory_store_config),
