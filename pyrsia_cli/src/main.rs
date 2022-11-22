@@ -30,32 +30,34 @@ async fn main() {
 
     match matches.subcommand() {
         Some(("config", config_matches)) => {
-            match config_matches.subcommand() {
-                Some(("edit", edit_config_matches)) => {
-                    if vec!["host", "port", "diskspace"]
-                        .into_iter()
-                        .any(|opt_str| edit_config_matches.contains_id(opt_str))
-                    {
-                        let host_name = edit_config_matches.try_get_one::<String>("host").unwrap();
-                        let port = edit_config_matches.try_get_one::<String>("port").unwrap();
-                        let diskspace = edit_config_matches
-                            .try_get_one::<String>("diskspace")
-                            .unwrap();
-                        match config_edit(host_name.cloned(), port.cloned(), diskspace.cloned()) {
-                            Ok(_) => {
-                                println!("Node configuration Saved !!");
-                            }
-                            Err(error) => {
-                                eprintln!("ERROR: {}", error);
-                            }
+            if let Some(("edit", edit_config_matches)) = config_matches.subcommand() {
+                if vec!["host", "port", "diskspace"]
+                    .into_iter()
+                    .any(|opt_str| edit_config_matches.contains_id(opt_str))
+                {
+                    let host_name = edit_config_matches.get_one::<String>("host");
+                    let port = edit_config_matches.get_one::<String>("port");
+                    let diskspace = edit_config_matches.get_one::<String>("diskspace");
+                    match config_edit(host_name.cloned(), port.cloned(), diskspace.cloned()) {
+                        Ok(_) => {
+                            println!("Node configuration saved !!");
                         }
-                    } else {
-                        config_add();
+                        Err(error) => {
+                            eprintln!("Error saving node configuration: {}", error);
+                        }
+                    }
+                } else {
+                    match config_add() {
+                        Ok(_) => {
+                            println!("Node configuration saved !!");
+                        }
+                        Err(error) => {
+                            eprintln!("Error saving node configuration: {}", error);
+                        }
                     }
                 }
-                _ => {}
             }
-            if config_matches.is_present("show") {
+            if config_matches.contains_id("show") {
                 config_show();
             }
         }
