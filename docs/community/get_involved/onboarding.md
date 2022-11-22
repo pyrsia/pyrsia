@@ -4,7 +4,7 @@ If you are new to the Pyrsia team here are a few steps to get you started.
 
 1. Find the [googlegroup for Pyrsia](https://groups.google.com/g/pyrsia) and request membership
 2. Your membership will allow you to look at the Pyrsia Googlegroup calendar and you will be able to receive invites for all the team meetings
-3. Find the [slack channel for Pyrsia](https://join.slack.com/t/cdeliveryfdn/shared_invite/zt-1eryue9cw-9YpgrfIfsTcDS~hGHchURg) and join
+3. Find the [slack channel for Pyrsia](https://cdeliveryfdn.slack.com/join/shared_invite/zt-1eryue9cw-9YpgrfIfsTcDS~hGHchURg) and join
 4. On Slack, introduce yourself and give us some background - what brought you to Pyrsia and how you would like to get involved.
 5. While the googlegroup membership is being approved - which should take less than a day usually - watch some videos about [Pyrsia on Youtube](https://www.youtube.com/channel/UClPQKloIElvJk7EdSST3W5g) to make yourself familiar with the team and progress so far
 6. You do not need any membership to look at the code and send us a PR or create an issue.

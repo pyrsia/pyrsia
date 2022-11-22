@@ -42,4 +42,3 @@ For a complete list of steps, check out the [developer PR guidlines](https://git
 
 - [ ] I've built the code `cargo build --all-targets` successfully.
 - [ ] I've run the unit tests `cargo test --workspace` and everything passes.
-- [ ] I've made sure my rust toolchain is current `rustup update`.
