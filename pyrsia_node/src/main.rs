@@ -127,6 +127,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         package_type, package_specific_id
                     );
                     if let Err(error) = handlers::handle_request_build(
+                        p2p_client.clone(),
                         build_event_client.clone(),
                         package_type,
                         &package_specific_id,
@@ -135,7 +136,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .await
                     {
                         warn!(
-                            "This node failed to provide build with package type {:?} and id {}. Error: {:?}",
+                            "This node failed to start build with package type {:?} and id {}. Error: {:?}",
                             package_type, package_specific_id, error
                         );
                     }
