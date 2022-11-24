@@ -10,7 +10,7 @@ pyrsia = {path=".."}
 anyhow = "1.0.66"
 clap = { version = "3.2.22", features= ["cargo"] }
 confy = "0.5.0"
-const_format = "0.2.26"
+const_format = "0.2.30"
 futures = { version = "0.3.*"}
 lazy_static = "1.4.0"
 regex = "1.6.0"
