@@ -320,20 +320,15 @@ fn valid_disk_space(input: &str) -> Result<String, Error> {
         if float_parsed_rslt.is_ok() {
             let disk_space_num = float_parsed_rslt.unwrap();
             if DISK_SPACE_NUM_MIN < disk_space_num && disk_space_num <= DISK_SPACE_NUM_MAX {
-                Ok(format!(
+                return Ok(format!(
                     "{} {}",
                     disk_space_num.to_string(),
                     captured_groups.get(2).unwrap().as_str()
-                ))
-            } else {
-                Err(anyhow!("Invalid value for Disk Allocation"))
+                ));
             }
-        } else {
-            Err(anyhow!("Invalid value for Disk Allocation"))
         }
-    } else {
-        Err(anyhow!("Invalid value for Disk Allocation"))
     }
+    Err(anyhow!("Invalid value for Disk Allocation"))
 }
 
 #[cfg(test)]
