@@ -46,7 +46,7 @@ impl Decode for VerifyKey {
         value.read(&mut buf)?;
         let public = PublicKey::decode(&buf).map_err(|e| {
             debug!("public key decode failed with: {:?}", e);
-            trace!("Failed to decode public key: {}", hex::encode(&buf));
+            trace!("Failed to decode public key: {}", hex::encode(buf));
             CodecError::from("public key decoded from_bytes")
         })?;
         Ok(Self { public })

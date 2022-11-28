@@ -113,9 +113,9 @@ fn save_ed25519(
     keypair_path: &Path,
 ) -> Result<(), Box<dyn error::Error>> {
     let parent = keypair_path.parent().unwrap();
-    std::fs::create_dir_all(&parent)
+    std::fs::create_dir_all(parent)
         .unwrap_or_else(|e| panic!("Error creating dir {}: {}", parent.display(), e));
-    let mut keypair_file = fs::File::create(&keypair_path)?;
+    let mut keypair_file = fs::File::create(keypair_path)?;
     keypair_file.write_all(&keypair.encode())?;
     Ok(())
 }
