@@ -75,7 +75,7 @@ Details about the Chart Values and Installation steps are documented in the char
     - Nightly
 
         ```bash
-        helm upgrade --install node1 -n pyrsia-node pyrsia-nightly/pyrsia-node --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/pyrsia-sandbox/locations/global/keyRings/pyrsia-keyring/cryptoKeys/pyrsia-p2p-key" --set "dnsname=nightly.pyrsia.link" --set "bootdns=nightly.pyrsia.link"  --set "replicaCount=1" --set "buildnode=http://35.193.148.20:8080" --version "0.2.1+2562"
+        helm upgrade --install node1 -n pyrsia-node pyrsia-nightly/pyrsia-node --set "k8s_provider=gke" --set "dnsname=staging.pyrsia.link" --set "bootdns=boot.staging.pyrsia.link"  --set "replicaCount=1" --set "buildnode=http://35.193.148.20:8080" --set keys.p2p=$(cat ed25519.ser | base64) --set keys.blockchain=$(cat ed25519.ser | base64) --version "0.2.1+2562"
         ```
 
     - Nightly from branch
@@ -87,13 +87,13 @@ Details about the Chart Values and Installation steps are documented in the char
         docker build --tag mydockerhubid/pyrsia:1.0
         docker push mydockerhubid/pyrsia:1.0
 
-        helm upgrade --install node1 -n pyrsia-node pyrsia-nightly/pyrsia-node --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/pyrsia-sandbox/locations/global/keyRings/pyrsia-keyring/cryptoKeys/pyrsia-p2p-key" --set "dnsname=nightly.pyrsia.link" --set "bootdns=nightly.pyrsia.link"  --set "replicaCount=1" --set "buildnode=http://35.193.148.20:8080" --set image.repository=mydockerhubid --set image.tag=1.0 --version "0.2.1+2562"
+        helm upgrade --install node1 -n pyrsia-node pyrsia-nightly/pyrsia-node --set "k8s_provider=gke" --set "dnsname=staging.pyrsia.link" --set "bootdns=boot.staging.pyrsia.link"  --set "replicaCount=1" --set "buildnode=http://35.193.148.20:8080" --set image.repository=mydockerhubid --set image.tag=1.0 --set keys.p2p=$(cat ed25519.ser | base64) --set keys.blockchain=$(cat ed25519.ser | base64) --version "0.2.1+2562"
         ```
 
     - Production
 
         ```bash
-        helm upgrade --install node1 -n pyrsia-node pyrsia-nightly/pyrsia-node --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/pyrsia-sandbox/locations/global/keyRings/pyrsia-keyring/cryptoKeys/pyrsia-p2p-key"   --set "replicaCount=1"  --set "buildnode=http://34.134.11.239:8080" --version "0.2.1+2562"
+        helm upgrade --install node1 -n pyrsia-node pyrsia-nightly/pyrsia-node --set "k8s_provider=gke" --set "replicaCount=1"  --set "buildnode=http://34.134.11.239:8080" --set keys.p2p=$(cat ed25519.ser | base64) --set keys.blockchain=$(cat ed25519.ser | base64) --version "0.2.1+2562"
         ```
 
 Verify the deployments using `kubectl` commands.
