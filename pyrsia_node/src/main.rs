@@ -127,6 +127,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         package_type, package_specific_id
                     );
                     if let Err(error) = handlers::handle_request_build(
+                        p2p_client.clone(),
                         build_event_client.clone(),
                         package_type,
                         &package_specific_id,
@@ -135,7 +136,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .await
                     {
                         warn!(
-                            "This node failed to provide build with package type {:?} and id {}. Error: {:?}",
+                            "This node failed to start build with package type {:?} and id {}. Error: {:?}",
                             package_type, package_specific_id, error
                         );
                     }
@@ -213,7 +214,7 @@ async fn connect_to_p2p_network(
     } else if args.listen_only {
         info!("Pyrsia node will listen only. No attempt to connect to other nodes.");
     } else {
-        info!("Looking up bootstrap node");
+        info!("Looking up bootstrap node: {:?}", &args.bootstrap_url);
         let peer_addrs = load_peer_addrs(&args.bootstrap_url).await?;
         // Turbofish! https://doc.rust-lang.org/std/primitive.str.html#method.parse
         let pa = peer_addrs.parse::<libp2p::Multiaddr>()?;
@@ -397,7 +398,7 @@ fn setup_http(
 ) {
     // Get host and port from the settings. Defaults to DEFAULT_HOST and DEFAULT_PORT
     debug!(
-        "Pyrsia Docker Node will bind to host = {}, port = {}",
+        "Pyrsia Node will bind to host = {}, port = {}",
         args.host, args.port
     );
 
@@ -422,7 +423,7 @@ fn setup_http(
     .bind_ephemeral(address);
 
     info!(
-        "Pyrsia Docker Node will start running on {}:{}",
+        "Pyrsia Node will start running on {}:{}",
         addr.ip(),
         addr.port()
     );

@@ -34,7 +34,7 @@ pub struct BuildExchangeCodec();
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BuildRequest(pub PackageType, pub String);
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BuildResponse();
+pub struct BuildResponse(pub String);
 
 impl ProtocolName for BuildExchangeProtocol {
     fn protocol_name(&self) -> &[u8] {
@@ -83,12 +83,19 @@ impl RequestResponseCodec for BuildExchangeCodec {
     async fn read_response<T>(
         &mut self,
         _: &BuildExchangeProtocol,
-        _io: &mut T,
+        io: &mut T,
     ) -> io::Result<Self::Response>
     where
         T: AsyncRead + Unpin + Send,
     {
-        Ok(BuildResponse())
+        let hash_vec = read_length_prefixed(io, 1_000_000).await?;
+        if hash_vec.is_empty() {
+            return Err(io::ErrorKind::UnexpectedEof.into());
+        }
+
+        let build_id = String::from_utf8(hash_vec).unwrap();
+
+        Ok(BuildResponse(build_id))
     }
 
     async fn write_request<T>(
@@ -115,12 +122,16 @@ impl RequestResponseCodec for BuildExchangeCodec {
     async fn write_response<T>(
         &mut self,
         _: &BuildExchangeProtocol,
-        _io: &mut T,
-        BuildResponse(): BuildResponse,
+        io: &mut T,
+        BuildResponse(build_id): BuildResponse,
     ) -> io::Result<()>
     where
         T: AsyncWrite + Unpin + Send,
     {
+        debug!("Write BuildResponse: {}", build_id);
+
+        write_length_prefixed(io, build_id).await?;
+
         Ok(())
     }
 }
