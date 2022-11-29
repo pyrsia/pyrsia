@@ -137,11 +137,11 @@ brew services start pyrsia
 ```
 As per service configuration, Pyrsia Node service logging level set to `info` except module pyrsia set to `dubug`.
 
-When you start the Pyrsia node for the first time, a directory is created in `/usr/local/var/pyrsia/` where all logs and blockchain data are saved. Also macOS might ask for network connection permission. So make sure to allow this.
+When you start the Pyrsia node for the first time, a directory is created in `$(brew --prefix)/var/pyrsia/` where all logs and blockchain data are saved. Also macOS might ask for network connection permission. So make sure to allow this.
 
 - Once Pyrsia node is running state, similar kind of logs can be found in the Homebrew log file.
 ```
- $ tail -f /usr/local/var/pyrsia/logs/stdout/pyrsia_node.log
+ $ tail -f $(brew --prefix)/var/pyrsia/logs/stdout/pyrsia_node.log
  2022-10-20T07:45:57.707Z INFO  pyrsia_node > Pyrsia Node will start running on 0.0.0.0:7888
  2022-10-20T07:45:57.708Z INFO  pyrsia_node > Looking up bootstrap node
  2022-10-20T07:45:57.709Z INFO  pyrsia::network::event_loop > Local node is listening on "/ip4/192.168.86.171/tcp/54690/p2p/12D3KooWL8xbhUABLVUAmpcVoCZSghRX1XZZmoyMPo4VC28CEx6P"

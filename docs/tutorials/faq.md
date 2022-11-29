@@ -36,5 +36,5 @@ rd /s c:\Pyrsia\Pyrsia\service\pyrsia
 
 ```shell
 # macOS
-rm -rf /usr/local/var/pyrsia
+rm -rf $(brew --prefix)/var/pyrsia
 ```
