@@ -34,7 +34,7 @@ impl Default for CliConfig {
         CliConfig {
             host: "localhost".to_string(),
             port: "7888".to_string(),
-            disk_allocated: "5.84 GB".to_string(),
+            disk_allocated: "10 GB".to_string(),
         }
     }
 }
