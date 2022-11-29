@@ -135,7 +135,7 @@ brew install pyrsia
 ```shell
 brew services start pyrsia
 ```
-This will start Pyrsia node in you local machine with logging level set to `info`. (For additional level of logging, you can also set this to `export RUST_LOG=debug`.)
+As per service configuration, Pyrsia Node service logging level set to `info` except module pyrsia set to `dubug`.
 
 When you start the Pyrsia node for the first time, a directory is created in `/usr/local/var/pyrsia/` where all logs and blockchain data are saved. Also macOS might ask for network connection permission. So make sure to
 allow this.
