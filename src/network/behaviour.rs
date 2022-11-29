@@ -28,7 +28,7 @@ use libp2p::identify;
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::kad::{Kademlia, KademliaEvent};
 use libp2p::request_response::{RequestResponse, RequestResponseEvent};
-use libp2p::NetworkBehaviour;
+use libp2p::swarm::NetworkBehaviour;
 
 /// Defines the [`NetworkBehaviour`] to be used in the libp2p
 /// Swarm. The PyrsiaNetworkBehaviour consists of the following

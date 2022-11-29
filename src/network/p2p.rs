@@ -137,7 +137,7 @@ fn create_transport(
         .into_authentic(&keypair)
         .expect("Signing libp2p-noise static DH keypair failed.");
 
-    let transport = tcp::TokioTcpTransport::new(tcp::GenTcpConfig::default().nodelay(true));
+    let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true));
     let dns = dns::TokioDnsConfig::system(transport)?;
 
     Ok(dns
@@ -166,7 +166,7 @@ fn create_swarm(
     };
 
     Ok((
-        SwarmBuilder::new(
+        SwarmBuilder::with_tokio_executor(
             create_transport(keypair)?,
             PyrsiaNetworkBehaviour {
                 auto_nat: autonat::Behaviour::new(
@@ -207,9 +207,6 @@ fn create_swarm(
             },
             peer_id,
         )
-        .executor(Box::new(|fut| {
-            tokio::spawn(fut);
-        }))
         .build(),
         peer_id,
     ))

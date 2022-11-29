@@ -153,7 +153,7 @@ impl PyrsiaEventLoop {
         trace!("Handle KademliaEvent: {:?}", event);
         let event_str = format!("{:#?}", event);
         match event {
-            KademliaEvent::OutboundQueryCompleted {
+            KademliaEvent::OutboundQueryProgressed {
                 id,
                 result: QueryResult::GetClosestPeers(Ok(GetClosestPeersOk { key: _key, peers })),
                 ..
@@ -169,7 +169,7 @@ impl PyrsiaEventLoop {
                         );
                     });
             }
-            KademliaEvent::OutboundQueryCompleted {
+            KademliaEvent::OutboundQueryProgressed {
                 id,
                 result: QueryResult::StartProviding(_),
                 ..
@@ -183,14 +183,10 @@ impl PyrsiaEventLoop {
                     error!("Handle KademliaEvent match arm: {}.", event_str);
                 });
             }
-            KademliaEvent::OutboundQueryCompleted {
+            KademliaEvent::OutboundQueryProgressed {
                 id,
                 result:
-                    QueryResult::GetProviders(Ok(GetProvidersOk {
-                        key: _key,
-                        providers,
-                        ..
-                    })),
+                    QueryResult::GetProviders(Ok(GetProvidersOk::FoundProviders { providers, .. })),
                 ..
             } => {
                 self.pending_list_providers
@@ -331,13 +327,13 @@ impl PyrsiaEventLoop {
                 }
                 RequestResponseMessage::Response {
                     request_id,
-                    response: _,
+                    response,
                 } => {
                     debug!("RequestResponseMessage::Response {:?}", request_id);
                     self.pending_request_build
                         .remove(&request_id)
                         .expect("Request to still be pending.")
-                        .send(Ok(request_id.to_string()))
+                        .send(Ok(response.0))
                         .unwrap_or_else(|e| {
                             error!(
                                 "Handle RequestResponseEvent match arm: {}. Error: {:?}",
@@ -608,6 +604,13 @@ impl PyrsiaEventLoop {
                 debug!("Event loop :: build request sent with id {:?}", request_id);
                 self.pending_request_build.insert(request_id, sender);
             }
+            Command::RespondBuild { build_id, channel } => {
+                self.swarm
+                    .behaviour_mut()
+                    .build_request_response
+                    .send_response(channel, BuildResponse(build_id))
+                    .expect("Connection to peer to be still open.");
+            }
             Command::RequestArtifact {
                 artifact_id,
                 peer,
@@ -691,6 +694,7 @@ mod tests {
     };
     use crate::network::build_protocol::{BuildExchangeCodec, BuildExchangeProtocol};
     use crate::network::client::Client;
+    use crate::network::event_loop::PyrsiaEvent;
     use crate::network::idle_metric_protocol::{
         IdleMetricExchangeCodec, IdleMetricExchangeProtocol,
     };
@@ -699,13 +703,13 @@ mod tests {
     use libp2p::dns::TokioDnsConfig;
     use libp2p::identity::Keypair;
     use libp2p::swarm::SwarmBuilder;
-    use libp2p::tcp::{GenTcpConfig, TokioTcpTransport};
     use libp2p::yamux::YamuxConfig;
-    use libp2p::{autonat, identify, kad, noise, request_response};
+    use libp2p::{autonat, identify, kad, noise, request_response, tcp};
     use std::iter;
     use std::time::Duration;
+    use tokio_stream::wrappers::ReceiverStream;
 
-    fn create_test_swarm() -> (Client, PyrsiaEventLoop) {
+    fn create_test_swarm() -> (Client, PyrsiaEventLoop, ReceiverStream<PyrsiaEvent>) {
         let id_keys = Keypair::generate_ed25519();
         let local_public_key = id_keys.public();
         let peer_id = local_public_key.to_peer_id();
@@ -714,7 +718,7 @@ mod tests {
             .into_authentic(&id_keys)
             .expect("Signing libp2p-noise static DH keypair failed.");
 
-        let transport = TokioTcpTransport::new(GenTcpConfig::default().nodelay(true));
+        let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true));
         let dns = TokioDnsConfig::system(transport).unwrap();
 
         let mem_transport = dns
@@ -774,14 +778,15 @@ mod tests {
             ),
         };
 
-        let swarm = SwarmBuilder::new(mem_transport, behaviour, local_public_key.to_peer_id())
-            .executor(Box::new(|fut| {
-                tokio::spawn(fut);
-            }))
-            .build();
+        let swarm = SwarmBuilder::with_tokio_executor(
+            mem_transport,
+            behaviour,
+            local_public_key.to_peer_id(),
+        )
+        .build();
 
         let (command_sender, command_receiver) = mpsc::channel(1);
-        let (event_sender, _) = mpsc::channel(1);
+        let (event_sender, event_receiver) = mpsc::channel(1);
 
         let p2p_client = Client {
             sender: command_sender,
@@ -789,13 +794,13 @@ mod tests {
         };
         let event_loop = PyrsiaEventLoop::new(swarm, command_receiver, event_sender);
 
-        (p2p_client, event_loop)
+        (p2p_client, event_loop, ReceiverStream::new(event_receiver))
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dial_address_with_listener() {
-        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2) = create_test_swarm();
+        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (mut p2p_client_2, event_loop_2, _) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
         tokio::spawn(event_loop_2.run());
@@ -820,8 +825,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dial_address_without_listener() {
-        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2) = create_test_swarm();
+        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (mut p2p_client_2, event_loop_2, _) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
         tokio::spawn(event_loop_2.run());
@@ -846,8 +851,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dial_with_invalid_peer_id() {
-        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
-        let (p2p_client_2, _) = create_test_swarm();
+        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (p2p_client_2, _, _) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
 
@@ -867,8 +872,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_request_build_loop() {
-        let (mut p2p_client_1, event_loop_1) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2) = create_test_swarm();
+        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (mut p2p_client_2, event_loop_2, mut event_receiver_2) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
         tokio::spawn(event_loop_2.run());
@@ -893,14 +898,30 @@ mod tests {
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
 
+        let expected_build_id = uuid::Uuid::new_v4();
+        let p2p_client_2_peer_id = p2p_client_2.local_peer_id;
+        tokio::spawn(async move {
+            loop {
+                if let Some(PyrsiaEvent::RequestBuild { channel, .. }) =
+                    event_receiver_2.next().await
+                {
+                    p2p_client_2
+                        .clone()
+                        .respond_build(&expected_build_id.to_string(), channel)
+                        .await
+                        .expect("Response to have been written");
+                }
+            }
+        });
+
         let result = p2p_client_1
             .request_build(
-                &p2p_client_2.local_peer_id,
+                &p2p_client_2_peer_id,
                 package_type,
                 package_specific_id.to_string(),
             )
             .await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "1");
+        assert_eq!(result.unwrap(), expected_build_id.to_string());
     }
 }
