@@ -71,17 +71,26 @@ pub fn config_edit(
 
     let mut errors: Vec<String> = Vec::new();
 
-    match host_name.map_or_else(|| Err("Invalid value for Hostname".to_owned()), &valid_host_name) {
+    match host_name.map_or_else(
+        || Err("Invalid value for Hostname".to_owned()),
+        &valid_host_name,
+    ) {
         Ok(host_name) => cli_config.host = host_name,
         Err(description) => errors.push(description),
     }
 
-    match port.map_or_else(|| Err("Invalid value for Port Number".to_owned()), &valid_port) {
+    match port.map_or_else(
+        || Err("Invalid value for Port Number".to_owned()),
+        &valid_port,
+    ) {
         Ok(port) => cli_config.port = port,
         Err(description) => errors.push(description),
     }
 
-    match disk_space.map_or_else(|| Err("Invalid value for Disk Allocation".to_owned()), &valid_disk_space) {
+    match disk_space.map_or_else(
+        || Err("Invalid value for Disk Allocation".to_owned()),
+        &valid_disk_space,
+    ) {
         Ok(disk_space) => cli_config.disk_allocated = disk_space,
         Err(description) => errors.push(description),
     }
@@ -248,12 +257,11 @@ fn read_interactive_input(
         if let Ok(bytes_read) = io::stdin().lock().read_line(&mut buffer) {
             if bytes_read > 0 {
                 let mut input = buffer.lines().next().unwrap();
-                if input.len() == 0 {
+                if input.is_empty() {
                     input = default_val;
                 }
-                let r = validation_func(input.to_owned());
-                if r.is_ok() {
-                    break r.unwrap();
+                if let Ok(r) = validation_func(input.to_owned()) {
+                    break r;
                 }
             }
         }
@@ -279,7 +287,7 @@ fn valid_host_name(input: String) -> Result<String, String> {
     }
 
     if valid_ipv4_address(&input) || valid_hostname(&input) {
-        Ok(input.to_string())
+        Ok(input)
     } else {
         Err("Invalid value for Hostname".to_owned())
     }
@@ -302,13 +310,11 @@ fn valid_disk_space(input: String) -> Result<String, String> {
     if DISK_SPACE_RE.is_match(&input) {
         let captured_groups = DISK_SPACE_RE.captures(&input).unwrap();
         //Group 1 is numeric part including decimal & Group 2 is metric part
-        let float_parsed_rslt = captured_groups.get(1).unwrap().as_str().parse::<u16>();
-        if float_parsed_rslt.is_ok() {
-            let disk_space_num = float_parsed_rslt.unwrap();
+        if let Ok(disk_space_num) = captured_groups.get(1).unwrap().as_str().parse::<u16>() {
             if DISK_SPACE_NUM_MIN < disk_space_num && disk_space_num <= DISK_SPACE_NUM_MAX {
                 return Ok(format!(
                     "{} {}",
-                    disk_space_num.to_string(),
+                    disk_space_num,
                     captured_groups.get(2).unwrap().as_str()
                 ));
             }
@@ -328,7 +334,9 @@ mod tests {
     #[test]
     fn test_valid_host() {
         let valid_hosts = vec!["pyrsia.io", "localhost", "10.10.10.255"];
-        assert!(valid_hosts.into_iter().all(|x| valid_host_name(x.to_owned()).is_ok()));
+        assert!(valid_hosts
+            .into_iter()
+            .all(|x| valid_host_name(x.to_owned()).is_ok()));
     }
 
     #[test]
@@ -338,19 +346,25 @@ mod tests {
             "@localhost",
             "%*%*%*%*NO_SENSE_AS_HOST@#$*@#$*@#$*",
         ];
-        assert!(!invalid_hosts.into_iter().any(|x| valid_host_name(x.to_owned()).is_ok()));
+        assert!(!invalid_hosts
+            .into_iter()
+            .any(|x| valid_host_name(x.to_owned()).is_ok()));
     }
 
     #[test]
     fn test_valid_port() {
         let valid_ports = vec!["0", "8988", "65535"];
-        assert!(valid_ports.into_iter().all(|x| valid_port(x.to_owned()).is_ok()));
+        assert!(valid_ports
+            .into_iter()
+            .all(|x| valid_port(x.to_owned()).is_ok()));
     }
 
     #[test]
     fn test_invalid_port() {
         let invalid_ports = vec!["-1", "65536"];
-        assert!(!invalid_ports.into_iter().any(|x| valid_port(x.to_owned()).is_ok()));
+        assert!(!invalid_ports
+            .into_iter()
+            .any(|x| valid_port(x.to_owned()).is_ok()));
     }
 
     #[test]
