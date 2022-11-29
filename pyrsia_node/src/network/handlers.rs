@@ -24,7 +24,6 @@ use log::debug;
 use pyrsia::artifact_service::model::PackageType;
 use pyrsia::artifact_service::service::ArtifactService;
 use pyrsia::blockchain_service::service::{BlockchainCommand, BlockchainService};
-use pyrsia::build_service::error::BuildError;
 use pyrsia::build_service::event::BuildEventClient;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
 use pyrsia::network::blockchain_protocol::BlockchainResponse;
@@ -80,19 +79,22 @@ pub async fn handle_request_artifact(
 /// Respond to a RequestBuild event by getting the build
 /// based on the provided package_type and package_specific_id.
 pub async fn handle_request_build(
+    mut p2p_client: Client,
     build_event_client: BuildEventClient,
     package_type: PackageType,
     package_specific_id: &str,
-    _: ResponseChannel<BuildResponse>,
-) -> Result<String, BuildError> {
+    channel: ResponseChannel<BuildResponse>,
+) -> anyhow::Result<()> {
     debug!(
         "Handling request build: {:?} : {}",
         package_type, package_specific_id
     );
 
-    build_event_client
+    let build_id = build_event_client
         .start_build(package_type, package_specific_id.to_string())
-        .await
+        .await?;
+
+    p2p_client.respond_build(&build_id, channel).await
 }
 
 //Respond to the IdleMetricRequest event

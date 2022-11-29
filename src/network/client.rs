@@ -19,10 +19,10 @@ pub mod command;
 use crate::artifact_service::model::PackageType;
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::blockchain_protocol::BlockchainResponse;
+use crate::network::build_protocol::BuildResponse;
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
-use anyhow::Error;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::request_response::ResponseChannel;
 use log::debug;
@@ -185,27 +185,34 @@ impl Client {
         );
 
         let (sender, receiver) = oneshot::channel();
-        match self
-            .sender
+        self.sender
             .send(Command::RequestBuild {
                 peer: *peer_id,
                 package_type: package_type.to_owned(),
                 package_specific_id: package_specific_id.to_owned(),
                 sender,
             })
-            .await
-        {
-            Ok(_) => debug!("Build requested successfully"),
-            Err(e) => debug!("Error sending build request: {:?}", e),
-        }
+            .await?;
 
-        match receiver.await {
-            Ok(result) => result,
-            Err(e) => {
-                debug!("Receiver of build request error: {:?}", e);
-                Err(Error::from(e))
-            }
-        }
+        receiver.await?
+    }
+
+    /// Put the build id as a response to an incoming build request.
+    pub async fn respond_build(
+        &mut self,
+        build_id: &str,
+        channel: ResponseChannel<BuildResponse>,
+    ) -> anyhow::Result<()> {
+        debug!("p2p::Client::respond_build build_id={}", build_id);
+
+        self.sender
+            .send(Command::RespondBuild {
+                build_id: build_id.to_owned(),
+                channel,
+            })
+            .await?;
+
+        Ok(())
     }
 
     /// Request an artifact with the specified `artifact_id`

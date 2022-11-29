@@ -71,15 +71,15 @@ impl Chain {
     }
 
     pub fn retrieve_blocks(&self, start: Ordinal, end: Ordinal) -> Vec<Block> {
-        let start_pos = self.get_block_position(start);
-
-        let end_pos = self.get_block_position(end);
-
-        if start_pos == None || end_pos == None || start_pos.unwrap() > end_pos.unwrap() {
-            Default::default()
-        } else {
-            self.blocks[start_pos.unwrap()..=end_pos.unwrap()].to_vec()
+        if let (Some(start_pos), Some(end_pos)) =
+            (self.get_block_position(start), self.get_block_position(end))
+        {
+            if start_pos <= end_pos {
+                return self.blocks[start_pos..=end_pos].to_vec();
+            }
         }
+
+        Default::default()
     }
 
     pub async fn save_block(
