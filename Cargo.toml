@@ -113,3 +113,4 @@ panic = 'unwind'
 incremental = false
 codegen-units = 16
 rpath = false
+strip = true

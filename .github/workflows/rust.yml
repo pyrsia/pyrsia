@@ -29,6 +29,21 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Install 1.65 toolchain
+      id: toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.65
+        override: true
+
+    - name: Display Rust Version
+      run: |
+        echo "Display Rust Version"
+        echo "rustc: ${{ steps.toolchain.outputs.rustc }}"
+        echo "rustc_hash: ${{ steps.toolchain.outputs.rustc_hash }}"
+        echo "cargo: ${{ steps.toolchain.outputs.cargo }}"
+        echo "rustup: ${{ steps.toolchain.outputs.rustup }}"
+
     # Use sscache store in GitHub cache
     - uses: actions/cache@v3
       with:
@@ -118,6 +133,21 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Install 1.65 toolchain
+        id: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.65
+          override: true
+
+      - name: Display Rust Version
+        run: |
+          echo "Display Rust Version"
+          echo "rustc: ${{ steps.toolchain.outputs.rustc }}"
+          echo "rustc_hash: ${{ steps.toolchain.outputs.rustc_hash }}"
+          echo "cargo: ${{ steps.toolchain.outputs.cargo }}"
+          echo "rustup: ${{ steps.toolchain.outputs.rustup }}"          
+
       # Use sscache store in GitHub cache
       - uses: actions/cache@v3
         with:
@@ -189,6 +219,21 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Install 1.65 toolchain
+      id: toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.65
+        override: true
+
+    - name: Display Rust Version
+      run: |
+        echo "Display Rust Version"
+        echo "rustc: ${{ steps.toolchain.outputs.rustc }}"
+        echo "rustc_hash: ${{ steps.toolchain.outputs.rustc_hash }}"
+        echo "cargo: ${{ steps.toolchain.outputs.cargo }}"
+        echo "rustup: ${{ steps.toolchain.outputs.rustup }}"
+
     # Use sscache store in GitHub cache
     - uses: actions/cache@v3
       with:
@@ -223,19 +268,13 @@ jobs:
       run: |
         cargo test --workspace --verbose --release
 
-    # Install cargo deb and strip
-    - name: Install cargo-deb cargo-strip
+    # Install cargo deb
+    - name: Install cargo-deb
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       uses: actions-rs/cargo@v1.0.3
       with:
         command: install
-        args: cargo-deb cargo-strip --force
-
-    # Strip binaries
-    - name: Strip Binaries
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      run: |
-        cargo strip
+        args: cargo-deb --force
 
     # Create Pyrsia .deb file
     - name: Package Pyrsia as deb file
@@ -310,11 +349,20 @@ jobs:
         version: '3.x'
         repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Install stable toolchain
+    - name: Install 1.65 toolchain
+      id: toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.65
         override: true
+
+    - name: Display Rust Version
+      run: |
+        echo "Display Rust Version"
+        echo "rustc: ${{ steps.toolchain.outputs.rustc }}"
+        echo "rustc_hash: ${{ steps.toolchain.outputs.rustc_hash }}"
+        echo "cargo: ${{ steps.toolchain.outputs.cargo }}"
+        echo "rustup: ${{ steps.toolchain.outputs.rustup }}"
 
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1
