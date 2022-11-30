@@ -55,7 +55,7 @@ pub struct PyrsiaNetworkBehaviour {
 #[derive(Debug)]
 pub enum PyrsiaNetworkEvent {
     AutoNat(autonat::Event),
-    Identify(identify::Event),
+    Identify(Box<identify::Event>),
     Kademlia(KademliaEvent),
     RequestResponse(RequestResponseEvent<ArtifactRequest, ArtifactResponse>),
     BuildRequestResponse(RequestResponseEvent<BuildRequest, BuildResponse>),
@@ -71,7 +71,7 @@ impl From<autonat::Event> for PyrsiaNetworkEvent {
 
 impl From<identify::Event> for PyrsiaNetworkEvent {
     fn from(event: identify::Event) -> Self {
-        PyrsiaNetworkEvent::Identify(event)
+        PyrsiaNetworkEvent::Identify(Box::new(event))
     }
 }
 

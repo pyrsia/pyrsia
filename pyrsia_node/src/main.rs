@@ -371,7 +371,7 @@ fn setup_build_service(
     args: &PyrsiaNodeArgs,
 ) -> Result<BuildService> {
     let build_service = BuildService::new(
-        &artifact_path,
+        artifact_path,
         build_event_client,
         &args.mapping_service_endpoint,
         &args.pipeline_service_endpoint,

@@ -93,7 +93,7 @@ impl PyrsiaEventLoop {
             tokio::select! {
                 event = self.swarm.select_next_some() => match event {
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::AutoNat(autonat_event)) => self.handle_autonat_event(autonat_event).await,
-                    SwarmEvent::Behaviour(PyrsiaNetworkEvent::Identify(identify_event)) => self.handle_identify_event(identify_event).await,
+                    SwarmEvent::Behaviour(PyrsiaNetworkEvent::Identify(identify_event)) => self.handle_identify_event(*identify_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Kademlia(kademlia_event)) => self.handle_kademlia_event(kademlia_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::RequestResponse(request_response_event)) => self.handle_request_response_event(request_response_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::BuildRequestResponse(build_request_response_event)) => self.handle_build_request_response_event(build_request_response_event).await,
