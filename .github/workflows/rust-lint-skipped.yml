@@ -7,6 +7,7 @@ on:
   pull_request:
     paths-ignore: # This should match https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint.yml#L4
       - .github/workflows/rust-lint.yml
+      - .github/workflows/.cargo/audit.toml
       - '**/*.rs'
       - '**/Cargo.toml'
       - Cargo.lock
