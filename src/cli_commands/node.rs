@@ -14,11 +14,16 @@
    limitations under the License.
 */
 
-use super::config::get_config;
+use anyhow::anyhow;
+use reqwest::Response;
+use async_trait::async_trait;
+
 use crate::node_api::model::cli::{
     RequestAddAuthorizedNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild,
     RequestMavenLog, Status,
 };
+
+use super::config::get_config;
 
 pub async fn ping() -> Result<String, reqwest::Error> {
     //TODO: implement ping api in Node
@@ -52,19 +57,15 @@ pub async fn add_authorized_node(request: RequestAddAuthorizedNode) -> Result<()
         .map(|_| ())
 }
 
-pub async fn request_docker_build(request: RequestDockerBuild) -> Result<String, reqwest::Error> {
+pub async fn request_docker_build(request: RequestDockerBuild) -> Result<String, anyhow::Error> {
     let node_url = format!("http://{}/build/docker", get_url());
     let client = reqwest::Client::new();
-    match client
-        .post(node_url)
+    client.post(&node_url)
         .json(&request)
         .send()
         .await?
-        .error_for_status()
-    {
-        Ok(response) => response.json::<String>().await,
-        Err(e) => Err(e),
-    }
+        .error_for_status_with_body()
+        .await
 }
 
 pub async fn request_maven_build(request: RequestMavenBuild) -> Result<String, reqwest::Error> {
@@ -131,4 +132,19 @@ pub fn get_url() -> String {
     };
 
     format!("{}:{}", host, port)
+}
+
+#[async_trait]
+trait ErrorResponseWithBody {
+    async fn error_for_status_with_body(self) -> Result<String, anyhow::Error>;
+}
+
+#[async_trait]
+impl ErrorResponseWithBody for Response {
+    async fn error_for_status_with_body(self) -> Result<String, anyhow::Error> {
+        if self.status().is_client_error() || self.status().is_server_error() {
+            return Err(anyhow!("{}", self.text().await?));
+        }
+        Ok(self.text().await?)
+    }
 }

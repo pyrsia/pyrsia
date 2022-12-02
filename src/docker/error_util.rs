@@ -157,6 +157,7 @@ pub async fn custom_recover(err: Rejection) -> Result<impl Reply, Infallible> {
             RegistryErrorCode::BadRequest(m) => {
                 status_code = StatusCode::BAD_REQUEST;
                 error_message.code = RegistryErrorCode::BadRequest(m.clone());
+                error_message.message = m.clone();
             }
             RegistryErrorCode::Unknown(m) => {
                 error_message.message = m.clone();
