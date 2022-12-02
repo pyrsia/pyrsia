@@ -720,4 +720,34 @@ mod tests {
 
         assert_eq!(artifact.hash, str);
     }
+
+    #[tokio::test]
+    async fn test_request_build_status() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let mut client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+        const BUILD_ID: &str = "b024a136-9021-42a1-b8de-c665c94470f4";
+
+        tokio::spawn(async move {
+            client
+                .request_build_status(&other_peer_id, BUILD_ID.to_string())
+                .await
+        });
+
+        tokio::select! {
+            command = receiver.recv() => match command {
+                Some(Command::RequestBuildStatus{ peer, build_id, sender }) => {
+                    assert_eq!(peer, other_peer_id);
+                    assert_eq!(build_id, BUILD_ID);
+                    let _ = sender.send(Ok(String::from("ok")));
+                },
+                _ => panic!("Command must match Command::RequestBuildStatus")
+            }
+        }
+    }
 }
