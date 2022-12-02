@@ -60,7 +60,7 @@ pub fn cli_parser() -> ArgMatches {
                         .arg(arg!(-H --host <HOST> "Hostname").required(false))
                         .arg(arg!(-p --port <PORT> "Port number").required(false))
                         .arg(arg!(-d --diskspace <DISK_SPACE> "Disk space to be allocated to Pyrsia node").required(false))
-                        .group(ArgGroup::new("node_config").args(&["host", "port", "diskspace"]).required(false).multiple(true))
+                        .group(ArgGroup::new("node_config").args(["host", "port", "diskspace"]).required(false).multiple(true))
                 ])
                 .args(&[
                     arg!(-r --remove   "Removes the stored node configuration").visible_alias("rm"),

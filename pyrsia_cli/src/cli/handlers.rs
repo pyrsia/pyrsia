@@ -73,7 +73,7 @@ pub fn config_edit(
 
     match host_name.map_or_else(
         || Err("Invalid value for Hostname".to_owned()),
-        &valid_host_name,
+        valid_host_name,
     ) {
         Ok(host_name) => cli_config.host = host_name,
         Err(description) => errors.push(description),
@@ -81,7 +81,7 @@ pub fn config_edit(
 
     match port.map_or_else(
         || Err("Invalid value for Port Number".to_owned()),
-        &valid_port,
+        valid_port,
     ) {
         Ok(port) => cli_config.port = port,
         Err(description) => errors.push(description),
@@ -89,7 +89,7 @@ pub fn config_edit(
 
     match disk_space.map_or_else(
         || Err("Invalid value for Disk Allocation".to_owned()),
-        &valid_disk_space,
+        valid_disk_space,
     ) {
         Ok(disk_space) => cli_config.disk_allocated = disk_space,
         Err(description) => errors.push(description),
