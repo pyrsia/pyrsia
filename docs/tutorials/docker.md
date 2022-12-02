@@ -127,8 +127,6 @@ Otherwise configure the CLI tool with your required settings:
  pyrsia config -e
  ```
 
-And enter the correct values:
-
 And enter the correct values or accept the default:
 
 ```text
