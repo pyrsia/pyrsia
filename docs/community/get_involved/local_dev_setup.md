@@ -144,11 +144,13 @@ You can use the Pyrsia CLI to ensure that the peers are connected.
 
    You can easily switch the CLI to use one of your two nodes by using one of these commands:
    - Node 1:
+
    ```sh
     ./pyrsia config -e --port 7888
    ```
 
    - Node 2:
+
    ```sh
     ./pyrsia config -e --port 7889
    ```
@@ -183,6 +185,7 @@ then your node is likely not running. Go back to step 3 to make sure the Pyrsia 
     ```
 
     This will output something like this:
+
     ```text
     Authorizing peer id 12D3KooWFiC9Xdx77HJSLv6B1muauoxTvjWrVNcUgE4d8YRsRWkT
     Authorize request successfully handled.
