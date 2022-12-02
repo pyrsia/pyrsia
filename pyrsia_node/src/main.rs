@@ -17,7 +17,7 @@
 pub mod args;
 pub mod network;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use args::parser::PyrsiaNodeArgs;
 use libp2p::identity::Keypair;
 use libp2p::PeerId;
@@ -273,12 +273,7 @@ async fn setup_blockchain_service(
     p2p_client: Client,
     args: &PyrsiaNodeArgs,
 ) -> Result<BlockchainService> {
-    let local_ed25519_keypair = match local_keypair {
-        libp2p::identity::Keypair::Ed25519(v) => v,
-        _ => {
-            bail!("Keypair Format Error");
-        }
-    };
+    let Keypair::Ed25519(local_ed25519_keypair) = local_keypair;
 
     let pyrsia_blockchain_path = read_var("PYRSIA_BLOCKCHAIN_PATH", "pyrsia/blockchain");
 
@@ -286,12 +281,7 @@ async fn setup_blockchain_service(
         let blockchain_keypair =
             keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
 
-        let blockchain_ed25519_keypair = match blockchain_keypair {
-            libp2p::identity::Keypair::Ed25519(v) => v,
-            _ => {
-                bail!("Keypair Format Error");
-            }
-        };
+        let Keypair::Ed25519(blockchain_ed25519_keypair) = blockchain_keypair;
 
         // Refactor to overloading(trait) later
         BlockchainService::init_first_blockchain_node(
@@ -381,7 +371,7 @@ fn setup_build_service(
     args: &PyrsiaNodeArgs,
 ) -> Result<BuildService> {
     let build_service = BuildService::new(
-        &artifact_path,
+        artifact_path,
         build_event_client,
         &args.mapping_service_endpoint,
         &args.pipeline_service_endpoint,

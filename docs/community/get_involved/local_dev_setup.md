@@ -33,6 +33,11 @@ if you are looking to make code changes.
     apt install clang libssl-dev cmake pkg-config
     ```
 
+- Install protoc
+
+  Pyrsia has a dependency on the `libp2p` crate which requires `protoc` to be installed. For installation instructions,
+  please read the [protobuf installation guide](https://github.com/protocolbuffers/protobuf#protocol-compiler-installation).
+
 ## Build code and run tests
 
 The base line is making sure all the code compiles and every test passes.
