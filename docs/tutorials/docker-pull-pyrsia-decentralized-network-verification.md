@@ -178,6 +178,7 @@ Set Pyrsia Decentralize Network as Docker Registry Mirror in the same way we did
 Use `pyrsia config --show` to get your node config details. Assume your node details are like below.
 
 ```shell
+Config file path: /some/path/default-config.toml
 host = '0.0.0.0'
 port = '7888'
 disk_allocated = '10 GB'

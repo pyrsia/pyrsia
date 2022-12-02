@@ -169,6 +169,7 @@ config is correct:
 ```sh
 cd $PYRSIA_HOME/target/debug
 ./pyrsia config --show
+Config file path: /some/path/default-config.toml
 host = 'localhost'
 port = '7888'
 disk_allocated = '10 GB'

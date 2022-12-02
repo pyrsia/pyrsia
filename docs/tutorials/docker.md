@@ -124,18 +124,17 @@ If you have started your Pyrsia node with default settings, you can skip this st
 Otherwise configure the CLI tool with your required settings:
 
 ```sh
- pyrsia config --edit
+ pyrsia config -e
  ```
 
-And enter the correct values:
+And enter the correct values or accept the default:
 
 ```text
-Enter host:
-localhost
-Enter port:
-7888
-Enter disk space to be allocated to pyrsia(Please enter with units ex: 10 GB):
-10 GB
+Enter host: [localhost]
+
+Enter port: [7888]
+
+Enter disk space to be allocated to pyrsia(Please enter with units ex: 10 GB): [10 GB]
 
 Node configuration Saved !!
 ```
