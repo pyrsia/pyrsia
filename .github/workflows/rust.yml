@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, rust ]
   pull_request:
     paths: # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-skipped.yml#L8
       - .github/workflows/rust.yml
