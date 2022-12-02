@@ -117,12 +117,7 @@ impl Blockchain {
         payload: Vec<u8>,
         local_key: &identity::Keypair,
     ) -> Result<(), BlockchainError> {
-        let ed25519_key = match local_key {
-            Ed25519(some) => some,
-            _ => {
-                return Err(BlockchainError::InvalidKey(format!("{:?}", local_key)));
-            }
-        };
+        let Ed25519(ed25519_key) = local_key;
 
         let submitter = Address::from(local_key.public());
         let trans_vec = vec![Transaction::new(
@@ -312,11 +307,9 @@ mod tests {
     async fn test_add_block() {
         let tmp_dir = create_tmp_dir();
         let keypair = identity::Keypair::generate_ed25519();
-        let ed25519_key = match keypair.clone() {
-            Ed25519(some) => some,
-            _ => panic!("Key format is wrong"),
-        };
-        let mut blockchain = Blockchain::new(&ed25519_key, &tmp_dir)
+        let Ed25519(ed25519_key) = &keypair;
+
+        let mut blockchain = Blockchain::new(ed25519_key, &tmp_dir)
             .await
             .expect("Blockchain should have been created.");
 
@@ -338,10 +331,7 @@ mod tests {
     async fn test_update_block_from_peer() {
         let tmp_dir = create_tmp_dir();
         let keypair = identity::Keypair::generate_ed25519();
-        let ed25519_key = match keypair.clone() {
-            Ed25519(some) => some,
-            _ => panic!("Key format is wrong"),
-        };
+        let Ed25519(ed25519_key) = keypair;
 
         let mut blockchain = Blockchain::new(&ed25519_key, &tmp_dir)
             .await

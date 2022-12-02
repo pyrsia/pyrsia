@@ -24,11 +24,11 @@ use crate::network::idle_metric_protocol::{
 
 use crate::network::build_protocol::{BuildExchangeCodec, BuildRequest, BuildResponse};
 use libp2p::autonat;
-use libp2p::identify::{Identify, IdentifyEvent};
+use libp2p::identify;
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::kad::{Kademlia, KademliaEvent};
 use libp2p::request_response::{RequestResponse, RequestResponseEvent};
-use libp2p::NetworkBehaviour;
+use libp2p::swarm::NetworkBehaviour;
 
 /// Defines the [`NetworkBehaviour`] to be used in the libp2p
 /// Swarm. The PyrsiaNetworkBehaviour consists of the following
@@ -42,7 +42,7 @@ use libp2p::NetworkBehaviour;
 #[behaviour(out_event = "PyrsiaNetworkEvent")]
 pub struct PyrsiaNetworkBehaviour {
     pub auto_nat: autonat::Behaviour,
-    pub identify: Identify,
+    pub identify: identify::Behaviour,
     pub kademlia: Kademlia<MemoryStore>,
     pub request_response: RequestResponse<ArtifactExchangeCodec>,
     pub build_request_response: RequestResponse<BuildExchangeCodec>,
@@ -55,7 +55,7 @@ pub struct PyrsiaNetworkBehaviour {
 #[derive(Debug)]
 pub enum PyrsiaNetworkEvent {
     AutoNat(autonat::Event),
-    Identify(Box<IdentifyEvent>),
+    Identify(Box<identify::Event>),
     Kademlia(KademliaEvent),
     RequestResponse(RequestResponseEvent<ArtifactRequest, ArtifactResponse>),
     BuildRequestResponse(RequestResponseEvent<BuildRequest, BuildResponse>),
@@ -69,8 +69,8 @@ impl From<autonat::Event> for PyrsiaNetworkEvent {
     }
 }
 
-impl From<IdentifyEvent> for PyrsiaNetworkEvent {
-    fn from(event: IdentifyEvent) -> Self {
+impl From<identify::Event> for PyrsiaNetworkEvent {
+    fn from(event: identify::Event) -> Self {
         PyrsiaNetworkEvent::Identify(Box::new(event))
     }
 }

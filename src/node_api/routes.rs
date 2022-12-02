@@ -126,12 +126,7 @@ mod tests {
         p2p_client: Client,
         blockchain_path: impl AsRef<Path>,
     ) -> BlockchainService {
-        let ed25519_keypair = match local_keypair {
-            libp2p::identity::Keypair::Ed25519(ref v) => v,
-            _ => {
-                panic!("Keypair Format Error");
-            }
-        };
+        let Keypair::Ed25519(ed25519_keypair) = local_keypair;
 
         BlockchainService::init_first_blockchain_node(
             ed25519_keypair,

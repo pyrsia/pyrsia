@@ -130,7 +130,7 @@ mod tests {
         let tmp_dir = tempfile::tempdir().unwrap().path().join("p2p_keypair.ser");
         let tmp_keypair = tmp_dir.as_path();
 
-        load_or_generate_ed25519(&tmp_keypair);
+        load_or_generate_ed25519(tmp_keypair);
         assert!(tmp_keypair.exists());
     }
 
@@ -141,7 +141,7 @@ mod tests {
         perms.set_readonly(true);
         let _ = fs::set_permissions(&tmp_dir, perms);
         let tmp_file = tmp_dir.path().join("keypair_fails");
-        load_or_generate_ed25519(&tmp_file.as_path());
+        load_or_generate_ed25519(tmp_file.as_path());
         assert!(!tmp_file.as_path().exists());
     }
 

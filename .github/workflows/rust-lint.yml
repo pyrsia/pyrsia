@@ -31,6 +31,11 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          version: '3.x'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v3
       - run: rustup component add clippy
       - run: cargo clippy --version

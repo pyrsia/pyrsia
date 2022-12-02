@@ -6,7 +6,8 @@ WORKDIR /src
 RUN apt-get update && apt-get install -y \
     clang \
     libclang-dev \
-    cmake
+    cmake \
+    protobuf-compiler
 
 FROM builder AS debug
 COPY . .
