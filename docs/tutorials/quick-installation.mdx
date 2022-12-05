@@ -35,7 +35,7 @@ to be run manually. Also the installer is not yet signed, so you need to ignore 
 
 Instead of double-clicking the installer, you can also run it like this, open a command prompt (type: Win+R + cmd):
 ```shell
-msiexec /i Downloads/pyrsia-installer-0.2.0.msi ROOTDRIVE="C:"
+msiexec /i Downloads/pyrsia-installer-0.2.1.msi ROOTDRIVE="C:"
 ```
 
 - The installer will now install Pyrsia (pyrsia_node.exe and pyrsia.exe) in `C:\Pyrsia` unless you specified a different
@@ -62,7 +62,7 @@ pyrsia --version
 ```
 
 ```text
-pyrsia_cli 0.2.0
+pyrsia_cli 0.2.1
 ```
 
 ```shell
@@ -156,7 +156,7 @@ When you start the Pyrsia node for the first time, a directory is created in `$(
 ```shell
 pyrsia --version
 ```
-Display the version `pyrsia_cli 0.2.0`
+Display the version `pyrsia_cli 0.2.1`
     - To verify your local Pyrsia node connected to Pyrsia network
 ```shell
 pyrsia ping
@@ -205,7 +205,7 @@ sudo apt-get install -y pyrsia
 
 ```sh
 $ pyrsia --version
-pyrsia 0.2.0
+pyrsia 0.2.1
 $ pyrsia ping
 Connection Successful !!
 ```
@@ -261,7 +261,7 @@ Make sure you have Docker installed on your system and run in the background:
 (Add an option `-e RUST_LOG=debug` to change the log level from the default value, `info`.)
 
 ```sh
-docker run -d -p 7888:7888 --name pyrsia_node pyrsiaoss/pyrsia-node:0.2.0-2342
+docker run -d -p 7888:7888 --name pyrsia_node pyrsiaoss/pyrsia-node:0.2.1-2562
 ```
 
 Tail the logs to check if Pyrsia started correctly:
@@ -284,7 +284,7 @@ Use this `docker-compose.yml` file:
 ```yaml
 services:
   pyrsia:
-    image: pyrsiaoss/pyrsia-node:0.2.0-2342
+    image: pyrsiaoss/pyrsia-node:0.2.1-2562
     ports:
       - "7888:7888"
     volumes:

@@ -160,18 +160,17 @@ running, run:
 
 ```sh
 cd $PYRSIA_HOME/target/debug
-./pyrsia config --edit
+./pyrsia config -e
 ```
 
-And enter the correct values:
+And enter the correct values or accept the default:
 
 ```text
-Enter host:
-localhost
-Enter port:
+Enter host: [localhost]
+
+Enter port: [7888]
 7889
-Enter disk space to be allocated to pyrsia(Please enter with units ex: 10 GB):
-10GB
+Enter disk space to be allocated to pyrsia(Please enter with units ex: 10 GB): [10 GB]
 
 Node configuration Saved !!
 ```
@@ -229,20 +228,7 @@ running, run:
 
 ```sh
 cd $PYRSIA_HOME/target/debug
-./pyrsia config --edit
-```
-
-And enter the correct values:
-
-```text
-Enter host:
-localhost
-Enter port:
-7888
-Enter disk space to be allocated to pyrsia(Please enter with units ex: 10 GB):
-10 GB
-
-Node configuration Saved !!
+./pyrsia config -e --port 7888
 ```
 
 Then trigger the build from source, like this:
