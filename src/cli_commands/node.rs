@@ -15,8 +15,8 @@
 */
 
 use anyhow::anyhow;
-use reqwest::Response;
 use async_trait::async_trait;
+use reqwest::Response;
 use serde_json::Value;
 
 use crate::node_api::model::cli::{
@@ -61,7 +61,8 @@ pub async fn add_authorized_node(request: RequestAddAuthorizedNode) -> Result<()
 pub async fn request_docker_build(request: RequestDockerBuild) -> Result<String, anyhow::Error> {
     let node_url = format!("http://{}/build/docker", get_url());
     let client = reqwest::Client::new();
-    client.post(&node_url)
+    client
+        .post(&node_url)
         .json(&request)
         .send()
         .await?
@@ -69,19 +70,16 @@ pub async fn request_docker_build(request: RequestDockerBuild) -> Result<String,
         .await
 }
 
-pub async fn request_maven_build(request: RequestMavenBuild) -> Result<String, reqwest::Error> {
+pub async fn request_maven_build(request: RequestMavenBuild) -> Result<String, anyhow::Error> {
     let node_url = format!("http://{}/build/maven", get_url());
     let client = reqwest::Client::new();
-    match client
+    client
         .post(node_url)
         .json(&request)
         .send()
         .await?
-        .error_for_status()
-    {
-        Ok(response) => response.json::<String>().await,
-        Err(e) => Err(e),
-    }
+        .error_for_status_with_body()
+        .await
 }
 
 pub async fn inspect_docker_transparency_log(

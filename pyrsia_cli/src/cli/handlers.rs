@@ -151,7 +151,7 @@ pub async fn request_maven_build(gav: &str) {
         gav: gav.to_owned(),
     })
     .await;
-    // handle_request_build_result(build_result);
+    handle_request_build_result(build_result);
 }
 
 fn handle_request_build_result(build_result: Result<String, Error>) {
