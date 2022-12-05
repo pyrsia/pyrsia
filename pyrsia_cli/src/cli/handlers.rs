@@ -154,7 +154,7 @@ pub async fn request_maven_build(gav: &str) {
     handle_request_build_result(build_result);
 }
 
-fn handle_request_build_result(build_result: Result<String, Error>) {
+fn handle_request_build_result(build_result: Result<String, anyhow::Error>) {
     match build_result {
         Ok(build_id) => {
             println!(

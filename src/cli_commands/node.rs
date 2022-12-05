@@ -141,9 +141,16 @@ trait ErrorResponseWithBody {
 #[async_trait]
 impl ErrorResponseWithBody for Response {
     async fn error_for_status_with_body(self) -> Result<String, anyhow::Error> {
-        if self.status().is_client_error() || self.status().is_server_error() {
+        let http_status = self.status();
+        let requested_url = self.url().to_string();
+        if http_status.is_client_error() || http_status.is_server_error() {
             let parsed_error: Value = serde_json::from_str(self.text().await?.as_str())?;
-            return Err(anyhow!("{}", parsed_error["errors"][0]["message"]));
+            return Err(anyhow!(
+                "HTTP status error ({}) for url ({}): {}",
+                http_status,
+                requested_url,
+                parsed_error["errors"][0]["message"]
+            ));
         }
         Ok(self.text().await?)
     }
