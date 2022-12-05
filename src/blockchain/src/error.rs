@@ -46,4 +46,6 @@ pub enum BlockchainError {
     LaggingBlockchainData,
     #[error("Invalid storage path: {0}")]
     InvalidStoragePath(PathBuf),
+    #[error("Could not connect to blockchain topic")]
+    InvalidTopic,
 }

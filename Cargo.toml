@@ -44,7 +44,7 @@ hyper-tls = "0.5.0"
 if-watch = "3.0.0"
 itertools = "0.10.5"
 lazy_static = "1.4.0"
-libp2p = { version = "0.50.0", features = [ "autonat", "dns", "identify", "kad", "macros", "mplex", "noise", "request-response", "serde", "tcp", "tokio", "yamux" ]}
+libp2p = { version = "0.50.0", features = [ "autonat", "dns", "identify", "floodsub", "gossipsub", "kad", "macros", "mplex", "noise", "request-response", "serde", "tcp", "tokio", "yamux" ]}
 log = { version = "0.4.17", features = ["max_level_trace", "release_max_level_trace"] }
 maplit = "1.0.2"
 multihash = {version = "0.16.0", features = ["serde-codec"]}

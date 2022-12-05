@@ -24,6 +24,7 @@ use crate::network::idle_metric_protocol::{
 
 use crate::network::build_protocol::{BuildExchangeCodec, BuildRequest, BuildResponse};
 use libp2p::autonat;
+use libp2p::gossipsub;
 use libp2p::identify;
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::kad::{Kademlia, KademliaEvent};
@@ -42,6 +43,7 @@ use libp2p::swarm::NetworkBehaviour;
 #[behaviour(out_event = "PyrsiaNetworkEvent")]
 pub struct PyrsiaNetworkBehaviour {
     pub auto_nat: autonat::Behaviour,
+    pub gossipsub: gossipsub::Gossipsub,
     pub identify: identify::Behaviour,
     pub kademlia: Kademlia<MemoryStore>,
     pub request_response: RequestResponse<ArtifactExchangeCodec>,
@@ -55,6 +57,7 @@ pub struct PyrsiaNetworkBehaviour {
 #[derive(Debug)]
 pub enum PyrsiaNetworkEvent {
     AutoNat(autonat::Event),
+    GossipSub(gossipsub::GossipsubEvent),
     Identify(Box<identify::Event>),
     Kademlia(KademliaEvent),
     RequestResponse(RequestResponseEvent<ArtifactRequest, ArtifactResponse>),
@@ -66,6 +69,12 @@ pub enum PyrsiaNetworkEvent {
 impl From<autonat::Event> for PyrsiaNetworkEvent {
     fn from(v: autonat::Event) -> Self {
         PyrsiaNetworkEvent::AutoNat(v)
+    }
+}
+
+impl From<gossipsub::GossipsubEvent> for PyrsiaNetworkEvent {
+    fn from(v: gossipsub::GossipsubEvent) -> Self {
+        PyrsiaNetworkEvent::GossipSub(v)
     }
 }
 

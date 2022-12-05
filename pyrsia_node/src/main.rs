@@ -273,9 +273,41 @@ async fn setup_blockchain_service(
     p2p_client: Client,
     args: &PyrsiaNodeArgs,
 ) -> Result<BlockchainService> {
+    use libp2p::gossipsub::MessageId;
+    use libp2p::gossipsub::{
+        Gossipsub, GossipsubMessage, IdentTopic as Topic, MessageAuthenticity, ValidationMode,
+    };
+    use libp2p::{gossipsub, identity};
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    use std::time::Duration;
+
     let Keypair::Ed25519(local_ed25519_keypair) = local_keypair;
 
     let pyrsia_blockchain_path = read_var("PYRSIA_BLOCKCHAIN_PATH", "pyrsia/blockchain");
+
+    // To content-address message, we can take the hash of message and use it as an ID.
+    let message_id_fn = |message: &GossipsubMessage| {
+        let mut s = DefaultHasher::new();
+        message.data.hash(&mut s);
+        MessageId::from(s.finish().to_string())
+    };
+
+    let gossipsub_config = gossipsub::GossipsubConfigBuilder::default()
+        .heartbeat_interval(Duration::from_secs(10)) // This is set to aid debugging by not cluttering the log space
+        .validation_mode(ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
+        .message_id_fn(message_id_fn) // content-address messages. No two messages of the same content will be propagated.
+        .build()
+        .expect("Valid config");
+    let mut gossip_sub = Gossipsub::new(
+        MessageAuthenticity::Signed(identity::Keypair::Ed25519(local_ed25519_keypair.clone())),
+        gossipsub_config,
+    )
+    .expect("Correct configuration");
+    let pyrsia_topic: Topic = Topic::new("pyrsia-blockchain-topic");
+    if let Err(e) = gossip_sub.subscribe(&pyrsia_topic) {
+        panic!("{}", e);
+    }
 
     if args.init_blockchain {
         let blockchain_keypair =
@@ -288,6 +320,8 @@ async fn setup_blockchain_service(
             &local_ed25519_keypair,
             &blockchain_ed25519_keypair,
             p2p_client,
+            gossip_sub,
+            pyrsia_topic,
             pyrsia_blockchain_path,
         )
         .await
@@ -296,6 +330,8 @@ async fn setup_blockchain_service(
         BlockchainService::init_other_blockchain_node(
             &local_ed25519_keypair,
             p2p_client,
+            gossip_sub,
+            pyrsia_topic,
             pyrsia_blockchain_path,
         )
         .map_err(|e| e.into())

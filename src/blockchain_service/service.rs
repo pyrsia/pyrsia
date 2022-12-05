@@ -15,8 +15,8 @@
 */
 
 use bincode::{deserialize, serialize};
-use libp2p::identity;
-use libp2p::PeerId;
+use libp2p::gossipsub::{Gossipsub, IdentTopic as Topic};
+use libp2p::{identity, PeerId};
 use log::warn;
 use pyrsia_blockchain_network::blockchain::Blockchain;
 use pyrsia_blockchain_network::error::BlockchainError;
@@ -62,6 +62,11 @@ impl TryFrom<u8> for BlockchainCommand {
 
 pub struct BlockchainService {
     blockchain: Blockchain,
+    // EDF: Two types of implemented Topic. Example uses IdentTopic. Let's start with that.
+    // https://docs.rs/libp2p/latest/libp2p/gossipsub/type.IdentTopic.html
+    // https://docs.rs/libp2p/latest/libp2p/gossipsub/type.Sha256Topic.html
+    topic: libp2p::gossipsub::IdentTopic,
+    gossipsub: Gossipsub,
     pub keypair: identity::ed25519::Keypair,
     pub p2p_client: Client,
 }
@@ -75,17 +80,24 @@ impl Debug for BlockchainService {
     }
 }
 
+unsafe impl Send for BlockchainService {}
+unsafe impl Sync for BlockchainService {}
+
 impl BlockchainService {
     pub async fn init_first_blockchain_node(
         local_keypair: &identity::ed25519::Keypair,
         blockchain_keypair: &identity::ed25519::Keypair,
         p2p_client: Client,
+        gossip_sub: Gossipsub,
+        pyrsia_topic: Topic,
         blockchain_path: impl AsRef<Path>,
     ) -> Result<Self, BlockchainError> {
         std::fs::create_dir_all(&blockchain_path)?;
 
         Ok(Self {
             blockchain: Blockchain::new(blockchain_keypair, blockchain_path).await?,
+            topic: pyrsia_topic,
+            gossipsub: gossip_sub,
             keypair: local_keypair.to_owned(),
             p2p_client,
         })
@@ -94,12 +106,16 @@ impl BlockchainService {
     pub fn init_other_blockchain_node(
         local_keypair: &identity::ed25519::Keypair,
         p2p_client: Client,
+        gossip_sub: Gossipsub,
+        pyrsia_topic: Topic,
         blockchain_path: impl AsRef<Path>,
     ) -> Result<Self, BlockchainError> {
         std::fs::create_dir_all(&blockchain_path)?;
 
         Ok(Self {
             blockchain: Blockchain::empty_new(blockchain_path),
+            topic: pyrsia_topic,
+            gossipsub: gossip_sub,
             keypair: local_keypair.to_owned(),
             p2p_client,
         })
@@ -118,32 +134,28 @@ impl BlockchainService {
 
     /// Notify other nodes to add a new block.
     async fn broadcast_blockchain(&mut self, block: Box<Block>) -> Result<(), BlockchainError> {
-        let peer_list = self.p2p_client.list_peers().await.unwrap_or_default();
         let cmd = BlockchainCommand::Broadcast as u8;
         let block_ordinal = block.header.ordinal as u128;
 
-        let mut buf: Vec<u8> = vec![];
-
         let block = *block;
-
-        log::debug!("Blockchain sends broadcast block:{:?}", block);
-
+        let mut buf: Vec<u8> = vec![];
         buf.push(cmd);
         buf.append(&mut serialize(&block_ordinal).unwrap());
         buf.append(&mut serialize(&block).unwrap());
 
-        for peer_id in peer_list.iter() {
-            if let Err(e) = self
-                .p2p_client
-                .request_blockchain(peer_id, buf.clone())
-                .await
-            {
-                log::info!(
-                    "Failed to send request_blockchain to peer {:?}. Error = {:?}",
-                    peer_id,
-                    e
-                );
-            }
+        log::debug!(
+            "Blockchain sends broadcast block #{}: {:?}",
+            block_ordinal,
+            block
+        );
+
+        if let Err(e) = self.gossipsub.publish(self.topic.clone(), buf.clone()) {
+            log::info!(
+                "Failed to send request_blockchain to topic {:?}. Error = {:?}",
+                self.topic,
+                e
+            );
+            return Err(BlockchainError::AnyhowError(anyhow::anyhow!(e)));
         }
 
         Ok(())
@@ -277,8 +289,15 @@ impl BlockchainService {
 mod tests {
     use super::*;
     use crate::util::test_util;
+    use libp2p::gossipsub::MessageId;
+    use libp2p::gossipsub::{
+        Gossipsub, GossipsubMessage, IdentTopic as Topic, MessageAuthenticity, ValidationMode,
+    };
     use libp2p::identity::Keypair;
+    use libp2p::{gossipsub, identity};
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
     use tokio::sync::mpsc;
 
     async fn create_blockchain_service(tmp_dir: impl AsRef<Path>) -> BlockchainService {
@@ -290,10 +309,35 @@ mod tests {
             local_peer_id,
         };
 
+        // To content-address message, we can take the hash of message and use it as an ID.
+        let message_id_fn = |message: &GossipsubMessage| {
+            let mut s = DefaultHasher::new();
+            message.data.hash(&mut s);
+            MessageId::from(s.finish().to_string())
+        };
+
+        let gossipsub_config = gossipsub::GossipsubConfigBuilder::default()
+            .heartbeat_interval(std::time::Duration::from_secs(10)) // This is set to aid debugging by not cluttering the log space
+            .validation_mode(ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
+            .message_id_fn(message_id_fn) // content-address messages. No two messages of the same content will be propagated.
+            .build()
+            .expect("Valid config");
+        let mut gossip_sub = Gossipsub::new(
+            MessageAuthenticity::Signed(identity::Keypair::Ed25519(ed25519_keypair.clone())),
+            gossipsub_config,
+        )
+        .expect("Correct configuration");
+        let pyrsia_topic: Topic = Topic::new("pyrsia-blockchain-topic");
+        if let Err(e) = gossip_sub.subscribe(&pyrsia_topic) {
+            panic!("{}", e);
+        }
+
         BlockchainService::init_first_blockchain_node(
             &ed25519_keypair,
             &ed25519_keypair,
             client,
+            gossip_sub,
+            pyrsia_topic,
             tmp_dir,
         )
         .await
@@ -309,8 +353,37 @@ mod tests {
             local_peer_id,
         };
 
-        BlockchainService::init_other_blockchain_node(&ed25519_keypair, client, tmp_dir)
-            .expect("BlockchainService should be created.")
+        // To content-address message, we can take the hash of message and use it as an ID.
+        let message_id_fn = |message: &GossipsubMessage| {
+            let mut s = DefaultHasher::new();
+            message.data.hash(&mut s);
+            MessageId::from(s.finish().to_string())
+        };
+
+        let gossipsub_config = gossipsub::GossipsubConfigBuilder::default()
+            .heartbeat_interval(std::time::Duration::from_secs(10)) // This is set to aid debugging by not cluttering the log space
+            .validation_mode(ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
+            .message_id_fn(message_id_fn) // content-address messages. No two messages of the same content will be propagated.
+            .build()
+            .expect("Valid config");
+        let mut gossip_sub = Gossipsub::new(
+            MessageAuthenticity::Signed(identity::Keypair::Ed25519(ed25519_keypair.clone())),
+            gossipsub_config,
+        )
+        .expect("Correct configuration");
+        let pyrsia_topic: Topic = Topic::new("pyrsia-blockchain-topic");
+        if let Err(e) = gossip_sub.subscribe(&pyrsia_topic) {
+            panic!("{}", e);
+        }
+
+        BlockchainService::init_other_blockchain_node(
+            &ed25519_keypair,
+            client,
+            gossip_sub,
+            pyrsia_topic,
+            tmp_dir,
+        )
+        .expect("BlockchainService should be created.")
     }
 
     #[tokio::test(flavor = "multi_thread")]

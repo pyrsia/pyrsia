@@ -17,7 +17,7 @@ clap = { version = "4.0.29", features = [ "cargo", "derive" ] }
 futures = "0.3.24"
 hex = "0.4.3"
 json = "0.12.4"
-libp2p = "0.50.0"
+libp2p = { version = "0.50.0", features = [ "autonat", "dns", "identify", "floodsub", "gossipsub", "kad", "macros", "mplex", "noise", "request-response", "serde", "tcp", "tokio", "yamux" ]}
 log = "0.4.17"
 pretty_env_logger = "0.4.0"
 reqwest = { version = "0.11.11", features = ["blocking"] }
