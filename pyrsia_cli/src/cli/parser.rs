@@ -14,14 +14,13 @@
    limitations under the License.
 */
 
-use clap::{arg, command, crate_version, AppSettings, ArgGroup, ArgMatches, Command};
+use clap::{arg, command, crate_version, ArgGroup, ArgMatches, Command};
 use const_format::formatcp;
 
 pub fn cli_parser() -> ArgMatches {
     let version_string: &str = formatcp!("{} ({})", crate_version!(), env!("VERGEN_GIT_SHA"));
     command!()
         .arg_required_else_help(true)
-        .global_setting(AppSettings::DeriveDisplayOrder)
         .propagate_version(false)
         // Config subcommand
         .subcommands(vec![
@@ -34,7 +33,8 @@ pub fn cli_parser() -> ArgMatches {
             Command::new("build")
                 .short_flag('b')
                 .about("Request a new build")
-                .setting(AppSettings::SubcommandRequiredElseHelp)
+                .subcommand_required(true)
+                .arg_required_else_help(true)
                 .subcommands(vec![
                     Command::new("docker")
                         .about("Request a new build for a Docker image")
@@ -60,7 +60,7 @@ pub fn cli_parser() -> ArgMatches {
                         .arg(arg!(-H --host <HOST> "Hostname").required(false))
                         .arg(arg!(-p --port <PORT> "Port number").required(false))
                         .arg(arg!(-d --diskspace <DISK_SPACE> "Disk space to be allocated to Pyrsia node").required(false))
-                        .group(ArgGroup::new("node_config").args(&["host", "port", "diskspace"]).required(false).multiple(true))
+                        .group(ArgGroup::new("node_config").args(["host", "port", "diskspace"]).required(false).multiple(true))
                 ])
                 .args(&[
                     arg!(-r --remove   "Removes the stored node configuration").visible_alias("rm"),
@@ -68,7 +68,8 @@ pub fn cli_parser() -> ArgMatches {
                 ]),
             Command::new("inspect-log")
                 .about("Show transparency logs")
-                .setting(AppSettings::SubcommandRequiredElseHelp)
+                .subcommand_required(true)
+                .arg_required_else_help(true)
                 .subcommands(vec![
                     Command::new("docker")
                         .about("Show transparency logs for a Docker image")
