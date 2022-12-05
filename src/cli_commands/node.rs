@@ -17,6 +17,7 @@
 use anyhow::anyhow;
 use reqwest::Response;
 use async_trait::async_trait;
+use serde_json::Value;
 
 use crate::node_api::model::cli::{
     RequestAddAuthorizedNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild,
@@ -143,7 +144,8 @@ trait ErrorResponseWithBody {
 impl ErrorResponseWithBody for Response {
     async fn error_for_status_with_body(self) -> Result<String, anyhow::Error> {
         if self.status().is_client_error() || self.status().is_server_error() {
-            return Err(anyhow!("{}", self.text().await?));
+            let parsed_error: Value = serde_json::from_str(self.text().await?.as_str())?;
+            return Err(anyhow!("{}", parsed_error["errors"][0]["message"]));
         }
         Ok(self.text().await?)
     }

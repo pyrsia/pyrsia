@@ -162,8 +162,8 @@ fn handle_request_build_result(build_result: Result<String, Error>) {
                 build_id
             );
         }
-        Err(error) => {
-            println!("Build request failed with error: {}", error);
+        Err(error_message) => {
+            println!("Build request failed with error: {}", error_message);
         }
     }
 }
