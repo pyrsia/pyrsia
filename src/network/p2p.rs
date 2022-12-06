@@ -192,9 +192,9 @@ fn create_swarm(
     )
     .expect("Correct configuration");
     let pyrsia_topic: Topic = Topic::new("pyrsia-blockchain-topic");
-    if let Err(e) = gossip_sub.subscribe(&pyrsia_topic) {
-        return Err(Box::new(e));
-    }
+    gossip_sub
+        .subscribe(&pyrsia_topic)
+        .expect("Connected to pyrsia blockchain topic");
 
     Ok((
         SwarmBuilder::with_tokio_executor(

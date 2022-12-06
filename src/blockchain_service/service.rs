@@ -150,12 +150,12 @@ impl BlockchainService {
         );
 
         if let Err(e) = self.gossipsub.publish(self.topic.clone(), buf.clone()) {
-            log::info!(
+            let msg = format!(
                 "Failed to send request_blockchain to topic {:?}. Error = {:?}",
-                self.topic,
-                e
+                self.topic, e
             );
-            return Err(BlockchainError::AnyhowError(anyhow::anyhow!(e)));
+            log::info!("{}", msg);
+            return Err(BlockchainError::AnyhowError(anyhow::anyhow!(msg)));
         }
 
         Ok(())
@@ -328,9 +328,9 @@ mod tests {
         )
         .expect("Correct configuration");
         let pyrsia_topic: Topic = Topic::new("pyrsia-blockchain-topic");
-        if let Err(e) = gossip_sub.subscribe(&pyrsia_topic) {
-            panic!("{}", e);
-        }
+        gossip_sub
+            .subscribe(&pyrsia_topic)
+            .expect("Connected to pyrsia blockchain topic");
 
         BlockchainService::init_first_blockchain_node(
             &ed25519_keypair,
@@ -372,9 +372,9 @@ mod tests {
         )
         .expect("Correct configuration");
         let pyrsia_topic: Topic = Topic::new("pyrsia-blockchain-topic");
-        if let Err(e) = gossip_sub.subscribe(&pyrsia_topic) {
-            panic!("{}", e);
-        }
+        gossip_sub
+            .subscribe(&pyrsia_topic)
+            .expect("Connected to pyrsia blockchain topic");
 
         BlockchainService::init_other_blockchain_node(
             &ed25519_keypair,

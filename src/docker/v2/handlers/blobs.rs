@@ -120,9 +120,9 @@ mod tests {
         )
         .expect("Correct configuration");
         let pyrsia_topic: Topic = Topic::new("pyrsia-blockchain-topic");
-        if let Err(e) = gossip_sub.subscribe(&pyrsia_topic) {
-            panic!("{}", e);
-        }
+        gossip_sub
+            .subscribe(&pyrsia_topic)
+            .expect("Connected to pyrsia blockchain topic");
 
         BlockchainService::init_first_blockchain_node(
             ed25519_keypair,
