@@ -7,6 +7,7 @@ description = "Pyrsia Node and CLI"
 authors = ["pyrsiaoss <pyrsiaopensource@gmail.com>"]
 license = "Apache-2"
 repository = "https://github.com/pyrsia/pyrsia"
+rust = "1.64"
 
 [package.metadata.deb]
 assets = [
@@ -113,3 +114,4 @@ panic = 'unwind'
 incremental = false
 codegen-units = 16
 rpath = false
+strip = true

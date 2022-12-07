@@ -7,14 +7,14 @@ on:
       - '**/*.rs'
       - '**/Cargo.toml'
       - Cargo.lock
-      
+
 jobs:
   security-audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: pyrsia/rust-toolchain@v1      
       - run: mkdir -p $HOME/.cargo
-      - run: rustup update && cargo --version
       - run: cp .github/workflows/.cargo/audit.toml $HOME/.cargo
       - uses: actions-rs/audit-check@v1
         with:
@@ -24,21 +24,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: rustup component add rustfmt
+      - uses: pyrsia/rust-toolchain@v1 
+        with:
+          components: rustfmt  
       - run: cargo fmt --version
       - run: cargo fmt -- --check # Prints diff in the action logs
 
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
-        with:
-          version: '3.x'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v3
-      - run: rustup component add clippy
-      - run: cargo clippy --version
+      - uses: pyrsia/rust-toolchain@v1 
+        with:
+          components: clippy                    
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
