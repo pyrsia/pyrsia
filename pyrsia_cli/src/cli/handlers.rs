@@ -389,29 +389,51 @@ mod tests {
             .any(|x| valid_disk_space(x.to_owned()).is_ok()));
     }
 
-    #[test]
-    fn test_valid_config_edit() {
+    fn test_common_valid_config_edit(
+        host_name: Option<String>,
+        port: Option<String>,
+        disk_allocated: Option<String>,
+    ) {
         let existing_cli_config = config::get_config().unwrap();
-        let host_name = "some.localhost";
-        let port = u16::MAX.to_string();
-        let disk_space = "10 GB";
-        let config_edit_result = config_edit(
-            Some(host_name.to_owned()),
-            Some(port.clone()),
-            Some(disk_space.to_owned()),
-        );
+        let config_edit_result =
+            config_edit(host_name.clone(), port.clone(), disk_allocated.clone());
         let updated_cli_config = config::get_config().unwrap();
         if config_edit_result.is_ok() {
             //restore the config to original state after test
-            let _restore_config = config::add_config(existing_cli_config);
+            let _restore_config = config::add_config(existing_cli_config.clone());
         }
         assert_eq!(
             CliConfig {
-                host: host_name.to_owned(),
-                port,
-                disk_allocated: disk_space.to_owned()
+                host: host_name.unwrap_or_else(|| { existing_cli_config.host }),
+                port: port.unwrap_or_else(|| { existing_cli_config.port }),
+                disk_allocated: disk_allocated
+                    .unwrap_or_else(|| { existing_cli_config.disk_allocated }),
             },
             updated_cli_config
+        );
+    }
+
+    #[test]
+    fn test_config_edit_only_with_valid_host_name() {
+        test_common_valid_config_edit(Some("some.localhost".to_string()), None, None);
+    }
+
+    #[test]
+    fn test_config_edit_only_with_valid_port() {
+        test_common_valid_config_edit(None, Some(u16::MAX.to_string()), None);
+    }
+
+    #[test]
+    fn test_config_edit_only_with_valid_disk_allocated() {
+        test_common_valid_config_edit(None, None, Some("10 GB".to_string()));
+    }
+
+    #[test]
+    fn test_config_edit_with_all_valid_attributes() {
+        test_common_valid_config_edit(
+            Some("some.localhost".to_string()),
+            Some(u16::MAX.to_string()),
+            Some("10 GB".to_string()),
         );
     }
 
