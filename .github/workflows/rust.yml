@@ -28,7 +28,7 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
     - uses: actions/checkout@v3
-    - uses: pyrsia/rust-toolchain@v1 
+    - uses: pyrsia/rust-toolchain@v1
 
     # Use sscache store in GitHub cache
     - uses: actions/cache@v3
@@ -61,7 +61,7 @@ jobs:
 
     - name: Execute Test Cases
       run: |
-        cargo test --workspace --verbose --release
+        cargo test --workspace --verbose --release -- --test-threads=1
 
     # Creates installer archive of pyrsia and pyrsia_node
     - id: generate-homebrew-archives
@@ -111,8 +111,8 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
       - uses: actions/checkout@v3
-      - uses: pyrsia/rust-toolchain@v1           
-       
+      - uses: pyrsia/rust-toolchain@v1
+
       # Use sscache store in GitHub cache
       - uses: actions/cache@v3
         with:
@@ -176,7 +176,7 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
     - uses: actions/checkout@v3
-    - uses: pyrsia/rust-toolchain@v1 
+    - uses: pyrsia/rust-toolchain@v1
 
     # Use sscache store in GitHub cache
     - uses: actions/cache@v3
@@ -203,7 +203,7 @@ jobs:
 
     - name: Execute Test Cases
       run: |
-        cargo test --workspace --verbose --release
+        cargo test --workspace --verbose --release -- --test-threads=1
 
     # Install cargo deb
     - name: Install cargo-deb
@@ -280,7 +280,7 @@ jobs:
       with:
         fetch-depth: 0
 
-    - uses: pyrsia/rust-toolchain@v1 
+    - uses: pyrsia/rust-toolchain@v1
 
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1
