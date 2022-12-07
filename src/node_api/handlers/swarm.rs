@@ -21,7 +21,6 @@ use crate::node_api::model::cli::{
     RequestAddAuthorizedNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild,
     RequestMavenLog,
 };
-use crate::transparency_log::log::TransparencyLogService;
 
 use crate::artifact_service::service::ArtifactService;
 use libp2p::PeerId;
@@ -31,7 +30,7 @@ use warp::{http::StatusCode, Rejection, Reply};
 
 pub async fn handle_add_authorized_node(
     request_add_authorized_node: RequestAddAuthorizedNode,
-    transparency_log_service: TransparencyLogService,
+    artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
     let peer_id =
         PeerId::from_str(&request_add_authorized_node.peer_id).map_err(|_| RegistryError {
@@ -41,7 +40,8 @@ pub async fn handle_add_authorized_node(
             )),
         })?;
 
-    transparency_log_service
+    artifact_service
+        .transparency_log_service
         .add_authorized_node(peer_id)
         .await
         .map_err(RegistryError::from)?;
@@ -113,9 +113,10 @@ pub async fn handle_get_status(mut p2p_client: Client) -> Result<impl Reply, Rej
 
 pub async fn handle_inspect_log_docker(
     request_docker_log: RequestDockerLog,
-    transparency_log_service: TransparencyLogService,
+    artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
-    let result = transparency_log_service
+    let result = artifact_service
+        .transparency_log_service
         .search_transparency_logs(&PackageType::Docker, &request_docker_log.image)
         .map_err(RegistryError::from)?;
 
@@ -130,9 +131,10 @@ pub async fn handle_inspect_log_docker(
 
 pub async fn handle_inspect_log_maven(
     request_maven_log: RequestMavenLog,
-    transparency_log_service: TransparencyLogService,
+    artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
-    let result = transparency_log_service
+    let result = artifact_service
+        .transparency_log_service
         .search_transparency_logs(&PackageType::Maven2, &request_maven_log.gav)
         .map_err(RegistryError::from)?;
 

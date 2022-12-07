@@ -117,20 +117,18 @@ fn parse_artifact_from_full_path(
 mod tests {
     use super::*;
     use crate::artifact_service::storage::ArtifactStorage;
-    use crate::blockchain_service::service::BlockchainService;
-    use crate::build_service::event::BuildEventClient;
+    use crate::build_service::event::{BuildEvent, BuildEventClient};
     use crate::network::client::command::Command;
     use crate::network::client::Client;
-    use crate::transparency_log::log::{AddArtifactRequest, TransparencyLogService};
+    use crate::transparency_log::log::AddArtifactRequest;
     use crate::util::test_util;
     use anyhow::Context;
     use hyper::header::HeaderValue;
     use libp2p::identity::Keypair;
     use std::collections::HashSet;
     use std::fs::File;
-    use std::path::{Path, PathBuf};
-    use std::sync::Arc;
-    use tokio::sync::{mpsc, Mutex};
+    use std::path::PathBuf;
+    use tokio::sync::mpsc;
 
     const VALID_ARTIFACT_HASH: &str =
         "e11c16ff163ccc1efe01d2696c626891560fa82123601a5ff196d97b6ab156da";
@@ -147,35 +145,6 @@ mod tests {
         };
 
         (command_receiver, p2p_client)
-    }
-
-    async fn create_blockchain_service(
-        local_keypair: &Keypair,
-        p2p_client: Client,
-        blockchain_path: impl AsRef<Path>,
-    ) -> BlockchainService {
-        let Keypair::Ed25519(ed25519_keypair) = local_keypair;
-
-        BlockchainService::init_first_blockchain_node(
-            ed25519_keypair,
-            ed25519_keypair,
-            p2p_client,
-            blockchain_path,
-        )
-        .await
-        .expect("Creating BlockchainService failed")
-    }
-
-    async fn create_transparency_log_service(
-        artifact_path: impl AsRef<Path>,
-        local_keypair: Keypair,
-        p2p_client: Client,
-    ) -> TransparencyLogService {
-        let blockchain_service =
-            create_blockchain_service(&local_keypair, p2p_client, &artifact_path).await;
-
-        TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
-            .expect("Creating TransparencyLogService failed")
     }
 
     #[test]
@@ -220,8 +189,6 @@ mod tests {
 
         let local_keypair = Keypair::generate_ed25519();
         let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -234,15 +201,21 @@ mod tests {
             }
         });
 
-        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
+        let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
-        let mut artifact_service = ArtifactService::new(
-            &tmp_dir,
-            transparency_log_service,
-            build_event_client,
-            p2p_client,
-        )
-        .expect("Creating ArtifactService failed");
+        let mut artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
+            .expect("Creating ArtifactService failed");
+
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::AddBlock"),
+                }
+            }
+        });
 
         let transparency_log = artifact_service
             .transparency_log_service

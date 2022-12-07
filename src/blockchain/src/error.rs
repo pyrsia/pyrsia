@@ -24,6 +24,8 @@ use crate::structures::header::Ordinal;
 pub enum BlockchainError {
     #[error("Anyhow Error")]
     AnyhowError(#[from] anyhow::Error),
+    #[error("Channel Closed")]
+    ChannelClosed(#[from] tokio::sync::oneshot::error::RecvError),
     #[error("Serialization Error")]
     SerializationError(#[from] bincode::Error),
     #[error("IO Error")]

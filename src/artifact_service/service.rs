@@ -48,15 +48,17 @@ pub struct ArtifactService {
 impl ArtifactService {
     pub fn new<P: AsRef<Path>>(
         artifact_path: P,
-        transparency_log_service: TransparencyLogService,
         build_event_client: BuildEventClient,
         p2p_client: Client,
     ) -> anyhow::Result<Self> {
         let artifact_storage = ArtifactStorage::new(&artifact_path)?;
         Ok(ArtifactService {
             artifact_storage,
-            build_event_client,
-            transparency_log_service,
+            build_event_client: build_event_client.clone(),
+            transparency_log_service: TransparencyLogService::new(
+                artifact_path,
+                build_event_client,
+            )?,
             p2p_client,
         })
     }
@@ -356,7 +358,6 @@ impl ArtifactService {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
-    use crate::blockchain_service::service::BlockchainService;
     use crate::build_service::event::BuildEvent;
     use crate::network::client::command::Command;
     use crate::network::idle_metric_protocol::PeerMetrics;
@@ -367,8 +368,7 @@ mod tests {
     use std::collections::HashSet;
     use std::env;
     use std::path::PathBuf;
-    use std::sync::Arc;
-    use tokio::sync::{mpsc, Mutex};
+    use tokio::sync::mpsc;
     use tokio::task;
 
     const VALID_ARTIFACT_HASH: [u8; 32] = [
@@ -389,32 +389,13 @@ mod tests {
 
     async fn create_artifact_service(
         artifact_path: impl AsRef<Path>,
-        keypair: &Keypair,
         p2p_client: Client,
     ) -> (mpsc::Receiver<BuildEvent>, ArtifactService) {
-        let blockchain_service = BlockchainService::init_first_blockchain_node(
-            keypair,
-            keypair,
-            p2p_client.clone(),
-            &artifact_path,
-        )
-        .await
-        .expect("Creating BlockchainService failed");
-
-        let transparency_log_service =
-            TransparencyLogService::new(&artifact_path, Arc::new(Mutex::new(blockchain_service)))
-                .expect("Creating TransparencyLogService failed");
-
         let (build_event_sender, build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);
 
-        let artifact_service = ArtifactService::new(
-            &artifact_path,
-            transparency_log_service,
-            build_event_client,
-            p2p_client,
-        )
-        .expect("Creating ArtifactService failed");
+        let artifact_service = ArtifactService::new(&artifact_path, build_event_client, p2p_client)
+            .expect("Creating ArtifactService failed");
 
         (build_event_receiver, artifact_service)
     }
@@ -426,8 +407,8 @@ mod tests {
         let keypair = Keypair::generate();
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
-        let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
+        let (mut build_event_receiver, mut artifact_service) =
+            create_artifact_service(&tmp_dir, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -436,6 +417,17 @@ mod tests {
                         let _ = sender.send(HashSet::new());
                     }
                     _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::AddBlock"),
                 }
             }
         });
@@ -497,8 +489,8 @@ mod tests {
         let keypair = Keypair::generate();
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
-        let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
+        let (mut build_event_receiver, mut artifact_service) =
+            create_artifact_service(&tmp_dir, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -510,6 +502,17 @@ mod tests {
                         let _ = sender.send(());
                     }
                     _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::AddBlock"),
                 }
             }
         });
@@ -562,8 +565,8 @@ mod tests {
         let keypair = Keypair::generate();
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
-        let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
+        let (mut build_event_receiver, mut artifact_service) =
+            create_artifact_service(&tmp_dir, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -585,6 +588,17 @@ mod tests {
                         let _ = sender.send(Ok(b"SAMPLE_DATA".to_vec()));
                     },
                     _ => panic!("Command must match Command::ListPeers, Command::ListProviders, Command::RequestIdleMetric, Command::RequestArtifact"),
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::AddBlock"),
                 }
             }
         });
@@ -631,7 +645,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
+            create_artifact_service(&tmp_dir, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             tokio::select! {
@@ -665,8 +679,8 @@ mod tests {
         let keypair = Keypair::generate();
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
-        let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
+        let (mut build_event_receiver, mut artifact_service) =
+            create_artifact_service(&tmp_dir, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -675,6 +689,17 @@ mod tests {
                         let _ = sender.send(HashSet::new());
                     }
                     _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::AddBlock"),
                 }
             }
         });
@@ -722,8 +747,8 @@ mod tests {
         let keypair = Keypair::generate();
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
-        let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
+        let (mut build_event_receiver, mut artifact_service) =
+            create_artifact_service(&tmp_dir, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -732,6 +757,17 @@ mod tests {
                         let _ = sender.send(HashSet::new());
                     }
                     _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::AddBlock"),
                 }
             }
         });
@@ -797,8 +833,8 @@ mod tests {
         let keypair = Keypair::generate();
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
-        let (_build_event_receiver, mut artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
+        let (mut build_event_receiver, mut artifact_service) =
+            create_artifact_service(&tmp_dir, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -807,6 +843,17 @@ mod tests {
                         let _ = sender.send(HashSet::new());
                     }
                     _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::AddBlock"),
                 }
             }
         });
@@ -851,7 +898,7 @@ mod tests {
 
         let (_command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (_build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
+            create_artifact_service(&tmp_dir, p2p_client.clone()).await;
 
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
@@ -878,7 +925,7 @@ mod tests {
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
         let (mut build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
+            create_artifact_service(&tmp_dir, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -894,10 +941,15 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
+                    Some(BuildEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
                     Some(BuildEvent::Start { sender, .. }) => {
                         let _ = sender.send(Ok(String::from("build_start_ok")));
                     }
-                    _ => panic!("BuildEvent must match BuildEvent::Start"),
+                    _ => {
+                        panic!("BuildEvent must match BuildEvent::AddBlock or BuildEvent::Start")
+                    }
                 }
             }
         });
@@ -929,8 +981,8 @@ mod tests {
         let keypair = Keypair::generate();
 
         let (mut command_receiver, p2p_client) = create_p2p_client(&keypair);
-        let (_build_event_receiver, artifact_service) =
-            create_artifact_service(&tmp_dir, &keypair, p2p_client.clone()).await;
+        let (mut build_event_receiver, artifact_service) =
+            create_artifact_service(&tmp_dir, p2p_client.clone()).await;
 
         tokio::spawn(async move {
             loop {
@@ -945,6 +997,17 @@ mod tests {
                         "Command must match Command::ListPeers or Command::RequestBuild, was: {:?}",
                         other
                     ),
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match build_event_receiver.recv().await {
+                    Some(BuildEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("BuildEvent must match BuildEvent::AddBlock"),
                 }
             }
         });
