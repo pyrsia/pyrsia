@@ -71,28 +71,25 @@ pub fn config_edit(
 
     let mut errors: Vec<String> = Vec::new();
 
-    match host_name.map_or_else(
-        || Err("Invalid value for Hostname".to_owned()),
-        valid_host_name,
-    ) {
-        Ok(host_name) => cli_config.host = host_name,
-        Err(description) => errors.push(description),
+    if let Some(validation_result) = host_name.map(valid_host_name) {
+        match validation_result {
+            Ok(host_name) => cli_config.host = host_name,
+            Err(description) => errors.push(description),
+        }
     }
 
-    match port.map_or_else(
-        || Err("Invalid value for Port Number".to_owned()),
-        valid_port,
-    ) {
-        Ok(port) => cli_config.port = port,
-        Err(description) => errors.push(description),
+    if let Some(validation_result) = port.map(valid_port) {
+        match validation_result {
+            Ok(port) => cli_config.port = port,
+            Err(description) => errors.push(description),
+        }
     }
 
-    match disk_space.map_or_else(
-        || Err("Invalid value for Disk Allocation".to_owned()),
-        valid_disk_space,
-    ) {
-        Ok(disk_space) => cli_config.disk_allocated = disk_space,
-        Err(description) => errors.push(description),
+    if let Some(validation_result) = disk_space.map(valid_disk_space) {
+        match validation_result {
+            Ok(disk_space) => cli_config.disk_allocated = disk_space,
+            Err(description) => errors.push(description),
+        }
     }
 
     if errors.is_empty() {
