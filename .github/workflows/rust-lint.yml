@@ -39,7 +39,7 @@ jobs:
           components: clippy                    
       - uses: actions-rs/clippy-check@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ github.token }}
           args: --all-features -- --deny warnings
 
   license-header:
