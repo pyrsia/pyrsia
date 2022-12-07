@@ -28,6 +28,7 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
     - uses: actions/checkout@v3
+    - uses: pyrsia/rust-toolchain@v1 
 
     # Use sscache store in GitHub cache
     - uses: actions/cache@v3
@@ -40,13 +41,6 @@ jobs:
         .github/workflows/sccache-macos.sh
         sccache --start-server
         sccache --show-stats
-
-    # Install protoc
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v1
-      with:
-        version: '3.x'
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
 
     # Need to add build number to version number
     - id: add-fqbvn-and-export
@@ -117,7 +111,8 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
       - uses: actions/checkout@v3
-
+      - uses: pyrsia/rust-toolchain@v1           
+       
       # Use sscache store in GitHub cache
       - uses: actions/cache@v3
         with:
@@ -130,13 +125,6 @@ jobs:
           .github/workflows/sccache-windows.bat
           sccache --start-server
           sccache --show-stats
-
-      # Install protoc
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
-        with:
-          version: '3.x'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       # Need to add build number to version number
       - name: Add Build to Version Number
@@ -188,6 +176,7 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
     - uses: actions/checkout@v3
+    - uses: pyrsia/rust-toolchain@v1 
 
     # Use sscache store in GitHub cache
     - uses: actions/cache@v3
@@ -200,13 +189,6 @@ jobs:
         .github/workflows/sccache-linux.sh
         sccache --start-server
         sccache --show-stats
-
-    # Install protoc
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v1
-      with:
-        version: '3.x'
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
 
     # Need to add build number to version number
     - name: Add Build to Version Number
@@ -223,19 +205,13 @@ jobs:
       run: |
         cargo test --workspace --verbose --release
 
-    # Install cargo deb and strip
-    - name: Install cargo-deb cargo-strip
+    # Install cargo deb
+    - name: Install cargo-deb
       if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       uses: actions-rs/cargo@v1.0.3
       with:
         command: install
-        args: cargo-deb cargo-strip --force
-
-    # Strip binaries
-    - name: Strip Binaries
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      run: |
-        cargo strip
+        args: cargo-deb --force
 
     # Create Pyrsia .deb file
     - name: Package Pyrsia as deb file
@@ -304,17 +280,7 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v1
-      with:
-        version: '3.x'
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Install stable toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
+    - uses: pyrsia/rust-toolchain@v1 
 
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1
