@@ -53,6 +53,7 @@ pub struct PyrsiaNetworkBehaviour {
 /// Each event in the `PyrsiaNetworkBehaviour` is wrapped in a
 /// `PyrsiaNetworkEvent`.
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum PyrsiaNetworkEvent {
     AutoNat(autonat::Event),
     Identify(Box<identify::Event>),
