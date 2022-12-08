@@ -9,7 +9,7 @@ on:
       - '**/*.rs'
       - '**/Cargo.toml'
       - Cargo.lock
-      - 'installers/windows/*'
+      - 'installers/**'
   release:
     types: [published]
 
