@@ -322,6 +322,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn custom_recover_from_registry_error_bad_request() {
+        let registry_error = RegistryError {
+            code: RegistryErrorCode::BadRequest(String::from("bad_request")),
+        };
+
+        let expected_body = serde_json::to_string(&ErrorMessages {
+            errors: vec![ErrorMessage {
+                code: RegistryErrorCode::BadRequest("bad_request".to_string()),
+                message: String::from("bad_request"),
+            }],
+        })
+        .expect("Generating JSON body should not fail.");
+
+        let response = custom_recover(registry_error.into())
+            .await
+            .expect("Reply should be created.")
+            .into_response();
+
+        verify_recover_response(response, expected_body, StatusCode::BAD_REQUEST).await;
+    }
+
+    #[tokio::test]
     async fn custom_recover_from_registry_error_for_unknown() {
         let registry_error = RegistryError {
             code: RegistryErrorCode::Unknown(String::from("unknown_error")),
