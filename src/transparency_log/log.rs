@@ -15,7 +15,7 @@
 */
 
 use crate::artifact_service::model::PackageType;
-use crate::build_service::event::BuildEventClient;
+use crate::blockchain_service::event::BlockchainEventClient;
 use libp2p::PeerId;
 use log::{debug, error};
 use pyrsia_blockchain_network::error::BlockchainError;
@@ -136,19 +136,19 @@ pub struct AuthorizedNode {
 #[derive(Clone)]
 pub struct TransparencyLogService {
     storage_path: PathBuf,
-    build_event_client: BuildEventClient,
+    blockchain_event_client: BlockchainEventClient,
 }
 
 impl TransparencyLogService {
     pub fn new<P: AsRef<Path>>(
         repository_path: P,
-        build_event_client: BuildEventClient,
+        blockchain_event_client: BlockchainEventClient,
     ) -> Result<Self, TransparencyLogError> {
         let mut absolute_path = repository_path.as_ref().to_path_buf().canonicalize()?;
         absolute_path.push("transparency_log");
         Ok(TransparencyLogService {
             storage_path: absolute_path,
-            build_event_client,
+            blockchain_event_client,
         })
     }
 
@@ -176,7 +176,7 @@ impl TransparencyLogService {
         };
 
         let payload = serde_json::to_string(&transparency_log)?;
-        self.build_event_client
+        self.blockchain_event_client
             .add_block(payload.into_bytes())
             .await?;
 
@@ -213,7 +213,7 @@ impl TransparencyLogService {
         };
 
         let payload = serde_json::to_string(&transparency_log)?;
-        self.build_event_client
+        self.blockchain_event_client
             .add_block(payload.into_bytes())
             .await?;
 
@@ -536,22 +536,9 @@ impl TransparencyLogService {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
-    use crate::build_service::event::BuildEvent;
+    use crate::blockchain_service::event::BlockchainEvent;
     use crate::util::test_util;
     use libp2p::identity::Keypair;
-    use tokio::sync::mpsc::{self, Receiver};
-
-    fn create_transparency_log_service(
-        artifact_path: impl AsRef<Path>,
-    ) -> (Receiver<BuildEvent>, TransparencyLogService) {
-        let (build_event_sender, build_event_receiver) = mpsc::channel(1);
-        let build_event_client = BuildEventClient::new(build_event_sender);
-
-        (
-            build_event_receiver,
-            TransparencyLogService::new(artifact_path, build_event_client).unwrap(),
-        )
-    }
 
     #[test]
     fn create_transparency_log() {
@@ -606,7 +593,7 @@ mod tests {
     async fn test_open_db() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let result = log.open_db();
         assert!(result.is_ok());
@@ -626,7 +613,7 @@ mod tests {
     async fn test_write_tranparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -654,7 +641,7 @@ mod tests {
     async fn test_write_twice_transparency_log_error() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -684,7 +671,7 @@ mod tests {
     async fn test_find_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -715,7 +702,7 @@ mod tests {
     async fn test_find_transparency_log_not_found() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -755,7 +742,7 @@ mod tests {
     async fn test_read_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -787,7 +774,7 @@ mod tests {
     async fn test_read_transparency_log_invalid_id() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -827,7 +814,7 @@ mod tests {
     async fn test_read_latest_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),
@@ -878,7 +865,7 @@ mod tests {
     async fn test_read_transparency_logs() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),
@@ -934,7 +921,7 @@ mod tests {
     async fn test_verify_artifact_can_be_added_to_transparency_logs() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
         let result1 = log.verify_package_can_be_added_to_transparency_logs(
             &PackageType::Docker,
             "package_specific_id",
@@ -1005,7 +992,7 @@ mod tests {
     async fn test_read_remove_artifact_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -1045,15 +1032,16 @@ mod tests {
     async fn test_add_artifact() {
         let tmp_dir = test_util::tests::setup();
 
-        let (mut build_event_receiver, mut log) = create_transparency_log_service(&tmp_dir);
+        let (mut log, mut build_event_receiver) =
+            test_util::tests::create_transparency_log_service(&tmp_dir);
 
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::AddBlock { sender, .. }) => {
+                    Some(BlockchainEvent::AddBlock { sender, .. }) => {
                         let _ = sender.send(Ok(()));
                     }
-                    _ => panic!("BuildEvent must match BuildEvent::AddBlock"),
+                    _ => panic!("BlockchainEvent must match BlockchainEvent::AddBlock"),
                 }
             }
         });
@@ -1076,7 +1064,7 @@ mod tests {
     async fn test_get_authorized_nodes_empty() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let result_read = log.get_authorized_nodes();
         assert!(result_read.is_ok());
@@ -1089,15 +1077,16 @@ mod tests {
     async fn test_add_authorized_nodes() {
         let tmp_dir = test_util::tests::setup();
 
-        let (mut build_event_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, mut build_event_receiver) =
+            test_util::tests::create_transparency_log_service(&tmp_dir);
 
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::AddBlock { sender, .. }) => {
+                    Some(BlockchainEvent::AddBlock { sender, .. }) => {
                         let _ = sender.send(Ok(()));
                     }
-                    _ => panic!("BuildEvent must match BuildEvent::AddBlock"),
+                    _ => panic!("BlockchainEvent must match BlockchainEvent::AddBlock"),
                 }
             }
         });
@@ -1136,7 +1125,7 @@ mod tests {
     async fn test_get_authorized_nodes_add() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log = TransparencyLog {
             id: String::from("id"),
@@ -1170,7 +1159,7 @@ mod tests {
     async fn test_get_authorized_nodes_add_and_remove() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log1 = TransparencyLog {
             id: String::from("id1"),
@@ -1242,7 +1231,7 @@ mod tests {
     async fn test_verify_authorized_node_can_be_added() {
         let tmp_dir = test_util::tests::setup();
 
-        let (_receiver, log) = create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let result1 = log.verify_node_can_be_added_to_transparency_logs("node_id1");
         assert!(result1.is_ok());

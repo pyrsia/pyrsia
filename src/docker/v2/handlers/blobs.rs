@@ -60,29 +60,16 @@ fn get_package_specific_artifact_id(name: &str, digest: &str) -> String {
 mod tests {
     use super::*;
     use crate::artifact_service::storage::ArtifactStorage;
-    use crate::build_service::event::{BuildEvent, BuildEventClient};
+    use crate::blockchain_service::event::BlockchainEvent;
     use crate::network::client::command::Command;
-    use crate::network::client::Client;
     use crate::transparency_log::log::AddArtifactRequest;
     use crate::util::test_util;
     use anyhow::Context;
     use hyper::header::HeaderValue;
-    use libp2p::identity::Keypair;
     use std::borrow::Borrow;
     use std::collections::HashSet;
     use std::fs::File;
     use std::path::PathBuf;
-    use tokio::sync::mpsc;
-
-    fn create_p2p_client(local_keypair: &Keypair) -> (mpsc::Receiver<Command>, Client) {
-        let (command_sender, command_receiver) = mpsc::channel(1);
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: local_keypair.public().to_peer_id(),
-        };
-
-        (command_receiver, p2p_client)
-    }
 
     #[test]
     fn test_get_package_specific_artifact_id_from_digest() {
@@ -102,13 +89,7 @@ mod tests {
         let name = "alpine";
         let hash = "7300a197d7deb39371d4683d60f60f2fbbfd7541837ceb2278c12014e94e657b";
 
-        let local_keypair = Keypair::generate_ed25519();
-        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-
-        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
-        let build_event_client = BuildEventClient::new(build_event_sender);
-        let artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
-            .expect("Creating ArtifactService failed");
+        let (artifact_service, ..) = test_util::tests::create_artifact_service(&tmp_dir);
 
         let result = handle_get_blobs(name.to_owned(), hash.to_owned(), artifact_service).await;
 
@@ -136,32 +117,27 @@ mod tests {
         let package_specific_id = format!("{}:latest", name);
         let package_specific_artifact_id = get_package_specific_artifact_id(name, &digest);
 
-        let local_keypair = Keypair::generate_ed25519();
-        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-
-        let (build_event_sender, mut build_event_receiver) = mpsc::channel(1);
-        let build_event_client = BuildEventClient::new(build_event_sender);
-        let mut artifact_service = ArtifactService::new(&tmp_dir, build_event_client, p2p_client)
-            .expect("Creating ArtifactService failed");
+        let (mut artifact_service, mut blockchain_event_receiver, _, mut p2p_command_receiver) =
+            test_util::tests::create_artifact_service(&tmp_dir);
 
         tokio::spawn(async move {
             loop {
-                match command_receiver.recv().await {
-                    Some(Command::ListPeers { sender, .. }) => {
-                        let _ = sender.send(HashSet::new());
+                match blockchain_event_receiver.recv().await {
+                    Some(BlockchainEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
                     }
-                    _ => panic!("Command must match Command::ListPeers"),
+                    _ => panic!("BlockchainEvent must match BlockchainEvent::AddBlock"),
                 }
             }
         });
 
         tokio::spawn(async move {
             loop {
-                match build_event_receiver.recv().await {
-                    Some(BuildEvent::AddBlock { sender, .. }) => {
-                        let _ = sender.send(Ok(()));
+                match p2p_command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
                     }
-                    _ => panic!("BuildEvent must match BuildEvent::AddBlock"),
+                    _ => panic!("Command must match Command::ListPeers"),
                 }
             }
         });

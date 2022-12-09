@@ -24,6 +24,7 @@ use libp2p::PeerId;
 use network::handlers;
 use pyrsia::artifact_service::service::ArtifactService;
 use pyrsia::artifact_service::storage::ARTIFACTS_DIR;
+use pyrsia::blockchain_service::event::{BlockchainEventClient, BlockchainEventLoop};
 use pyrsia::blockchain_service::service::BlockchainService;
 use pyrsia::build_service::event::{BuildEventClient, BuildEventLoop};
 use pyrsia::build_service::service::BuildService;
@@ -61,13 +62,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     debug!("Start p2p event loop");
     tokio::spawn(event_loop.run());
 
-    debug!("Create blockchain service");
-    let blockchain_service =
-        setup_blockchain_service(local_keypair, p2p_client.clone(), &args).await?;
-
     debug!("Create pyrsia services");
-    let (build_event_client, artifact_service) =
-        setup_pyrsia_services(blockchain_service, p2p_client.clone(), &args).await?;
+    let (blockchain_event_client, build_event_client, artifact_service) =
+        setup_pyrsia_services(p2p_client.clone(), local_keypair, &args).await?;
 
     debug!("Setup HTTP server");
     setup_http(&args, artifact_service.clone(), p2p_client.clone());
@@ -76,7 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     establish_connection_with_p2p_network(
         p2p_client.clone(),
         artifact_service.clone(),
-        build_event_client.clone(),
+        blockchain_event_client.clone(),
         args.clone(),
     )
     .await;
@@ -141,9 +138,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 pyrsia::network::event_loop::PyrsiaEvent::BlockchainRequest { data, channel } => {
-                    if let Err(error) = build_event_client
-                        .handle_incoming_blockchain_command(data, channel)
-                        .await
+                    if let Err(error) = handlers::handle_incoming_blockchain_command(
+                        blockchain_event_client.clone(),
+                        data,
+                        channel,
+                    )
+                    .await
                     {
                         warn!("This node failed to update blockchain Error: {:?}", error);
                     }
@@ -156,7 +156,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 async fn establish_connection_with_p2p_network(
     p2p_client: Client,
     artifact_service: ArtifactService,
-    build_event_client: BuildEventClient,
+    blockchain_event_client: BlockchainEventClient,
     args: PyrsiaNodeArgs,
 ) {
     tokio::spawn(async move {
@@ -170,7 +170,7 @@ async fn establish_connection_with_p2p_network(
             if !args.init_blockchain {
                 if let Err(err) = pull_block_from_other_nodes(
                     artifact_service.clone(),
-                    build_event_client,
+                    blockchain_event_client,
                     &other_peer_id,
                 )
                 .await
@@ -253,16 +253,19 @@ async fn load_peer_addrs(peer_url: &str) -> anyhow::Result<String> {
     }
 }
 
-async fn setup_blockchain_service(
-    local_keypair: Keypair,
+async fn setup_pyrsia_services(
     p2p_client: Client,
+    local_keypair: Keypair,
     args: &PyrsiaNodeArgs,
-) -> Result<BlockchainService> {
+) -> Result<(BlockchainEventClient, BuildEventClient, ArtifactService)> {
     let Keypair::Ed25519(local_ed25519_keypair) = local_keypair;
+
+    let artifact_path = PathBuf::from(ARTIFACTS_DIR.as_str());
 
     let pyrsia_blockchain_path = read_var("PYRSIA_BLOCKCHAIN_PATH", "pyrsia/blockchain");
 
-    if args.init_blockchain {
+    debug!("Create blockchain service");
+    let blockchain_service = if args.init_blockchain {
         let blockchain_keypair =
             keypair_util::load_or_generate_ed25519(PathBuf::from(KEYPAIR_FILENAME.as_str()));
 
@@ -272,35 +275,33 @@ async fn setup_blockchain_service(
         BlockchainService::init_first_blockchain_node(
             &local_ed25519_keypair,
             &blockchain_ed25519_keypair,
-            p2p_client,
+            p2p_client.clone(),
             pyrsia_blockchain_path,
         )
         .await
-        .map_err(|e| e.into())
     } else {
         BlockchainService::init_other_blockchain_node(
             &local_ed25519_keypair,
-            p2p_client,
+            p2p_client.clone(),
             pyrsia_blockchain_path,
         )
-        .map_err(|e| e.into())
-    }
-}
+    }?;
 
-async fn setup_pyrsia_services(
-    blockchain_service: BlockchainService,
-    p2p_client: Client,
-    args: &PyrsiaNodeArgs,
-) -> Result<(BuildEventClient, ArtifactService)> {
-    let artifact_path = PathBuf::from(ARTIFACTS_DIR.as_str());
+    debug!("Create blockchain event client");
+    let (blockchain_event_sender, blockchain_event_receiver) = mpsc::channel(32);
+    let blockchain_event_client = BlockchainEventClient::new(blockchain_event_sender);
 
     debug!("Create build event client");
     let (build_event_sender, build_event_receiver) = mpsc::channel(32);
     let build_event_client = BuildEventClient::new(build_event_sender);
 
     debug!("Create artifact service");
-    let artifact_service =
-        setup_artifact_service(&artifact_path, build_event_client.clone(), p2p_client)?;
+    let artifact_service = setup_artifact_service(
+        &artifact_path,
+        blockchain_event_client.clone(),
+        build_event_client.clone(),
+        p2p_client,
+    )?;
 
     debug!("Create build service");
     let build_service = setup_build_service(&artifact_path, build_event_client.clone(), args)?;
@@ -308,25 +309,42 @@ async fn setup_pyrsia_services(
     debug!("Create verification service");
     let verification_service = VerificationService::new(build_event_client.clone())?;
 
+    debug!("Start blockchain event loop");
+    let blockchain_event_loop = BlockchainEventLoop::new(
+        artifact_service.clone(),
+        blockchain_service,
+        blockchain_event_receiver,
+    );
+    tokio::spawn(blockchain_event_loop.run());
+
     debug!("Start build event loop");
     let build_event_loop = BuildEventLoop::new(
         artifact_service.clone(),
-        blockchain_service,
         build_service,
         verification_service,
         build_event_receiver,
     );
     tokio::spawn(build_event_loop.run());
 
-    Ok((build_event_client, artifact_service))
+    Ok((
+        blockchain_event_client,
+        build_event_client,
+        artifact_service,
+    ))
 }
 
 fn setup_artifact_service(
     artifact_path: &Path,
+    blockchain_event_client: BlockchainEventClient,
     build_event_client: BuildEventClient,
     p2p_client: Client,
 ) -> Result<ArtifactService> {
-    let artifact_service = ArtifactService::new(artifact_path, build_event_client, p2p_client)?;
+    let artifact_service = ArtifactService::new(
+        artifact_path,
+        blockchain_event_client,
+        build_event_client,
+        p2p_client,
+    )?;
 
     Ok(artifact_service)
 }
@@ -384,16 +402,19 @@ fn setup_http(args: &PyrsiaNodeArgs, artifact_service: ArtifactService, p2p_clie
 
 async fn pull_block_from_other_nodes(
     mut artifact_service: ArtifactService,
-    build_event_client: BuildEventClient,
+    blockchain_event_client: BlockchainEventClient,
     other_peer_id: &PeerId,
 ) -> anyhow::Result<()> {
     debug!("Blockchain start pulling blocks from other peers");
 
-    let ordinal = build_event_client
+    let ordinal = blockchain_event_client
         .pull_blocks_from_peer(other_peer_id)
         .await?;
 
-    for block in build_event_client.pull_blocks_local(1, ordinal).await? {
+    for block in blockchain_event_client
+        .pull_blocks_local(1, ordinal)
+        .await?
+    {
         let payloads = block.fetch_payload();
         artifact_service.handle_block_added(payloads).await?;
     }
