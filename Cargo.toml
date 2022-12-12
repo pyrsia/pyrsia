@@ -7,7 +7,7 @@ description = "Pyrsia Node and CLI"
 authors = ["pyrsiaoss <pyrsiaopensource@gmail.com>"]
 license = "Apache-2"
 repository = "https://github.com/pyrsia/pyrsia"
-rust = "1.64"
+rust-version = "1.64"
 
 [package.metadata.deb]
 assets = [
@@ -55,7 +55,7 @@ pin-utils = "0.1.0"
 pretty_env_logger = "0.4.0"
 rand = "0.8.5"
 regex = "1.7.0"
-reqwest = { version = "0.11.11", features = ["blocking", "json"] }
+reqwest = { version = "0.11.13", features = ["blocking", "json"] }
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.82"

@@ -104,7 +104,7 @@ impl ArtifactService {
         // prevent duplicated builds
         self.transparency_log_service
             .verify_package_can_be_added_to_transparency_logs(&package_type, &package_specific_id)
-            .map_err(|t| BuildError::ArtifactAlreadyExists(format!("{:?}", t)))?;
+            .map_err(|t| BuildError::ArtifactAlreadyExists(t.to_string()))?;
 
         if local_peer_id.eq(&peer_id) {
             debug!("Start local build in authorized node");

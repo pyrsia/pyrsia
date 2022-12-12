@@ -81,32 +81,40 @@ Follow the instructions below to setup a test network.
 - Node 1:
 
    ```sh
-   DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 7888
-
-   # RUST_LOG=debug DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 7888 # Use this environment variable if you would like to see debug logs
+   RUST_LOG=info,pyrsia=debug DEV_MODE=on cargo run --package pyrsia_node -- --listen-only -p 7888 --init-blockchain
    ```
 
-Test the pyrsia_node status using `curl` (notice the port number for Node 1)
+   Test the pyrsia_node status using `curl` (notice the port number for Node 1)
 
-```sh
-curl --location --request GET 'http://localhost:7888/status'
-```
+   ```sh
+   curl --location --request GET 'http://localhost:7888/status'
+   ```
+
+   Download or clone the [prototype repo](https://github.com/tiainen/pyrsia_build_pipeline_prototype)
+   and run as follows (`jq` must be installed locally before):
+
+   ```sh
+   cd pyrsia_build_pipeline_prototype
+   RUST_LOG=debug cargo run
+   ```
 
 In a real life deployment these nodes will be spread over the network and will all run on their own 7888 port.
 
 - Node 2:
 
    ```sh
-   DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 7889
-
-   # RUST_LOG=debug DEV_MODE=on PYRSIA_ARTIFACT_PATH=pyrsia cargo run --bin pyrsia_node -- -p 8181 # Use this environment variable if you would like to see debug logs
+   RUST_LOG=info,pyrsia=debug DEV_MODE=on PYRSIA_BLOCKCHAIN_PATH=pyrsia_node_2/blockchain PYRSIA_ARTIFACT_PATH=pyrsia_node_2 PYRSIA_KEYPAIR=pyrsia_node_2/p2p_keypair.ser cargo run --package pyrsia_node -- -p 7889 --bootstrap-url http://localhost:7888/status
    ```
 
-Test the pyrsia_node status using `curl` (notice the port number for Node 2)
+   We have to set explicit values for `PYRSIA_BLOCKCHAIN_PATH`, `PYRSIA_ARTIFACT_PATH` and `PYRSIA_KEYPAIR` to prevent
+   collisions with the files already created by Node 1. Another way of dealing with this, is to copy the `pyrsia_node`
+   binary to a separate location and start the second node there. The default values use a relative path against the current directory.
 
-```sh
-curl --location --request GET 'http://localhost:7889/status'
-```
+   Test the pyrsia_node status using `curl` (notice the port number for Node 2)
+
+   ```sh
+   curl --location --request GET 'http://localhost:7889/status'
+   ```
 
 Now you have confirmed that the individual nodes are running.
 
@@ -125,14 +133,27 @@ You can use the Pyrsia CLI to ensure that the peers are connected.
 2. Configure the CLI tool for your node using interactive subcommand "config"
 
    ```sh
-    ./pyrsia config --add
-    ```
+    ./pyrsia config -e
+   ```
 
-   OR place the config file in these OS specific locations:
+   You can find the config file in these OS specific locations:
 
-   Mac:  $HOME/Library/Preferences/rs.pyrsia-cli/pyrsia-cli.toml
-   Linux: $HOME/.config/rs.pyrsia-cli/pyrsia-cli.toml or $XDG_CONFIG_HOME/rs.pyrsia-cli/pyrsia-cli.toml
-   Windows: %APPDATA%\\Roaming\\pyrsia-cli\\config\\pyrsia-cli.toml
+   - Mac:  $HOME/Library/Preferences/rs.pyrsia-cli/pyrsia-cli.toml
+   - Linux: $HOME/.config/rs.pyrsia-cli/pyrsia-cli.toml or $XDG_CONFIG_HOME/rs.pyrsia-cli/pyrsia-cli.toml
+   - Windows: %APPDATA%\\Roaming\\pyrsia-cli\\config\\pyrsia-cli.toml
+
+   You can easily switch the CLI to use one of your two nodes by using one of these commands:
+   - Node 1:
+
+   ```sh
+    ./pyrsia config -e --port 7888
+   ```
+
+   - Node 2:
+
+   ```sh
+    ./pyrsia config -e --port 7889
+   ```
 
 3. Ping the Pyrsia node and list the status
 
@@ -144,9 +165,6 @@ You can use the Pyrsia CLI to ensure that the peers are connected.
     ```sh
     $ ./pyrsia -s
     Connected Peers Count:       1
-    Artifacts Count:             3 {"manifests": 1, "blobs": 2}
-    Total Disk Space Allocated:  10 GB
-    Disk Space Used:             0.0002%
     ```
 
 If you see a status message similar to:
@@ -156,6 +174,41 @@ Error: error sending request for url (http://localhost:7888/v2): error trying to
 ```
 
 then your node is likely not running. Go back to step 3 to make sure the Pyrsia Node can be started.
+
+5. Authorize Node 1 as your build node
+
+    ```sh
+    ./pyrsia config -e --port 7888
+    NODE1_PEER_ID=`curl -s http://localhost:7888/status | jq -r .peer_id`
+    echo Authorizing peer id $NODE1_PEER_ID
+    ./pyrsia authorize --peer $NODE1_PEER_ID
+    ```
+
+    This will output something like this:
+
+    ```text
+    Authorizing peer id 12D3KooWFiC9Xdx77HJSLv6B1muauoxTvjWrVNcUgE4d8YRsRWkT
+    Authorize request successfully handled.
+    ```
+
+6. Trigger a build from source
+
+    Configure your pyrsia CLI to use either Node 1 (port 7888) or Node 2 (port 7889) and then run this:
+
+    ```sh
+    ./pyrsia build docker --image alpine:3.16.0
+    ```
+
+    When triggering the build from Node 1, it will use the build pipeline. When triggering the build from Node 2,
+    it will send a build request to Node 1, that will use the build pipeline.
+
+7. Inspect logs
+
+    ```sh
+    ./pyrsia inspect-log docker --image alpine:3.16.0
+    ```
+
+    This will print the transparency logs for alpine:3.16.0 in JSON format.
 
 Congratulations! You have now setup your developer environment and are ready to write code and submit a PR to Pyrsia. Head over to [contributing guidelines](/docs/community/get_involved/contributing/) to start contributing to the project.
 

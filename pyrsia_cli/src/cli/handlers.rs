@@ -117,7 +117,7 @@ pub async fn request_maven_build(gav: &str) {
     handle_request_build_result(build_result);
 }
 
-fn handle_request_build_result(build_result: Result<String, reqwest::Error>) {
+fn handle_request_build_result(build_result: Result<String, anyhow::Error>) {
     match build_result {
         Ok(build_id) => {
             println!(
@@ -125,8 +125,8 @@ fn handle_request_build_result(build_result: Result<String, reqwest::Error>) {
                 build_id
             );
         }
-        Err(error) => {
-            println!("Build request failed with error: {}", error);
+        Err(error_message) => {
+            println!("Build request failed with error: {}", error_message);
         }
     }
 }
