@@ -172,7 +172,7 @@ pub async fn request_build_status(build_id: &str) {
     }
 }
 
-fn handle_request_build_result(build_result: Result<String, reqwest::Error>) {
+fn handle_request_build_result(build_result: Result<String, anyhow::Error>) {
     match build_result {
         Ok(build_id) => {
             println!(
