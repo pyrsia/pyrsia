@@ -59,7 +59,7 @@ pub enum PyrsiaNetworkEvent {
     AutoNat(autonat::Event),
     GossipSub(gossipsub::GossipsubEvent),
     Identify(Box<identify::Event>),
-    Kademlia(KademliaEvent),
+    Kademlia(Box<KademliaEvent>),
     RequestResponse(RequestResponseEvent<ArtifactRequest, ArtifactResponse>),
     BuildRequestResponse(RequestResponseEvent<BuildRequest, BuildResponse>),
     IdleMetricRequestResponse(RequestResponseEvent<IdleMetricRequest, IdleMetricResponse>),
@@ -86,7 +86,7 @@ impl From<identify::Event> for PyrsiaNetworkEvent {
 
 impl From<KademliaEvent> for PyrsiaNetworkEvent {
     fn from(event: KademliaEvent) -> Self {
-        PyrsiaNetworkEvent::Kademlia(event)
+        PyrsiaNetworkEvent::Kademlia(Box::new(event))
     }
 }
 

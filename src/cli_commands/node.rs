@@ -14,11 +14,17 @@
    limitations under the License.
 */
 
-use super::config::get_config;
+use anyhow::anyhow;
+use async_trait::async_trait;
+use reqwest::Response;
+use serde_json::Value;
+
 use crate::node_api::model::cli::{
     RequestAddAuthorizedNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild,
     RequestMavenLog, Status,
 };
+
+use super::config::get_config;
 
 pub async fn ping() -> Result<String, reqwest::Error> {
     //TODO: implement ping api in Node
@@ -52,34 +58,28 @@ pub async fn add_authorized_node(request: RequestAddAuthorizedNode) -> Result<()
         .map(|_| ())
 }
 
-pub async fn request_docker_build(request: RequestDockerBuild) -> Result<String, reqwest::Error> {
+pub async fn request_docker_build(request: RequestDockerBuild) -> Result<String, anyhow::Error> {
     let node_url = format!("http://{}/build/docker", get_url());
     let client = reqwest::Client::new();
-    match client
-        .post(node_url)
+    client
+        .post(&node_url)
         .json(&request)
         .send()
         .await?
-        .error_for_status()
-    {
-        Ok(response) => response.json::<String>().await,
-        Err(e) => Err(e),
-    }
+        .error_for_status_with_body()
+        .await
 }
 
-pub async fn request_maven_build(request: RequestMavenBuild) -> Result<String, reqwest::Error> {
+pub async fn request_maven_build(request: RequestMavenBuild) -> Result<String, anyhow::Error> {
     let node_url = format!("http://{}/build/maven", get_url());
     let client = reqwest::Client::new();
-    match client
+    client
         .post(node_url)
         .json(&request)
         .send()
         .await?
-        .error_for_status()
-    {
-        Ok(response) => response.json::<String>().await,
-        Err(e) => Err(e),
-    }
+        .error_for_status_with_body()
+        .await
 }
 
 pub async fn inspect_docker_transparency_log(
@@ -131,4 +131,27 @@ pub fn get_url() -> String {
     };
 
     format!("{}:{}", host, port)
+}
+
+#[async_trait]
+trait ErrorResponseWithBody {
+    async fn error_for_status_with_body(self) -> Result<String, anyhow::Error>;
+}
+
+#[async_trait]
+impl ErrorResponseWithBody for Response {
+    async fn error_for_status_with_body(self) -> Result<String, anyhow::Error> {
+        let http_status = self.status();
+        let requested_url = self.url().to_string();
+        if http_status.is_client_error() || http_status.is_server_error() {
+            let parsed_error: Value = serde_json::from_str(self.text().await?.as_str())?;
+            return Err(anyhow!(
+                "HTTP status error ({}) for url ({}): {}",
+                http_status,
+                requested_url,
+                parsed_error["errors"][0]["message"]
+            ));
+        }
+        Ok(self.text().await?)
+    }
 }
