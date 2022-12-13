@@ -21,6 +21,7 @@ use crate::network::build_protocol::BuildResponse;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
 use libp2p::core::{Multiaddr, PeerId};
+use libp2p::gossipsub;
 use libp2p::request_response::ResponseChannel;
 use std::collections::HashSet;
 use strum_macros::Display;
@@ -34,6 +35,11 @@ pub enum Command {
     AddProbe {
         peer_id: PeerId,
         probe_addr: Multiaddr,
+        sender: oneshot::Sender<anyhow::Result<()>>,
+    },
+    BroadcastBlock {
+        topic: gossipsub::IdentTopic,
+        block: Vec<u8>,
         sender: oneshot::Sender<anyhow::Result<()>>,
     },
     Listen {

@@ -57,7 +57,7 @@ pub struct PyrsiaNetworkBehaviour {
 #[derive(Debug)]
 pub enum PyrsiaNetworkEvent {
     AutoNat(autonat::Event),
-    GossipSub(gossipsub::GossipsubEvent),
+    Gossipsub(gossipsub::GossipsubEvent),
     Identify(Box<identify::Event>),
     Kademlia(Box<KademliaEvent>),
     RequestResponse(RequestResponseEvent<ArtifactRequest, ArtifactResponse>),
@@ -67,14 +67,14 @@ pub enum PyrsiaNetworkEvent {
 }
 
 impl From<autonat::Event> for PyrsiaNetworkEvent {
-    fn from(v: autonat::Event) -> Self {
-        PyrsiaNetworkEvent::AutoNat(v)
+    fn from(event: autonat::Event) -> Self {
+        PyrsiaNetworkEvent::AutoNat(event)
     }
 }
 
 impl From<gossipsub::GossipsubEvent> for PyrsiaNetworkEvent {
-    fn from(v: gossipsub::GossipsubEvent) -> Self {
-        PyrsiaNetworkEvent::GossipSub(v)
+    fn from(event: gossipsub::GossipsubEvent) -> Self {
+        PyrsiaNetworkEvent::Gossipsub(event)
     }
 }
 

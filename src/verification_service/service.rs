@@ -264,25 +264,19 @@ mod tests {
     use crate::network::client::Client;
     use crate::transparency_log::log::{AddArtifactRequest, TransparencyLogService};
     use crate::util::test_util;
-    use libp2p::gossipsub::MessageId;
-    use libp2p::gossipsub::{
-        Gossipsub, GossipsubMessage, IdentTopic as Topic, MessageAuthenticity, ValidationMode,
-    };
+    use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::Keypair;
-    use libp2p::{gossipsub, identity};
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
-    use std::time::Duration;
     use tokio::sync::{mpsc, Mutex};
 
     fn create_p2p_client(local_keypair: &Keypair) -> Client {
         let (command_sender, _command_receiver) = mpsc::channel(1);
-        Client {
-            sender: command_sender,
-            local_peer_id: local_keypair.public().to_peer_id(),
-        }
+        Client::new(
+            command_sender,
+            local_keypair.public().to_peer_id(),
+            IdentTopic::new("pyrsia-topic"),
+        )
     }
 
     async fn create_blockchain_service(
@@ -292,35 +286,10 @@ mod tests {
     ) -> BlockchainService {
         let Keypair::Ed25519(ed25519_keypair) = local_keypair;
 
-        // To content-address message, we can take the hash of message and use it as an ID.
-        let message_id_fn = |message: &GossipsubMessage| {
-            let mut s = DefaultHasher::new();
-            message.data.hash(&mut s);
-            MessageId::from(s.finish().to_string())
-        };
-
-        let gossipsub_config = gossipsub::GossipsubConfigBuilder::default()
-            .heartbeat_interval(Duration::from_secs(10)) // This is set to aid debugging by not cluttering the log space
-            .validation_mode(ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
-            .message_id_fn(message_id_fn) // content-address messages. No two messages of the same content will be propagated.
-            .build()
-            .expect("Valid config");
-        let mut gossip_sub = Gossipsub::new(
-            MessageAuthenticity::Signed(identity::Keypair::Ed25519(ed25519_keypair.clone())),
-            gossipsub_config,
-        )
-        .expect("Correct configuration");
-        let pyrsia_topic: Topic = Topic::new("pyrsia-blockchain-topic");
-        gossip_sub
-            .subscribe(&pyrsia_topic)
-            .expect("Connected to pyrsia blockchain topic");
-
         BlockchainService::init_first_blockchain_node(
             ed25519_keypair,
             ed25519_keypair,
             p2p_client,
-            gossip_sub,
-            pyrsia_topic,
             blockchain_path,
         )
         .await
