@@ -264,7 +264,9 @@ impl BuildEventLoop {
                         let build_status = match build_info.status {
                             BuildStatus::Running => String::from("RUNNING"),
                             BuildStatus::Success { .. } => String::from("SUCCESS"),
-                            BuildStatus::Failure(_) => String::from("FAILED"),
+                            BuildStatus::Failure(message) => {
+                                format!("FAILED - (Error: {})", message)
+                            }
                         };
                         Ok(build_status)
                     }
