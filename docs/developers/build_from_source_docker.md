@@ -172,7 +172,7 @@ Enter port: [7888]
 7889
 Enter disk space to be allocated to pyrsia(Please enter with units ex: 10 GB): [10 GB]
 
-Node configuration Saved !!
+Node configuration saved !!
 ```
 
 Next you'll need to find out the peer id of node A. You can see that in its logs
@@ -240,7 +240,7 @@ Then trigger the build from source, like this:
 The build trigger should return immediately providing a build ID:
 
 ```text
-Build request successfully handled. Build with ID c9ca3e57-aa84-4fab-a8be-381ab31e4916 has been started.
+Build request successfully handled. Build with ID "c9ca3e57-aa84-4fab-a8be-381ab31e4916" has been started.
 ```
 
 ## Wait for the build to finish in the build pipeline
@@ -259,7 +259,7 @@ In the build pipeline prototype you should see that build starting:
 #######################################################
 #
 # Starting Docker build for:
-#   alpine:3.16
+#   alpine:3.16.0
 #
 #######################################################
 ...
@@ -271,38 +271,8 @@ but instead download it from Docker Hub.
 Once the build has finished, the status request from the Pyrsia node will contain:
 
 ```text
-DEBUG pyrsia::build_service::event   > Handle BuildEvent: Result
-{
-   "build_id":"c9ca3e57-aa84-4fab-a8be-381ab31e4916",
-   "build_trigger":"FromSource",
-   "build_result":"BuildResult"{
-      "package_type":"Docker",
-      "package_specific_id":"alpine:3.16",
-      "artifacts":[
-         "BuildResultArtifact"{
-            "artifact_specific_id":"alpine:3.16",
-            "artifact_location":"/private/tmp/pyrsia/builds/c9ca3e57-aa84-4fab-a8be-381ab31e4916/1304f174557314a7ed9eddb4eab12fed12cb0cd9809e4c28f29af86979a3c870",
-            "artifact_hash":"1304f174557314a7ed9eddb4eab12fed12cb0cd9809e4c28f29af86979a3c870"
-         },
-         "BuildResultArtifact"{
-            "artifact_specific_id":"alpine@sha256:1304f174557314a7ed9eddb4eab12fed12cb0cd9809e4c28f29af86979a3c870",
-            "artifact_location":"/private/tmp/pyrsia/builds/c9ca3e57-aa84-4fab-a8be-381ab31e4916/1304f174557314a7ed9eddb4eab12fed12cb0cd9809e4c28f29af86979a3c870",
-            "artifact_hash":"1304f174557314a7ed9eddb4eab12fed12cb0cd9809e4c28f29af86979a3c870"
-         },
-         "BuildResultArtifact"{
-            "artifact_specific_id":"alpine@sha256:213ec9aee27d8be045c6a92b7eac22c9a64b44558193775a1a7f626352392b49",
-            "artifact_location":"/private/tmp/pyrsia/builds/c9ca3e57-aa84-4fab-a8be-381ab31e4916/213ec9aee27d8be045c6a92b7eac22c9a64b44558193775a1a7f626352392b49",
-            "artifact_hash":"213ec9aee27d8be045c6a92b7eac22c9a64b44558193775a1a7f626352392b49"
-         },
-         "BuildResultArtifact"{
-            "artifact_specific_id":"alpine@sha256:9c6f0724472873bb50a2ae67a9e7adcb57673a183cea8b06eb778dca859181b5",
-            "artifact_location":"/private/tmp/pyrsia/builds/c9ca3e57-aa84-4fab-a8be-381ab31e4916/9c6f0724472873bb50a2ae67a9e7adcb57673a183cea8b06eb778dca859181b5",
-            "artifact_hash":"9c6f0724472873bb50a2ae67a9e7adcb57673a183cea8b06eb778dca859181b5"
-         }
-      ]
-   }
-}
-INFO  pyrsia::artifact_service::service > Build with ID c9ca3e57-aa84-4fab-a8be-381ab31e4916 completed successfully for package type Docker and package specific ID alpine:3.16
+DEBUG pyrsia::build_service::event   > Handle BuildEvent: Result { build_id: "c9ca3e57-aa84-4fab-a8be-381ab31e4916", build_trigger: FromSource, build_result: BuildResult { package_type: Docker, package_specific_id: "alpine:3.16.0", artifacts: [BuildResultArtifact { artifact_specific_id: "alpine:3.16.0", artifact_location: "/private/tmp/pyrsia/builds/c9ca3e57-aa84-4fab-a8be-381ab31e4916/4ff3ca91275773af45cb4b0834e12b7eb47d1c18f770a0b151381cd227f4c253", artifact_hash: "4ff3ca91275773af45cb4b0834e12b7eb47d1c18f770a0b151381cd227f4c253" }, BuildResultArtifact { artifact_specific_id: "alpine@sha256:4ff3ca91275773af45cb4b0834e12b7eb47d1c18f770a0b151381cd227f4c253", artifact_location: "/private/tmp/pyrsia/builds/c9ca3e57-aa84-4fab-a8be-381ab31e4916/4ff3ca91275773af45cb4b0834e12b7eb47d1c18f770a0b151381cd227f4c253", artifact_hash: "4ff3ca91275773af45cb4b0834e12b7eb47d1c18f770a0b151381cd227f4c253" }, BuildResultArtifact { artifact_specific_id: "alpine@sha256:2408cc74d12b6cd092bb8b516ba7d5e290f485d3eb9672efc00f0583730179e8", artifact_location: "/private/tmp/pyrsia/builds/c9ca3e57-aa84-4fab-a8be-381ab31e4916/2408cc74d12b6cd092bb8b516ba7d5e290f485d3eb9672efc00f0583730179e8", artifact_hash: "2408cc74d12b6cd092bb8b516ba7d5e290f485d3eb9672efc00f0583730179e8" }, BuildResultArtifact { artifact_specific_id: "alpine@sha256:e66264b98777e12192600bf9b4d663655c98a090072e1bab49e233d7531d1294", artifact_location: "/private/tmp/pyrsia/builds/c9ca3e57-aa84-4fab-a8be-381ab31e4916/e66264b98777e12192600bf9b4d663655c98a090072e1bab49e233d7531d1294", artifact_hash: "e66264b98777e12192600bf9b4d663655c98a090072e1bab49e233d7531d1294" }] } }
+INFO  pyrsia::artifact_service::service > Build with ID c9ca3e57-aa84-4fab-a8be-381ab31e4916 completed successfully for package type Docker and package specific ID alpine:3.16.0
 ```
 
 ## Try to reach consensus with the other authorized nodes
@@ -317,29 +287,8 @@ distributing the new transparency log.
 When consensus has been reached, a transparency log is created for each built artifact.
 
 ```text
-INFO  pyrsia::artifact_service::service > Adding artifact to transparency log: AddArtifactRequest { package_type: Docker, package_specific_id: "alpine:3.16", num_artifacts: 4, package_specific_artifact_id: "alpine:3.16", artifact_hash: "1304f174557314a7ed9eddb4eab12fed12cb0cd9809e4c28f29af86979a3c870" }
-pyrsia::transparency_log::log     > Transparency log inserted into database with id: cc3dec20-8604-4d0a-8c18-ccb746769696
-INFO  pyrsia::artifact_service::service > Transparency Log for build with ID c9ca3e57-aa84-4fab-a8be-381ab31e4916 successfully added. Adding artifact locally: TransparencyLog { id: "cc3dec20-8604-4d0a-8c18-ccb746769696", package_type: Docker, package_specific_id: "alpine:3.16", num_artifacts: 4, package_specific_artifact_id: "alpine:3.16", artifact_hash: "1304f174557314a7ed9eddb4eab12fed12cb0cd9809e4c28f29af86979a3c870", source_hash: "", artifact_id: "75c7bd83-1dd4-4666-a35f-e8c59b695e21", source_id: "7ec06216-b2dc-4e5a-a90d-7875fb77b846", timestamp: 1660906467, operation: AddArtifact, node_id: "64765410-136b-4332-a837-226bd062ba37", node_public_key: "558b0373-a29d-40c9-8125-019fb74dda31" }
-```
-
-Example for `alpine:3.16`:
-
-```text
-{
-   "id":"cc3dec20-8604-4d0a-8c18-ccb746769696",
-   "package_type":"Docker",
-   "package_specific_id":"alpine:3.16",
-   "num_artifacts":4,
-   "package_specific_artifact_id":"alpine:3.16",
-   "artifact_hash":"1304f174557314a7ed9eddb4eab12fed12cb0cd9809e4c28f29af86979a3c870",
-   "source_hash":"",
-   "artifact_id":"75c7bd83-1dd4-4666-a35f-e8c59b695e21",
-   "source_id":"7ec06216-b2dc-4e5a-a90d-7875fb77b846",
-   "timestamp":1660906467,
-   "operation":"AddArtifact",
-   "node_id":"64765410-136b-4332-a837-226bd062ba37",
-   "node_public_key":"558b0373-a29d-40c9-8125-019fb74dda31"
-}
+INFO  pyrsia::artifact_service::service > Adding artifact to transparency log: AddArtifactRequest { package_type: Docker, package_specific_id: "alpine:3.16.0", num_artifacts: 4, package_specific_artifact_id: "alpine:3.16.0", artifact_hash: "4ff3ca91275773af45cb4b0834e12b7eb47d1c18f770a0b151381cd227f4c253" }
+INFO  pyrsia::artifact_service::service > Transparency Log for build with ID c9ca3e57-aa84-4fab-a8be-381ab31e4916 successfully created.
 ```
 
 ## Publish the artifact on the p2p network
@@ -348,9 +297,9 @@ As a final step in the build from source scenario, the artifacts are stored loca
 on node A and provided on the p2p network.
 
 ```text
- INFO  pyrsia::artifact_service::service > put_artifact with id: da341557-9150-4208-9474-f5884f799338
- INFO  pyrsia::artifact_service::storage > An artifact is being pushed to the artifact manager da341557-9150-4208-9474-f5884f799338
- DEBUG pyrsia::network::client           > p2p::Client::provide "da341557-9150-4208-9474-f5884f799338"
+INFO  pyrsia::artifact_service::service > put_artifact with id: 40ed45f7-8288-4af2-bcd3-d18a375e0129
+INFO  pyrsia::artifact_service::storage > An artifact is being pushed to the artifact manager 40ed45f7-8288-4af2-bcd3-d18a375e0129
+DEBUG pyrsia::network::client           > p2p::Client::provide "40ed45f7-8288-4af2-bcd3-d18a375e0129"
 ```
 
 Now we are ready to use the published artifacts in our build workflow on node B
@@ -394,19 +343,19 @@ docker pull alpine:3.16.0
 You'll see this in the Pyrsia logs of node B:
 
 ```text
-INFO  pyrsia_registry                      > 192.168.0.227:60446 "GET /v2/ HTTP/1.1" 200 "-" "docker/20.10.17 go/go1.17.11 git-commit/a89b842 kernel/5.10.124-linuxkit os/linux arch/arm64 UpstreamClient(Docker-Client/20.10.17-rd \(darwin\))" 259.375µs
-DEBUG pyrsia::docker::v2::handlers::manifests > Fetching manifest for alpine with tag: 3.16
-INFO  pyrsia::artifact_service::storage       > An artifact is being pulled from the artifact manager f6e32438-b23d-47be-908b-b6b97901a724
-DEBUG pyrsia::network::client                 > p2p::Client::list_providers "f6e32438-b23d-47be-908b-b6b97901a724"
-DEBUG pyrsia::network::event_loop             > Local Peer 12D3KooWNVVUAbLQnBWHvRS4Ad4aWpZyUTZMN5126KTgyYcubtpB is dialing Peer 12D3KooWHZRXJTjvYfP5A34bRLmeg9xmDFm46LUQJHHnhmemoUf6...
+INFO  pyrsia_registry                      > 127.0.0.1:57054 "GET /v2/ HTTP/1.1" 200 "-" "docker/20.10.21 go/go1.18.7 git-commit/3056208 kernel/5.15.0-56-generic os/linux arch/amd64 UpstreamClient(Docker-Client/20.10.21 \(linux\))" 103.551µs
+DEBUG pyrsia::docker::v2::handlers::manifests > Fetching manifest for alpine with tag: 3.16.0
+INFO  pyrsia::artifact_service::storage       > An artifact is being pulled from the artifact manager 40ed45f7-8288-4af2-bcd3-d18a375e0129
+DEBUG pyrsia::network::client                 > p2p::Client::list_providers "40ed45f7-8288-4af2-bcd3-d18a375e0129"
 DEBUG pyrsia::network::client                 > p2p::Client::get_idle_peer() entered with 1 peers
 DEBUG pyrsia::network::idle_metric_protocol   > p2p::idle_metric_protocol::write_request writing a request to peer for and idle metric
-DEBUG pyrsia::network::idle_metric_protocol   > p2p::idle_metric_protocol::read_response Reading response to idle metric request with value =[150, 62, 178, 249, 43, 85, 23, 66]
-DEBUG pyrsia::network::client                 > p2p::Client::get_idle_peer() Pushing idle peer with value 25053298284.56112
-DEBUG pyrsia::network::client                 > p2p::Client::request_artifact PeerId("12D3KooWHZRXJTjvYfP5A34bRLmeg9xmDFm46LUQJHHnhmemoUf6"): "f6e32438-b23d-47be-908b-b6b97901a724"
-DEBUG pyrsia::network::artifact_protocol      > Write ArtifactRequest: "f6e32438-b23d-47be-908b-b6b97901a724"
-INFO  pyrsia::artifact_service::service       > put_artifact with id: f6e32438-b23d-47be-908b-b6b97901a724
-INFO  pyrsia::artifact_service::storage       > An artifact is being pushed to the artifact manager f6e32438-b23d-47be-908b-b6b97901a724
+DEBUG pyrsia::network::idle_metric_protocol   > p2p::idle_metric_protocol::read_response Reading response to idle metric request with value =[227, 165, 155, 36, 140, 93, 136, 65]
+DEBUG pyrsia::network::client                 > p2p::Client::get_idle_peer() Pushing idle peer with value 51097988.576
+DEBUG pyrsia::network::client                 > p2p::Client::request_artifact PeerId("12D3KooWLbLd3V8iNekBntCgeoL4LuFkSEuDUDjLciqKmtXSuKXR"): "40ed45f7-8288-4af2-bcd3-d18a375e0129"
+DEBUG pyrsia::network::artifact_protocol      > Write ArtifactRequest: "40ed45f7-8288-4af2-bcd3-d18a375e0129"
+INFO  pyrsia::artifact_service::service       > put_artifact with id: 40ed45f7-8288-4af2-bcd3-d18a375e0129
+INFO  pyrsia::artifact_service::storage       > An artifact is being pushed to the artifact manager 40ed45f7-8288-4af2-bcd3-d18a375e0129
+INFO  pyrsia::artifact_service::storage       > An artifact is being pulled from the artifact manager 40ed45f7-8288-4af2-bcd3-d18a375e0129
 ```
 
 Indicating that the Alpine image was first pulled from the Pyrsia network and then
@@ -415,78 +364,76 @@ stored locally, so node B can now also participate in the p2p content distributi
 ## Inspect the transparency logs
 
 The transparency logs that were created as part of the build from source process,
-can be inspected using the Pyrsia CLI on any node. You can change the CLI config
-to use the default port 7888 again to inspect the logs on node B, or you can run
-inspect-log without any changes to inspect the logs on node A:
+can be inspected using the Pyrsia CLI.
 
 ```sh
 ./pyrsia inspect-log docker --image alpine:3.16.0
 ```
 
 This CLI command returns the transparency logs for all the Pyrsia artifacts that
-make up the Docker image `alpine:3.16`:
+make up the Docker image `alpine:3.16.0`:
 
 ```text
 [
   {
-    "id": "cc3dec20-8604-4d0a-8c18-ccb746769696",
-    "package_type": "Docker",
-    "package_specific_id": "alpine:3.16",
+    "artifact_hash": "4ff3ca91275773af45cb4b0834e12b7eb47d1c18f770a0b151381cd227f4c253",
+    "artifact_id": "40ed45f7-8288-4af2-bcd3-d18a375e0129",
+    "id": "3ad6eb47-5aad-4918-b2b1-6f1f114e393c",
+    "node_id": "8cafff66-c9b6-4236-8439-b94d48c8892b",
+    "node_public_key": "01b12113-550c-4662-b26e-6b4896ad1e06",
     "num_artifacts": 4,
-    "package_specific_artifact_id": "alpine:3.16",
-    "artifact_hash": "1304f174557314a7ed9eddb4eab12fed12cb0cd9809e4c28f29af86979a3c870",
-    "source_hash": "",
-    "artifact_id": "75c7bd83-1dd4-4666-a35f-e8c59b695e21",
-    "source_id": "7ec06216-b2dc-4e5a-a90d-7875fb77b846",
-    "timestamp": 1660906467,
     "operation": "AddArtifact",
-    "node_id": "64765410-136b-4332-a837-226bd062ba37",
-    "node_public_key": "558b0373-a29d-40c9-8125-019fb74dda31"
+    "package_specific_artifact_id": "alpine:3.16.0",
+    "package_specific_id": "alpine:3.16.0",
+    "package_type": "Docker",
+    "source_hash": "",
+    "source_id": "cd739bcc-a8cc-49f6-99cd-a5935a4e3708",
+    "timestamp": 1671002963
   },
   {
-    "id": "d88982b1-261b-4e3d-9eb2-dd549c40ac05",
-    "package_type": "Docker",
-    "package_specific_id": "alpine:3.16",
+    "artifact_hash": "4ff3ca91275773af45cb4b0834e12b7eb47d1c18f770a0b151381cd227f4c253",
+    "artifact_id": "b825cf46-cdff-4e42-9ac9-30e2cf006768",
+    "id": "5cfdd284-bdf9-4106-b613-645280ac1e9d",
+    "node_id": "4d3e0ae6-9249-45d4-bb07-c87ab896b401",
+    "node_public_key": "f6cb371d-fcc4-48ef-aafa-96e03d4cb350",
     "num_artifacts": 4,
-    "package_specific_artifact_id": "alpine@sha256:1304f174557314a7ed9eddb4eab12fed12cb0cd9809e4c28f29af86979a3c870",
-    "artifact_hash": "1304f174557314a7ed9eddb4eab12fed12cb0cd9809e4c28f29af86979a3c870",
-    "source_hash": "",
-    "artifact_id": "f2648155-b665-4567-9e3c-27af7cc3b9bb",
-    "source_id": "0ca693f9-7c50-4448-9cd6-0d7a145fba14",
-    "timestamp": 1660906529,
     "operation": "AddArtifact",
-    "node_id": "60b7d9ae-d5ba-4440-ab83-6c5638a18a45",
-    "node_public_key": "4a873a2a-0e04-4540-b1bd-bccc0d721ed2"
+    "package_specific_artifact_id": "alpine@sha256:4ff3ca91275773af45cb4b0834e12b7eb47d1c18f770a0b151381cd227f4c253",
+    "package_specific_id": "alpine:3.16.0",
+    "package_type": "Docker",
+    "source_hash": "",
+    "source_id": "cf598576-ceab-4c72-903b-e2fd1bd7f6fd",
+    "timestamp": 1671002963
   },
   {
-    "id": "f53f9cc6-6998-470a-8094-cae3fbc82412",
-    "package_type": "Docker",
-    "package_specific_id": "alpine:3.16",
+    "artifact_hash": "2408cc74d12b6cd092bb8b516ba7d5e290f485d3eb9672efc00f0583730179e8",
+    "artifact_id": "7bf372eb-7b27-473d-a42a-870c193716a2",
+    "id": "a6a06cfb-f446-4550-861d-d852f1159173",
+    "node_id": "30f770ab-ad97-4373-9cd2-1aa3b1462544",
+    "node_public_key": "45b15873-a4b5-4f14-ab8c-f808637942d6",
     "num_artifacts": 4,
-    "package_specific_artifact_id": "alpine@sha256:213ec9aee27d8be045c6a92b7eac22c9a64b44558193775a1a7f626352392b49",
-    "artifact_hash": "213ec9aee27d8be045c6a92b7eac22c9a64b44558193775a1a7f626352392b49",
-    "source_hash": "",
-    "artifact_id": "dac2e42c-fd48-4487-b48c-34f5eac1f674",
-    "source_id": "eed938e9-9cf8-4e1b-995f-6a6d1da6ef26",
-    "timestamp": 1660906589,
     "operation": "AddArtifact",
-    "node_id": "1e3244e3-1fc5-429b-8cc6-43dbbebaccb2",
-    "node_public_key": "7d7d96c0-1b8b-4028-bb20-df9a45eeaa7f"
+    "package_specific_artifact_id": "alpine@sha256:2408cc74d12b6cd092bb8b516ba7d5e290f485d3eb9672efc00f0583730179e8",
+    "package_specific_id": "alpine:3.16.0",
+    "package_type": "Docker",
+    "source_hash": "",
+    "source_id": "0698a48a-5417-4c9a-9dd1-847e8a50d97b",
+    "timestamp": 1671002963
   },
   {
-    "id": "cae2f5a7-22ec-4d22-86af-59e1f0239056",
-    "package_type": "Docker",
-    "package_specific_id": "alpine:3.16",
+    "artifact_hash": "e66264b98777e12192600bf9b4d663655c98a090072e1bab49e233d7531d1294",
+    "artifact_id": "8e453f52-eb25-4115-aaa1-21336e621b5d",
+    "id": "9891becb-0d51-4a84-8a95-1a2a373c3057",
+    "node_id": "5ff4828c-afc0-4bf1-a69a-b43b25702906",
+    "node_public_key": "6140db75-b98e-406b-8149-03cea4bb3494",
     "num_artifacts": 4,
-    "package_specific_artifact_id": "alpine@sha256:9c6f0724472873bb50a2ae67a9e7adcb57673a183cea8b06eb778dca859181b5",
-    "artifact_hash": "9c6f0724472873bb50a2ae67a9e7adcb57673a183cea8b06eb778dca859181b5",
-    "source_hash": "",
-    "artifact_id": "3fc0ac72-8f5e-41fe-8ab6-94c565ebc52c",
-    "source_id": "4cb49c33-af4c-4c3a-8053-b771007a6720",
-    "timestamp": 1660906649,
     "operation": "AddArtifact",
-    "node_id": "64d30c8e-d356-420c-ab87-e27687ca6f1d",
-    "node_public_key": "57130e5d-d0dc-450b-b80d-966cb71210ef"
+    "package_specific_artifact_id": "alpine@sha256:e66264b98777e12192600bf9b4d663655c98a090072e1bab49e233d7531d1294",
+    "package_specific_id": "alpine:3.16.0",
+    "package_type": "Docker",
+    "source_hash": "",
+    "source_id": "90bde21b-a126-484e-83da-e70783c2a300",
+    "timestamp": 1671002963
   }
 ]
 ```
