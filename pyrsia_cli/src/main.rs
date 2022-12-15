@@ -71,6 +71,9 @@ async fn main() {
             Some(("maven", maven_matches)) => {
                 request_maven_build(maven_matches.get_one::<String>("gav").unwrap()).await;
             }
+            Some(("status", status_matches)) => {
+                request_build_status(status_matches.get_one::<String>("id").unwrap()).await;
+            }
             _ => {}
         },
         Some(("list", _config_matches)) => {

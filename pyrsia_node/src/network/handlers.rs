@@ -28,6 +28,7 @@ use pyrsia::build_service::event::BuildEventClient;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
 use pyrsia::network::blockchain_protocol::BlockchainResponse;
 use pyrsia::network::build_protocol::BuildResponse;
+use pyrsia::network::build_status_protocol::BuildStatusResponse;
 use pyrsia::network::client::Client;
 use pyrsia::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use pyrsia::peer_metrics;
@@ -230,4 +231,16 @@ pub async fn handle_query_block_ordinal_from_peer(
         .await?;
 
     Ok(())
+}
+
+pub async fn handle_request_build_status(
+    mut p2p_client: Client,
+    build_event_client: BuildEventClient,
+    build_id: &str,
+    channel: ResponseChannel<BuildStatusResponse>,
+) -> anyhow::Result<()> {
+    debug!("Handling request build status: {:?}", build_id);
+    let build_id = build_event_client.get_build_status(build_id).await?;
+
+    p2p_client.respond_build_status(&build_id, channel).await
 }
