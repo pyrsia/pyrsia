@@ -252,7 +252,7 @@ in the transparency logs and can be retrieved by all nodes in the network.
 
 ## Use API
 
-Pyrsia supports Docker Registry API. The entire API documents will be coming soon.
+Pyrsia supports a subset of the [Docker Registry API](https://docs.docker.com/registry/spec/api/). A more detailed API document specific to Pyrsia, will be coming soon.
 
 ```shell
 $ curl -sS http://localhost:7888/v2/library/alpine/manifests/3.16.2
