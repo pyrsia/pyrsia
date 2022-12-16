@@ -76,11 +76,17 @@ pub fn add_config(new_cfg: CliConfig) -> Result<()> {
     Ok(())
 }
 
+pub fn remove_config() -> Result<()> {
+    let cfg_patch = confy::get_configuration_file_path(CONF_FILE, None)?;
+    std::fs::remove_file(cfg_patch)?;
+    Ok(())
+}
+
 pub fn config_edit(
     host_name: Option<String>,
     port: Option<String>,
     disk_space: Option<String>,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     let mut cli_config = get_config()?;
 
     let mut errors: Vec<String> = Vec::new();
@@ -185,35 +191,61 @@ pub fn get_config_file_path() -> Result<PathBuf> {
 mod tests {
     use super::*;
     use serial_test::serial;
+    use std::fs;
 
     #[test]
     #[serial]
     fn test_config_file_update() {
+        setup_temp_home_dir_and_execute(|| {
+            let cli_config_1 = CliConfig {
+                port: "7888".to_string(),
+                ..Default::default()
+            };
+            let cli_config_2 = CliConfig {
+                port: "7878".to_string(),
+                ..Default::default()
+            };
+
+            add_config(cli_config_1.clone()).expect("add_config failed");
+            let current_cli_config = get_config().expect("get_config failed");
+            assert_eq!(current_cli_config.port, cli_config_1.port);
+
+            add_config(cli_config_2.clone()).expect("add_config failed");
+            let current_cli_config = get_config().expect("get_config failed");
+            assert_eq!(current_cli_config.port, cli_config_2.port);
+        });
+    }
+
+    #[test]
+    fn test_config_file_remove() {
+        setup_temp_home_dir_and_execute(|| {
+            add_config(CliConfig {
+                ..Default::default()
+            })
+            .expect("add_config_failed");
+            let cfg_file = confy::get_configuration_file_path(CONF_FILE, None)
+                .expect("cannot get config file path");
+            assert!(cfg_file.exists(), "config file does not exist");
+
+            remove_config().expect("remove_config failed");
+            assert!(!cfg_file.exists(), "config must not exist");
+        });
+    }
+
+    fn setup_temp_home_dir_and_execute<F>(op: F)
+    where
+        F: FnOnce() -> (),
+    {
         let env_home_original = std::env::var("HOME").unwrap();
         let tmp_dir = tempfile::tempdir()
             .expect("could not create temporary directory")
             .into_path();
         std::env::set_var("HOME", tmp_dir.to_str().unwrap());
 
-        let cli_config_1 = CliConfig {
-            port: "7888".to_string(),
-            ..Default::default()
-        };
-        let cli_config_2 = CliConfig {
-            port: "7878".to_string(),
-            ..Default::default()
-        };
-
-        add_config(cli_config_1.clone()).expect("add_config failed");
-        let current_cli_config = get_config().expect("get_config failed");
-        assert_eq!(current_cli_config.port, cli_config_1.port);
-
-        add_config(cli_config_2.clone()).expect("add_config failed");
-        let current_cli_config = get_config().expect("get_config failed");
-        assert_eq!(current_cli_config.port, cli_config_2.port);
+        op();
 
         std::env::set_var("HOME", env_home_original);
-        std::fs::remove_dir_all(tmp_dir).expect("failed to clean up temporary directory");
+        fs::remove_dir_all(tmp_dir).expect("failed to clean up temporary directory");
     }
 
     fn test_common_valid_config_edit(
