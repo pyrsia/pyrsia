@@ -19,6 +19,7 @@ use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse};
 use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::blockchain_protocol::{BlockchainRequest, BlockchainResponse};
 use crate::network::build_protocol::{BuildRequest, BuildResponse};
+use crate::network::build_status_protocol::{BuildStatusRequest, BuildStatusResponse};
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
@@ -47,6 +48,7 @@ type PendingRequestArtifactMap = HashMap<RequestId, oneshot::Sender<anyhow::Resu
 type PendingRequestBuildMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<String>>>;
 type PendingRequestIdleMetricMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<PeerMetrics>>>;
 type PendingRequestBlockchainMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<Vec<u8>>>>;
+type PendingBuildStatusMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<String>>>;
 
 /// The `PyrsiaEventLoop` is responsible for taking care of incoming
 /// events from the libp2p [`Swarm`] itself, the different network
@@ -64,6 +66,7 @@ pub struct PyrsiaEventLoop {
     pending_request_build: PendingRequestBuildMap,
     pending_idle_metric_requests: PendingRequestIdleMetricMap,
     pending_blockchain_requests: PendingRequestBlockchainMap,
+    pending_build_status_requests: PendingBuildStatusMap,
 }
 
 impl PyrsiaEventLoop {
@@ -84,6 +87,7 @@ impl PyrsiaEventLoop {
             pending_request_build: Default::default(),
             pending_idle_metric_requests: Default::default(),
             pending_blockchain_requests: Default::default(),
+            pending_build_status_requests: Default::default(),
         }
     }
 
@@ -101,6 +105,7 @@ impl PyrsiaEventLoop {
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::BuildRequestResponse(build_request_response_event)) => self.handle_build_request_response_event(build_request_response_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::IdleMetricRequestResponse(request_response_event)) => self.handle_idle_metric_request_response_event(request_response_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::BlockchainRequestResponse(request_response_event)) => self.handle_blockchain_request_response_event(request_response_event).await,
+                    SwarmEvent::Behaviour(PyrsiaNetworkEvent::BuildStatusRequestResponse(build_status_request_response_event)) => self.handle_build_status_request_response_event(build_status_request_response_event).await,
                     swarm_event => self.handle_swarm_event(swarm_event).await,
                 },
                 command = self.command_receiver.recv() => match command {
@@ -367,6 +372,63 @@ impl PyrsiaEventLoop {
                     request_id, error
                 );
                 self.pending_request_build
+                    .remove(&request_id)
+                    .expect("Request to still be pending.")
+                    .send(Err(error.into()))
+                    .unwrap_or_else(|e| {
+                        error!("Handle RequestResponseEvent match arm: {}. pending_request_build: {:?}", event_str, e);
+                    });
+            }
+            RequestResponseEvent::ResponseSent { .. } => {}
+        }
+    }
+
+    async fn handle_build_status_request_response_event(
+        &mut self,
+        event: RequestResponseEvent<BuildStatusRequest, BuildStatusResponse>,
+    ) {
+        trace!("Handle BuildStatusRequestResponseEvent:");
+        let event_str = format!("{:#?}", event);
+        match event {
+            RequestResponseEvent::Message { message, .. } => match message {
+                RequestResponseMessage::Request {
+                    request, channel, ..
+                } => {
+                    debug!("RequestResponseMessage::Request {:?}", request);
+                    self.event_sender
+                        .send(PyrsiaEvent::RequestBuildStatus {
+                            build_id: request.0,
+                            channel,
+                        })
+                        .await
+                        .expect("Event receiver not to be dropped.");
+                }
+                RequestResponseMessage::Response {
+                    request_id,
+                    response,
+                } => {
+                    debug!("RequestResponseMessage::Response {:?}", request_id);
+                    self.pending_build_status_requests
+                        .remove(&request_id)
+                        .expect("Request to still be pending.")
+                        .send(Ok(response.0))
+                        .unwrap_or_else(|e| {
+                            error!(
+                                "Handle RequestResponseEvent match arm: {}. Error: {:?}",
+                                event_str, e
+                            );
+                        });
+                }
+            },
+            RequestResponseEvent::InboundFailure { .. } => {}
+            RequestResponseEvent::OutboundFailure {
+                request_id, error, ..
+            } => {
+                debug!(
+                    "RequestResponseMessage::OutboundFailure {:?} with error {:?}",
+                    request_id, error
+                );
+                self.pending_build_status_requests
                     .remove(&request_id)
                     .expect("Request to still be pending.")
                     .send(Err(error.into()))
@@ -693,6 +755,27 @@ impl PyrsiaEventLoop {
                     .unwrap_or_else(|_e| {
                         error!("Handle Command match arm: {}.", command_str);
                     });
+            Command::RequestBuildStatus {
+                peer,
+                build_id,
+                sender,
+            } => {
+                let request_id = self
+                    .swarm
+                    .behaviour_mut()
+                    .build_status_request_response
+                    .send_request(&peer, BuildStatusRequest(build_id));
+
+                self.pending_build_status_requests
+                    .insert(request_id, sender);
+            }
+            Command::RespondBuildStatus { status, channel } => {
+                self.swarm
+                    .behaviour_mut()
+                    .build_status_request_response
+                    .send_response(channel, BuildStatusResponse(status))
+                    .expect("Connection to peer to be still open (Build status).");
+>>>>>>> upstream/main
             }
         }
     }
@@ -719,6 +802,10 @@ pub enum PyrsiaEvent {
     SimpleBlockchainRequest {
         data: Vec<u8>,
     },
+    RequestBuildStatus {
+        build_id: String,
+        channel: ResponseChannel<BuildStatusResponse>,
+    },
 }
 
 #[cfg(test)]
@@ -730,6 +817,9 @@ mod tests {
         BlockchainExchangeCodec, BlockchainExchangeProtocol,
     };
     use crate::network::build_protocol::{BuildExchangeCodec, BuildExchangeProtocol};
+    use crate::network::build_status_protocol::{
+        BuildStatusExchangeCodec, BuildStatusExchangeProtocol,
+    };
     use crate::network::client::Client;
     use crate::network::event_loop::PyrsiaEvent;
     use crate::network::idle_metric_protocol::{
@@ -843,6 +933,14 @@ mod tests {
                 BlockchainExchangeCodec(),
                 iter::once((
                     BlockchainExchangeProtocol(),
+                    request_response::ProtocolSupport::Full,
+                )),
+                Default::default(),
+            ),
+            build_status_request_response: request_response::RequestResponse::new(
+                BuildStatusExchangeCodec(),
+                iter::once((
+                    BuildStatusExchangeProtocol(),
                     request_response::ProtocolSupport::Full,
                 )),
                 Default::default(),

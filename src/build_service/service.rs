@@ -20,6 +20,7 @@ use super::mapping::service::MappingService;
 use super::model::{BuildResult, BuildResultArtifact, BuildStatus, BuildTrigger};
 use super::pipeline::service::PipelineService;
 use crate::artifact_service::model::PackageType;
+use crate::build_service::model::BuildInfo;
 use bytes::Buf;
 use log::{debug, error, warn};
 use multihash::Hasher;
@@ -256,6 +257,10 @@ impl BuildService {
                 build_path, error
             )
         }
+    }
+
+    pub async fn get_build_status(&self, build_id: &str) -> Result<BuildInfo, BuildError> {
+        self.pipeline_service.get_build_status(build_id).await
     }
 
     fn get_build_path(&self, build_id: &str) -> PathBuf {

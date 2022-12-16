@@ -18,6 +18,7 @@ use crate::artifact_service::model::PackageType;
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::blockchain_protocol::BlockchainResponse;
 use crate::network::build_protocol::BuildResponse;
+use crate::network::build_status_protocol::BuildStatusResponse;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
 use libp2p::core::{Multiaddr, PeerId};
@@ -100,6 +101,15 @@ pub enum Command {
     RespondBlockchain {
         data: Vec<u8>,
         channel: ResponseChannel<BlockchainResponse>,
+    },
+    RequestBuildStatus {
+        peer: PeerId,
+        build_id: String,
+        sender: oneshot::Sender<anyhow::Result<String>>,
+    },
+    RespondBuildStatus {
+        status: String,
+        channel: ResponseChannel<BuildStatusResponse>,
     },
 }
 

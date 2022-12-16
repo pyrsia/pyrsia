@@ -17,7 +17,7 @@
 use crate::artifact_service::model::PackageType;
 use crate::artifact_service::service::ArtifactService;
 use crate::build_service::error::BuildError;
-use crate::build_service::model::{BuildResult, BuildTrigger};
+use crate::build_service::model::{BuildResult, BuildStatus, BuildTrigger};
 use crate::build_service::service::BuildService;
 use crate::verification_service::service::VerificationService;
 use log::{debug, error, warn};
@@ -28,6 +28,10 @@ pub enum BuildEvent {
     Failed {
         build_id: String,
         build_error: BuildError,
+    },
+    Status {
+        build_id: String,
+        sender: oneshot::Sender<Result<String, BuildError>>,
     },
     Start {
         package_type: PackageType,
@@ -105,6 +109,22 @@ impl BuildEventClient {
         receiver
             .await
             .map_err(|e| BuildError::InitializationFailed(e.to_string()))?
+    }
+
+    pub async fn get_build_status(&self, build_id: &str) -> Result<String, BuildError> {
+        let (sender, receiver) = oneshot::channel();
+        self.build_event_sender
+            .send(BuildEvent::Status {
+                build_id: String::from(build_id),
+                sender,
+            })
+            .await
+            .unwrap_or_else(|e| {
+                error!("Error build_event_sender. {:#?}", e);
+            });
+        receiver
+            .await
+            .map_err(|e| BuildError::BuildStatusFailed(e.to_string()))?
     }
 
     pub async fn build_succeeded(
@@ -237,6 +257,24 @@ impl BuildEventLoop {
 
                 self.verification_service
                     .handle_build_failed(&build_id, build_error);
+            }
+            BuildEvent::Status { build_id, sender } => {
+                let result = match self.build_service.get_build_status(&build_id).await {
+                    Ok(build_info) => {
+                        let build_status = match build_info.status {
+                            BuildStatus::Running => String::from("RUNNING"),
+                            BuildStatus::Success { .. } => String::from("SUCCESS"),
+                            BuildStatus::Failure(message) => {
+                                format!("FAILED - (Error: {})", message)
+                            }
+                        };
+                        Ok(build_status)
+                    }
+                    Err(build_error) => Err(build_error),
+                };
+                sender.send(result).unwrap_or_else(|build_error| {
+                    error!("build error. {:#?}", build_error);
+                });
             }
             BuildEvent::Succeeded {
                 build_id,
