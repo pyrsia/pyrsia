@@ -46,7 +46,7 @@ pub async fn status() -> Result<Status, reqwest::Error> {
     Ok(response)
 }
 
-pub async fn add_authorized_node(request: RequestAddAuthorizedNode) -> Result<(), reqwest::Error> {
+pub async fn add_authorized_node(request: RequestAddAuthorizedNode) -> Result<(), anyhow::Error> {
     let node_url = format!("http://{}/authorized_node", get_url());
     let client = reqwest::Client::new();
     client
@@ -54,7 +54,8 @@ pub async fn add_authorized_node(request: RequestAddAuthorizedNode) -> Result<()
         .json(&request)
         .send()
         .await?
-        .error_for_status()
+        .error_for_status_with_body()
+        .await
         .map(|_| ())
 }
 
