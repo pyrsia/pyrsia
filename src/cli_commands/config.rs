@@ -198,7 +198,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_config_file_update() {
-        setup_temp_home_dir_and_execute("test_config_file_update", || {
+        setup_temp_home_dir_and_execute(|| {
             let cli_config_1 = CliConfig {
                 port: "7888".to_string(),
                 ..Default::default()
@@ -219,8 +219,9 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_config_file_remove() {
-        setup_temp_home_dir_and_execute("test_config_file_remove", || {
+        setup_temp_home_dir_and_execute(|| {
             add_config(CliConfig {
                 ..Default::default()
             })
@@ -235,20 +236,17 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_remove_not_existed_config_file() {
-        setup_temp_home_dir_and_execute("test_remove_not_existed_config_file", || {
-            config_remove().expect("remove_config failed");
-        });
+        config_remove().expect("remove_config failed");
     }
 
-    fn setup_temp_home_dir_and_execute<F>(prefix: &str, op: F)
+    fn setup_temp_home_dir_and_execute<F>(op: F)
     where
         F: FnOnce() -> (),
     {
         let env_home_original = std::env::var("HOME").unwrap();
-        let tmp_dir = tempfile::Builder::new()
-            .prefix(prefix)
-            .tempdir()
+        let tmp_dir = tempfile::tempdir()
             .expect("could not create temporary directory")
             .into_path();
         std::env::set_var("HOME", tmp_dir.to_str().unwrap());
