@@ -66,6 +66,10 @@ pub fn config_edit(
     config::config_edit(host_name, port, disk_space)
 }
 
+pub fn config_remove() -> anyhow::Result<()> {
+    config::config_remove()
+}
+
 pub fn config_show() {
     match config::get_config_file_path() {
         Ok(path_buf) => {

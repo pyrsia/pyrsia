@@ -57,7 +57,17 @@ async fn main() {
                     }
                 }
             }
-            if config_matches.contains_id("show") {
+            if *config_matches.get_one::<bool>("remove").unwrap() {
+                match config_remove() {
+                    Ok(_) => {
+                        println!("Node configuration removed !!");
+                    }
+                    Err(error) => {
+                        eprintln!("Error removing node configuration: {}", error);
+                    }
+                }
+            }
+            if *config_matches.get_one::<bool>("show").unwrap() {
                 config_show();
             }
         }
