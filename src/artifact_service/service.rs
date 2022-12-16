@@ -474,6 +474,9 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
@@ -547,6 +550,9 @@ mod tests {
                     }
                     Some(Command::Provide { sender, .. }) => {
                         let _ = sender.send(());
+                    }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
@@ -845,6 +851,9 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
@@ -924,6 +933,9 @@ mod tests {
                 match command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
+                    }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
@@ -1049,6 +1061,9 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
@@ -1085,6 +1100,9 @@ mod tests {
                     }
                     Some(Command::RequestBuildStatus { sender, .. }) => {
                         let _ = sender.send(Ok(String::from(build_status)));
+                    }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
                     }
                     other => panic!(
                         "Command must match Command::ListPeers or Command::RequestBuildStatus, was: {:?}",
