@@ -70,25 +70,21 @@ mod tests {
 
     #[test]
     fn cpu_load_test() {
-        let qm = get_cpu_stress() * CPU_STRESS_WEIGHT;
-        assert_ne!(0_f64, qm); //zero should never be returned here
+        get_cpu_stress();
     }
 
     #[test]
     fn network_load_test() {
-        let qm = get_network_stress() * NETWORK_STRESS_WEIGHT;
-        assert_ne!(0_f64, qm); //zero should never be returned here
+        get_network_stress();
     }
 
     #[test]
     fn disk_load_test() {
-        let qm = get_disk_stress() * DISK_STRESS_WEIGHT;
-        assert_ne!(0_f64, qm); //zero should never be returned here
+        get_disk_stress();
     }
 
     #[test]
     fn quality_metric_test() {
-        let quality_metric = get_quality_metric();
-        assert!(quality_metric != 0_f64);
+       get_quality_metric();
     }
 }
