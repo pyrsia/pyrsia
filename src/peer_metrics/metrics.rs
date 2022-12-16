@@ -85,6 +85,6 @@ mod tests {
 
     #[test]
     fn quality_metric_test() {
-       get_quality_metric();
+        get_quality_metric();
     }
 }
