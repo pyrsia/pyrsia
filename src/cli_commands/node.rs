@@ -101,36 +101,30 @@ pub async fn request_maven_build(request: RequestMavenBuild) -> Result<String, a
 
 pub async fn inspect_docker_transparency_log(
     request: RequestDockerLog,
-) -> Result<String, reqwest::Error> {
+) -> Result<String, anyhow::Error> {
     let node_url = format!("http://{}/inspect/docker", get_url());
     let client = reqwest::Client::new();
-    match client
+    client
         .post(node_url)
         .json(&request)
         .send()
         .await?
-        .error_for_status()
-    {
-        Ok(response) => response.text().await,
-        Err(e) => Err(e),
-    }
+        .error_for_status_with_body()
+        .await
 }
 
 pub async fn inspect_maven_transparency_log(
     request: RequestMavenLog,
-) -> Result<String, reqwest::Error> {
+) -> Result<String, anyhow::Error> {
     let node_url = format!("http://{}/inspect/maven", get_url());
     let client = reqwest::Client::new();
-    match client
+    client
         .post(node_url)
         .json(&request)
         .send()
         .await?
-        .error_for_status()
-    {
-        Ok(response) => response.text().await,
-        Err(e) => Err(e),
-    }
+        .error_for_status_with_body()
+        .await
 }
 
 pub fn get_url() -> String {
