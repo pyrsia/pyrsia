@@ -755,6 +755,7 @@ impl PyrsiaEventLoop {
                     .unwrap_or_else(|_e| {
                         error!("Handle Command match arm: {}.", command_str);
                     });
+            }
             Command::RequestBuildStatus {
                 peer,
                 build_id,
@@ -775,7 +776,6 @@ impl PyrsiaEventLoop {
                     .build_status_request_response
                     .send_response(channel, BuildStatusResponse(status))
                     .expect("Connection to peer to be still open (Build status).");
->>>>>>> upstream/main
             }
         }
     }

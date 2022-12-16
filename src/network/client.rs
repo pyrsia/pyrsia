@@ -425,7 +425,6 @@ impl Client {
 
         Ok(())
     }
->>>>>>> upstream/main
 }
 
 #[cfg(test)]
@@ -768,6 +767,7 @@ mod tests {
         let mut client = Client {
             sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
         };
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
