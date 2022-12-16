@@ -629,6 +629,9 @@ mod tests {
                     Some(Command::RequestArtifact { sender, .. }) => {
                         let _ = sender.send(Ok(b"SAMPLE_DATA".to_vec()));
                     },
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    },
                     _ => panic!("Command must match Command::ListPeers, Command::ListProviders, Command::RequestIdleMetric, Command::RequestArtifact"),
                 }
             }
@@ -719,6 +722,9 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
@@ -775,6 +781,9 @@ mod tests {
                 match command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
+                    }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
@@ -991,6 +1000,9 @@ mod tests {
                     }
                     Some(Command::RequestBuild { sender, .. }) => {
                         let _ = sender.send(Ok(String::from("request_build_ok")));
+                    }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
                     }
                     other => panic!(
                         "Command must match Command::ListPeers or Command::RequestBuild, was: {:?}",
