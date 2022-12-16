@@ -18,8 +18,8 @@ use crate::CONF_FILE_PATH_MSG_STARTER;
 use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::node;
 use pyrsia::node_api::model::cli::{
-    RequestAddAuthorizedNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild,
-    RequestMavenLog,
+    RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
+    RequestMavenBuild, RequestMavenLog,
 };
 use serde_json::Value;
 use std::collections::HashSet;
@@ -119,6 +119,24 @@ pub async fn request_maven_build(gav: &str) {
     })
     .await;
     handle_request_build_result(build_result);
+}
+
+pub async fn request_build_status(build_id: &str) {
+    let result = node::request_build_status(RequestBuildStatus {
+        build_id: String::from(build_id),
+    })
+    .await;
+
+    match result {
+        Ok(build_status) => println!("Build status for '{}' is '{}'", build_id, build_status),
+        Err(_) => {
+            println!(
+                "Build status for '{}' was not found. Additional info related to the build might \
+            be available via 'pyrsia inspect-log' command.",
+                build_id
+            );
+        }
+    }
 }
 
 fn handle_request_build_result(build_result: Result<String, anyhow::Error>) {

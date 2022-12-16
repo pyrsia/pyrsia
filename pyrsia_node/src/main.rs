@@ -163,6 +163,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         warn!("This node failed to update blockchain Error: {:?}", error);
                     }
                 }
+                pyrsia::network::event_loop::PyrsiaEvent::RequestBuildStatus {
+                    build_id,
+                    channel,
+                } => {
+                    debug!(
+                        "Main::p2p request build status based build ID: {:?}",
+                        build_id
+                    );
+                    if let Err(error) = handlers::handle_request_build_status(
+                        p2p_client.clone(),
+                        build_event_client.clone(),
+                        &build_id,
+                        channel,
+                    )
+                    .await
+                    {
+                        warn!(
+                            "This node failed to obtain build status {:?}. Error: {:?}",
+                            build_id, error
+                        );
+                    }
+                }
             }
         }
     }

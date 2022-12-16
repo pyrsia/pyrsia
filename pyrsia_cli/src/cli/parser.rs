@@ -48,6 +48,12 @@ pub fn cli_parser() -> ArgMatches {
                         .args(&[
                             arg!(--gav <GAV> "The maven GAV (e.g. org.myorg:my-artifact:1.1.0)"),
                         ]),
+                    Command::new("status")
+                        .about("Request a build status")
+                        .arg_required_else_help(true)
+                        .args(&[
+                            arg!(--id <ID> "The build ID"),
+                        ]),
                 ]),
             Command::new("config")
                 .short_flag('c')

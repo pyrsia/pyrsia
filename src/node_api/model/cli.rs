@@ -47,3 +47,8 @@ pub struct RequestMavenBuild {
 pub struct RequestMavenLog {
     pub gav: String,
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RequestBuildStatus {
+    pub build_id: String,
+}

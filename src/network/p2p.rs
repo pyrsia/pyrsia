@@ -24,6 +24,9 @@ use crate::util::keypair_util;
 use crate::util::keypair_util::KEYPAIR_FILENAME;
 
 use crate::network::build_protocol::{BuildExchangeCodec, BuildExchangeProtocol};
+use crate::network::build_status_protocol::{
+    BuildStatusExchangeCodec, BuildStatusExchangeProtocol,
+};
 use libp2p::identity::Keypair;
 use libp2p::kad::record::store::{MemoryStore, MemoryStoreConfig};
 use libp2p::request_response::{ProtocolSupport, RequestResponse};
@@ -202,6 +205,11 @@ fn create_swarm(
                 blockchain_request_response: RequestResponse::new(
                     BlockchainExchangeCodec(),
                     iter::once((BlockchainExchangeProtocol(), ProtocolSupport::Full)),
+                    Default::default(),
+                ),
+                build_status_request_response: RequestResponse::new(
+                    BuildStatusExchangeCodec(),
+                    iter::once((BuildStatusExchangeProtocol(), ProtocolSupport::Full)),
                     Default::default(),
                 ),
             },

@@ -20,8 +20,8 @@ use reqwest::Response;
 use serde_json::Value;
 
 use crate::node_api::model::cli::{
-    RequestAddAuthorizedNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild,
-    RequestMavenLog, Status,
+    RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
+    RequestMavenBuild, RequestMavenLog, Status,
 };
 
 use super::config::get_config;
@@ -68,6 +68,22 @@ pub async fn request_docker_build(request: RequestDockerBuild) -> Result<String,
         .await?
         .error_for_status_with_body()
         .await
+}
+
+pub async fn request_build_status(request: RequestBuildStatus) -> Result<String, reqwest::Error> {
+    let node_url = format!("http://{}/build/status", get_url());
+    let client = reqwest::Client::new();
+
+    match client
+        .post(node_url)
+        .json(&request)
+        .send()
+        .await?
+        .error_for_status()
+    {
+        Ok(response) => response.json::<String>().await,
+        Err(e) => Err(e),
+    }
 }
 
 pub async fn request_maven_build(request: RequestMavenBuild) -> Result<String, anyhow::Error> {

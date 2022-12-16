@@ -18,8 +18,8 @@ use crate::artifact_service::model::PackageType;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::network::client::Client;
 use crate::node_api::model::cli::{
-    RequestAddAuthorizedNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild,
-    RequestMavenLog,
+    RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
+    RequestMavenBuild, RequestMavenLog,
 };
 use crate::transparency_log::log::TransparencyLogService;
 
@@ -83,6 +83,25 @@ pub async fn handle_build_maven(
         .header("Content-Type", "application/json")
         .status(StatusCode::OK)
         .body(build_id_as_json))
+}
+
+pub async fn handle_build_status(
+    request_build_status: RequestBuildStatus,
+    mut artifact_service: ArtifactService,
+) -> Result<impl Reply, Rejection> {
+    let build_id = request_build_status.build_id;
+
+    let result = artifact_service
+        .get_build_status(&build_id)
+        .await
+        .map_err(RegistryError::from)?;
+
+    let build_status = serde_json::to_string(&result).map_err(RegistryError::from)?;
+
+    Ok(warp::http::response::Builder::new()
+        .header("Content-Type", "application/json")
+        .status(StatusCode::OK)
+        .body(build_status))
 }
 
 pub async fn handle_get_peers(mut p2p_client: Client) -> Result<impl Reply, Rejection> {
