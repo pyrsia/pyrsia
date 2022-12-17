@@ -9,7 +9,7 @@ edition = "2021"
 pyrsia = {path=".."}
 anyhow = "1.0.66"
 clap = { version = "4.0.29", features = [ "cargo" ] }
-confy = "0.5.0"
+confy = "0.5.1"
 const_format = "0.2.26"
 futures = { version = "0.3.*"}
 lazy_static = "1.4.0"
