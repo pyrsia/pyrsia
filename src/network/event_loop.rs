@@ -147,14 +147,11 @@ impl PyrsiaEventLoop {
     // Handles events from the `GossipSub` network behaviour.
     async fn handle_gossipsub_event(&mut self, event: gossipsub::GossipsubEvent) {
         trace!("Handle GossipsubEvent: {:?}", event);
-        match event {
-            gossipsub::GossipsubEvent::Message { message, .. } => {
-                self.event_sender
-                    .send(PyrsiaEvent::SimpleBlockchainRequest { data: message.data })
-                    .await
-                    .expect("Event receiver not to be dropped.");
-            }
-            _ => {}
+        if let gossipsub::GossipsubEvent::Message { message, .. } = event {
+            self.event_sender
+                .send(PyrsiaEvent::SimpleBlockchainRequest { data: message.data })
+                .await
+                .expect("Event receiver not to be dropped.");
         }
     }
 
