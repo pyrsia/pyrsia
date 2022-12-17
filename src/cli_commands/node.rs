@@ -71,20 +71,16 @@ pub async fn request_docker_build(request: RequestDockerBuild) -> Result<String,
         .await
 }
 
-pub async fn request_build_status(request: RequestBuildStatus) -> Result<String, reqwest::Error> {
+pub async fn request_build_status(request: RequestBuildStatus) -> Result<String, anyhow::Error> {
     let node_url = format!("http://{}/build/status", get_url());
     let client = reqwest::Client::new();
-
-    match client
+    client
         .post(node_url)
         .json(&request)
         .send()
         .await?
-        .error_for_status()
-    {
-        Ok(response) => response.json::<String>().await,
-        Err(e) => Err(e),
-    }
+        .error_for_status_with_body()
+        .await
 }
 
 pub async fn request_maven_build(request: RequestMavenBuild) -> Result<String, anyhow::Error> {
