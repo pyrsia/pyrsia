@@ -1,6 +1,6 @@
 # Developer Onboarding
 
-If you are interested to contribute in Pyrsia project, here are a few important resources which might helpful on your onboarding journey.
+If you are interested to contribute in Pyrsia project, here are a few important resources which might be helpful on your onboarding journey.
 
 ## Join, Subscribe & Access
 
