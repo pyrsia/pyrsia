@@ -40,6 +40,6 @@ For a complete list of steps, check out the [developer PR guidlines](https://git
 
 -->
 
-- [ ] I've built the code `cargo build --all-targets` successfully.
-- [ ] I've run the unit tests `cargo test --workspace` and all tests pass.
-- [ ] I've run the [integrations tests](https://github.com/pyrsia/pyrsia-integration-tests#how-to-set-up-and-run-the-tests) and all tests passes.
+- [ ] I've run [pre-commit.sh](https://github.com/pyrsia/pyrsia/blob/main/pre-commit.sh) ([pre-commit.bat](https://github.com/pyrsia/pyrsia/blob/main/pre-commit.bat)) successfully.
+- [ ] I've run the [integrations tests](https://github.com/pyrsia/pyrsia-integration-tests#how-to-set-up-and-run-the-tests)
+on the PR branch and all tests passes.
