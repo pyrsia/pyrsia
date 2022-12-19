@@ -16,9 +16,9 @@ Subscribe [PyrsiaOSS](https://www.youtube.com/channel/UClPQKloIElvJk7EdSST3W5g) 
 
 ## Technical Resources and Few Important Concepts
 
-You can make yourself familiar with some Rust knowledge and a few basic concepts what we are using underlying to build Pyrsia.
-
-To know more about project's architecture and use cases follow the link to [Pyrsia architecture and use cases](https://github.com/pyrsia/pyrsia/blob/main/docs/developers/pyrsia-architecture-and-use-cases.md).
+Make yourself familiar with some Rust knowledge and a few basic underlying concepts what we are using to build Pyrsia.
+To know more about project's architecture and use cases follow the link to
+[Pyrsia architecture and use cases](https://github.com/pyrsia/pyrsia/blob/main/docs/developers/pyrsia-architecture-and-use-cases.md).
 
 ### Rust
 
