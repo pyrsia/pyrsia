@@ -57,7 +57,7 @@ async fn main() {
                     }
                 }
             }
-            if *config_matches.get_one::<bool>("remove").unwrap() {
+            if *config_matches.get_one::<bool>("remove").unwrap_or(&false) {
                 match config_remove() {
                     Ok(_) => {
                         println!("Node configuration removed !!");
@@ -67,7 +67,7 @@ async fn main() {
                     }
                 }
             }
-            if *config_matches.get_one::<bool>("show").unwrap() {
+            if *config_matches.get_one::<bool>("show").unwrap_or(&false) {
                 config_show();
             }
         }
