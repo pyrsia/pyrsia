@@ -46,7 +46,7 @@ RUN <<EOT bash
     set -e
     apt-get update
     apt-get install -y \
-        ca-certificates jq curl
+        ca-certificates jq curl dnsutils
     rm -rf /var/lib/apt/lists/*
 EOT
 COPY --from=dbuild /out/pyrsia_node /usr/bin/
@@ -59,3 +59,4 @@ WORKDIR /usr/local/var
 ENV PYRSIA_ARTIFACT_PATH /usr/local/var/pyrsia
 ENV PYRSIA_BLOCKCHAIN_PATH /usr/local/var/pyrsia/blockchain
 ENV RUST_LOG debug
+ENTRYPOINT [ "/tmp/entrypoint.sh", "--host", "0.0.0.0", "--listen", "/ip4/0.0.0.0/tcp/44000" ]
