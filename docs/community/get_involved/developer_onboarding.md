@@ -7,7 +7,7 @@ If you are interested to contribute in Pyrsia project, here are a few important 
 Request membership access to join [googlegroup for Pyrsia](https://groups.google.com/g/pyrsia). This will allow you to
 receive emails and calendar invites send to Pyrsia Googlegroup.
 
-We collaborate different project related artifacts using Google Drive's shared directory
+We collaborate on the project using Google Drive's shared directory
 [Pyrsia](https://drive.google.com/drive/folders/1vXO2YUjdyFXfjNGiKn82kUQ5ePrzp_jV?usp=share_link)
 
 Join Slack Workspace [Continuous Delivery Foundation](https://cdeliveryfdn.slack.com/). Join a few Slack channels #pyrsia, #pyrsia-team, #pyrsia-alert, #pyrsia-notifications
