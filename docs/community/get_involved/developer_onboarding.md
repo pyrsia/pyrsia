@@ -36,7 +36,7 @@ Here a few Rust resources to start with
 
 To build Pyrsia's decentralized network we made some architectural design decisions for **_peer to peer_**
 communications. This requires us to use a few protocols and their third party implementations. Here is a list of few
-major of them along with useful links to relevant documents.
+of them along with useful links to relevant documents.
 
 - We are profoundly using libp2p in Pyrsia project development. It is recommended to go through some more details from
 [libp2p concepts](https://docs.libp2p.io/concepts/) link to have better understanding on Pyrsia.
