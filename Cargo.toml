@@ -69,7 +69,7 @@ test-log = "0.2.8"
 thiserror = "1.0.35"
 tokio = { version = "1.22.0", features = [ "macros", "rt-multi-thread", "io-std" ] }
 tokio-stream = "0.1.11"
-toml = "0.5.9"
+toml = "0.5.10"
 url = "2.3.1"
 uuid = { version = "1.2.2", features = [ "v4" ] }
 warp = { version = "0.3.3", default-features = false }
