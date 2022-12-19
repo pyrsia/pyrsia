@@ -41,7 +41,7 @@ major of them along with useful links to relevant documents.
 - We are profoundly using libp2p in Pyrsia project development. It is recommended to go through some more details from
 [libp2p concepts](https://docs.libp2p.io/concepts/) link to have better understanding on Pyrsia.
   - [libp2p in Rust](https://github.com/libp2p/rust-libp2p)
-  - Few libp2p example at libp2p https://github.com/libp2p/rust-libp2p/tree/master/examples
+  - Few [libp2p examples](https://github.com/libp2p/rust-libp2p/tree/master/examples)
 - Using [Tokio](https://tokio.rs/tokio/tutorial)'s asynchronous runtime for the Rust programming language.
 - Ed25519 high-speed high-security public-key signature system
   - [Ed25519](https://ed25519.cr.yp.to/index.html)
@@ -49,5 +49,5 @@ major of them along with useful links to relevant documents.
 - Aleph Consensus Protocol
   - [Aleph BFT](https://cardinal-cryptography.github.io/AlephBFT/what_is_aleph_bft.html) concepts.
   - [AlephBFT Consensus](https://docs.alephzero.org/aleph-zero/explore/alephbft-consensus)
-  - Rust implementation at https://github.com/Cardinal-Cryptography/AlephBFT
+  - Rust implementation at [Cardinal-Cryptography/AlephBFT](https://github.com/Cardinal-Cryptography/AlephBFT)
 - [Distributed Hash Table (DHT) and P2P technologies](https://www.sobyte.net/post/2022-01/dht-and-p2p/)
