@@ -271,14 +271,17 @@ impl BlockchainService {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
+    use crate::network::client::command::Command;
     use crate::util::test_util;
     use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::{self, Keypair};
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
     use tokio::sync::mpsc;
 
-    async fn create_blockchain_service(tmp_dir: impl AsRef<Path>) -> BlockchainService {
-        let (sender, _) = mpsc::channel(1);
+    async fn create_blockchain_service(
+        tmp_dir: impl AsRef<Path>,
+    ) -> (BlockchainService, mpsc::Receiver<Command>) {
+        let (sender, receiver) = mpsc::channel(1);
         let ed25519_keypair = identity::ed25519::Keypair::generate();
         let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
         let client = Client::new(
@@ -287,14 +290,17 @@ mod tests {
             IdentTopic::new("pyrsia-blockchain-topic"),
         );
 
-        BlockchainService::init_first_blockchain_node(
-            &ed25519_keypair,
-            &ed25519_keypair,
-            client,
-            tmp_dir,
+        (
+            BlockchainService::init_first_blockchain_node(
+                &ed25519_keypair,
+                &ed25519_keypair,
+                client,
+                tmp_dir,
+            )
+            .await
+            .expect("BlockchainService should be created."),
+            receiver,
         )
-        .await
-        .expect("BlockchainService should be created.")
     }
 
     fn create_other_blockchain_service(tmp_dir: impl AsRef<Path>) -> BlockchainService {
@@ -315,7 +321,19 @@ mod tests {
     async fn test_add_payload() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
+        let (mut blockchain_service, mut command_receiver) =
+            create_blockchain_service(&tmp_dir).await;
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
+                }
+            }
+        });
 
         let payload = vec![];
         assert!(blockchain_service.blockchain.last_block().is_some());
@@ -328,7 +346,7 @@ mod tests {
     async fn test_add_block() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
+        let mut blockchain_service = create_blockchain_service(&tmp_dir).await.0;
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
 
@@ -359,7 +377,7 @@ mod tests {
     async fn test_init_first_blockchain_node() {
         let tmp_dir = test_util::tests::setup();
 
-        let blockchain_service = create_blockchain_service(&tmp_dir).await;
+        let blockchain_service = create_blockchain_service(&tmp_dir).await.0;
 
         let block = blockchain_service.query_last_block().await.unwrap();
         assert_eq!(0, block.header.ordinal);
@@ -381,7 +399,7 @@ mod tests {
     async fn test_pull_blocks() {
         let tmp_dir = test_util::tests::setup();
 
-        let blockchain_service = create_blockchain_service(&tmp_dir).await;
+        let blockchain_service = create_blockchain_service(&tmp_dir).await.0;
         assert_eq!(1, blockchain_service.pull_blocks(0, 0).await.unwrap().len());
 
         test_util::tests::teardown(tmp_dir);
@@ -391,7 +409,7 @@ mod tests {
     async fn test_query_last_block() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
+        let mut blockchain_service = create_blockchain_service(&tmp_dir).await.0;
 
         let last_block = blockchain_service.blockchain.last_block().unwrap();
 
@@ -422,7 +440,7 @@ mod tests {
     async fn test_query_blockchain_ordinal_with_invalid_other_peer() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
+        let mut blockchain_service = create_blockchain_service(&tmp_dir).await.0;
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
@@ -438,7 +456,7 @@ mod tests {
     async fn test_init_pull_from_others_with_invalid_other_peer() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
+        let mut blockchain_service = create_blockchain_service(&tmp_dir).await.0;
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
@@ -454,7 +472,19 @@ mod tests {
     async fn test_notify_blockchain() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut blockchain_service = create_blockchain_service(&tmp_dir).await;
+        let (mut blockchain_service, mut command_receiver) =
+            create_blockchain_service(&tmp_dir).await;
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
+                }
+            }
+        });
 
         let block = Box::new(Block::new(
             HashDigest::new(b""),

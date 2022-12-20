@@ -540,17 +540,22 @@ impl TransparencyLogService {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
-    use crate::{network::client::Client, util::test_util};
+    use crate::{network::client::command::Command, network::client::Client, util::test_util};
     use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::{self, Keypair};
     use tokio::sync::mpsc;
 
-    fn create_p2p_client(local_keypair: identity::Keypair) -> Client {
-        let (command_sender, _command_receiver) = mpsc::channel(1);
-        Client::new(
-            command_sender,
-            local_keypair.public().to_peer_id(),
-            IdentTopic::new("pyrsia-topic"),
+    fn create_p2p_client() -> (Client, mpsc::Receiver<Command>) {
+        let local_keypair = Keypair::generate_ed25519();
+
+        let (command_sender, command_receiver) = mpsc::channel(1);
+        (
+            Client::new(
+                command_sender,
+                local_keypair.public().to_peer_id(),
+                IdentTopic::new("pyrsia-topic"),
+            ),
+            command_receiver,
         )
     }
 
@@ -558,7 +563,26 @@ mod tests {
         artifact_path: impl AsRef<Path>,
     ) -> TransparencyLogService {
         let ed25519_keypair = identity::ed25519::Keypair::generate();
-        let p2p_client = create_p2p_client(identity::Keypair::Ed25519(ed25519_keypair.clone()));
+        let (p2p_client, _command_receiver) = create_p2p_client();
+
+        let blockchain_service = BlockchainService::init_first_blockchain_node(
+            &ed25519_keypair,
+            &ed25519_keypair,
+            p2p_client,
+            &artifact_path,
+        )
+        .await
+        .expect("Creating BlockchainService failed");
+
+        TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
+            .unwrap()
+    }
+
+    async fn create_transparency_log_service_from_p2p_client(
+        artifact_path: impl AsRef<Path>,
+        p2p_client: Client,
+    ) -> TransparencyLogService {
+        let ed25519_keypair = identity::ed25519::Keypair::generate();
 
         let blockchain_service = BlockchainService::init_first_blockchain_node(
             &ed25519_keypair,
@@ -1065,7 +1089,19 @@ mod tests {
     async fn test_add_artifact() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut log = create_transparency_log_service(&tmp_dir).await;
+        let (p2p_client, mut command_receiver) = create_p2p_client();
+        let mut log = create_transparency_log_service_from_p2p_client(&tmp_dir, p2p_client).await;
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
+                }
+            }
+        });
 
         let result = log
             .add_artifact(AddArtifactRequest {
@@ -1098,7 +1134,19 @@ mod tests {
     async fn test_add_authorized_nodes() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (p2p_client, mut command_receiver) = create_p2p_client();
+        let log = create_transparency_log_service_from_p2p_client(&tmp_dir, p2p_client).await;
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
+                }
+            }
+        });
 
         let peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
