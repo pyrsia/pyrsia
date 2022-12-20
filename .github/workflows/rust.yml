@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: 'read'
       id-token: 'write'
-    runs-on: macos-latest
+    runs-on: macos-12
     env:
       RUSTC_WRAPPER: /Users/runner/.cargo/bin/sccache
       CARGO_INCREMENTAL: 0
@@ -105,7 +105,7 @@ jobs:
 
   # Windows Build Job
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     env:
       RUSTC_WRAPPER: C:\Users\runneradmin\.cargo\bin\sccache.exe
       CARGO_INCREMENTAL: 0
