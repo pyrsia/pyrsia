@@ -129,11 +129,11 @@ pub async fn request_build_status(build_id: &str) {
 
     match result {
         Ok(build_status) => println!("Build status for '{}' is '{}'", build_id, build_status),
-        Err(_) => {
+        Err(e) => {
             println!(
-                "Build status for '{}' was not found. Additional info related to the build might \
-            be available via 'pyrsia inspect-log' command.",
-                build_id
+                "Build status for '{}' was not found: {}
+Additional info related to the build might be available via 'pyrsia inspect-log' command",
+                build_id, e
             );
         }
     }
