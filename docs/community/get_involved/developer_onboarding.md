@@ -14,7 +14,7 @@ Join Slack Workspace [Continuous Delivery Foundation](https://cdeliveryfdn.slack
 
 Subscribe [PyrsiaOSS](https://www.youtube.com/channel/UClPQKloIElvJk7EdSST3W5g) Youtube channel for latest release, to know what is happening.
 
-## Technical Resources and Few Important Concepts
+## Technical Resources and a Few Important Concepts
 
 Make yourself familiar with some Rust knowledge and a few basic underlying concepts what we are using to build Pyrsia.
 To know more about project's architecture and use cases follow the link to
