@@ -36,7 +36,7 @@ Once all the above steps are completed and verified to be success, start the rel
 
 ## Deployment
 
-- [ ] Make sure apt repo and [brew repo](https://github.com/pyrsia/homebrew-pyrsia) contain the correct latest release
+- [ ] Make sure [apt repo](https://repo.pyrsia.io/repos/nightly/pool/main/p/pyrsia/) and [brew repo](https://github.com/pyrsia/homebrew-pyrsia) contain the correct latest release
 - [ ] Upload windows MSI to github release
 - [ ] Deploy the production authorized nodes with this release
 - [ ] Run installers + [manual confidence tests](/docs/developers/postrelease_manual_tests.md) connecting to production

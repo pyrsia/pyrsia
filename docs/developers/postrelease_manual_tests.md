@@ -15,7 +15,7 @@ When the new version is deployed, run checks for all supported platforms:
 Run through these steps:
 
 - Install Pyrsia using one of the installers following the instructions on pyrsia.io
-- Make sure to configure the node to use `http://nightly.boot.pyrsia.link/status` as the bootstrap URL
+- Make sure to configure the node to use `--bootstrap-url http://nightly.boot.pyrsia.link/status` as the bootstrap URL
 - Make sure to test both with and without existing data in the pyrsia folder (keypair, artifacts, blocks, log db)
 - View your logs and check for anomalies
 - Check to see if transparency logs can be inspected (make sure to use the installed pyrsia cli - not a local build)
