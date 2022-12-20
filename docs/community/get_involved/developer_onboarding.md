@@ -38,8 +38,7 @@ To build Pyrsia's decentralized network we made some architectural design decisi
 communications. This requires us to use a few protocols and their third party implementations. Here is a list of few
 of them along with useful links to relevant documents.
 
-Pyrsia uses libp2p library for building the decentralized network
-[libp2p concepts](https://docs.libp2p.io/concepts/) link to have better understanding on Pyrsia.
+- Pyrsia uses libp2p library for building the decentralized network. [libp2p concepts](https://docs.libp2p.io/concepts/) link to have better understanding on Pyrsia.
   - [libp2p in Rust](https://github.com/libp2p/rust-libp2p)
   - Few [libp2p examples](https://github.com/libp2p/rust-libp2p/tree/master/examples)
 - Using [Tokio](https://tokio.rs/tokio/tutorial)'s asynchronous runtime for the Rust programming language.
