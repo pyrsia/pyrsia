@@ -21,7 +21,7 @@ Once all the above steps are completed and verified to be success, start the rel
 - [ ] Name the release: start with the tag, but make sure the title already includes a quick summary of the most important change(s)
 - [ ] Click generate release notes. This will generate the technical release notes of all changes.
 - [ ] Summarize the changes in a more readable list above the technical release notes - see [0.2.1 as an example](https://github.com/pyrsia/pyrsia/releases/tag/v0.2.1)
-- [ ] Check the box for 'Set a pre-release' (for now)
+- [ ] Check the box for 'Set as pre-release' (for now)
 - [ ] Make sure 'Set as latest release' is NOT checked (for now)
 - [ ] Hit "Publish release" and wait for the workflow to finish
 
@@ -47,6 +47,7 @@ Once all the above steps are completed and verified to be success, start the rel
 
 ## Post-release
 
+- [ ] Edit the [GitHub release](https://github.com/pyrsia/pyrsia/releases) and uncheck 'Set as pre-release' and check 'Set as latest release'.
 - [ ] Update documentation to point to the latest released version
 - [ ] Update the version number to prepare for the next release
   - [ ] Make sure you update the version in `Cargo.toml`
