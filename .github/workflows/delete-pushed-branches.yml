@@ -6,7 +6,7 @@ on:
    
 jobs:
   delete:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: github.repository_owner == 'pyrsia' # Only on main repo
     steps:
     - run: |

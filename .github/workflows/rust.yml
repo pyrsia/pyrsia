@@ -170,7 +170,7 @@ jobs:
     permissions:
       contents: 'read'
       id-token: 'write'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     env:
       RUSTC_WRAPPER: /home/runner/.cargo/bin/sccache
       CARGO_INCREMENTAL: 0
@@ -274,7 +274,7 @@ jobs:
 
   # Coverage wipes the cache in order to instrument the code.  No need to wait for other jobs to run it.
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v3
       with:
@@ -295,7 +295,7 @@ jobs:
 
   # Docker build that uses the published .deb file from the Linux build
   docker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build-push-linux]
     if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
     steps:
