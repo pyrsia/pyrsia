@@ -24,11 +24,11 @@ jobs:
       - run: echo "No build required"
 
   build-push-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - run: echo "No build required"
 
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - run: echo "No build required"

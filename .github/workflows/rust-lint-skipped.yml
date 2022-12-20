@@ -15,16 +15,16 @@ on:
       
 jobs:
   security-audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - run: echo "No build required"
 
   rustfmt:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - run: echo "No build required"
 
   license-header:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - run: echo "No build required"
