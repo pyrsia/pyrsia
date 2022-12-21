@@ -132,11 +132,15 @@ jobs:
         run: |
           "C:\Program Files\Git\usr\bin\sed.exe" -i "s/version = \"0.2.2\"/version = \"0.2.2+${{ github.run_number }}\"/" Cargo.toml
 
-      # build binaries. Todo: include tests
-      - name: Build Release Binaries
+      - name: Build Release and Test Binaries
+        shell: bash
         run: |
-          cargo build --workspace --lib --bins --verbose --release
+          .github/workflows/build.sh
           sccache --show-stats
+
+      - name: Execute Test Cases
+        run: |
+          cargo test --workspace --verbose --release
 
       # Create installers
       - name: Create MSIs
