@@ -50,6 +50,13 @@ cargo test --workspace
 
 These commands should run successfully. If you have issues with these please reach out to the team on slack and report an issue/submit a PR.
 
+You can also check the code coverage.
+
+```sh
+cd $PYRSIA_HOME
+sh ./tests/test_code_coverage.sh
+```
+
 ## Pyrsia node docker image
 
 Make sure [Docker engine](https://docs.docker.com/engine/install/) is installed (18.09 or higher) and running.

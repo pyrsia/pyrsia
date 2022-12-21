@@ -43,4 +43,6 @@ pub enum BuildError {
     PipelineServiceEndpointFailure(StatusCode),
     #[error("Failed to connect to pipeline service endpoint: {0}")]
     PipelineServiceEndpointRequestFailure(String),
+    #[error("Failed to fetch build status: {0}")]
+    BuildStatusFailed(String),
 }

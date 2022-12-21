@@ -249,3 +249,27 @@ pyrsia build docker --image alpine:3.16.3
 This will send the build request to one of the authorized build nodes, which will
 start a build. When consensus about that build is reached, it will be available
 in the transparency logs and can be retrieved by all nodes in the network.
+
+## Use API
+
+Pyrsia supports a subset of the [Docker Registry API](https://docs.docker.com/registry/spec/api/). A more detailed API document specific to Pyrsia, will be coming soon.
+
+```shell
+$ curl -sS http://localhost:7888/v2/library/alpine/manifests/3.16.2
+{
+   "schemaVersion": 2,
+   "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+   "config": {
+      "mediaType": "application/vnd.docker.container.image.v1+json",
+      "size": 1470,
+      "digest": "sha256:9c6f0724472873bb50a2ae67a9e7adcb57673a183cea8b06eb778dca859181b5"
+   },
+   "layers": [
+      {
+         "mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+         "size": 2806054,
+         "digest": "sha256:213ec9aee27d8be045c6a92b7eac22c9a64b44558193775a1a7f626352392b49"
+      }
+   ]
+}%
+```

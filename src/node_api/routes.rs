@@ -18,7 +18,9 @@ use super::handlers::swarm::*;
 use super::model::cli::{RequestDockerBuild, RequestMavenBuild};
 use crate::artifact_service::service::ArtifactService;
 use crate::network::client::Client;
-use crate::node_api::model::cli::{RequestAddAuthorizedNode, RequestDockerLog, RequestMavenLog};
+use crate::node_api::model::cli::{
+    RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerLog, RequestMavenLog,
+};
 use warp::Filter;
 
 pub fn make_node_routes(
@@ -51,6 +53,14 @@ pub fn make_node_routes(
         .and(warp::body::json::<RequestMavenBuild>())
         .and(artifact_service_filter.clone())
         .and_then(handle_build_maven);
+
+    let build_status = warp::path!("build" / "status")
+        .and(warp::post())
+        .and(warp::path::end())
+        .and(warp::body::content_length_limit(1024 * 8))
+        .and(warp::body::json::<RequestBuildStatus>())
+        .and(artifact_service_filter.clone())
+        .and_then(handle_build_status);
 
     let peers = warp::path!("peers")
         .and(warp::get())
@@ -87,7 +97,8 @@ pub fn make_node_routes(
             .or(peers)
             .or(status)
             .or(inspect_docker)
-            .or(inspect_maven),
+            .or(inspect_maven)
+            .or(build_status),
     )
 }
 

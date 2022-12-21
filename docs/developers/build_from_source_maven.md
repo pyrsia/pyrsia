@@ -160,7 +160,7 @@ You will see the following output indicating that the build pipeline is ready fo
  INFO  actix_server::server  > Tokio runtime found; starting in existing Tokio runtime
 ```
 
-## Authorize node A as a build node
+## Authorize the Pyrsia node as a build node
 
 We will use the Pyrsia CLI to authorize node A as a build node. In a new terminal, while
 the Pyrsia node and build pipeline prototype are running, check if your Pyrsia CLI
@@ -176,9 +176,9 @@ disk_allocated = '10 GB'
 ```
 
 If you're not using the default port for your Pyrsia node, make sure to configure
-the CLI using `./pyrsia config --add`.
+the CLI using `./pyrsia config edit`.
 
-Next you'll need to find out the peer id of node A. You can see that in its logs
+Next you'll need to find out the peer id of the node. You can see that in its logs
 or you can query the `/status` endpoint like this: (assuming you have `jq` installed)
 
 ```shell
@@ -205,7 +205,7 @@ Then trigger the build from source, like this:
 The build trigger should return immediately providing a build ID:
 
 ```text
-Build request successfully handled. Build with ID 23c994a6-65b7-4041-beca-397d8f491f64 has been started.
+Build request successfully handled. Build with ID "13abff76-5aea-4d05-8f42-d625943ceb78" has been started.
 ```
 
 ## Wait for the build to finish in the build pipeline
@@ -214,15 +214,14 @@ In the Pyrsia node logs, you will see that a build has been started and the Pyrs
 node is now waiting for its result:
 
 ```text
-Executing build info request...!
-Current Build Info: BuildInfo { id: "23c994a6-65b7-4041-beca-397d8f491f64", status: Running }
+DEBUG pyrsia::build_service::service        > Updated build info: BuildInfo { id: "13abff76-5aea-4d05-8f42-d625943ceb78", status: Running }
 ```
 
-In the build pipeline prototype you should see that build starting:
+In the build pipeline prototype you should see that the build has started:
 
 ```text
 Requesting build of Maven2 for commons-codec:commons-codec:1.15
-...
+Starting build with ID 13abff76-5aea-4d05-8f42-d625943ceb78
 #######################################################
 #
 # Starting Maven2 build for:
@@ -243,24 +242,7 @@ Cloning into 'repo'...
 Once the build has finished, the status request from the Pyrsia node will contain:
 
 ```text
-Current Build Info: BuildInfo { id: "23c994a6-65b7-4041-beca-397d8f491f64",
-  status: Success { artifact_urls:
-     ["/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15.pom.sha1",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15-test-sources.jar",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15-tests.jar",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15-sources.jar.sha1",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15-tests.jar.md5",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15-tests.jar.sha1",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15-test-sources.jar.sha1",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15-sources.jar.md5",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15.jar.sha1",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15.pom.md5",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15-test-sources.jar.md5",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15.jar",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15-sources.jar",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15.jar.md5",
-      "/build/23c994a6-65b7-4041-beca-397d8f491f64/artifacts/commons-codec-1.15.pom"]
-  } }
+DEBUG pyrsia::build_service::service        > Updated build info: BuildInfo { id: "13abff76-5aea-4d05-8f42-d625943ceb78", status: Success { artifact_urls: ["/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15.pom.md5", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15-sources.jar.sha1", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15.pom", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15.jar", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15-tests.jar.sha1", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15.jar.sha1", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15-tests.jar.md5", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15-tests.jar", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15-test-sources.jar.sha1", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15-test-sources.jar", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15.jar.md5", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15.pom.sha1", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15-sources.jar", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15-sources.jar.md5", "/build/13abff76-5aea-4d05-8f42-d625943ceb78/artifacts/commons-codec-1.15-test-sources.jar.md5"] } }
 ```
 
 And Pyrsia will download all build result files from the pipeline service.
@@ -275,25 +257,9 @@ other authorized nodes, but this step is skipped in this demo.
 When consensus has been reached, a transparency log is created for each built artifact.
 
 ```text
-INFO  pyrsia::artifact_service::service > Adding artifact to transparency log: AddArtifactRequest { package_type: Maven2, package_specific_id: "commons-codec:commons-codec:1.15", package_specific_artifact_id: "commons-codec/commons-codec/1.15/commons-codec-1.15.jar", artifact_hash: "7da8e6b90125463c26c950a97fd14143c2f39cd5d488748b265d83e8b124fa7c" }
-DEBUG pyrsia::transparency_log::log     > Transparency log inserted into database with id: 2f30167e-e40f-4831-9197-11fc0b5450e3
-INFO  pyrsia::artifact_service::service > Transparency Log for build with ID 0a6f2128-7410-4098-bd39-59dc05230464 successfully added. Adding artifact locally: TransparencyLog { id: "2f30167e-e40f-4831-9197-11fc0b5450e3", package_type: Maven2, package_specific_id: "commons-codec:commons-codec:1.15", package_specific_artifact_id: "commons-codec/commons-codec/1.15/commons-codec-1.15.jar", artifact_hash: "7da8e6b90125463c26c950a97fd14143c2f39cd5d488748b265d83e8b124fa7c", artifact_id: "6eb90399-24cd-4aef-a78f-ef95d64b53fa", source_id: "77ea0ea3-2eb7-4aac-9fdb-f43664ce62a4", timestamp: 1658132836, operation: AddArtifact, node_id: "5a04ba4d-9c8f-445a-bcb7-5c91a610d03c", node_public_key: "9c6ab508-1b86-47bb-87e9-6b99c18e4a73" }
-```
-
-Example for `commons-codec-1.15.jar`:
-
-```json
-{
-  "id":"c52d7954-d9d9-40e2-a795-31aed2fc8a61",
-  "package_type":"Maven2",
-  "package_specific_id":"commons-codec:commons-codec:1.15",
-  "package_specific_artifact_id":"commons-codec/commons-codec/1.15/commons-codec-1.15.jar",
-  "artifact_hash":"3a1cabaab612b463e30fe44ae8794595311bbb8981bdcbb887736d35fcfd4d6f",
-  "artifact_id":"e5b3ee84-4a83-491c-8cf6-3b9c60a0f87e",
-  "source_id":"65e204f6-ff8b-42e2-898d-56c3723d6dc0",
-  "timestamp":1657893583,
-  "operation":"AddArtifact"
-}
+INFO  pyrsia::artifact_service::service     > Adding artifact to transparency log: AddArtifactRequest { package_type: Maven2, package_specific_id: "commons-codec:commons-codec:1.15", num_artifacts: 15, package_specific_artifact_id: "commons-codec/commons-codec/1.15/commons-codec-1.15.pom.md5", artifact_hash: "ff89aba3ea6e2655feba41fdff2d8388b09f421ca6ca0ff5c49dbc24e53ae86a" }
+INFO  pyrsia::artifact_service::service     > Transparency Log for build with ID 13abff76-5aea-4d05-8f42-d625943ceb78 successfully created.
+DEBUG pyrsia::transparency_log::log         > Transparency log inserted into database with id: 95bd06e4-8254-437f-bc28-432883379426
 ```
 
 ## Publish the artifact on the p2p network
@@ -302,10 +268,10 @@ As a final step in the build from source scenario, the artifacts are stored loca
 and provided on the p2p network.
 
 ```text
- INFO  pyrsia::artifact_service::service > put_artifact with id: da341557-9150-4208-9474-f5884f799338
- INFO  pyrsia::artifact_service::storage > An artifact is being pushed to the artifact manager da341557-9150-4208-9474-f5884f799338
- DEBUG pyrsia::network::client           > p2p::Client::provide "da341557-9150-4208-9474-f5884f799338"
- ```
+INFO  pyrsia::artifact_service::service     > put_artifact with id: e7eb2455-51b8-4d93-b8b7-1cde8004f1e2
+INFO  pyrsia::artifact_service::storage     > An artifact is being pushed to the artifact manager e7eb2455-51b8-4d93-b8b7-1cde8004f1e2
+DEBUG pyrsia::network::client               > p2p::Client::provide "e7eb2455-51b8-4d93-b8b7-1cde8004f1e2"
+```
 
 Now we are ready to use the published artifacts in our build workflow as shown in
 the sample section below.
@@ -431,12 +397,11 @@ The dependency was downloaded from Pyrsia, which you can verify in the Pyrsia no
 logs:
 
 ```text
- DEBUG pyrsia::java::maven2::routes                    > route full path: /maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.jar
- DEBUG pyrsia::java::maven2::handlers::maven_artifacts > Requesting maven artifact: /maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.jar
- DEBUG pyrsia::java::maven2::handlers::maven_artifacts > Requesting artifact for id commons-codec/commons-codec/1.15/commons-codec-1.15.jar
- INFO  pyrsia::artifact_service::storage               > An artifact is being pulled from the artifact manager a90e6792-4f2e-4ccc-8479-d935431e28ec
- DEBUG pyrsia::artifact_service::storage               > Pulling artifact from /private/tmp/pyrsia/a90e6792-4f2e-4ccc-8479-d935431e28ec.file
- INFO  pyrsia_registry                                 > 127.0.0.1:55273 "GET /maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.jar HTTP/1.1" 200 "-" "Apache-Maven/3.8.5 (Java 1.8.0_332; Mac OS X 12.4)" 23.00275ms
+DEBUG pyrsia::java::maven2::routes                    > route full path: /maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.jar
+DEBUG pyrsia::java::maven2::handlers::maven_artifacts > Requesting maven artifact: /maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.jar
+DEBUG pyrsia::java::maven2::handlers::maven_artifacts > Requesting artifact with package specific id: commons-codec:commons-codec:1.15, and package specific artifact id: commons-codec/commons-codec/1.15/commons-codec-1.15.jar. If not found a build will be requested
+INFO  pyrsia::artifact_service::storage               > An artifact is being pulled from the artifact manager 73cee038-59dc-46f1-a325-fef83e4ff51c
+INFO  pyrsia_registry                                 > 127.0.0.1:55180 "GET /maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.jar HTTP/1.1" 200 "-" "Apache-Maven/3.6.3 (Java 11.0.8; Linux 5.15.0-56-generic)" 24.345381ms
 ```
 
 ## Inspect the transparency logs
@@ -454,229 +419,229 @@ the Maven library:
 ```text
 [
   {
-    "id": "d1e2ee25-5b8e-41a2-b36b-caa735969b94",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15.pom.sha1",
-    "artifact_hash": "5dc11ea7cfa14ac8e84250b21166b098f1ce57ba3316ba5cae589269b37ce54a",
-    "source_hash": "",
-    "artifact_id": "7ce014b5-9e0e-4d57-8783-a53e0f6ca5b7",
-    "source_id": "07d57167-6d4e-4dd6-9d94-9604ea4d3981",
-    "timestamp": 1660908540,
-    "operation": "AddArtifact",
-    "node_id": "daee9753-19eb-4494-bb23-3bf3122b24bf",
-    "node_public_key": "ac611d95-01dd-43ff-96a1-257150531559"
-  },
-  {
-    "id": "cda4e2fb-84ca-4598-a41e-b95b5d0dc78b",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-test-sources.jar",
-    "artifact_hash": "997a5e8ed8c37e0c3dcdf20e76db11279c055a20c3875731390c7b8008912c4f",
-    "source_hash": "",
-    "artifact_id": "980bce73-6abd-4a27-905d-7158e078fbc6",
-    "source_id": "599d833b-c9e4-4020-8cd6-2ad5c63b5e8c",
-    "timestamp": 1660908540,
-    "operation": "AddArtifact",
-    "node_id": "ed2c2530-d57e-48e4-9dbe-544fe8afe54c",
-    "node_public_key": "600ef060-8625-4591-a6c7-424dfe523b6c"
-  },
-  {
-    "id": "41d861a0-b239-414f-94af-09afd4e91914",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-tests.jar",
-    "artifact_hash": "dbf6348c24ff9031fed4d03f69562d6f72f22fd8df60c446addcd6be292479c2",
-    "source_hash": "",
-    "artifact_id": "5be26d34-6700-4c70-862e-b6c2152070a6",
-    "source_id": "6f15dec9-6e59-48c6-837d-381f5245deea",
-    "timestamp": 1660908540,
-    "operation": "AddArtifact",
-    "node_id": "f157a26a-850c-440e-919e-f6f86964a79c",
-    "node_public_key": "1547d1f7-8bc0-49e7-a0fd-87a23ce20b77"
-  },
-  {
-    "id": "1d43164c-eff9-41fd-9b9b-0e9c31bc7df3",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-sources.jar.sha1",
-    "artifact_hash": "944a6c7643cc0ef821d38afdb576c3a3ea2d2308c053eb8e0bcbbc624766e345",
-    "source_hash": "",
-    "artifact_id": "937e2ef2-c124-4bfc-8229-0d573cb75cd5",
-    "source_id": "b01def26-5fe1-4510-825f-a8fa6993e144",
-    "timestamp": 1660908540,
-    "operation": "AddArtifact",
-    "node_id": "2520612b-d0b2-45f3-8dd3-c259283527b0",
-    "node_public_key": "c60c2352-9ab5-4d1c-ac34-0e2d755e6caf"
-  },
-  {
-    "id": "3ce2490f-0264-44a7-824b-9bdf9379be59",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-tests.jar.md5",
-    "artifact_hash": "6875ce35f7aa1dffbbd390393c30056b06139a5d822a66ee2fe431366c542a7d",
-    "source_hash": "",
-    "artifact_id": "22de3073-5afb-49ed-a7cc-ec0c4fa1e86f",
-    "source_id": "da789ef4-c9c3-4799-9b8b-7a05d3412fcd",
-    "timestamp": 1660908540,
-    "operation": "AddArtifact",
-    "node_id": "1aed4d9e-4cae-4b5b-a4c6-01c6c4796ab7",
-    "node_public_key": "1338c2c8-6d25-46ed-b7b1-a8a61244d9ad"
-  },
-  {
-    "id": "a7718180-1a5c-4894-8e90-4f16f4f6feb7",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-tests.jar.sha1",
-    "artifact_hash": "00540debf6f0091544b5daacea87fe4d6475f4abea566f19d1e7c0d062ca1016",
-    "source_hash": "",
-    "artifact_id": "9df96d6d-c5dd-40f8-bd5d-56531a47a737",
-    "source_id": "1cde52f6-48ba-4b25-bb81-0620bf59630c",
-    "timestamp": 1660908540,
-    "operation": "AddArtifact",
-    "node_id": "18409184-cb89-46d3-8119-5642fd4d0aea",
-    "node_public_key": "f06359c3-42de-4bb3-a7fa-59ed50099ee9"
-  },
-  {
-    "id": "c20167f6-2d96-4214-b6a8-7942c034167b",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-test-sources.jar.sha1",
-    "artifact_hash": "a9be7ceaf4962f4c897239972a1dac711ca7570c2cf47a8b09b7b343950caf41",
-    "source_hash": "",
-    "artifact_id": "b632f752-707c-4a10-b113-02de9ea495ac",
-    "source_id": "ce9b2f47-a579-44a6-8bd8-d80850085e84",
-    "timestamp": 1660908540,
-    "operation": "AddArtifact",
-    "node_id": "a3690d7d-f450-41ab-b959-2d8de3bd74d8",
-    "node_public_key": "05f364f4-9081-4fda-b37b-1043d435afbc"
-  },
-  {
-    "id": "e447df77-f809-43dc-b40a-4fce58c3f6a4",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-sources.jar.md5",
-    "artifact_hash": "53290bdbc449ae0e0230ab9f4d1d49043a3b67d0c40f49f1b6323188da2f0200",
-    "source_hash": "",
-    "artifact_id": "0af768c4-ea2d-4556-b9b4-b2ac81ab732c",
-    "source_id": "b1104a19-357a-4ca8-aba5-c6d3a3944886",
-    "timestamp": 1660908540,
-    "operation": "AddArtifact",
-    "node_id": "424a20ae-d1a2-45d1-977e-87463108d616",
-    "node_public_key": "5312da51-99d5-496e-9bd5-b955bece15f8"
-  },
-  {
-    "id": "0ff4df3e-c908-479f-850b-9bdcea2cc367",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15.jar.sha1",
-    "artifact_hash": "49258e0f1920c7303d0e31b31cf9d6157ca2beb1166c0c0576c0f0a5ab0c03d1",
-    "source_hash": "",
-    "artifact_id": "0ffa5544-2fe3-415b-9bd6-73bc98bc39b5",
-    "source_id": "241c8aa1-acee-40be-be70-ba38d17d3d00",
-    "timestamp": 1660908540,
-    "operation": "AddArtifact",
-    "node_id": "3e4b17f3-5b4a-4def-8598-8bd67c827092",
-    "node_public_key": "f03deb88-c45f-4382-8662-96603a6caec6"
-  },
-  {
-    "id": "2fee254e-db03-4e74-99ca-2d83d3302ec9",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15.pom.md5",
     "artifact_hash": "ff89aba3ea6e2655feba41fdff2d8388b09f421ca6ca0ff5c49dbc24e53ae86a",
-    "source_hash": "",
-    "artifact_id": "1b674cc8-4bb1-47d7-adfb-9fe167afe270",
-    "source_id": "2bddcb16-8c2e-46a1-b3c9-afd04bb2bb13",
-    "timestamp": 1660908540,
+    "artifact_id": "e7eb2455-51b8-4d93-b8b7-1cde8004f1e2",
+    "id": "95bd06e4-8254-437f-bc28-432883379426",
+    "node_id": "6d2faed8-88fe-4aac-8414-ea0055cb828d",
+    "node_public_key": "076a5a92-9052-43ff-a665-2e9b6a88df73",
+    "num_artifacts": 15,
     "operation": "AddArtifact",
-    "node_id": "5b9555ea-1ba8-4813-ab37-4f525c7a3640",
-    "node_public_key": "800d458b-f12b-4936-ad1a-1bfec7ca16e6"
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15.pom.md5",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "5e58cae7-b06c-4d21-a475-fb8b188e1a3f",
+    "timestamp": 1671004615
   },
   {
-    "id": "e7f10718-040c-4850-badf-e0a07afda381",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "artifact_hash": "944a6c7643cc0ef821d38afdb576c3a3ea2d2308c053eb8e0bcbbc624766e345",
+    "artifact_id": "0f02db39-a3ae-4039-84ce-68b1726156ce",
+    "id": "7bf97f16-e8a6-4c56-8c4c-4d7e6adf7cfd",
+    "node_id": "3bf52a5a-1230-4b1d-b32f-b660d2d7a5cd",
+    "node_public_key": "ddd83497-e571-4282-8be2-5307df1a636d",
     "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-test-sources.jar.md5",
-    "artifact_hash": "e74339769bffce344ee5a4645a64466ad4ffe2002cf774285e3f20fdb110b503",
-    "source_hash": "",
-    "artifact_id": "dfe7e07d-bd42-4b26-b8df-2449d76a25a5",
-    "source_id": "de40f6ef-32ed-4016-adaf-7cba2036ade9",
-    "timestamp": 1660908540,
     "operation": "AddArtifact",
-    "node_id": "21b15080-a6cf-4e3b-bcbd-d80a7509d8d2",
-    "node_public_key": "15d97cc8-50ca-4651-bda0-f0133065d816"
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-sources.jar.sha1",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "95a0ca89-dcfa-4306-9314-92e2411c5fce",
+    "timestamp": 1671004615
   },
   {
-    "id": "26756f3f-c719-422d-b3f6-b1d88f8b6f97",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15.jar",
-    "artifact_hash": "45307d7466bcb1f0cd52dd5df3c313f2c189586695b5d199d1a0a549f92bc50d",
-    "source_hash": "",
-    "artifact_id": "0c41a4bc-09b3-4e32-8c6b-dec54ba13d89",
-    "source_id": "ff2f3717-d1c0-4a68-96f9-9dba20245aa3",
-    "timestamp": 1660908540,
-    "operation": "AddArtifact",
-    "node_id": "46f0e541-1524-4973-b6d5-7499fb8fb3a8",
-    "node_public_key": "17b7ee56-931c-4cd1-abc4-5b24d85c972a"
-  },
-  {
-    "id": "1b548a2c-d6a4-45ab-95ff-7855bee9049b",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-sources.jar",
-    "artifact_hash": "930b528fc1cc6ad19b719c8f79fbf494814b3572f4df9f2555186ce2527a3116",
-    "source_hash": "",
-    "artifact_id": "04978768-8883-491e-9110-59a2b9710f34",
-    "source_id": "6fc1e9c8-af1d-49ab-b870-247af461fc2a",
-    "timestamp": 1660908540,
-    "operation": "AddArtifact",
-    "node_id": "ee39ca4d-b757-4329-8cc1-6e10319cb6a3",
-    "node_public_key": "4d9d5ea0-9c82-4905-8423-2d7109993e19"
-  },
-  {
-    "id": "e916ae11-cecf-422a-8123-a8d852ce2a90",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15.jar.md5",
-    "artifact_hash": "9e433debcc9932e38e6187e17a112f78f2fddc47419d27c4926776505528dfee",
-    "source_hash": "",
-    "artifact_id": "af797f13-9668-48c8-ab92-366c3b915167",
-    "source_id": "d24a1dc1-4c39-4453-85fd-fd4872e8a857",
-    "timestamp": 1660908540,
-    "operation": "AddArtifact",
-    "node_id": "9492e952-be4e-4051-be3d-2e3041075f97",
-    "node_public_key": "bb225d61-9fc9-4433-a9ad-adab50404e56"
-  },
-  {
-    "id": "70ff4e9e-a1fe-4d64-8c24-af0c8dc0a305",
-    "package_type": "Maven2",
-    "package_specific_id": "commons-codec:commons-codec:1.15",
-    "num_artifacts": 15,
-    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15.pom",
     "artifact_hash": "c86ee198a35a3715487860f419cbf642e7e4d9e8714777947dbe6a4e3a20ab58",
-    "source_hash": "",
-    "artifact_id": "c96317aa-b20c-4f67-aedf-c4be4fa912ff",
-    "source_id": "0e316ffb-68c7-4e84-9352-95604582ba11",
-    "timestamp": 1660908540,
+    "artifact_id": "311a547b-bce2-429a-8def-783f4e2fbc61",
+    "id": "2fcbefd2-c40f-4a06-8b5d-2061e7e4b6b5",
+    "node_id": "4899356d-f1d5-4041-a7dd-2e26dce42fd4",
+    "node_public_key": "5faeb8d0-0e58-4fed-a0a8-49b62ec75095",
+    "num_artifacts": 15,
     "operation": "AddArtifact",
-    "node_id": "c08e0a25-1f79-4c0e-9f4d-f9dbc4d2e736",
-    "node_public_key": "9563043e-7e2b-4e3c-b64b-cbed3e9da32d"
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15.pom",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "94617920-9637-4722-83e6-7850ef4e9153",
+    "timestamp": 1671004615
+  },
+  {
+    "artifact_hash": "9eb1496028b5de8910b14febc3f6a10722eb61aee79c0f2bfda3678d64381541",
+    "artifact_id": "73cee038-59dc-46f1-a325-fef83e4ff51c",
+    "id": "595a61d8-bcce-4e67-9d0e-47760838697e",
+    "node_id": "a61060dc-998e-4e4b-b881-34b8268525b4",
+    "node_public_key": "86e858cd-33ec-44b3-9465-0a330db1b901",
+    "num_artifacts": 15,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15.jar",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "344c7854-f0bd-47f4-9972-d490d42054f9",
+    "timestamp": 1671004615
+  },
+  {
+    "artifact_hash": "db4e82248ee9c594e63e4ad5bef30eb7063ed3c0bd498ed3af71294b0ebf7a3e",
+    "artifact_id": "93576736-e64f-4da2-8cee-b88034e54c4c",
+    "id": "7e1953a3-c2c6-4efd-b48e-56ef387b9b33",
+    "node_id": "6f2f1613-89b3-48c5-ba5d-39cd1cb55004",
+    "node_public_key": "9553c499-db8e-48c1-8370-171e106a3329",
+    "num_artifacts": 15,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-tests.jar.sha1",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "e982f1a7-5d7b-4860-aab3-adaf33ce1bfb",
+    "timestamp": 1671004616
+  },
+  {
+    "artifact_hash": "9bcaba0174b9803b04312a577917b20a9152582f1c8bf3b4ca9876f5a1569164",
+    "artifact_id": "df34d9de-9757-4c6d-b7a6-730c1cb0e18e",
+    "id": "b6b0ebfb-8fed-4229-906f-7e9528601880",
+    "node_id": "faf9ae75-a6e4-49bc-bb4e-a3e82e1f00b4",
+    "node_public_key": "bae676c7-95b0-4c16-8520-b53fcfda1cdc",
+    "num_artifacts": 15,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15.jar.sha1",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "cb5d0c3b-4475-4b76-b039-64bceb3af222",
+    "timestamp": 1671004616
+  },
+  {
+    "artifact_hash": "2758a7c8666bc7a91cb74a042b24f8e7f0c912e4a5461dbaf5fa35b227332c65",
+    "artifact_id": "236c5cb0-ddf4-4f16-89bf-bc5ec1052abd",
+    "id": "a36faabf-d51a-40d0-b4e8-addf56cfe2f7",
+    "node_id": "2276b670-fed6-46b1-b8f0-fb03ed775ab6",
+    "node_public_key": "638f0276-ea41-4257-8dda-089ae867a5de",
+    "num_artifacts": 15,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-tests.jar.md5",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "5feaa8d2-f868-4ae4-8f53-44da49a1f85e",
+    "timestamp": 1671004616
+  },
+  {
+    "artifact_hash": "4d1cf8fc05b8952412bcb436579bc335987364900e1f44194dbb98930c23eee8",
+    "artifact_id": "cc5a5cce-f292-4865-9dba-c96986b042d2",
+    "id": "5dcb88dc-0162-4a86-b3a3-80d6288290c9",
+    "node_id": "dfcaf577-dab4-4ada-a3b8-e4948898308a",
+    "node_public_key": "d2a68745-908a-4210-aea9-73138084e228",
+    "num_artifacts": 15,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-tests.jar",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "b02667a1-9938-441b-9c48-1bf70219f999",
+    "timestamp": 1671004616
+  },
+  {
+    "artifact_hash": "a9be7ceaf4962f4c897239972a1dac711ca7570c2cf47a8b09b7b343950caf41",
+    "artifact_id": "521faabe-7205-4ef6-8cdc-f4fafb0c58d0",
+    "id": "1a200591-cf3c-497f-9f87-5fba40ab61a6",
+    "node_id": "8b6a0dfb-94ba-4122-b06b-a9daefc08c00",
+    "node_public_key": "aa0a16d2-6957-4107-8bd4-1936d2679e12",
+    "num_artifacts": 15,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-test-sources.jar.sha1",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "3838c987-75a4-49d8-8883-4936ca6c6be0",
+    "timestamp": 1671004616
+  },
+  {
+    "artifact_hash": "997a5e8ed8c37e0c3dcdf20e76db11279c055a20c3875731390c7b8008912c4f",
+    "artifact_id": "7c3d7314-e455-4715-b760-a30f8496c1dc",
+    "id": "d371a08f-de02-4fe0-8aea-a3bd78d30504",
+    "node_id": "29d9a1aa-60e6-4013-aacb-51f8f9baab1e",
+    "node_public_key": "b4c5b976-3894-4fcc-bdf2-d98943bab7c3",
+    "num_artifacts": 15,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-test-sources.jar",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "802473db-3d7b-47af-b716-dba0fd83b6cd",
+    "timestamp": 1671004617
+  },
+  {
+    "artifact_hash": "30b6bfae61e5fdf2832f1378c64bc90cc24e970b7df48e97610afcdf5dc048c7",
+    "artifact_id": "4057f20b-5d0b-4912-ada3-8a8fe596b175",
+    "id": "6ad5899b-ea66-4d1d-85fc-b7d7dd373369",
+    "node_id": "48e97e91-227e-42dd-9fe9-f49aeb7aebce",
+    "node_public_key": "ac8bd86b-6325-4305-b08d-a413574d50f4",
+    "num_artifacts": 15,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15.jar.md5",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "51eb79b0-29bc-4fd6-9e83-49038e355e80",
+    "timestamp": 1671004617
+  },
+  {
+    "artifact_hash": "5dc11ea7cfa14ac8e84250b21166b098f1ce57ba3316ba5cae589269b37ce54a",
+    "artifact_id": "2dfdfe5f-3f2b-47a2-bcff-655a27dfca57",
+    "id": "aa06913a-b1eb-4ab7-8e0a-91659e1ff990",
+    "node_id": "98f3dc15-b999-4cda-be96-e861daa6ceb7",
+    "node_public_key": "0bf9a398-662e-4cfd-9e34-d88256f275ed",
+    "num_artifacts": 15,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15.pom.sha1",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "be90b0ed-885f-40f0-b409-0de0fb4863ec",
+    "timestamp": 1671004617
+  },
+  {
+    "artifact_hash": "930b528fc1cc6ad19b719c8f79fbf494814b3572f4df9f2555186ce2527a3116",
+    "artifact_id": "ec0cd5d0-697e-48f3-bc8a-ef9ef9731ed9",
+    "id": "7c12bd6f-5784-45eb-ac10-ed9f80c1f130",
+    "node_id": "e0571aa3-d5d0-4d77-985e-00cf835ca496",
+    "node_public_key": "51c179cc-9686-4cb4-aeb2-f2cdf93c20ea",
+    "num_artifacts": 15,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-sources.jar",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "a99fc485-a576-4f77-b513-aa1c5ba38647",
+    "timestamp": 1671004617
+  },
+  {
+    "artifact_hash": "53290bdbc449ae0e0230ab9f4d1d49043a3b67d0c40f49f1b6323188da2f0200",
+    "artifact_id": "a76ea024-dfae-443e-947c-425546944cc1",
+    "id": "a81459be-67d6-4eed-99ba-89800b66742c",
+    "node_id": "92583486-2d4f-47eb-ad7a-1e4cc874f417",
+    "node_public_key": "b73b0bfa-7196-4b23-9189-b320e73d7424",
+    "num_artifacts": 15,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-sources.jar.md5",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "03b057cb-a078-4cc7-af86-ccf8a9acd700",
+    "timestamp": 1671004618
+  },
+  {
+    "artifact_hash": "e74339769bffce344ee5a4645a64466ad4ffe2002cf774285e3f20fdb110b503",
+    "artifact_id": "a1157f84-27a5-44ba-91ed-7d0b715d5cdc",
+    "id": "11a18760-353b-4b01-8f08-1ebd7beccc0b",
+    "node_id": "4ea91665-c74d-434c-b9bd-cab07f70ccd9",
+    "node_public_key": "e9d812d8-bac1-4920-b846-d0d3d4c305ca",
+    "num_artifacts": 15,
+    "operation": "AddArtifact",
+    "package_specific_artifact_id": "commons-codec/commons-codec/1.15/commons-codec-1.15-test-sources.jar.md5",
+    "package_specific_id": "commons-codec:commons-codec:1.15",
+    "package_type": "Maven2",
+    "source_hash": "",
+    "source_id": "c187d8ab-de26-4811-a2d5-8a0920eb0b9f",
+    "timestamp": 1671004618
   }
 ]
 ```

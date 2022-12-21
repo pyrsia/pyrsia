@@ -14,21 +14,21 @@ env:
 
 jobs:
   build-osx:
-    runs-on: macos-latest
+    runs-on: macos-12
     steps:
       - run: echo "No build required"
 
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - run: echo "No build required"
 
   build-push-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - run: echo "No build required"
 
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - run: echo "No build required"

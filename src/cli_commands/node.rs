@@ -17,11 +17,12 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::Response;
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::node_api::model::cli::{
-    RequestAddAuthorizedNode, RequestDockerBuild, RequestDockerLog, RequestMavenBuild,
-    RequestMavenLog, Status,
+    RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
+    RequestMavenBuild, RequestMavenLog, Status,
 };
 
 use super::config::get_config;
@@ -46,74 +47,34 @@ pub async fn status() -> Result<Status, reqwest::Error> {
     Ok(response)
 }
 
-pub async fn add_authorized_node(request: RequestAddAuthorizedNode) -> Result<(), reqwest::Error> {
-    let node_url = format!("http://{}/authorized_node", get_url());
-    let client = reqwest::Client::new();
-    client
-        .post(node_url)
-        .json(&request)
-        .send()
-        .await?
-        .error_for_status()
+pub async fn add_authorized_node(request: RequestAddAuthorizedNode) -> Result<(), anyhow::Error> {
+    send_request_to_node(format!("http://{}/authorized_node", get_url()), request)
+        .await
         .map(|_| ())
 }
 
 pub async fn request_docker_build(request: RequestDockerBuild) -> Result<String, anyhow::Error> {
-    let node_url = format!("http://{}/build/docker", get_url());
-    let client = reqwest::Client::new();
-    client
-        .post(&node_url)
-        .json(&request)
-        .send()
-        .await?
-        .error_for_status_with_body()
-        .await
+    send_request_to_node(format!("http://{}/build/docker", get_url()), request).await
+}
+
+pub async fn request_build_status(request: RequestBuildStatus) -> Result<String, anyhow::Error> {
+    send_request_to_node(format!("http://{}/build/status", get_url()), request).await
 }
 
 pub async fn request_maven_build(request: RequestMavenBuild) -> Result<String, anyhow::Error> {
-    let node_url = format!("http://{}/build/maven", get_url());
-    let client = reqwest::Client::new();
-    client
-        .post(node_url)
-        .json(&request)
-        .send()
-        .await?
-        .error_for_status_with_body()
-        .await
+    send_request_to_node(format!("http://{}/build/maven", get_url()), request).await
 }
 
 pub async fn inspect_docker_transparency_log(
     request: RequestDockerLog,
-) -> Result<String, reqwest::Error> {
-    let node_url = format!("http://{}/inspect/docker", get_url());
-    let client = reqwest::Client::new();
-    match client
-        .post(node_url)
-        .json(&request)
-        .send()
-        .await?
-        .error_for_status()
-    {
-        Ok(response) => response.text().await,
-        Err(e) => Err(e),
-    }
+) -> Result<String, anyhow::Error> {
+    send_request_to_node(format!("http://{}/inspect/docker", get_url()), request).await
 }
 
 pub async fn inspect_maven_transparency_log(
     request: RequestMavenLog,
-) -> Result<String, reqwest::Error> {
-    let node_url = format!("http://{}/inspect/maven", get_url());
-    let client = reqwest::Client::new();
-    match client
-        .post(node_url)
-        .json(&request)
-        .send()
-        .await?
-        .error_for_status()
-    {
-        Ok(response) => response.text().await,
-        Err(e) => Err(e),
-    }
+) -> Result<String, anyhow::Error> {
+    send_request_to_node(format!("http://{}/inspect/maven", get_url()), request).await
 }
 
 pub fn get_url() -> String {
@@ -131,6 +92,20 @@ pub fn get_url() -> String {
     };
 
     format!("{}:{}", host, port)
+}
+
+async fn send_request_to_node<T: Serialize>(
+    node_url: String,
+    request: T,
+) -> Result<String, anyhow::Error> {
+    let client = reqwest::Client::new();
+    client
+        .post(node_url)
+        .json(&request)
+        .send()
+        .await?
+        .error_for_status_with_body()
+        .await
 }
 
 #[async_trait]

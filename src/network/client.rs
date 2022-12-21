@@ -20,6 +20,7 @@ use crate::artifact_service::model::PackageType;
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::blockchain_protocol::BlockchainResponse;
 use crate::network::build_protocol::BuildResponse;
+use crate::network::build_status_protocol::BuildStatusResponse;
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
@@ -357,6 +358,45 @@ impl Client {
 
         Ok(())
     }
+
+    pub async fn request_build_status(
+        &mut self,
+        peer_id: &PeerId,
+        build_id: String,
+    ) -> anyhow::Result<String> {
+        debug!(
+            "p2p::Client::request_build_status peer_id {:?}, build_id: {:?}",
+            peer_id, build_id
+        );
+
+        let (sender, receiver) = oneshot::channel();
+        self.sender
+            .send(Command::RequestBuildStatus {
+                peer: *peer_id,
+                build_id,
+                sender,
+            })
+            .await?;
+
+        receiver.await?
+    }
+
+    pub async fn respond_build_status(
+        &mut self,
+        status: &str,
+        channel: ResponseChannel<BuildStatusResponse>,
+    ) -> anyhow::Result<()> {
+        debug!("p2p::Client::respond_build_status status={}", status);
+
+        self.sender
+            .send(Command::RespondBuildStatus {
+                status: String::from(status),
+                channel,
+            })
+            .await?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -679,5 +719,35 @@ mod tests {
         let artifact = ArtifactHash::from(&str);
 
         assert_eq!(artifact.hash, str);
+    }
+
+    #[tokio::test]
+    async fn test_request_build_status() {
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        let mut client = Client {
+            sender,
+            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+        };
+
+        let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
+        const BUILD_ID: &str = "b024a136-9021-42a1-b8de-c665c94470f4";
+
+        tokio::spawn(async move {
+            client
+                .request_build_status(&other_peer_id, BUILD_ID.to_string())
+                .await
+        });
+
+        tokio::select! {
+            command = receiver.recv() => match command {
+                Some(Command::RequestBuildStatus{ peer, build_id, sender }) => {
+                    assert_eq!(peer, other_peer_id);
+                    assert_eq!(build_id, BUILD_ID);
+                    let _ = sender.send(Ok(String::from("ok")));
+                },
+                _ => panic!("Command must match Command::RequestBuildStatus")
+            }
+        }
     }
 }

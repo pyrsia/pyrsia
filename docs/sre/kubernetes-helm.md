@@ -61,25 +61,38 @@ The helm charts are automatically published by the Github Actions to the <http:/
 Details about the Chart Values and Installation steps are documented in the chart's ReadMe.  ArtifactHub renders the ReadMe on the [Prysia Package](https://artifacthub.io/packages/helm/pyrsia-nightly/pyrsia-node) site.
 
 1. Add the remote repo location to helm
-`helm repo add pyrsia-nightly http://helmrepo.pyrsia.io`
+`helm repo add pyrsia-nightly https://helmrepo.pyrsia.io/repos/nightly/`
 2. Fetch the latest charts
 `helm repo update`
 3. Set you cluster connection
 `kubectl config use-context <context name>`
 4. Deployment
+
+    > Note: Change the --version of the chart to reflect the image tag you want to deploy.  The image tag and chart version are kept in sync.
+
     - Nightly
 
         ```bash
-        helm upgrade --install node1 -n pyrsia-node pyrsia-nightly/pyrsia-node --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/pyrsia-sandbox/locations/global/keyRings/pyrsia-keyring/cryptoKeys/pyrsia-p2p-key" --set "dnsname=nightly.pyrsia.link" --set "bootdns=nightly.pyrsia.link"  --set "replicaCount=1" --set "buildnode=http://35.193.148.20:8080" --version "0.2.1-2562"
+        helm upgrade --install node1 -n pyrsia-node pyrsia-nightly/pyrsia-node --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/pyrsia-sandbox/locations/global/keyRings/pyrsia-keyring/cryptoKeys/pyrsia-p2p-key" --set "dnsname=nightly.pyrsia.link" --set "bootdns=nightly.pyrsia.link"  --set "replicaCount=1" --set "buildnode=http://35.193.148.20:8080" --version "0.2.1+2562"
+        ```
+
+    - Nightly from branch
+
+        From the root of your Pyrsia repo:
+
+        ```bash
+        docker login
+        docker build --tag mydockerhubid/pyrsia:1.0
+        docker push mydockerhubid/pyrsia:1.0
+
+        helm upgrade --install node1 -n pyrsia-node pyrsia-nightly/pyrsia-node --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/pyrsia-sandbox/locations/global/keyRings/pyrsia-keyring/cryptoKeys/pyrsia-p2p-key" --set "dnsname=nightly.pyrsia.link" --set "bootdns=nightly.pyrsia.link"  --set "replicaCount=1" --set "buildnode=http://35.193.148.20:8080" --set image.repository=mydockerhubid --set image.tag=1.0 --version "0.2.1+2562"
         ```
 
     - Production
 
         ```bash
-        helm upgrade --install node1 -n pyrsia-node pyrsia-nightly/pyrsia-node --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/pyrsia-sandbox/locations/global/keyRings/pyrsia-keyring/cryptoKeys/pyrsia-p2p-key"   --set "replicaCount=1"  --set "buildnode=http://34.134.11.239:8080" --version "0.2.1-2562"
+        helm upgrade --install node1 -n pyrsia-node pyrsia-nightly/pyrsia-node --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/pyrsia-sandbox/locations/global/keyRings/pyrsia-keyring/cryptoKeys/pyrsia-p2p-key"   --set "replicaCount=1"  --set "buildnode=http://34.134.11.239:8080" --version "0.2.1+2562"
         ```
-
-    > Note: Change the --version of the chart to reflect the image tag you want to deploy.  The image tag and chart version are kept in sync.
 
 Verify the deployments using `kubectl` commands.
 

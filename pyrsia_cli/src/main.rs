@@ -57,7 +57,17 @@ async fn main() {
                     }
                 }
             }
-            if config_matches.contains_id("show") {
+            if *config_matches.get_one::<bool>("remove").unwrap_or(&false) {
+                match config_remove() {
+                    Ok(_) => {
+                        println!("Node configuration removed !!");
+                    }
+                    Err(error) => {
+                        eprintln!("Error removing node configuration: {}", error);
+                    }
+                }
+            }
+            if *config_matches.get_one::<bool>("show").unwrap_or(&false) {
                 config_show();
             }
         }
@@ -70,6 +80,9 @@ async fn main() {
             }
             Some(("maven", maven_matches)) => {
                 request_maven_build(maven_matches.get_one::<String>("gav").unwrap()).await;
+            }
+            Some(("status", status_matches)) => {
+                request_build_status(status_matches.get_one::<String>("id").unwrap()).await;
             }
             _ => {}
         },

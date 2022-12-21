@@ -15,7 +15,7 @@ env:
 jobs:
   new-issues:
     name: new-issues
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: |
       github.repository_owner == 'pyrsia' &&
       github.event_name == 'issues' &&
@@ -36,7 +36,7 @@ jobs:
 
   new-prs:
     name: new-prs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: |
       github.repository_owner == 'pyrsia' &&
       github.event_name == 'pull_request' &&
@@ -51,7 +51,7 @@ jobs:
           resource_node_id: ${{ github.event.pull_request.node_id }}
 
   pr-request-review:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: |
       github.repository_owner == 'pyrsia' &&
       github.event_name == 'pull_request_target' &&
@@ -62,7 +62,7 @@ jobs:
           labels: in-review
 
   label-blocked:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: |
       github.repository_owner == 'pyrsia' &&
       (github.event_name == 'issues' ||  github.event_name == 'pull_request_target') &&
@@ -77,7 +77,7 @@ jobs:
           resource_node_id: ${{ github.event.issue.node_id }}
 
   assign-author:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: |
       github.repository_owner == 'pyrsia' &&
       github.event_name == 'pull_request_target' &&
@@ -86,7 +86,7 @@ jobs:
       - uses: toshimaru/auto-author-assign@v1.6.1
 
   rm-closed-pr:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: |
       github.repository_owner == 'pyrsia' &&
       github.event_name == 'pull_request_target' && github.event.action == 'closed'
