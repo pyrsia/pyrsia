@@ -31,7 +31,7 @@ use pyrsia::network::build_protocol::BuildResponse;
 use pyrsia::network::build_status_protocol::BuildStatusResponse;
 use pyrsia::network::client::Client;
 use pyrsia::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
-use pyrsia::peer_metrics;
+use pyrsia::peer_metrics::metrics::PEER_METRICS;
 use pyrsia_blockchain_network::error::BlockchainError;
 use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::structures::header::Ordinal;
@@ -103,8 +103,8 @@ pub async fn handle_request_idle_metric(
     mut p2p_client: Client,
     channel: ResponseChannel<IdleMetricResponse>,
 ) -> anyhow::Result<()> {
-    let metric = peer_metrics::metrics::get_quality_metric();
-    let peer_metrics: PeerMetrics = PeerMetrics {
+    let metric = PEER_METRICS.lock().unwrap().get_quality_metric();
+    let peer_metrics = PeerMetrics {
         idle_metric: metric.to_le_bytes(),
     };
     p2p_client.respond_idle_metric(peer_metrics, channel).await
