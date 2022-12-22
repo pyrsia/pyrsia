@@ -647,21 +647,7 @@ mod tests {
 
         let log = create_transparency_log_service(&tmp_dir).await;
 
-        let transparency_log = TransparencyLog {
-            id: String::from("id"),
-            package_type: Some(PackageType::Maven2),
-            package_specific_id: String::from("package_specific_id"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id"),
-            artifact_hash: String::from("artifact_hash"),
-            source_hash: String::from("source_hash"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: 1234567890,
-            operation: Operation::AddArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let transparency_log = test_artifact_transparency_log_default();
 
         let result = log.write_transparency_log(&transparency_log);
         assert!(result.is_ok());
@@ -675,21 +661,7 @@ mod tests {
 
         let log = create_transparency_log_service(&tmp_dir).await;
 
-        let transparency_log = TransparencyLog {
-            id: String::from("id"),
-            package_type: Some(PackageType::Maven2),
-            package_specific_id: String::from("package_specific_id"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id"),
-            artifact_hash: String::from("artifact_hash"),
-            source_hash: String::from("source_hash"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: 1234567890,
-            operation: Operation::AddArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let transparency_log = test_artifact_transparency_log_default();
 
         let mut result = log.write_transparency_log(&transparency_log);
         assert!(result.is_ok());
@@ -705,26 +677,12 @@ mod tests {
 
         let log = create_transparency_log_service(&tmp_dir).await;
 
-        let transparency_log = TransparencyLog {
-            id: String::from("id"),
-            package_type: Some(PackageType::Maven2),
-            package_specific_id: String::from("package_specific_id"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id"),
-            artifact_hash: String::from("artifact_hash"),
-            source_hash: String::from("source_hash"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: 1234567890,
-            operation: Operation::AddArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let transparency_log = test_artifact_transparency_log_default();
 
         let result_write = log.write_transparency_log(&transparency_log);
         assert!(result_write.is_ok());
 
-        let result_find = log.find_transparency_log("id");
+        let result_find = log.find_transparency_log(&transparency_log.id);
         assert!(result_find.is_ok());
 
         test_util::tests::teardown(tmp_dir);
@@ -736,21 +694,7 @@ mod tests {
 
         let log = create_transparency_log_service(&tmp_dir).await;
 
-        let transparency_log = TransparencyLog {
-            id: String::from("id"),
-            package_type: Some(PackageType::Maven2),
-            package_specific_id: String::from("package_specific_id"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id"),
-            artifact_hash: String::from("artifact_hash"),
-            source_hash: String::from("source_hash"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: 1234567890,
-            operation: Operation::AddArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let transparency_log = test_artifact_transparency_log_default();
 
         let result_write = log.write_transparency_log(&transparency_log);
         assert!(result_write.is_ok());
@@ -776,28 +720,19 @@ mod tests {
 
         let log = create_transparency_log_service(&tmp_dir).await;
 
-        let transparency_log = TransparencyLog {
-            id: String::from("id"),
-            package_type: Some(PackageType::Maven2),
-            package_specific_id: String::from("package_specific_id"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id"),
-            artifact_hash: String::from("artifact_hash"),
-            source_hash: String::from("source_hash"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: 1234567890,
-            operation: Operation::AddArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let ps_art_id = "package_specific_artifact_id";
+        let transparency_log = test_artifact_transparency_log(
+            Some(PackageType::Maven2),
+            Operation::AddArtifact,
+            Some("package_specific_id"),
+            Some(ps_art_id),
+        );
 
-        let result_write = log.write_transparency_log(&transparency_log);
-        assert!(result_write.is_ok());
+        assert!(log.write_transparency_log(&transparency_log).is_ok());
 
-        let result_read =
-            log.read_transparency_log(&PackageType::Maven2, "package_specific_artifact_id");
-        assert!(result_read.is_ok());
+        assert!(log
+            .read_transparency_log(&PackageType::Maven2, ps_art_id)
+            .is_ok());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -808,24 +743,14 @@ mod tests {
 
         let log = create_transparency_log_service(&tmp_dir).await;
 
-        let transparency_log = TransparencyLog {
-            id: String::from("id"),
-            package_type: Some(PackageType::Maven2),
-            package_specific_id: String::from("package_specific_id"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id"),
-            artifact_hash: String::from("artifact_hash"),
-            source_hash: String::from("source_hash"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: 1234567890,
-            operation: Operation::AddArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let transparency_log = test_artifact_transparency_log(
+            Some(PackageType::Maven2),
+            Operation::AddArtifact,
+            Some("package_specific_id"),
+            Some("package_specific_artifact_id"),
+        );
 
-        let result_write = log.write_transparency_log(&transparency_log);
-        assert!(result_write.is_ok());
+        assert!(log.write_transparency_log(&transparency_log).is_ok());
 
         let result_read =
             log.read_transparency_log(&PackageType::Maven2, "invalid_package_specific_artifact_id");
@@ -848,47 +773,29 @@ mod tests {
 
         let log = create_transparency_log_service(&tmp_dir).await;
 
-        let transparency_log1 = TransparencyLog {
-            id: String::from("id1"),
-            package_type: Some(PackageType::Maven2),
-            package_specific_id: String::from("package_specific_id"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id"),
-            artifact_hash: String::from("artifact_hash1"),
-            source_hash: String::from("source_hash1"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: 10000000,
-            operation: Operation::AddArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let transparency_log1 = test_artifact_transparency_log(
+            Some(PackageType::Maven2),
+            Operation::AddArtifact,
+            Some("package_specific_id"),
+            Some("package_specific_artifact_id"),
+        );
 
         let result_write1 = log.write_transparency_log(&transparency_log1);
         assert!(result_write1.is_ok());
 
-        let transparency_log2 = TransparencyLog {
-            id: String::from("id2"),
-            package_type: Some(PackageType::Maven2),
-            package_specific_id: String::from("package_specific_id2"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id2"),
-            artifact_hash: String::from("artifact_hash2"),
-            source_hash: String::from("source_hash2"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: 20000000,
-            operation: Operation::AddArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let ps_art_id = "package_specific_artifact_id2";
+        let transparency_log2 = test_artifact_transparency_log(
+            Some(PackageType::Maven2),
+            Operation::AddArtifact,
+            Some("package_specific_id2"),
+            Some(ps_art_id),
+        );
 
-        let result_write2 = log.write_transparency_log(&transparency_log2);
-        assert!(result_write2.is_ok());
+        assert!(log.write_transparency_log(&transparency_log2).is_ok());
 
-        let result_read =
-            log.read_transparency_log(&PackageType::Maven2, "package_specific_artifact_id2");
-        assert!(result_read.is_ok());
+        assert!(log
+            .read_transparency_log(&PackageType::Maven2, ps_art_id)
+            .is_ok());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -899,45 +806,27 @@ mod tests {
 
         let log = create_transparency_log_service(&tmp_dir).await;
 
-        let transparency_log1 = TransparencyLog {
-            id: String::from("id1"),
-            package_type: Some(PackageType::Maven2),
-            package_specific_id: String::from("package_specific_id"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id"),
-            artifact_hash: String::from("artifact_hash1"),
-            source_hash: String::from("source_hash1"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: 10000000,
-            operation: Operation::AddArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let ps_id = "package_specific_id";
+        let transparency_log1 = test_artifact_transparency_log(
+            Some(PackageType::Maven2),
+            Operation::AddArtifact,
+            Some(ps_id),
+            Some("package_specific_artifact_id"),
+        );
 
         let result_write1 = log.write_transparency_log(&transparency_log1);
         assert!(result_write1.is_ok());
 
-        let transparency_log2 = TransparencyLog {
-            id: String::from("id2"),
-            package_type: Some(PackageType::Maven2),
-            package_specific_id: String::from("package_specific_id"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id2"),
-            artifact_hash: String::from("artifact_hash2"),
-            source_hash: String::from("source_hash2"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: 20000000,
-            operation: Operation::AddArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let transparency_log2 = test_artifact_transparency_log(
+            Some(PackageType::Maven2),
+            Operation::AddArtifact,
+            Some(ps_id),
+            Some("package_specific_artifact_id2"),
+        );
 
-        let result_write2 = log.write_transparency_log(&transparency_log2);
-        assert!(result_write2.is_ok());
+        assert!(log.write_transparency_log(&transparency_log2).is_ok());
 
-        let result_read1 = log.read_transparency_logs(&PackageType::Maven2, "package_specific_id");
+        let result_read1 = log.read_transparency_logs(&PackageType::Maven2, ps_id);
         assert!(result_read1.is_ok());
         assert_eq!(result_read1.unwrap().len(), 2);
 
@@ -954,68 +843,42 @@ mod tests {
         let tmp_dir = test_util::tests::setup();
 
         let log = create_transparency_log_service(&tmp_dir).await;
-        let result1 = log.verify_package_can_be_added_to_transparency_logs(
-            &PackageType::Docker,
-            "package_specific_id",
-        );
-        assert!(result1.is_ok());
 
-        let transparency_log1 = TransparencyLog {
-            id: String::from("id1"),
-            package_type: Some(PackageType::Docker),
-            package_specific_id: String::from("package_specific_id"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id"),
-            artifact_hash: String::from("artifact_hash1"),
-            source_hash: String::from("source_hash1"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: 10000000,
-            operation: Operation::AddArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
-        let result_write1 = log.write_transparency_log(&transparency_log1);
-        assert!(result_write1.is_ok());
+        let ps_id = "package_specific_id";
+        assert!(log
+            .verify_package_can_be_added_to_transparency_logs(&PackageType::Docker, ps_id)
+            .is_ok());
 
-        let result2 = log.verify_package_can_be_added_to_transparency_logs(
-            &PackageType::Docker,
-            "package_specific_id",
+        let transparency_log1 = test_artifact_transparency_log(
+            Some(PackageType::Docker),
+            Operation::AddArtifact,
+            Some(ps_id),
+            Some("package_specific_artifact_id"),
         );
+        assert!(log.write_transparency_log(&transparency_log1).is_ok());
+
+        let result2 =
+            log.verify_package_can_be_added_to_transparency_logs(&PackageType::Docker, ps_id);
         assert!(result2.is_err());
         assert_eq!(
             result2.err().unwrap().to_string(),
             TransparencyLogError::ArtifactAlreadyExists {
                 package_type: PackageType::Docker,
-                package_specific_id: String::from("package_specific_id"),
+                package_specific_id: ps_id.to_string(),
             }
             .to_string()
         );
 
-        let transparency_log2 = TransparencyLog {
-            id: String::from("id2"),
-            package_type: Some(PackageType::Docker),
-            package_specific_id: String::from("package_specific_id"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id"),
-            artifact_hash: String::from("artifact_hash1"),
-            source_hash: String::from("source_hash1"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: 20000000,
-            operation: Operation::RemoveArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
-
-        let result_write2 = log.write_transparency_log(&transparency_log2);
-        assert!(result_write2.is_ok());
-
-        let result3 = log.verify_package_can_be_added_to_transparency_logs(
-            &PackageType::Docker,
-            "package_specific_id",
+        let transparency_log2 = test_artifact_transparency_log(
+            Some(PackageType::Docker),
+            Operation::RemoveArtifact,
+            Some(ps_id),
+            Some("package_specific_artifact_id"),
         );
-        assert!(result3.is_ok());
+        assert!(log.write_transparency_log(&transparency_log2).is_ok());
+        assert!(log
+            .verify_package_can_be_added_to_transparency_logs(&PackageType::Docker, ps_id)
+            .is_ok());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -1026,32 +889,22 @@ mod tests {
 
         let log = create_transparency_log_service(&tmp_dir).await;
 
-        let transparency_log = TransparencyLog {
-            id: String::from("id"),
-            package_type: Some(PackageType::Maven2),
-            package_specific_id: String::from("package_specific_id"),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from("package_specific_artifact_id"),
-            artifact_hash: String::from("artifact_hash"),
-            source_hash: String::from("source_hash"),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: 10000000,
-            operation: Operation::RemoveArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let ps_art_id = "package_specific_artifact_id";
+        let transparency_log = test_artifact_transparency_log(
+            Some(PackageType::Maven2),
+            Operation::RemoveArtifact,
+            Some("package_specific_id"),
+            Some(ps_art_id),
+        );
 
-        let result_write = log.write_transparency_log(&transparency_log);
-        assert!(result_write.is_ok());
+        assert!(log.write_transparency_log(&transparency_log).is_ok());
 
-        let result_read =
-            log.read_transparency_log(&PackageType::Maven2, "package_specific_artifact_id");
+        let result_read = log.read_transparency_log(&PackageType::Maven2, ps_art_id);
         assert!(result_read.is_err());
         assert_eq!(
             result_read.err().unwrap().to_string(),
             TransparencyLogError::InvalidOperation {
-                id: String::from("id"),
+                id: transparency_log.id,
                 invalid_operation: Operation::RemoveArtifact,
             }
             .to_string()
@@ -1101,21 +954,8 @@ mod tests {
 
         let peer_id = Keypair::generate_ed25519().public().to_peer_id();
 
-        let transparency_log = TransparencyLog {
-            id: String::from("id"),
-            package_type: None,
-            package_specific_id: String::from(""),
-            num_artifacts: 0,
-            package_specific_artifact_id: String::from(""),
-            artifact_hash: String::from(""),
-            source_hash: String::from(""),
-            artifact_id: String::from(""),
-            source_id: String::from(""),
-            timestamp: 10000000,
-            operation: Operation::AddNode,
-            node_id: peer_id.clone().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let transparency_log =
+            test_auth_node_transparency_log(Operation::AddNode, &peer_id.clone().to_string());
 
         let result_add = log.add_authorized_node(peer_id).await;
         assert!(result_add.is_ok());
@@ -1135,30 +975,16 @@ mod tests {
 
         let log = create_transparency_log_service(&tmp_dir).await;
 
-        let transparency_log = TransparencyLog {
-            id: String::from("id"),
-            package_type: None,
-            package_specific_id: String::from(""),
-            num_artifacts: 0,
-            package_specific_artifact_id: String::from(""),
-            artifact_hash: String::from(""),
-            source_hash: String::from(""),
-            artifact_id: String::from(""),
-            source_id: String::from(""),
-            timestamp: 10000000,
-            operation: Operation::AddNode,
-            node_id: String::from("node_id"),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let node_id = "node_id";
+        let transparency_log = test_auth_node_transparency_log(Operation::AddNode, node_id);
 
-        let result_write = log.write_transparency_log(&transparency_log);
-        assert!(result_write.is_ok());
+        assert!(log.write_transparency_log(&transparency_log).is_ok());
 
         let result_read = log.get_authorized_nodes();
         assert!(result_read.is_ok());
         let vec = result_read.unwrap();
         assert_eq!(vec.len(), 1);
-        assert_eq!(vec.get(0).unwrap().node_id, "node_id");
+        assert_eq!(vec.get(0).unwrap().node_id, node_id);
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -1169,68 +995,25 @@ mod tests {
 
         let log = create_transparency_log_service(&tmp_dir).await;
 
-        let transparency_log1 = TransparencyLog {
-            id: String::from("id1"),
-            package_type: None,
-            package_specific_id: String::from(""),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from(""),
-            artifact_hash: String::from(""),
-            source_hash: String::from(""),
-            artifact_id: String::from(""),
-            source_id: String::from(""),
-            timestamp: 10000000,
-            operation: Operation::AddNode,
-            node_id: String::from("node_id1"),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let first_node_id = "node_id_1";
+        let transparency_log1 = test_auth_node_transparency_log(Operation::AddNode, first_node_id);
 
-        let result_write1 = log.write_transparency_log(&transparency_log1);
-        assert!(result_write1.is_ok());
+        assert!(log.write_transparency_log(&transparency_log1).is_ok());
+        let second_node_id = "node_id_2";
+        let transparency_log2 = test_auth_node_transparency_log(Operation::AddNode, second_node_id);
 
-        let transparency_log2 = TransparencyLog {
-            id: String::from("id2"),
-            package_type: None,
-            package_specific_id: String::from(""),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from(""),
-            artifact_hash: String::from(""),
-            source_hash: String::from(""),
-            artifact_id: String::from(""),
-            source_id: String::from(""),
-            timestamp: 20000000,
-            operation: Operation::AddNode,
-            node_id: String::from("node_id2"),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        assert!(log.write_transparency_log(&transparency_log2).is_ok());
 
-        let result_write2 = log.write_transparency_log(&transparency_log2);
-        assert!(result_write2.is_ok());
+        let transparency_log3 =
+            test_auth_node_transparency_log(Operation::RemoveNode, first_node_id);
 
-        let transparency_log3 = TransparencyLog {
-            id: String::from("id3"),
-            package_type: None,
-            package_specific_id: String::from(""),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from(""),
-            artifact_hash: String::from(""),
-            source_hash: String::from(""),
-            artifact_id: String::from(""),
-            source_id: String::from(""),
-            timestamp: 30000000,
-            operation: Operation::RemoveNode,
-            node_id: String::from("node_id1"),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
-
-        let result_write3 = log.write_transparency_log(&transparency_log3);
-        assert!(result_write3.is_ok());
+        assert!(log.write_transparency_log(&transparency_log3).is_ok());
 
         let result_read = log.get_authorized_nodes();
         assert!(result_read.is_ok());
         let vec = result_read.unwrap();
         assert_eq!(vec.len(), 1);
-        assert_eq!(vec.get(0).unwrap().node_id, "node_id2");
+        assert_eq!(vec.get(0).unwrap().node_id, second_node_id);
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -1241,60 +1024,89 @@ mod tests {
 
         let log = create_transparency_log_service(&tmp_dir).await;
 
-        let result1 = log.verify_node_can_be_added_to_transparency_logs("node_id1");
-        assert!(result1.is_ok());
+        let first_node_id = "node_id_1";
+        assert!(log
+            .verify_node_can_be_added_to_transparency_logs(first_node_id)
+            .is_ok());
 
-        let transparency_log1 = TransparencyLog {
-            id: String::from("id1"),
-            package_type: None,
-            package_specific_id: String::from(""),
-            num_artifacts: 8,
-            package_specific_artifact_id: String::from(""),
-            artifact_hash: String::from(""),
-            source_hash: String::from(""),
-            artifact_id: String::from(""),
-            source_id: String::from(""),
-            timestamp: 10000000,
-            operation: Operation::AddNode,
-            node_id: String::from("node_id1"),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let transparency_log1 = test_auth_node_transparency_log(Operation::AddNode, first_node_id);
+        assert!(log.write_transparency_log(&transparency_log1).is_ok());
 
-        let result_write1 = log.write_transparency_log(&transparency_log1);
-        assert!(result_write1.is_ok());
-
-        let result2 = log.verify_node_can_be_added_to_transparency_logs("node_id1");
+        let result2 = log.verify_node_can_be_added_to_transparency_logs(first_node_id);
         assert!(result2.is_err());
         assert_eq!(
             result2.err().unwrap().to_string(),
             TransparencyLogError::NodeAlreadyExists {
-                node_id: String::from("node_id1"),
+                node_id: first_node_id.to_string(),
             }
             .to_string()
         );
 
-        let transparency_log3 = TransparencyLog {
-            id: String::from("id2"),
+        let transparency_log3 =
+            test_auth_node_transparency_log(Operation::RemoveNode, first_node_id);
+
+        assert!(log.write_transparency_log(&transparency_log3).is_ok());
+
+        assert!(log
+            .verify_node_can_be_added_to_transparency_logs(first_node_id)
+            .is_ok());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    fn test_artifact_transparency_log_default() -> TransparencyLog {
+        test_artifact_transparency_log(
+            Some(PackageType::Maven2),
+            Operation::AddArtifact,
+            None,
+            None,
+        )
+    }
+
+    fn test_artifact_transparency_log(
+        pack_type: Option<PackageType>,
+        op: Operation,
+        ps_id: Option<&str>,
+        ps_artifact_id: Option<&str>,
+    ) -> TransparencyLog {
+        TransparencyLog {
+            id: Uuid::new_v4().to_string(),
+            package_type: pack_type,
+            package_specific_id: ps_id.unwrap_or("psid").to_owned(),
+            num_artifacts: 8,
+            package_specific_artifact_id: ps_artifact_id.unwrap_or("ps_artifact_id").to_owned(),
+            artifact_hash: "artifact_hash".to_owned(),
+            source_hash: "source_hash".to_owned(),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            operation: op,
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        }
+    }
+
+    fn test_auth_node_transparency_log(op: Operation, node_id: &str) -> TransparencyLog {
+        TransparencyLog {
+            id: Uuid::new_v4().to_string(),
             package_type: None,
             package_specific_id: String::from(""),
-            num_artifacts: 8,
+            num_artifacts: 0,
             package_specific_artifact_id: String::from(""),
             artifact_hash: String::from(""),
             source_hash: String::from(""),
             artifact_id: String::from(""),
             source_id: String::from(""),
-            timestamp: 20000000,
-            operation: Operation::RemoveNode,
-            node_id: String::from("node_id1"),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            operation: op,
+            node_id: node_id.to_owned(),
             node_public_key: Uuid::new_v4().to_string(),
-        };
-
-        let result_write2 = log.write_transparency_log(&transparency_log3);
-        assert!(result_write2.is_ok());
-
-        let result3 = log.verify_node_can_be_added_to_transparency_logs("node_id1");
-        assert!(result3.is_ok());
-
-        test_util::tests::teardown(tmp_dir);
+        }
     }
 }
