@@ -37,6 +37,9 @@ pub enum Command {
         probe_addr: Multiaddr,
         sender: oneshot::Sender<anyhow::Result<()>>,
     },
+    BootstrapDht {
+        sender: oneshot::Sender<anyhow::Result<()>>,
+    },
     Listen {
         addr: Multiaddr,
         sender: oneshot::Sender<anyhow::Result<()>>,
