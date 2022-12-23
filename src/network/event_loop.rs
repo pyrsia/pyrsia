@@ -27,6 +27,7 @@ use crate::util::env_util::read_var;
 use libp2p::autonat::{Event as AutonatEvent, NatStatus};
 use libp2p::core::PeerId;
 use libp2p::futures::StreamExt;
+use libp2p::gossipsub;
 use libp2p::identify;
 use libp2p::kad::{BootstrapOk, GetProvidersOk, KademliaEvent, QueryId, QueryResult};
 use libp2p::multiaddr::Protocol;
@@ -114,6 +115,7 @@ impl PyrsiaEventLoop {
             tokio::select! {
                 event = self.swarm.select_next_some() => match event {
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::AutoNat(autonat_event)) => self.handle_autonat_event(autonat_event).await,
+                    SwarmEvent::Behaviour(PyrsiaNetworkEvent::Gossipsub(gossipsub_event)) => self.handle_gossipsub_event(gossipsub_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Identify(identify_event)) => self.handle_identify_event(*identify_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Kademlia(kademlia_event)) => self.handle_kademlia_event(*kademlia_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::RequestResponse(request_response_event)) => self.handle_request_response_event(request_response_event).await,
@@ -156,6 +158,17 @@ impl PyrsiaEventLoop {
                     NatStatus::Unknown => {}
                 }
             }
+        }
+    }
+
+    // Handles events from the `GossipSub` network behaviour.
+    async fn handle_gossipsub_event(&mut self, event: gossipsub::GossipsubEvent) {
+        trace!("Handle GossipsubEvent: {:?}", event);
+        if let gossipsub::GossipsubEvent::Message { message, .. } = event {
+            self.event_sender
+                .send(PyrsiaEvent::SimpleBlockchainRequest { data: message.data })
+                .await
+                .expect("Event receiver not to be dropped.");
         }
     }
 
@@ -792,6 +805,24 @@ impl PyrsiaEventLoop {
                     .send_response(channel, BlockchainResponse(data))
                     .expect("Connection to peer to be still open.");
             }
+            Command::BroadcastBlock {
+                topic,
+                block,
+                sender,
+            } => {
+                sender
+                    .send(
+                        self.swarm
+                            .behaviour_mut()
+                            .gossipsub
+                            .publish(topic, block)
+                            .map(|_| ())
+                            .map_err(|e| e.into()),
+                    )
+                    .unwrap_or_else(|_e| {
+                        error!("Handle Command match arm: {}.", command_str);
+                    });
+            }
             Command::RequestBuildStatus {
                 peer,
                 build_id,
@@ -835,6 +866,9 @@ pub enum PyrsiaEvent {
         data: Vec<u8>,
         channel: ResponseChannel<BlockchainResponse>,
     },
+    SimpleBlockchainRequest {
+        data: Vec<u8>,
+    },
     RequestBuildStatus {
         build_id: String,
         channel: ResponseChannel<BuildStatusResponse>,
@@ -861,6 +895,7 @@ mod tests {
     use libp2p::core::upgrade;
     use libp2p::core::Transport;
     use libp2p::dns::TokioDnsConfig;
+    use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::Keypair;
     use libp2p::swarm::SwarmBuilder;
     use libp2p::yamux::YamuxConfig;
@@ -870,6 +905,13 @@ mod tests {
     use tokio_stream::wrappers::ReceiverStream;
 
     fn create_test_swarm() -> (Client, PyrsiaEventLoop, ReceiverStream<PyrsiaEvent>) {
+        use libp2p::gossipsub::MessageId;
+        use libp2p::gossipsub::{
+            Gossipsub, GossipsubMessage, IdentTopic as Topic, MessageAuthenticity, ValidationMode,
+        };
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
         let id_keys = Keypair::generate_ed25519();
         let local_public_key = id_keys.public();
         let peer_id = local_public_key.to_peer_id();
@@ -888,6 +930,30 @@ mod tests {
             .timeout(Duration::from_secs(20))
             .boxed();
 
+        // To content-address message, we can take the hash of message and use it as an ID.
+        let message_id_fn = |message: &GossipsubMessage| {
+            let mut s = DefaultHasher::new();
+            message.data.hash(&mut s);
+            MessageId::from(s.finish().to_string())
+        };
+
+        let gossipsub_config = gossipsub::GossipsubConfigBuilder::default()
+            .heartbeat_interval(Duration::from_secs(10)) // This is set to aid debugging by not cluttering the log space
+            .validation_mode(ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
+            .message_id_fn(message_id_fn) // content-address messages. No two messages of the same content will be propagated.
+            .support_floodsub()
+            .build()
+            .expect("Valid config");
+        let mut gossip_sub = Gossipsub::new(
+            MessageAuthenticity::Signed(id_keys.clone()),
+            gossipsub_config,
+        )
+        .expect("Correct configuration");
+        let pyrsia_topic: Topic = Topic::new("pyrsia-blockchain-topic");
+        gossip_sub
+            .subscribe(&pyrsia_topic)
+            .expect("Could not connect to pyrsia blockchain topic");
+
         let behaviour = PyrsiaNetworkBehaviour {
             auto_nat: autonat::Behaviour::new(
                 peer_id,
@@ -899,6 +965,7 @@ mod tests {
                     ..Default::default()
                 },
             ),
+            gossipsub: gossip_sub,
             identify: identify::Behaviour::new(identify::Config::new(
                 "ipfs/1.0.0".to_owned(),
                 id_keys.public(),
@@ -956,10 +1023,7 @@ mod tests {
         let (command_sender, command_receiver) = mpsc::channel(1);
         let (event_sender, event_receiver) = mpsc::channel(1);
 
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: peer_id,
-        };
+        let p2p_client = Client::new(command_sender, peer_id, IdentTopic::new("pyrsia-topic"));
         let event_loop = PyrsiaEventLoop::new(swarm, command_receiver, event_sender);
 
         (p2p_client, event_loop, ReceiverStream::new(event_receiver))

@@ -116,6 +116,7 @@ mod tests {
     use crate::network::client::Client;
     use crate::node_api::model::cli::Status;
     use crate::util::test_util;
+    use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::Keypair;
     use std::collections::HashSet;
     use std::path::Path;
@@ -125,10 +126,11 @@ mod tests {
 
     fn create_p2p_client(local_keypair: &Keypair) -> (mpsc::Receiver<Command>, Client) {
         let (command_sender, command_receiver) = mpsc::channel(1);
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: local_keypair.public().to_peer_id(),
-        };
+        let p2p_client = Client::new(
+            command_sender,
+            local_keypair.public().to_peer_id(),
+            IdentTopic::new("pyrsia-topic"),
+        );
 
         (command_receiver, p2p_client)
     }
@@ -203,6 +205,9 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
@@ -246,6 +251,9 @@ mod tests {
                 match command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
+                    }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
@@ -309,6 +317,9 @@ mod tests {
                 match command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
+                    }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }

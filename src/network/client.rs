@@ -25,6 +25,7 @@ use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
 use libp2p::core::{Multiaddr, PeerId};
+use libp2p::gossipsub;
 use libp2p::request_response::ResponseChannel;
 use log::debug;
 use std::collections::HashSet;
@@ -75,9 +76,22 @@ impl From<&str> for ArtifactHash {
 pub struct Client {
     pub sender: mpsc::Sender<Command>,
     pub local_peer_id: PeerId,
+    pyrsia_topic: gossipsub::IdentTopic,
 }
 
 impl Client {
+    pub fn new(
+        sender: mpsc::Sender<Command>,
+        local_peer_id: PeerId,
+        pyrsia_topic: gossipsub::IdentTopic,
+    ) -> Self {
+        Self {
+            sender,
+            local_peer_id,
+            pyrsia_topic,
+        }
+    }
+
     /// Add a probe address for AutoNAT discovery. When adding the probe
     /// was handled successfully, the kademlia DHT will be bootstrapped.
     pub async fn add_probe_address(
@@ -377,6 +391,20 @@ impl Client {
         Ok(())
     }
 
+    pub async fn broadcast_block(&mut self, block: Vec<u8>) -> anyhow::Result<()> {
+        debug!("p2p::Client::broadcast_block sent");
+
+        let (sender, receiver) = oneshot::channel();
+        self.sender
+            .send(Command::BroadcastBlock {
+                topic: self.pyrsia_topic.clone(),
+                block,
+                sender,
+            })
+            .await?;
+        receiver.await?
+    }
+
     pub async fn request_build_status(
         &mut self,
         peer_id: &PeerId,
@@ -421,6 +449,7 @@ impl Client {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
+    use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::{self, Keypair};
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
     use pyrsia_blockchain_network::structures::block::Block;
@@ -434,6 +463,7 @@ mod tests {
         let mut client = Client {
             sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
         };
 
         let address: Multiaddr = "/ip4/127.0.0.1".parse().unwrap();
@@ -459,6 +489,7 @@ mod tests {
         let mut client = Client {
             sender,
             local_peer_id,
+            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
         };
 
         let address: Multiaddr = "/ip4/127.0.0.1".parse().unwrap();
@@ -485,6 +516,7 @@ mod tests {
         let mut client = Client {
             sender,
             local_peer_id,
+            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
         };
 
         tokio::spawn(async move { client.list_peers().await });
@@ -507,6 +539,7 @@ mod tests {
         let mut client = Client {
             sender,
             local_peer_id,
+            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
         };
 
         tokio::spawn(async move { client.status().await });
@@ -529,6 +562,7 @@ mod tests {
         let mut client = Client {
             sender,
             local_peer_id,
+            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
         };
 
         let mut peers: HashSet<PeerId> = HashSet::new();
@@ -557,6 +591,7 @@ mod tests {
         let mut client = Client {
             sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
         };
 
         let random_artifact_id: String = thread_rng()
@@ -585,6 +620,7 @@ mod tests {
         let mut client = Client {
             sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
         };
 
         let random_artifact_id: String = thread_rng()
@@ -613,6 +649,7 @@ mod tests {
         let mut client = Client {
             sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
         };
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
@@ -647,6 +684,7 @@ mod tests {
         let mut client = Client {
             sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
         };
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
@@ -689,6 +727,7 @@ mod tests {
         let mut client = Client {
             sender,
             local_peer_id: identity::PublicKey::Ed25519(local_key.public()).to_peer_id(),
+            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
         };
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
@@ -746,6 +785,7 @@ mod tests {
         let mut client = Client {
             sender,
             local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
+            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
         };
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
