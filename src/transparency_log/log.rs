@@ -572,53 +572,53 @@ mod tests {
             .unwrap()
     }
 
-    #[test]
-    fn create_transparency_log() {
-        let id = "id";
-        let package_type = Some(PackageType::Docker);
-        let package_specific_id = "package_specific_id";
-        let num_artifacts = 10;
-        let package_specific_artifact_id = "package_specific_artifact_id";
-        let artifact_hash = "artifact_hash";
-        let source_hash = "source_hash";
-        let artifact_id = Uuid::new_v4().to_string();
-        let source_id = Uuid::new_v4().to_string();
-        let timestamp = 1234567890;
-        let operation = Operation::AddArtifact;
-        let node_id = Uuid::new_v4().to_string();
-        let node_public_key = Uuid::new_v4().to_string();
+    #[tokio::test]
+    async fn create_transparency_log() {
+        let tmp_dir = test_util::tests::setup();
+        let log = create_transparency_log_service(&tmp_dir).await;
+
+        let ps_art_id = "test_package_specific_artifact_id";
         let transparency_log = TransparencyLog {
-            id: id.to_string(),
-            package_type,
-            package_specific_id: package_specific_id.to_string(),
-            num_artifacts,
-            package_specific_artifact_id: package_specific_artifact_id.to_owned(),
-            artifact_hash: artifact_hash.to_owned(),
-            source_hash: source_hash.to_owned(),
-            artifact_id: artifact_id.to_owned(),
-            source_id: source_id.to_owned(),
-            timestamp,
+            id: "test_id".to_string(),
+            package_type: Some(PackageType::Docker),
+            package_specific_id: "test_package_specific_id".to_string(),
+            num_artifacts: 10,
+            package_specific_artifact_id: ps_art_id.to_owned(),
+            artifact_hash: "test_artifact_hash".to_owned(),
+            source_hash: "test_source_hash".to_owned(),
+            artifact_id: "test_artifact_id".to_owned(),
+            source_id: "test_source_id".to_owned(),
+            timestamp: 1234567890,
             operation: Operation::AddArtifact,
-            node_id: node_id.to_owned(),
-            node_public_key: node_public_key.to_owned(),
+            node_id: "test_node_id".to_owned(),
+            node_public_key: "test_node_public_key".to_owned(),
         };
 
-        assert_eq!(transparency_log.id, id);
-        assert_eq!(transparency_log.package_type, package_type);
-        assert_eq!(transparency_log.package_specific_id, package_specific_id);
-        assert_eq!(transparency_log.num_artifacts, num_artifacts);
+        assert!(log.write_transparency_log(&transparency_log).is_ok());
+
+        let res = log
+            .read_transparency_log(&PackageType::Docker, ps_art_id)
+            .unwrap();
+
+        assert_eq!(transparency_log.id, res.id);
+        assert_eq!(transparency_log.package_type, res.package_type);
+        assert_eq!(
+            transparency_log.package_specific_id,
+            res.package_specific_id
+        );
+        assert_eq!(transparency_log.num_artifacts, res.num_artifacts);
         assert_eq!(
             transparency_log.package_specific_artifact_id,
-            package_specific_artifact_id
+            res.package_specific_artifact_id
         );
-        assert_eq!(transparency_log.artifact_hash, artifact_hash);
-        assert_eq!(transparency_log.source_hash, source_hash);
-        assert_eq!(transparency_log.artifact_id, artifact_id);
-        assert_eq!(transparency_log.source_id, source_id);
-        assert_eq!(transparency_log.timestamp, timestamp);
-        assert_eq!(transparency_log.operation, operation);
-        assert_eq!(transparency_log.node_id, node_id);
-        assert_eq!(transparency_log.node_public_key, node_public_key);
+        assert_eq!(transparency_log.artifact_hash, res.artifact_hash);
+        assert_eq!(transparency_log.source_hash, res.source_hash);
+        assert_eq!(transparency_log.artifact_id, res.artifact_id);
+        assert_eq!(transparency_log.source_id, res.source_id);
+        assert_eq!(transparency_log.timestamp, res.timestamp);
+        assert_eq!(transparency_log.operation, res.operation);
+        assert_eq!(transparency_log.node_id, res.node_id);
+        assert_eq!(transparency_log.node_public_key, res.node_public_key);
     }
 
     #[tokio::test]
