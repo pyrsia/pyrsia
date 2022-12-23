@@ -92,7 +92,8 @@ impl Client {
         }
     }
 
-    // Add a probe address for AutoNAT discovery
+    /// Add a probe address for AutoNAT discovery. When adding the probe
+    /// was handled successfully, the kademlia DHT will be bootstrapped.
     pub async fn add_probe_address(
         &mut self,
         peer_id: &PeerId,
@@ -111,7 +112,15 @@ impl Client {
                 sender,
             })
             .await?;
-        receiver.await?
+        receiver.await??;
+
+        let (bootstrap_sender, bootstrap_receiver) = oneshot::channel();
+        self.sender
+            .send(Command::BootstrapDht {
+                sender: bootstrap_sender,
+            })
+            .await?;
+        bootstrap_receiver.await?
     }
 
     /// Instruct the swarm to start listening on the specified address.
@@ -128,7 +137,8 @@ impl Client {
         receiver.await?
     }
 
-    /// Dial a peer with the specified address.
+    /// Dial a peer with the specified address. When dialing the probe
+    /// was successful, the kademlia DHT will be bootstrapped.
     pub async fn dial(&mut self, peer_id: &PeerId, peer_addr: &Multiaddr) -> anyhow::Result<()> {
         debug!("p2p::Client::dial {:?}", peer_addr);
 
@@ -140,7 +150,15 @@ impl Client {
                 sender,
             })
             .await?;
-        receiver.await?
+        receiver.await??;
+
+        let (bootstrap_sender, bootstrap_receiver) = oneshot::channel();
+        self.sender
+            .send(Command::BootstrapDht {
+                sender: bootstrap_sender,
+            })
+            .await?;
+        bootstrap_receiver.await?
     }
 
     /// List the peers that this node is connected to.

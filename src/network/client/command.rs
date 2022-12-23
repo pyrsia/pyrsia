@@ -43,6 +43,9 @@ pub enum Command {
         block: Vec<u8>,
         sender: oneshot::Sender<anyhow::Result<()>>,
     },
+    BootstrapDht {
+        sender: oneshot::Sender<anyhow::Result<()>>,
+    },
     Listen {
         addr: Multiaddr,
         sender: oneshot::Sender<anyhow::Result<()>>,
