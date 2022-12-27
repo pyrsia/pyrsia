@@ -27,8 +27,9 @@ use crate::util::env_util::read_var;
 use libp2p::autonat::{Event as AutonatEvent, NatStatus};
 use libp2p::core::PeerId;
 use libp2p::futures::StreamExt;
+use libp2p::gossipsub;
 use libp2p::identify;
-use libp2p::kad::{GetClosestPeersOk, GetProvidersOk, KademliaEvent, QueryId, QueryResult};
+use libp2p::kad::{BootstrapOk, GetProvidersOk, KademliaEvent, QueryId, QueryResult};
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{
     RequestId, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
@@ -40,14 +41,29 @@ use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::error::Error;
 use tokio::sync::{mpsc, oneshot};
 
+type PendingBootstrapMap = HashMap<QueryId, oneshot::Sender<anyhow::Result<()>>>;
 type PendingDialMap = HashMap<PeerId, oneshot::Sender<anyhow::Result<()>>>;
-type PendingListPeersMap = HashMap<QueryId, oneshot::Sender<HashSet<PeerId>>>;
+type PendingListProvidersMap = HashMap<QueryId, PendingListProviders>;
 type PendingStartProvidingMap = HashMap<QueryId, oneshot::Sender<()>>;
 type PendingRequestArtifactMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<Vec<u8>>>>;
 type PendingRequestBuildMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<String>>>;
 type PendingRequestIdleMetricMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<PeerMetrics>>>;
 type PendingRequestBlockchainMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<Vec<u8>>>>;
 type PendingBuildStatusMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<String>>>;
+
+struct PendingListProviders {
+    sender: oneshot::Sender<HashSet<PeerId>>,
+    providers: HashSet<PeerId>,
+}
+
+impl PendingListProviders {
+    fn new(sender: oneshot::Sender<HashSet<PeerId>>) -> Self {
+        Self {
+            sender,
+            providers: Default::default(),
+        }
+    }
+}
 
 /// The `PyrsiaEventLoop` is responsible for taking care of incoming
 /// events from the libp2p [`Swarm`] itself, the different network
@@ -57,10 +73,11 @@ pub struct PyrsiaEventLoop {
     swarm: Swarm<PyrsiaNetworkBehaviour>,
     command_receiver: mpsc::Receiver<Command>,
     event_sender: mpsc::Sender<PyrsiaEvent>,
+    bootstrapped: bool,
+    pending_bootstrap: PendingBootstrapMap,
     pending_dial: PendingDialMap,
-    pending_list_peers: PendingListPeersMap,
     pending_start_providing: PendingStartProvidingMap,
-    pending_list_providers: PendingListPeersMap,
+    pending_list_providers: PendingListProvidersMap,
     pending_request_artifact: PendingRequestArtifactMap,
     pending_request_build: PendingRequestBuildMap,
     pending_idle_metric_requests: PendingRequestIdleMetricMap,
@@ -78,8 +95,9 @@ impl PyrsiaEventLoop {
             swarm,
             command_receiver,
             event_sender,
+            bootstrapped: false,
+            pending_bootstrap: Default::default(),
             pending_dial: Default::default(),
-            pending_list_peers: Default::default(),
             pending_start_providing: Default::default(),
             pending_list_providers: Default::default(),
             pending_request_artifact: Default::default(),
@@ -97,6 +115,7 @@ impl PyrsiaEventLoop {
             tokio::select! {
                 event = self.swarm.select_next_some() => match event {
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::AutoNat(autonat_event)) => self.handle_autonat_event(autonat_event).await,
+                    SwarmEvent::Behaviour(PyrsiaNetworkEvent::Gossipsub(gossipsub_event)) => self.handle_gossipsub_event(gossipsub_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Identify(identify_event)) => self.handle_identify_event(*identify_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::Kademlia(kademlia_event)) => self.handle_kademlia_event(*kademlia_event).await,
                     SwarmEvent::Behaviour(PyrsiaNetworkEvent::RequestResponse(request_response_event)) => self.handle_request_response_event(request_response_event).await,
@@ -142,6 +161,17 @@ impl PyrsiaEventLoop {
         }
     }
 
+    // Handles events from the `GossipSub` network behaviour.
+    async fn handle_gossipsub_event(&mut self, event: gossipsub::GossipsubEvent) {
+        trace!("Handle GossipsubEvent: {:?}", event);
+        if let gossipsub::GossipsubEvent::Message { message, .. } = event {
+            self.event_sender
+                .send(PyrsiaEvent::SimpleBlockchainRequest { data: message.data })
+                .await
+                .expect("Event receiver not to be dropped.");
+        }
+    }
+
     // Handles events from the `Identify` network behaviour.
     async fn handle_identify_event(&mut self, event: identify::Event) {
         trace!("Handle IdentifyEvent: {:?}", event);
@@ -160,22 +190,6 @@ impl PyrsiaEventLoop {
         match event {
             KademliaEvent::OutboundQueryProgressed {
                 id,
-                result: QueryResult::GetClosestPeers(Ok(GetClosestPeersOk { key: _key, peers })),
-                ..
-            } => {
-                self.pending_list_peers
-                    .remove(&id)
-                    .expect("Completed query to be previously pending.")
-                    .send(HashSet::from_iter(peers))
-                    .unwrap_or_else(|e| {
-                        error!(
-                            "Handle KademliaEvent match arm: {}. Peers: {:?}",
-                            event_str, e
-                        );
-                    });
-            }
-            KademliaEvent::OutboundQueryProgressed {
-                id,
                 result: QueryResult::StartProviding(_),
                 ..
             } => {
@@ -184,8 +198,11 @@ impl PyrsiaEventLoop {
                     .remove(&id)
                     .expect("Completed query to be previously pending.");
 
-                sender.send(()).unwrap_or_else(|_e| {
-                    error!("Handle KademliaEvent match arm: {}.", event_str);
+                sender.send(()).unwrap_or_else(|e| {
+                    error!(
+                        "Handle KademliaEvent match arm: {}. Error: {:?}",
+                        event_str, e
+                    );
                 });
             }
             KademliaEvent::OutboundQueryProgressed {
@@ -195,12 +212,64 @@ impl PyrsiaEventLoop {
                 ..
             } => {
                 self.pending_list_providers
-                    .remove(&id)
+                    .get_mut(&id)
                     .expect("Completed query to be previously pending.")
-                    .send(providers)
+                    .providers
+                    .extend(providers);
+            }
+            KademliaEvent::OutboundQueryProgressed {
+                id,
+                result:
+                    QueryResult::GetProviders(Ok(GetProvidersOk::FinishedWithNoAdditionalRecord {
+                        ..
+                    })),
+                ..
+            } => {
+                let pending_list_provider = self
+                    .pending_list_providers
+                    .remove(&id)
+                    .expect("Completed query to be previously pending.");
+
+                pending_list_provider
+                    .sender
+                    .send(pending_list_provider.providers)
                     .unwrap_or_else(|e| {
                         error!(
-                            "Handle KademliaEvent match arm: {}. Providers: {:?}",
+                            "Handle KademliaEvent match arm: {}. Error: {:?}",
+                            event_str, e
+                        );
+                    });
+            }
+            KademliaEvent::OutboundQueryProgressed {
+                id,
+                result: QueryResult::Bootstrap(Ok(BootstrapOk { num_remaining, .. })),
+                ..
+            } => {
+                if num_remaining == 0 {
+                    self.pending_bootstrap
+                        .remove(&id)
+                        .expect("Completed query to be previously pending.")
+                        .send(Ok(()))
+                        .unwrap_or_else(|e| {
+                            error!(
+                                "Handle KademliaEvent match arm: {}. Error: {:?}",
+                                event_str, e
+                            );
+                        });
+                }
+            }
+            KademliaEvent::OutboundQueryProgressed {
+                id,
+                result: QueryResult::Bootstrap(Err(e)),
+                ..
+            } => {
+                self.pending_bootstrap
+                    .remove(&id)
+                    .expect("Completed query to be previously pending.")
+                    .send(Err(e.into()))
+                    .unwrap_or_else(|e| {
+                        error!(
+                            "Handle KademliaEvent match arm: {}. Error: {:?}",
                             event_str, e
                         );
                     });
@@ -554,6 +623,19 @@ impl PyrsiaEventLoop {
                         .add_server(peer_id, Some(probe_addr));
                 }
             }
+            Command::BootstrapDht { sender } => {
+                if !self.bootstrapped {
+                    match self.swarm.behaviour_mut().kademlia.bootstrap() {
+                        Ok(query_id) => {
+                            self.bootstrapped = true;
+                            self.pending_bootstrap.insert(query_id, sender);
+                        }
+                        Err(e) => sender.send(Err(e.into())).unwrap_or_else(|_e| {
+                            error!("Handle Command match arm: {}.", command_str);
+                        }),
+                    }
+                }
+            }
             Command::Listen { addr, sender } => {
                 match self.swarm.listen_on(addr) {
                     Ok(_) => sender.send(Ok(())),
@@ -649,7 +731,8 @@ impl PyrsiaEventLoop {
                     .behaviour_mut()
                     .kademlia
                     .get_providers(artifact_id.into_bytes().into());
-                self.pending_list_providers.insert(query_id, sender);
+                self.pending_list_providers
+                    .insert(query_id, PendingListProviders::new(sender));
             }
             Command::RequestBuild {
                 peer,
@@ -722,6 +805,24 @@ impl PyrsiaEventLoop {
                     .send_response(channel, BlockchainResponse(data))
                     .expect("Connection to peer to be still open.");
             }
+            Command::BroadcastBlock {
+                topic,
+                block,
+                sender,
+            } => {
+                sender
+                    .send(
+                        self.swarm
+                            .behaviour_mut()
+                            .gossipsub
+                            .publish(topic, block)
+                            .map(|_| ())
+                            .map_err(|e| e.into()),
+                    )
+                    .unwrap_or_else(|_e| {
+                        error!("Handle Command match arm: {}.", command_str);
+                    });
+            }
             Command::RequestBuildStatus {
                 peer,
                 build_id,
@@ -765,6 +866,9 @@ pub enum PyrsiaEvent {
         data: Vec<u8>,
         channel: ResponseChannel<BlockchainResponse>,
     },
+    SimpleBlockchainRequest {
+        data: Vec<u8>,
+    },
     RequestBuildStatus {
         build_id: String,
         channel: ResponseChannel<BuildStatusResponse>,
@@ -791,6 +895,7 @@ mod tests {
     use libp2p::core::upgrade;
     use libp2p::core::Transport;
     use libp2p::dns::TokioDnsConfig;
+    use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::Keypair;
     use libp2p::swarm::SwarmBuilder;
     use libp2p::yamux::YamuxConfig;
@@ -800,6 +905,13 @@ mod tests {
     use tokio_stream::wrappers::ReceiverStream;
 
     fn create_test_swarm() -> (Client, PyrsiaEventLoop, ReceiverStream<PyrsiaEvent>) {
+        use libp2p::gossipsub::MessageId;
+        use libp2p::gossipsub::{
+            Gossipsub, GossipsubMessage, IdentTopic as Topic, MessageAuthenticity, ValidationMode,
+        };
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
         let id_keys = Keypair::generate_ed25519();
         let local_public_key = id_keys.public();
         let peer_id = local_public_key.to_peer_id();
@@ -818,6 +930,30 @@ mod tests {
             .timeout(Duration::from_secs(20))
             .boxed();
 
+        // To content-address message, we can take the hash of message and use it as an ID.
+        let message_id_fn = |message: &GossipsubMessage| {
+            let mut s = DefaultHasher::new();
+            message.data.hash(&mut s);
+            MessageId::from(s.finish().to_string())
+        };
+
+        let gossipsub_config = gossipsub::GossipsubConfigBuilder::default()
+            .heartbeat_interval(Duration::from_secs(10)) // This is set to aid debugging by not cluttering the log space
+            .validation_mode(ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
+            .message_id_fn(message_id_fn) // content-address messages. No two messages of the same content will be propagated.
+            .support_floodsub()
+            .build()
+            .expect("Valid config");
+        let mut gossip_sub = Gossipsub::new(
+            MessageAuthenticity::Signed(id_keys.clone()),
+            gossipsub_config,
+        )
+        .expect("Correct configuration");
+        let pyrsia_topic: Topic = Topic::new("pyrsia-blockchain-topic");
+        gossip_sub
+            .subscribe(&pyrsia_topic)
+            .expect("Could not connect to pyrsia blockchain topic");
+
         let behaviour = PyrsiaNetworkBehaviour {
             auto_nat: autonat::Behaviour::new(
                 peer_id,
@@ -829,6 +965,7 @@ mod tests {
                     ..Default::default()
                 },
             ),
+            gossipsub: gossip_sub,
             identify: identify::Behaviour::new(identify::Config::new(
                 "ipfs/1.0.0".to_owned(),
                 id_keys.public(),
@@ -886,10 +1023,7 @@ mod tests {
         let (command_sender, command_receiver) = mpsc::channel(1);
         let (event_sender, event_receiver) = mpsc::channel(1);
 
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: peer_id,
-        };
+        let p2p_client = Client::new(command_sender, peer_id, IdentTopic::new("pyrsia-topic"));
         let event_loop = PyrsiaEventLoop::new(swarm, command_receiver, event_sender);
 
         (p2p_client, event_loop, ReceiverStream::new(event_receiver))
@@ -1021,5 +1155,57 @@ mod tests {
             .await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), expected_build_id.to_string());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_list_providers_with_interconnected_peer() {
+        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (mut p2p_client_2, event_loop_2, _) = create_test_swarm();
+        let (mut p2p_client_3, event_loop_3, _) = create_test_swarm();
+
+        tokio::spawn(event_loop_1.run());
+        tokio::spawn(event_loop_2.run());
+        tokio::spawn(event_loop_3.run());
+
+        let artifact_id = "artifact_id";
+
+        p2p_client_1
+            .listen(&"/ip4/127.0.0.1/tcp/44150".parse().unwrap())
+            .await
+            .unwrap();
+        p2p_client_2
+            .listen(&"/ip4/127.0.0.1/tcp/44151".parse().unwrap())
+            .await
+            .unwrap();
+        p2p_client_3
+            .listen(&"/ip4/127.0.0.1/tcp/44152".parse().unwrap())
+            .await
+            .unwrap();
+
+        let result_peer_2_dial_peer_1 = p2p_client_2
+            .dial(
+                &p2p_client_1.local_peer_id,
+                &"/ip4/127.0.0.1/tcp/44150".parse().unwrap(),
+            )
+            .await;
+        assert!(result_peer_2_dial_peer_1.is_ok());
+
+        let result_peer_3_dial_peer_2 = p2p_client_3
+            .dial(
+                &p2p_client_2.local_peer_id,
+                &"/ip4/127.0.0.1/tcp/44151".parse().unwrap(),
+            )
+            .await;
+        assert!(result_peer_3_dial_peer_2.is_ok());
+
+        let result_provide = p2p_client_1.provide(artifact_id).await;
+        assert!(result_provide.is_ok());
+
+        let result_list_providers = p2p_client_3.list_providers(artifact_id).await;
+        assert!(result_list_providers.is_ok());
+
+        let mut expected_providers = HashSet::new();
+        expected_providers.insert(p2p_client_1.local_peer_id);
+        assert_eq!(expected_providers, result_list_providers.unwrap());
     }
 }
