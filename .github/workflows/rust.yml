@@ -28,7 +28,7 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
     - uses: actions/checkout@v3
-    - uses: pyrsia/rust-toolchain@v1 
+    - uses: pyrsia/rust-toolchain@v1
 
     # Use sscache store in GitHub cache
     - uses: actions/cache@v3
@@ -80,8 +80,15 @@ jobs:
 
     - id: build-osx-setup-cloud-sdk
       name: Set up Cloud SDK
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+      #if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       uses: 'google-github-actions/setup-gcloud@v1'
+
+    - id: build-osx-gcloud-info
+      name: 'GCloud Info'
+      run: |
+        gsutil version -l
+        gcloud info
+      shell: /bin/zsh -e {0}
 
     # Publish nightly version of installer archive to cloud bucket
     - id: build-osx-publish-nightly-gcs-repo
@@ -111,8 +118,8 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
       - uses: actions/checkout@v3
-      - uses: pyrsia/rust-toolchain@v1           
-       
+      - uses: pyrsia/rust-toolchain@v1
+
       # Use sscache store in GitHub cache
       - uses: actions/cache@v3
         with:
@@ -176,7 +183,7 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
     - uses: actions/checkout@v3
-    - uses: pyrsia/rust-toolchain@v1 
+    - uses: pyrsia/rust-toolchain@v1
 
     # Use sscache store in GitHub cache
     - uses: actions/cache@v3
@@ -280,7 +287,7 @@ jobs:
       with:
         fetch-depth: 0
 
-    - uses: pyrsia/rust-toolchain@v1 
+    - uses: pyrsia/rust-toolchain@v1
 
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1
