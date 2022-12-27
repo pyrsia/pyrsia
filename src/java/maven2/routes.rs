@@ -49,6 +49,7 @@ mod tests {
     use crate::network::client::Client;
     use crate::transparency_log::log::{TransparencyLogError, TransparencyLogService};
     use crate::util::test_util;
+    use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::Keypair;
     use std::path::Path;
     use std::str;
@@ -57,10 +58,11 @@ mod tests {
 
     fn create_p2p_client(local_keypair: &Keypair) -> (mpsc::Receiver<Command>, Client) {
         let (command_sender, command_receiver) = mpsc::channel(1);
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: local_keypair.public().to_peer_id(),
-        };
+        let p2p_client = Client::new(
+            command_sender,
+            local_keypair.public().to_peer_id(),
+            IdentTopic::new("pyrsia-topic"),
+        );
 
         (command_receiver, p2p_client)
     }

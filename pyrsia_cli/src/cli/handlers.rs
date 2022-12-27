@@ -143,7 +143,7 @@ fn handle_request_build_result(build_result: Result<String, anyhow::Error>) {
     match build_result {
         Ok(build_id) => {
             println!(
-                "Build request successfully handled. Build with ID {} has been started.",
+                "Build request successfully handled. Build with ID '{}' has been started.",
                 build_id
             );
         }
