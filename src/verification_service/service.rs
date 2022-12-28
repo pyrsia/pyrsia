@@ -261,20 +261,25 @@ mod tests {
     use crate::blockchain_service::service::BlockchainService;
     use crate::build_service::event::BuildEvent;
     use crate::build_service::model::BuildResultArtifact;
-    use crate::network::client::Client;
+    use crate::network::client::{command::Command, Client};
     use crate::transparency_log::log::{AddArtifactRequest, TransparencyLogService};
     use crate::util::test_util;
+    use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::Keypair;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use tokio::sync::{mpsc, Mutex};
 
-    fn create_p2p_client(local_keypair: &Keypair) -> Client {
-        let (command_sender, _command_receiver) = mpsc::channel(1);
-        Client {
-            sender: command_sender,
-            local_peer_id: local_keypair.public().to_peer_id(),
-        }
+    fn create_p2p_client(local_keypair: &Keypair) -> (Client, mpsc::Receiver<Command>) {
+        let (command_sender, command_receiver) = mpsc::channel(1);
+        (
+            Client::new(
+                command_sender,
+                local_keypair.public().to_peer_id(),
+                IdentTopic::new("pyrsia-topic"),
+            ),
+            command_receiver,
+        )
     }
 
     async fn create_blockchain_service(
@@ -296,22 +301,37 @@ mod tests {
 
     async fn create_transparency_log_service(
         artifact_path: impl AsRef<Path>,
-    ) -> TransparencyLogService {
+    ) -> (TransparencyLogService, mpsc::Receiver<Command>) {
         let local_keypair = Keypair::generate_ed25519();
-        let p2p_client = create_p2p_client(&local_keypair);
+        let (p2p_client, command_receiver) = create_p2p_client(&local_keypair);
 
         let blockchain_service =
             create_blockchain_service(&local_keypair, p2p_client, &artifact_path).await;
 
-        TransparencyLogService::new(&artifact_path, Arc::new(Mutex::new(blockchain_service)))
-            .unwrap()
+        (
+            TransparencyLogService::new(&artifact_path, Arc::new(Mutex::new(blockchain_service)))
+                .unwrap(),
+            command_receiver,
+        )
     }
 
     #[tokio::test]
     async fn test_verify_add_artifact_transaction() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut transparency_log_service = create_transparency_log_service(&tmp_dir).await;
+        let (mut transparency_log_service, mut command_receiver) =
+            create_transparency_log_service(&tmp_dir).await;
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
+                }
+            }
+        });
 
         let package_type = PackageType::Docker;
         let package_specific_id = "alpine:3.15.1";
@@ -365,7 +385,19 @@ mod tests {
     async fn test_verify_add_artifact_transaction_starts_build_when_num_artifacts_reached() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut transparency_log_service = create_transparency_log_service(&tmp_dir).await;
+        let (mut transparency_log_service, mut command_receiver) =
+            create_transparency_log_service(&tmp_dir).await;
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
+                }
+            }
+        });
 
         let mut payloads = vec![];
         for i in 1..=3 {
@@ -432,7 +464,19 @@ mod tests {
     async fn test_handle_build_result_notifies_sender() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut transparency_log_service = create_transparency_log_service(&tmp_dir).await;
+        let (mut transparency_log_service, mut command_receiver) =
+            create_transparency_log_service(&tmp_dir).await;
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
+                }
+            }
+        });
 
         let package_type = PackageType::Docker;
         let package_specific_id = "alpine:3.15.1";
@@ -499,7 +543,19 @@ mod tests {
     async fn test_handle_build_result_with_missing_artifact_notifies_sender() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut transparency_log_service = create_transparency_log_service(&tmp_dir).await;
+        let (mut transparency_log_service, mut command_receiver) =
+            create_transparency_log_service(&tmp_dir).await;
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
+                }
+            }
+        });
 
         let package_type = PackageType::Docker;
         let package_specific_id = "alpine:3.15.1";
@@ -574,7 +630,19 @@ mod tests {
     async fn test_handle_build_result_with_different_hash_notifies_sender() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut transparency_log_service = create_transparency_log_service(&tmp_dir).await;
+        let (mut transparency_log_service, mut command_receiver) =
+            create_transparency_log_service(&tmp_dir).await;
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
+                }
+            }
+        });
 
         let package_type = PackageType::Docker;
         let package_specific_id = "alpine:3.15.1";
@@ -651,7 +719,19 @@ mod tests {
     async fn test_handle_failed_build_notifies_sender() {
         let tmp_dir = test_util::tests::setup();
 
-        let mut transparency_log_service = create_transparency_log_service(&tmp_dir).await;
+        let (mut transparency_log_service, mut command_receiver) =
+            create_transparency_log_service(&tmp_dir).await;
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
+                }
+            }
+        });
 
         let package_type = PackageType::Docker;
         let package_specific_id = "alpine:3.15.1";

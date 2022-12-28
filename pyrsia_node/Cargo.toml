@@ -13,11 +13,11 @@ pyrsia_blockchain_network = { path = "../src/blockchain" }
 
 anyhow = "1.0.68"
 bincode = "1.3.3"
-clap = { version = "4.0.29", features = [ "cargo", "derive" ] }
+clap = { version = "4.0.32", features = [ "cargo", "derive" ] }
 futures = "0.3.25"
 hex = "0.4.3"
 json = "0.12.4"
-libp2p = "0.50.0"
+libp2p = { version = "0.50.0", features = [ "autonat", "dns", "identify", "floodsub", "gossipsub", "kad", "macros", "mplex", "noise", "request-response", "serde", "tcp", "tokio", "yamux" ]}
 log = "0.4.17"
 pretty_env_logger = "0.4.0"
 reqwest = { version = "0.11.13", features = ["blocking", "rustls-tls"], default-features = false}

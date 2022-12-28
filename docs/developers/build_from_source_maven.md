@@ -205,7 +205,7 @@ Then trigger the build from source, like this:
 The build trigger should return immediately providing a build ID:
 
 ```text
-Build request successfully handled. Build with ID "13abff76-5aea-4d05-8f42-d625943ceb78" has been started.
+Build request successfully handled. Build with ID '13abff76-5aea-4d05-8f42-d625943ceb78' has been started.
 ```
 
 ## Wait for the build to finish in the build pipeline
