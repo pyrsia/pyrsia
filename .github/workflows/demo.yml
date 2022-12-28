@@ -1,8 +1,9 @@
+---
 name: Demo Script
 
 on:
   push:
-  
+
 jobs:
   installation:
     runs-on: ubuntu-20.04
@@ -18,7 +19,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y pyrsia
         shell: bash
-      - name: Run Pyrsia         
+      - name: Run Pyrsia
         run: |
           pyrsia --version
-        shell: bash 
+        shell: bash
