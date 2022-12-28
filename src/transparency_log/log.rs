@@ -1074,31 +1074,30 @@ mod tests {
 
         let log = create_transparency_log_service(&tmp_dir).await;
 
-        let first_node_id = "node_id_1";
+        let node_id = "node_id_1";
         assert!(log
-            .verify_node_can_be_added_to_transparency_logs(first_node_id)
+            .verify_node_can_be_added_to_transparency_logs(node_id)
             .is_ok());
 
-        let transparency_log1 = new_auth_node_transparency_log(Operation::AddNode, first_node_id);
+        let transparency_log1 = new_auth_node_transparency_log(Operation::AddNode, node_id);
         assert!(log.write_transparency_log(&transparency_log1).is_ok());
 
-        let result2 = log.verify_node_can_be_added_to_transparency_logs(first_node_id);
+        let result2 = log.verify_node_can_be_added_to_transparency_logs(node_id);
         assert!(result2.is_err());
         assert_eq!(
             result2.err().unwrap().to_string(),
             TransparencyLogError::NodeAlreadyExists {
-                node_id: first_node_id.to_string(),
+                node_id: node_id.to_string(),
             }
             .to_string()
         );
 
-        let transparency_log3 =
-            new_auth_node_transparency_log(Operation::RemoveNode, first_node_id);
+        let transparency_log3 = new_auth_node_transparency_log(Operation::RemoveNode, node_id);
 
         assert!(log.write_transparency_log(&transparency_log3).is_ok());
 
         assert!(log
-            .verify_node_can_be_added_to_transparency_logs(first_node_id)
+            .verify_node_can_be_added_to_transparency_logs(node_id)
             .is_ok());
 
         test_util::tests::teardown(tmp_dir);
