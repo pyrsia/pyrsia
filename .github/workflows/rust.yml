@@ -83,6 +83,12 @@ jobs:
       #if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       uses: 'google-github-actions/setup-gcloud@v1'
 
+    - id: build-osx-install-crcmod
+      name: 'Install crcmod'
+      run: |
+        pip3 install -U crcmod
+      shell: /bin/zsh -e {0}
+
     - id: build-osx-gcloud-info
       name: 'GCloud Info'
       run: |
