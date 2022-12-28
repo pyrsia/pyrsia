@@ -80,18 +80,14 @@ jobs:
 
     - id: build-osx-setup-cloud-sdk
       name: Set up Cloud SDK
-      #if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       uses: 'google-github-actions/setup-gcloud@v1'
 
-    - id: build-osx-install-crcmod
-      name: 'Install crcmod'
+    - id: build-osx-install-crcmod-gsutil-version-info
+      name: 'Install crcmod and gsutil version info'
+      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
       run: |
         pip3 install -U crcmod
-      shell: /bin/zsh -e {0}
-
-    - id: build-osx-gcloud-info
-      name: 'GCloud Info'
-      run: |
         gsutil version -l
         gcloud info
       shell: /bin/zsh -e {0}
