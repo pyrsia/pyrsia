@@ -40,8 +40,10 @@ echo "### Tests Build RC=$(cat /tmp/tests.rc)"
 
 # Check if OpenSSL is back
 if [[ $(find . -name "Cargo.lock" -exec grep -i openssl {} \; | wc -l) != 0 ]]; then
-    echo "OpenSSL Presence detected in the Cargo; please remove it and rebuild."
-    exit 1
+    echo "OpenSSL Presence detected in the Cargo; please remove it and rebuild. Dumping Cargo.lock files to log."
+    find . -name "Cargo.lock" -exec cat {} \;
+    cargo tree
+    # exit 1
 fi
 
 # Return the max return code between the two processes.
