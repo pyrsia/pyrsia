@@ -14,9 +14,6 @@
 
 set -e
 
-# Explicitly remove OpenSSL before build in case it is cached
-cargo remove openssl
-
 # We need to split out build commands into separate calls in order to run them in parallel
 # therefore we cannot use --all-targets since that is equivalent to --lib --bins --tests --benches --examples
 # which disables the parallelizm we are trying achive for speed. 
