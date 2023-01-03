@@ -14,6 +14,9 @@
 
 set -e
 
+# Explicitly remove OpenSSL before build in case it is cached
+cargo remove openssl
+
 # We need to split out build commands into separate calls in order to run them in parallel
 # therefore we cannot use --all-targets since that is equivalent to --lib --bins --tests --benches --examples
 # which disables the parallelizm we are trying achive for speed. 
@@ -37,6 +40,13 @@ cat /tmp/tests.log
 
 # Display the tests return code
 echo "### Tests Build RC=$(cat /tmp/tests.rc)"
+
+# Check if OpenSSL is back
+if [[ $(find . -name "Cargo.lock" -exec grep -i openssl {} \; | wc -l) != 0 ]]; then
+    echo "OpenSSL Presence detected in the Cargo; please remove it and rebuild. Dumping Cargo.lock files to log."
+    find . -name "Cargo.lock" -exec cat {} \;
+    exit 1
+fi
 
 # Return the max return code between the two processes.
 # This is done to tell the GitHub Step to fail (rc != 0). The 
