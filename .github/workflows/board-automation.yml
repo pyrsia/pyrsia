@@ -83,7 +83,7 @@ jobs:
       github.event_name == 'pull_request_target' &&
       (github.event.action == 'opened'  || github.event.action == 'reopened' || github.event.action == 'ready_for_review')
     steps:
-      - uses: toshimaru/auto-author-assign@v1.6.1
+      - uses: toshimaru/auto-author-assign@v1.6.2
 
   rm-closed-pr:
     runs-on: ubuntu-20.04
