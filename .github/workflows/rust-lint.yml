@@ -1,4 +1,4 @@
-name: Rust Linting 
+name: Rust Linting
 on:
   pull_request:
     paths: # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint-skipped.yml#L8
@@ -7,13 +7,14 @@ on:
       - '**/*.rs'
       - '**/Cargo.toml'
       - Cargo.lock
+      - 'installers/**'
 
 jobs:
   security-audit:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
-      - uses: pyrsia/rust-toolchain@v1      
+      - uses: pyrsia/rust-toolchain@v1
       - run: mkdir -p $HOME/.cargo
       - run: cp .github/workflows/.cargo/audit.toml $HOME/.cargo
       - uses: actions-rs/audit-check@v1
@@ -24,9 +25,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
-      - uses: pyrsia/rust-toolchain@v1 
+      - uses: pyrsia/rust-toolchain@v1
         with:
-          components: rustfmt  
+          components: rustfmt
       - run: cargo fmt --version
       - run: cargo fmt -- --check # Prints diff in the action logs
 
@@ -34,9 +35,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
-      - uses: pyrsia/rust-toolchain@v1 
+      - uses: pyrsia/rust-toolchain@v1
         with:
-          components: clippy                    
+          components: clippy
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

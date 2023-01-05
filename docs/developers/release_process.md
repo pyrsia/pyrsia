@@ -1,3 +1,7 @@
+---
+sidebar_position: 6
+---
+
 # Creating a Release for Pyrsia
 
 Once the team decides to tag a release please use the following steps to ensure all parts of the service are updated.

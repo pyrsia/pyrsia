@@ -1,3 +1,7 @@
+---
+sidebar_position: 5
+---
+
 # Pre-release checks
 
 Before a release, make sure to
