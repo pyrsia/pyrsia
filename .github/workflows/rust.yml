@@ -28,7 +28,7 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
     - uses: actions/checkout@v3
-    - uses: pyrsia/rust-toolchain@v1
+    - uses: pyrsia/rust-toolchain@v2
 
     # Use sscache store in GitHub cache
     - uses: actions/cache@v3
@@ -120,7 +120,7 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
       - uses: actions/checkout@v3
-      - uses: pyrsia/rust-toolchain@v1
+      - uses: pyrsia/rust-toolchain@v2
 
       # Use sscache store in GitHub cache
       - uses: actions/cache@v3
@@ -185,7 +185,7 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
     - uses: actions/checkout@v3
-    - uses: pyrsia/rust-toolchain@v1
+    - uses: pyrsia/rust-toolchain@v2
 
     # Use sscache store in GitHub cache
     - uses: actions/cache@v3
@@ -289,7 +289,7 @@ jobs:
       with:
         fetch-depth: 0
 
-    - uses: pyrsia/rust-toolchain@v1
+    - uses: pyrsia/rust-toolchain@v2
 
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1
