@@ -66,7 +66,7 @@ strum_macros = "0.24.3"
 sysinfo = "0.26.4"
 test-log = "0.2.8"
 thiserror = "1.0.35"
-tokio = { version = "1.23.0", features = [ "macros", "rt-multi-thread", "io-std" ] }
+tokio = { version = "1.23.1", features = [ "macros", "rt-multi-thread", "io-std" ] }
 tokio-stream = "0.1.11"
 toml = "0.5.10"
 url = "2.3.1"
