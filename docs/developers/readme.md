@@ -14,7 +14,7 @@ sidebar_position: 3
 - [Pyrsia demo: build Docker images from source](/docs/developers/build_from_source_docker.md)
 - [Pyrsia demo: build Maven images from source](/docs/developers/build_from_source_maven.md)
 - [How to start and debug Pyrsia Node using IDE](/docs/developers/setting_up_ide.md)
-- [Test overview](/docs/developers/testing_overview.md)
+- [Test overview](/docs/developers/testing_in_pyrsia.md)
 
 ## Release a new version
 
