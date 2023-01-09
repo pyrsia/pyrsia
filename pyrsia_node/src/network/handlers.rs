@@ -115,7 +115,7 @@ pub async fn handle_request_blockchain(
     artifact_service: ArtifactService,
     blockchain_service: Arc<Mutex<BlockchainService>>,
     data: Vec<u8>,
-    channel: ResponseChannel<BlockchainResponse>,
+    channel: Option<ResponseChannel<BlockchainResponse>>,
 ) -> anyhow::Result<()> {
     debug!("Handling request blockchain");
     match BlockchainCommand::try_from(data[0])? {
@@ -163,7 +163,7 @@ pub async fn handle_broadcast_blockchain(
     blockchain_service: Arc<Mutex<BlockchainService>>,
     block_ordinal: Ordinal,
     block: Block,
-    channel: ResponseChannel<BlockchainResponse>,
+    channel: Option<ResponseChannel<BlockchainResponse>>,
 ) -> anyhow::Result<()> {
     debug!("Handling broadcast blocks");
 
@@ -178,17 +178,21 @@ pub async fn handle_broadcast_blockchain(
 
     let response_data = vec![0u8];
 
-    artifact_service
-        .p2p_client
-        .respond_blockchain(response_data, channel)
-        .await
+    if let Some(channel) = channel {
+        artifact_service
+            .p2p_client
+            .respond_blockchain(response_data, channel)
+            .await
+    } else {
+        Ok(())
+    }
 }
 
 pub async fn handle_pull_blockchain_from_peer(
     blockchain_service: Arc<Mutex<BlockchainService>>,
     start_ordinal: Ordinal,
     end_ordinal: Ordinal,
-    channel: ResponseChannel<BlockchainResponse>,
+    channel: Option<ResponseChannel<BlockchainResponse>>,
 ) -> anyhow::Result<()> {
     debug!(
         "Handling pull blocks from {:?} to {:?} ",
@@ -202,10 +206,12 @@ pub async fn handle_pull_blockchain_from_peer(
         .await
     {
         Ok(v) => {
-            blockchain_service
-                .p2p_client
-                .respond_blockchain(serialize(&v).unwrap(), channel)
-                .await?
+            if let Some(channel) = channel {
+                blockchain_service
+                    .p2p_client
+                    .respond_blockchain(serialize(&v).unwrap(), channel)
+                    .await?
+            }
         }
         Err(e) => bail!(e),
     }
@@ -215,7 +221,7 @@ pub async fn handle_pull_blockchain_from_peer(
 
 pub async fn handle_query_block_ordinal_from_peer(
     blockchain_service: Arc<Mutex<BlockchainService>>,
-    channel: ResponseChannel<BlockchainResponse>,
+    channel: Option<ResponseChannel<BlockchainResponse>>,
 ) -> anyhow::Result<()> {
     debug!("Handling query block ordinal");
 
@@ -225,10 +231,12 @@ pub async fn handle_query_block_ordinal_from_peer(
         None => bail!(BlockchainError::InvalidBlockchainLength(0)),
     };
 
-    blockchain_service
-        .p2p_client
-        .respond_blockchain(serialize(&latest_ordinal).unwrap(), channel)
-        .await?;
+    if let Some(channel) = channel {
+        blockchain_service
+            .p2p_client
+            .respond_blockchain(serialize(&latest_ordinal).unwrap(), channel)
+            .await?;
+    }
 
     Ok(())
 }

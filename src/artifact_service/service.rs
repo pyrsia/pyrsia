@@ -398,6 +398,7 @@ mod tests {
     use crate::network::client::command::Command;
     use crate::network::idle_metric_protocol::PeerMetrics;
     use crate::util::test_util;
+    use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::ed25519::Keypair;
     use libp2p::identity::PublicKey;
     use sha2::{Digest, Sha256};
@@ -416,10 +417,11 @@ mod tests {
 
     fn create_p2p_client(keypair: &Keypair) -> (mpsc::Receiver<Command>, Client) {
         let (command_sender, command_receiver) = mpsc::channel(1);
-        let p2p_client = Client {
-            sender: command_sender,
-            local_peer_id: PublicKey::Ed25519(keypair.public()).to_peer_id(),
-        };
+        let p2p_client = Client::new(
+            command_sender,
+            PublicKey::Ed25519(keypair.public()).to_peer_id(),
+            IdentTopic::new("pyrsia-topic"),
+        );
 
         (command_receiver, p2p_client)
     }
@@ -471,6 +473,9 @@ mod tests {
                 match command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
+                    }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
@@ -546,6 +551,9 @@ mod tests {
                     Some(Command::Provide { sender, .. }) => {
                         let _ = sender.send(());
                     }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
@@ -620,6 +628,9 @@ mod tests {
                     },
                     Some(Command::RequestArtifact { sender, .. }) => {
                         let _ = sender.send(Ok(b"SAMPLE_DATA".to_vec()));
+                    },
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
                     },
                     _ => panic!("Command must match Command::ListPeers, Command::ListProviders, Command::RequestIdleMetric, Command::RequestArtifact"),
                 }
@@ -711,6 +722,9 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
@@ -767,6 +781,9 @@ mod tests {
                 match command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
+                    }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
@@ -842,6 +859,9 @@ mod tests {
                 match command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
+                    }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
@@ -923,6 +943,9 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
@@ -977,6 +1000,9 @@ mod tests {
                     }
                     Some(Command::RequestBuild { sender, .. }) => {
                         let _ = sender.send(Ok(String::from("request_build_ok")));
+                    }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
                     }
                     other => panic!(
                         "Command must match Command::ListPeers or Command::RequestBuild, was: {:?}",
@@ -1047,6 +1073,9 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
@@ -1083,6 +1112,9 @@ mod tests {
                     }
                     Some(Command::RequestBuildStatus { sender, .. }) => {
                         let _ = sender.send(Ok(String::from(build_status)));
+                    }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
                     }
                     other => panic!(
                         "Command must match Command::ListPeers or Command::RequestBuildStatus, was: {:?}",
