@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
-      - uses: viperproject/check-license-header@v1
+      - uses: viperproject/check-license-header@v2
         with:
           path: .
           config: .github/license-check/config.json
