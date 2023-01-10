@@ -1,7 +1,8 @@
+---
 name: Rust Linting
 on:
   pull_request:
-    paths: # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint-skipped.yml#L8
+    paths:  # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint-skipped.yml#L8
       - .github/workflows/rust-lint.yml
       - .github/workflows/.cargo/audit.toml
       - '**/*.rs'
@@ -14,9 +15,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
-      - uses: pyrsia/rust-toolchain@v2 
+      - uses: pyrsia/rust-toolchain@v2
         with:
-          packages: cargo-audit   
+          packages: cargo-audit
       - run: |
           cargo audit
 
@@ -29,16 +30,16 @@ jobs:
           components: rustfmt
       - run: |
           cargo-fmt --check
-      
+
   clippy:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
-      - uses: pyrsia/rust-toolchain@v2  
+      - uses: pyrsia/rust-toolchain@v2
         with:
-          components: clippy 
-      - uses: olix0r/cargo-action-fmt/setup@v2                   
-      - run: | 
+          components: clippy
+      - uses: olix0r/cargo-action-fmt/setup@v2
+      - run: |
           cargo clippy --all-features --message-format=json | cargo-action-fmt
 
   license-header:
