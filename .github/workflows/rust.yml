@@ -278,7 +278,7 @@ jobs:
       
       - name: Display coveralls.io link
         run: |
-          echo ${{ steps.coveralls.outputs.coveralls-api-result }}  | jq "."
+          echo '${{ steps.coveralls.outputs.coveralls-api-result }}' | jq -r ".url" | xargs echo Reults
 
   # Docker build that uses the published .deb file from the Linux build
   docker:
