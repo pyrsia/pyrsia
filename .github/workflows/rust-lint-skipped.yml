@@ -2,10 +2,11 @@
 # The rust linting checks are required but due to path filtering
 # the jobs are not created at all so we need to manually recreate them
 
+---
 name: Rust Linting
 on:
   pull_request:
-    paths-ignore: # This should match https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint.yml#L4
+    paths-ignore:  # This should match https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint.yml#L4
       - .github/workflows/rust-lint.yml
       - .github/workflows/.cargo/audit.toml
       - '**/*.rs'
@@ -24,7 +25,17 @@ jobs:
     steps:
       - run: echo "Skipping rustfmt since PR has files from ignore list"
 
+  clippy:
+    runs-on: ubuntu-20.04
+    steps:
+      - run: echo "No build required"
+
   license-header:
     runs-on: ubuntu-20.04
     steps:
       - run: echo "Skipping license-header since PR has files from ignore list"
+
+  inclusive-lint:
+    runs-on: ubuntu-20.04
+    steps:
+      - run: echo "No build required"
