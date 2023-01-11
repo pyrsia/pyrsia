@@ -110,7 +110,7 @@ pub async fn handle_request_idle_metric(
 pub async fn handle_incoming_blockchain_command(
     blockchain_event_client: BlockchainEventClient,
     data: Vec<u8>,
-    channel: ResponseChannel<BlockchainResponse>,
+    channel: Option<ResponseChannel<BlockchainResponse>>,
 ) -> anyhow::Result<()> {
     debug!("Handling request blockchain");
     match BlockchainCommand::try_from(data[0])? {

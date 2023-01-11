@@ -1,3 +1,7 @@
+---
+sidebar_position: 6
+---
+
 # Post-release manual tests
 
 After a release has been deployed, run these manual tests to make sure everything works as expected. Run these tests after each deployment to

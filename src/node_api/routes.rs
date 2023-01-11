@@ -139,7 +139,10 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
-                    _ => panic!("Command must match Command::ListPeers"),
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    }
+                    _ => panic!("Command must match Command::ListPeers or Command::BroadcastBlock"),
                 }
             }
         });
@@ -200,7 +203,10 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
-                    _ => panic!("Command must match Command::ListPeers"),
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    }
+                    _ => panic!("Command must match Command::ListPeers or Command::BroadcastBlock"),
                 }
             }
         });
@@ -269,7 +275,10 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
-                    _ => panic!("Command must match Command::ListPeers"),
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    }
+                    _ => panic!("Command must match Command::ListPeers or Command::BroadcastBlock"),
                 }
             }
         });

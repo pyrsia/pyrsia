@@ -270,9 +270,21 @@ mod tests {
         let tmp_dir = test_util::tests::setup();
 
         let (mut transparency_log_service, mut blockchain_event_receiver) =
+           
             test_util::tests::create_transparency_log_service(&tmp_dir);
         let (mut verification_service, mut build_event_receiver) =
             test_util::tests::create_verification_service();
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
+                }
+            }
+        });
 
         let package_type = PackageType::Docker;
         let package_specific_id = "alpine:3.15.1";
@@ -338,7 +350,8 @@ mod tests {
         let tmp_dir = test_util::tests::setup();
 
         let (mut transparency_log_service, mut blockchain_event_receiver) =
-            test_util::tests::create_transparency_log_service(&tmp_dir);
+
+                       test_util::tests::create_transparency_log_service(&tmp_dir);
         let (mut verification_service, mut build_event_receiver) =
             test_util::tests::create_verification_service();
 
@@ -364,6 +377,17 @@ mod tests {
                     _ => {
                         panic!("BuildEvent must match BuildEvent::Verify")
                     }
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
                 }
             }
         });
@@ -416,7 +440,8 @@ mod tests {
         let tmp_dir = test_util::tests::setup();
 
         let (mut transparency_log_service, mut blockchain_event_receiver) =
-            test_util::tests::create_transparency_log_service(&tmp_dir);
+
+                       test_util::tests::create_transparency_log_service(&tmp_dir);
         let (mut verification_service, mut build_event_receiver) =
             test_util::tests::create_verification_service();
 
@@ -442,6 +467,17 @@ mod tests {
                     _ => {
                         panic!("BuildEvent must match BuildEvent::Verify")
                     }
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
                 }
             }
         });
@@ -495,7 +531,8 @@ mod tests {
         let tmp_dir = test_util::tests::setup();
 
         let (mut transparency_log_service, mut blockchain_event_receiver) =
-            test_util::tests::create_transparency_log_service(&tmp_dir);
+
+                       test_util::tests::create_transparency_log_service(&tmp_dir);
         let (mut verification_service, mut build_event_receiver) =
             test_util::tests::create_verification_service();
 
@@ -521,6 +558,17 @@ mod tests {
                     _ => {
                         panic!("BuildEvent must match BuildEvent::Verify")
                     }
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
                 }
             }
         });
@@ -582,7 +630,8 @@ mod tests {
         let tmp_dir = test_util::tests::setup();
 
         let (mut transparency_log_service, mut blockchain_event_receiver) =
-            test_util::tests::create_transparency_log_service(&tmp_dir);
+
+                       test_util::tests::create_transparency_log_service(&tmp_dir);
         let (mut verification_service, mut build_event_receiver) =
             test_util::tests::create_verification_service();
 
@@ -608,6 +657,17 @@ mod tests {
                     _ => {
                         panic!("BuildEvent must match BuildEvent::Verify")
                     }
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
                 }
             }
         });
@@ -671,7 +731,8 @@ mod tests {
         let tmp_dir = test_util::tests::setup();
 
         let (mut transparency_log_service, mut blockchain_event_receiver) =
-            test_util::tests::create_transparency_log_service(&tmp_dir);
+
+                       test_util::tests::create_transparency_log_service(&tmp_dir);
         let (mut verification_service, mut build_event_receiver) =
             test_util::tests::create_verification_service();
 
@@ -697,6 +758,17 @@ mod tests {
                     _ => {
                         panic!("BuildEvent must match BuildEvent::Verify")
                     }
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::BroadcastBlock"),
                 }
             }
         });

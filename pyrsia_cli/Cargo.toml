@@ -1,14 +1,14 @@
 [package]
 name = "pyrsia_cli"
-version = "0.2.2"
+version = "0.2.3"
 build = "build.rs"
 description = "Decentralized Package Network"
 edition = "2021"
 
 [dependencies]
 pyrsia = {path=".."}
-anyhow = "1.0.66"
-clap = { version = "4.0.29", features = [ "cargo" ] }
+anyhow = "1.0.68"
+clap = { version = "4.0.32", features = [ "cargo" ] }
 confy = "0.5.1"
 const_format = "0.2.26"
 futures = { version = "0.3.*"}
@@ -25,5 +25,5 @@ path = "src/main.rs"
 
 [build-dependencies]
 anyhow = "1.0"
-vergen = "7.4.0"
+vergen = "7.4.4"
 

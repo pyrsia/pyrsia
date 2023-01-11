@@ -6,11 +6,11 @@ RUN groupadd -r ${USER_GRP}; \
     useradd -r -m -g ${USER_GRP} -s /bin/bash ${USER};
 COPY --chown=${USER}:${USER_GRP} . ${HOME}/pyrsia/
 WORKDIR ${HOME}/pyrsia
+USER ${USER}
 RUN curl -sL https://deb.nodesource.com/setup_18.x | bash -; \
     apt-get install -y -q nodejs; \
     npm i -g toml-cli; \
     rustup default $(cat Cargo.toml | toml | jq -r 'try(.package."rust-version") // "stable"'); \
-    cargo install cargo-tarpaulin;
-USER ${USER}
-RUN chmod 544  installers/docker/local_code_coverage/entrypoint.sh;
+    cargo install cargo-tarpaulin; \
+    chmod 544  installers/docker/local_code_coverage/entrypoint.sh;
 ENTRYPOINT ["non-existing.sh"]
