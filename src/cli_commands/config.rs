@@ -274,8 +274,7 @@ mod tests {
             CliConfig {
                 host: host_name.unwrap_or(existing_cli_config.host),
                 port: port.unwrap_or(existing_cli_config.port),
-                disk_allocated: disk_allocated
-                    .unwrap_or(existing_cli_config.disk_allocated),
+                disk_allocated: disk_allocated.unwrap_or(existing_cli_config.disk_allocated),
             },
             updated_cli_config
         );

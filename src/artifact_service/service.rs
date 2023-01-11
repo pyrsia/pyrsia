@@ -429,9 +429,6 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
-                    }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
@@ -514,10 +511,7 @@ mod tests {
                     Some(Command::Provide { sender, .. }) => {
                         let _ = sender.send(());
                     }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
-                    }
-                    _ => panic!("Command must match Command::ListPeers"),
+                    _ => panic!("Command must match Command::ListPeers or Command::Provide"),
                 }
             }
         });
@@ -600,9 +594,6 @@ mod tests {
                     },
                     Some(Command::RequestArtifact { sender, .. }) => {
                         let _ = sender.send(Ok(b"SAMPLE_DATA".to_vec()));
-                    },
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
                     },
                     _ => panic!("Command must match Command::ListPeers, Command::ListProviders, Command::RequestIdleMetric, Command::RequestArtifact"),
                 }
@@ -699,9 +690,6 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
-                    }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
@@ -766,9 +754,6 @@ mod tests {
                 match p2p_command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
-                    }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
@@ -942,9 +927,6 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
-                    }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
@@ -1008,9 +990,6 @@ mod tests {
                     }
                     Some(Command::RequestBuild { sender, .. }) => {
                         let _ = sender.send(Ok(String::from("request_build_ok")));
-                    }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
                     }
                     other => panic!(
                         "Command must match Command::ListPeers or Command::RequestBuild, was: {:?}",
@@ -1089,9 +1068,6 @@ mod tests {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
                     }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
-                    }
                     other => panic!("Command must match Command::ListPeers, was: {:?}", other),
                 }
             }
@@ -1140,9 +1116,6 @@ mod tests {
                     }
                     Some(Command::RequestBuildStatus { sender, .. }) => {
                         let _ = sender.send(Ok(build_status.to_owned()));
-                    }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
                     }
                     other => panic!(
                         "Command must match Command::ListPeers or Command::RequestBuildStatus, was: {:?}",
