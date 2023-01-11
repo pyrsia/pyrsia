@@ -402,7 +402,6 @@ mod tests {
     use crate::network::client::command::Command;
     use crate::network::idle_metric_protocol::PeerMetrics;
     use crate::util::test_util;
-    use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::ed25519::Keypair;
     use libp2p::identity::PublicKey;
     use sha2::{Digest, Sha256};

@@ -243,7 +243,7 @@ mod tests {
 
     fn setup_temp_home_dir_and_execute<F>(op: F)
     where
-        F: FnOnce() -> (),
+        F: FnOnce(),
     {
         let env_home_original = std::env::var("HOME").unwrap();
         let tmp_dir = tempfile::tempdir()
@@ -272,10 +272,10 @@ mod tests {
         }
         assert_eq!(
             CliConfig {
-                host: host_name.unwrap_or_else(|| { existing_cli_config.host }),
-                port: port.unwrap_or_else(|| { existing_cli_config.port }),
+                host: host_name.unwrap_or(existing_cli_config.host),
+                port: port.unwrap_or(existing_cli_config.port),
                 disk_allocated: disk_allocated
-                    .unwrap_or_else(|| { existing_cli_config.disk_allocated }),
+                    .unwrap_or(existing_cli_config.disk_allocated),
             },
             updated_cli_config
         );

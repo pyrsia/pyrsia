@@ -24,6 +24,7 @@ pub mod tests {
     use crate::network::client::Client;
     use crate::transparency_log::log::TransparencyLogService;
     use crate::verification_service::service::VerificationService;
+    use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::Keypair;
     use std::env;
     use std::fs;
@@ -43,10 +44,11 @@ pub mod tests {
     pub fn create_p2p_client() -> (Client, Receiver<Command>) {
         let (sender, receiver) = mpsc::channel(1);
         (
-            Client {
+            Client::new(
                 sender,
-                local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-            },
+                Keypair::generate_ed25519().public().to_peer_id(),
+                IdentTopic::new("pyrsia-topic"),
+            ),
             receiver,
         )
     }

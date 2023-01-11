@@ -44,17 +44,17 @@ pub enum BlockchainEvent {
     HandleBlockBroadcast {
         block_ordinal: Ordinal,
         block: Box<Block>,
-        channel: ResponseChannel<BlockchainResponse>,
+        channel: Option<ResponseChannel<BlockchainResponse>>,
         sender: oneshot::Sender<anyhow::Result<()>>,
     },
     HandlePullBlocks {
         start: Ordinal,
         end: Ordinal,
-        channel: ResponseChannel<BlockchainResponse>,
+        channel: Option<ResponseChannel<BlockchainResponse>>,
         sender: oneshot::Sender<anyhow::Result<()>>,
     },
     HandleQueryBlockOrdinal {
-        channel: ResponseChannel<BlockchainResponse>,
+        channel: Option<ResponseChannel<BlockchainResponse>>,
         sender: oneshot::Sender<anyhow::Result<()>>,
     },
 }
@@ -118,7 +118,7 @@ impl BlockchainEventClient {
         &self,
         block_ordinal: Ordinal,
         block: Block,
-        channel: ResponseChannel<BlockchainResponse>,
+        channel: Option<ResponseChannel<BlockchainResponse>>,
     ) -> anyhow::Result<()> {
         let (sender, receiver) = oneshot::channel();
         self.blockchain_event_sender
@@ -139,7 +139,7 @@ impl BlockchainEventClient {
         &self,
         start: Ordinal,
         end: Ordinal,
-        channel: ResponseChannel<BlockchainResponse>,
+        channel: Option<ResponseChannel<BlockchainResponse>>,
     ) -> anyhow::Result<()> {
         let (sender, receiver) = oneshot::channel();
         self.blockchain_event_sender
@@ -158,7 +158,7 @@ impl BlockchainEventClient {
 
     pub async fn handle_query_block_ordinal_from_peer(
         &self,
-        channel: ResponseChannel<BlockchainResponse>,
+        channel: Option<ResponseChannel<BlockchainResponse>>,
     ) -> anyhow::Result<()> {
         let (sender, receiver) = oneshot::channel();
         self.blockchain_event_sender
@@ -258,11 +258,14 @@ impl BlockchainEventLoop {
                 } else {
                     let response_data = vec![0u8];
 
-                    let result = self
-                        .blockchain_service
-                        .p2p_client
-                        .respond_blockchain(response_data, channel)
-                        .await;
+                    let result = if let Some(channel) = channel {
+                        self.blockchain_service
+                            .p2p_client
+                            .respond_blockchain(response_data, channel)
+                            .await
+                    } else {
+                        Ok(())
+                    };
                     sender.send(result).unwrap_or_else(|e| {
                         error!("block broadcast error. {:#?}", e);
                     });
@@ -278,11 +281,14 @@ impl BlockchainEventLoop {
 
                 match self.blockchain_service.pull_blocks(start, end).await {
                     Ok(v) => {
-                        let result = self
-                            .blockchain_service
-                            .p2p_client
-                            .respond_blockchain(serialize(&v).unwrap(), channel)
-                            .await;
+                        let result = if let Some(channel) = channel {
+                            self.blockchain_service
+                                .p2p_client
+                                .respond_blockchain(serialize(&v).unwrap(), channel)
+                                .await
+                        } else {
+                            Ok(())
+                        };
                         sender.send(result).unwrap_or_else(|e| {
                             error!("block broadcast error. {:#?}", e);
                         });
@@ -300,11 +306,14 @@ impl BlockchainEventLoop {
                 match self.blockchain_service.query_last_block().await {
                     Some(latest_block) => {
                         let latest_ordinal = latest_block.header.ordinal;
-                        let result = self
-                            .blockchain_service
-                            .p2p_client
-                            .respond_blockchain(serialize(&latest_ordinal).unwrap(), channel)
-                            .await;
+                        let result = if let Some(channel) = channel {
+                            self.blockchain_service
+                                .p2p_client
+                                .respond_blockchain(serialize(&latest_ordinal).unwrap(), channel)
+                                .await
+                        } else {
+                            Ok(())
+                        };
                         sender.send(result).unwrap_or_else(|e| {
                             error!("block broadcast error. {:#?}", e);
                         });

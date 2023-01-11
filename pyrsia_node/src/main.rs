@@ -149,9 +149,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 pyrsia::network::event_loop::PyrsiaEvent::SimpleBlockchainRequest { data } => {
-                    if let Err(error) = handlers::handle_request_blockchain(
-                        artifact_service.clone(),
-                        blockchain_service.clone(),
+                    if let Err(error) = handlers::handle_incoming_blockchain_command(
+                        blockchain_event_client.clone(),
                         data,
                         None,
                     )
