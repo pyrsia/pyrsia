@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 12
 ---
 
 # How to start and debug Pyrsia Node using IDE

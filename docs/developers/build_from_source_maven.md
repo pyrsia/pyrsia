@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 11
 ---
 
 # Pyrsia demo: build Maven images from source
