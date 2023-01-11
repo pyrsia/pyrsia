@@ -3,8 +3,9 @@
 # the jobs are not created at all so we need to manually recreate them
 
 ---
-name: Rust Linting
+name: Linting
 on:
+  push:
   pull_request:
     paths-ignore:  # This should match https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint.yml#L4
       - .github/workflows/rust-lint.yml
@@ -13,6 +14,8 @@ on:
       - '**/Cargo.toml'
       - Cargo.lock
       - 'installers/**'
+      - '**/*.md'
+      - '**/*.mdx'
 
 jobs:
   security-audit:
@@ -28,7 +31,7 @@ jobs:
   clippy:
     runs-on: ubuntu-20.04
     steps:
-      - run: echo "No build required"
+      - run: echo "Skipping clippy since PR has files from ignore list"
 
   license-header:
     runs-on: ubuntu-20.04
@@ -38,4 +41,9 @@ jobs:
   inclusive-lint:
     runs-on: ubuntu-20.04
     steps:
-      - run: echo "No build required"
+      - run: echo "Skipping inclusive-lint since PR has files from ignore list"
+
+  markdown-docs:
+    runs-on: ubuntu-20.04
+    steps:
+      - run: echo "Skipping markdown-docs since PR has files from ignore list"
