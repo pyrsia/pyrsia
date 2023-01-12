@@ -15,7 +15,6 @@
 */
 
 /// Peer Quality Metrics
-use std::sync::Mutex;
 use std::thread;
 use std::time;
 use sysinfo::{NetworkExt, ProcessExt, System, SystemExt};
@@ -24,10 +23,6 @@ use sysinfo::{NetworkExt, ProcessExt, System, SystemExt};
 const CPU_STRESS_WEIGHT: f64 = 2_f64;
 const NETWORK_STRESS_WEIGHT: f64 = 0.001_f64;
 const DISK_STRESS_WEIGHT: f64 = 0.001_f64;
-
-lazy_static::lazy_static! {
-    pub static ref PEER_METRICS: Mutex<PeerMetrics> = Mutex::new(PeerMetrics::new());
-}
 
 #[derive(Default)]
 pub struct PeerMetrics {

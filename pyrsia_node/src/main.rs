@@ -34,6 +34,7 @@ use pyrsia::logging::*;
 use pyrsia::network::client::Client;
 use pyrsia::network::p2p;
 use pyrsia::node_api::routes::make_node_routes;
+use pyrsia::peer_metrics::metrics::PeerMetrics;
 use pyrsia::transparency_log::log::TransparencyLogService;
 use pyrsia::util::env_util::read_var;
 use pyrsia::util::keypair_util::{self, KEYPAIR_FILENAME};
@@ -55,6 +56,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     debug!("Parse CLI arguments");
     let args = PyrsiaNodeArgs::parse();
+
+    let mut peer_metrics = PeerMetrics::new();
 
     debug!("Create p2p components");
     let (p2p_client, local_keypair, mut p2p_events, event_loop) =
@@ -142,8 +145,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 pyrsia::network::event_loop::PyrsiaEvent::IdleMetricRequest { channel } => {
-                    if let Err(error) =
-                        handlers::handle_request_idle_metric(p2p_client.clone(), channel).await
+                    if let Err(error) = handlers::handle_request_idle_metric(
+                        p2p_client.clone(),
+                        &mut peer_metrics,
+                        channel,
+                    )
+                    .await
                     {
                         warn!(
                             "This node failed to provide idle metrics. Error: {:?}",
