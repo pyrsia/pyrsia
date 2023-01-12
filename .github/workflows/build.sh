@@ -22,8 +22,8 @@ set -e
 # adding --lib --bins for clarity
 #
 
-$( cargo build --workspace --lib --bins --verbose --release; echo $? > /tmp/ws.rc ) &
-$( cargo build --workspace --tests --benches --examples --verbose --release 1>/tmp/tests.log 2>&1; echo $? > /tmp/tests.rc ) &
+$( cargo build --workspace --lib --bins --release; echo $? > /tmp/ws.rc ) &
+$( cargo build --workspace --tests --benches --examples --release 1>/tmp/tests.log 2>&1; echo $? > /tmp/tests.rc ) &
 jobs
 wait
 
@@ -52,4 +52,5 @@ fi
 # build has already displayed its return code. 
 
 rc=$(cat /tmp/ws.rc /tmp/tests.rc | sort -nr | head -n1)
+
 exit $rc
