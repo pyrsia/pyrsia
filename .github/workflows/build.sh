@@ -14,9 +14,6 @@
 
 set -e
 
-# Explicitly remove OpenSSL before build in case it is cached
-cargo remove openssl
-
 # We need to split out build commands into separate calls in order to run them in parallel
 # therefore we cannot use --all-targets since that is equivalent to --lib --bins --tests --benches --examples
 # which disables the parallelizm we are trying achive for speed. 
@@ -25,8 +22,8 @@ cargo remove openssl
 # adding --lib --bins for clarity
 #
 
-$( cargo build --workspace --lib --bins --verbose --release; echo $? > /tmp/ws.rc ) &
-$( cargo build --workspace --tests --benches --examples --verbose --release 1>/tmp/tests.log 2>&1; echo $? > /tmp/tests.rc ) &
+$( cargo build --workspace --lib --bins --release; echo $? > /tmp/ws.rc ) &
+$( cargo build --workspace --tests --benches --examples --release 1>/tmp/tests.log 2>&1; echo $? > /tmp/tests.rc ) &
 jobs
 wait
 
@@ -42,9 +39,10 @@ cat /tmp/tests.log
 echo "### Tests Build RC=$(cat /tmp/tests.rc)"
 
 # Check if OpenSSL is back
-if [[ $(find . -name "Cargo.lock" -exec grep -i openssl {} \; | wc -l) != 0 ]]; then
+if [[ $(find . -name "Cargo.lock" -exec grep -i openssl {} \; | wc -l) -ne 0 ]]; then
     echo "OpenSSL Presence detected in the Cargo; please remove it and rebuild. Dumping Cargo.lock files to log."
     find . -name "Cargo.lock" -exec cat {} \;
+    cargo tree
     exit 1
 fi
 
@@ -54,4 +52,5 @@ fi
 # build has already displayed its return code. 
 
 rc=$(cat /tmp/ws.rc /tmp/tests.rc | sort -nr | head -n1)
+
 exit $rc

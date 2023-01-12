@@ -23,7 +23,7 @@ use warp::Filter;
 
 pub fn make_docker_routes(
     artifact_service: ArtifactService,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let empty_json = "{}";
     let v2_base = warp::path("v2")
         .and(warp::get())

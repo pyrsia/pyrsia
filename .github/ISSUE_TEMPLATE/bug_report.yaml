@@ -1,3 +1,4 @@
+---
 name: "❌ Bug report 🐛"
 description: Report errors bugs and unexpected behavior
 labels: ["bug", "triage"]
@@ -28,7 +29,7 @@ body:
     attributes:
       label: Experienced Instance of the bug
       placeholder: |
-        Rust Version: 
+        Rust Version:
         Operating system:
         Pyrsia SHA/Version:
     validations:
