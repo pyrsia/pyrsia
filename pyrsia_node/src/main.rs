@@ -146,7 +146,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     {
                         Ok(response_data) => {
                             if let Some(channel) = channel {
-                                if let Err(err) = p2p_client.respond_blockchain(response_data, channel).await
+                                if let Err(err) =
+                                    p2p_client.respond_blockchain(response_data, channel).await
                                 {
                                     warn!(
                                         "This node failed to update blockchain. Error: {:?}",
