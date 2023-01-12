@@ -29,7 +29,7 @@ pub fn make_node_routes(
     artifact_service: ArtifactService,
     p2p_client: Client,
     transparency_log_service: TransparencyLogService,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let artifact_service_filter = warp::any().map(move || artifact_service.clone());
     let p2p_client_filter = warp::any().map(move || p2p_client.clone());
     let transparency_log_service_filter = warp::any().map(move || transparency_log_service.clone());
