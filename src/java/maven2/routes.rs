@@ -21,7 +21,7 @@ use warp::Filter;
 
 pub fn make_maven_routes(
     artifact_service: ArtifactService,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let artifact_service_filter = warp::any().map(move || artifact_service.clone());
 
     let maven2_root = warp::path("maven2")
