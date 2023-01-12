@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-use bincode::deserialize;
+use bincode::{deserialize, serialize};
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::ResponseChannel;
 use libp2p::{Multiaddr, PeerId};
@@ -26,7 +26,6 @@ use pyrsia::blockchain_service::event::BlockchainEventClient;
 use pyrsia::blockchain_service::service::BlockchainCommand;
 use pyrsia::build_service::event::BuildEventClient;
 use pyrsia::network::artifact_protocol::ArtifactResponse;
-use pyrsia::network::blockchain_protocol::BlockchainResponse;
 use pyrsia::network::build_protocol::BuildResponse;
 use pyrsia::network::build_status_protocol::BuildStatusResponse;
 use pyrsia::network::client::Client;
@@ -110,37 +109,39 @@ pub async fn handle_request_idle_metric(
 pub async fn handle_incoming_blockchain_command(
     blockchain_event_client: BlockchainEventClient,
     data: Vec<u8>,
-    channel: Option<ResponseChannel<BlockchainResponse>>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<u8>> {
     debug!("Handling request blockchain");
-    match BlockchainCommand::try_from(data[0])? {
+    Ok(match BlockchainCommand::try_from(data[0])? {
         BlockchainCommand::Broadcast => {
             debug!("Blockchain receives BlockchainCommand::Broadcast");
             let block_ordinal: Ordinal = deserialize(&data[1..17])?;
             let block: Block = deserialize(&data[17..])?;
             blockchain_event_client
-                .handle_broadcast_blockchain(block_ordinal, block, channel)
-                .await
+                .handle_broadcast_blockchain(block_ordinal, block)
+                .await?;
+            vec![0u8]
         }
         BlockchainCommand::PullFromPeer => {
             debug!("Blockchain receives BlockchainCommand::PullFromPeer");
             let start: Ordinal = deserialize(&data[1..17])?;
             let end: Ordinal = deserialize(&data[17..])?;
-            blockchain_event_client
-                .handle_pull_blockchain_from_peer(start, end, channel)
-                .await
+            let blocks = blockchain_event_client
+                .handle_pull_blockchain_from_peer(start, end)
+                .await?;
+            serialize(&blocks).unwrap()
         }
         BlockchainCommand::QueryHighestBlockOrdinal => {
             debug!("Blockchain receives BlockchainCommand::QueryHighestBlockOrdinal");
-            blockchain_event_client
-                .handle_query_block_ordinal_from_peer(channel)
-                .await
+            let highest_ordinal = blockchain_event_client
+                .handle_query_block_ordinal_from_peer()
+                .await?;
+            serialize(&highest_ordinal).unwrap()
         }
         _ => {
             debug!("Blockchain receives other command");
             todo!()
         }
-    }
+    })
 }
 
 pub async fn handle_request_build_status(

@@ -56,7 +56,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = PyrsiaNodeArgs::parse();
 
     debug!("Create p2p components");
-    let (p2p_client, local_keypair, mut p2p_events, event_loop) =
+    let (mut p2p_client, local_keypair, mut p2p_events, event_loop) =
         p2p::setup_libp2p_swarm(args.max_provided_keys)?;
 
     debug!("Start p2p event loop");
@@ -138,25 +138,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 pyrsia::network::event_loop::PyrsiaEvent::BlockchainRequest { data, channel } => {
-                    if let Err(error) = handlers::handle_incoming_blockchain_command(
+                    match handlers::handle_incoming_blockchain_command(
                         blockchain_event_client.clone(),
                         data,
-                        Some(channel),
                     )
                     .await
                     {
-                        warn!("This node failed to update blockchain Error: {:?}", error);
-                    }
-                }
-                pyrsia::network::event_loop::PyrsiaEvent::SimpleBlockchainRequest { data } => {
-                    if let Err(error) = handlers::handle_incoming_blockchain_command(
-                        blockchain_event_client.clone(),
-                        data,
-                        None,
-                    )
-                    .await
-                    {
-                        warn!("This node failed to update blockchain Error: {:?}", error);
+                        Ok(response_data) => {
+                            if let Some(channel) = channel {
+                                if let Err(err) = p2p_client.respond_blockchain(response_data, channel).await
+                                {
+                                    warn!(
+                                        "This node failed to update blockchain. Error: {:?}",
+                                        err
+                                    );
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            warn!("This node failed to update blockchain. Error: {:?}", err);
+                        }
                     }
                 }
                 pyrsia::network::event_loop::PyrsiaEvent::RequestBuildStatus {
