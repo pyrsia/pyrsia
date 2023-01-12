@@ -824,72 +824,68 @@ mod tests {
 
         test_util::tests::teardown(tmp_dir);
     }
-    /*
-        #[tokio::test]
-        async fn test_get_artifact_logs() {
-            let tmp_dir = test_util::tests::setup();
 
-            let services = test_util::tests::PyrsiaServicesBuilder::new()
-                .with_artifact_service(&tmp_dir)
-                .build();
+    #[tokio::test]
+    async fn test_get_artifact_logs() {
+        let tmp_dir = test_util::tests::setup();
 
-            tokio::spawn(async move {
-                loop {
-                    match services.p2p_command_receiver().recv().await {
-                        Some(Command::ListPeers { sender, .. }) => {
-                            let _ = sender.send(HashSet::new());
-                        }
-                        Some(Command::BroadcastBlock { sender, .. }) => {
-                            let _ = sender.send(anyhow::Ok(()));
-                        }
-                        _ => panic!("Command must match Command::ListPeers"),
+        let (mut artifact_service, mut blockchain_event_receiver, _, mut p2p_command_receiver) =
+            test_util::tests::create_artifact_service(&tmp_dir);
+
+        tokio::spawn(async move {
+            loop {
+                match p2p_command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
                     }
+                    _ => panic!("Command must match Command::ListPeers"),
                 }
-            });
+            }
+        });
 
-            tokio::spawn(async move {
-                loop {
-                    match services.blockchain_event_receiver().recv().await {
-                        Some(BlockchainEvent::AddBlock { sender, .. }) => {
-                            let _ = sender.send(Ok(()));
-                        }
-                        _ => panic!("BlockchainEvent must match BlockchainEvent::AddBlock"),
+        tokio::spawn(async move {
+            loop {
+                match blockchain_event_receiver.recv().await {
+                    Some(BlockchainEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
                     }
+                    _ => panic!("BlockchainEvent must match BlockchainEvent::AddBlock"),
                 }
-            });
+            }
+        });
 
-            let hasher1 = Sha256::new();
-            let random_hash = hex::encode(hasher1.finalize());
+        let hasher1 = Sha256::new();
+        let random_hash = hex::encode(hasher1.finalize());
 
-            let package_type = PackageType::Maven2;
-            let package_specific_id = "package_specific_id";
-            let package_specific_artifact_id = "package_specific_artifact_id";
-            let transparency_log = services.artifact_service()
-                .transparency_log_service
-                .add_artifact(AddArtifactRequest {
-                    package_type,
-                    package_specific_id: package_specific_id.to_owned(),
-                    num_artifacts: 8,
-                    package_specific_artifact_id: package_specific_artifact_id.to_owned(),
-                    artifact_hash: random_hash,
-                })
-                .await
-                .unwrap();
-                services.artifact_service()
-                .transparency_log_service
-                .write_transparency_log(&transparency_log)
-                .unwrap();
+        let package_type = PackageType::Maven2;
+        let package_specific_id = "package_specific_id";
+        let package_specific_artifact_id = "package_specific_artifact_id";
+        let transparency_log = artifact_service
+            .transparency_log_service
+            .add_artifact(AddArtifactRequest {
+                package_type,
+                package_specific_id: package_specific_id.to_owned(),
+                num_artifacts: 8,
+                package_specific_artifact_id: package_specific_artifact_id.to_owned(),
+                artifact_hash: random_hash,
+            })
+            .await
+            .unwrap();
+        artifact_service
+            .transparency_log_service
+            .write_transparency_log(&transparency_log)
+            .unwrap();
 
-            let result = services.artifact_service()
-                .transparency_log_service
-                .search_transparency_logs(&package_type, package_specific_id);
+        let result = artifact_service
+            .transparency_log_service
+            .search_transparency_logs(&package_type, package_specific_id);
 
-            assert!(result.is_ok());
-            assert_eq!(result.unwrap().len(), 1);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 1);
 
-            test_util::tests::teardown(tmp_dir);
-        }
-    */
+        test_util::tests::teardown(tmp_dir);
+    }
+
     #[tokio::test]
     async fn test_request_build_without_authorized_nodes() {
         let tmp_dir = test_util::tests::setup();
