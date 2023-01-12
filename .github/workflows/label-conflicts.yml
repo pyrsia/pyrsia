@@ -1,3 +1,4 @@
+---
 name: Auto Label Conflicts
 on:
   push:
@@ -14,5 +15,5 @@ jobs:
         with:
           conflict_label_name: "has conflict"
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          detect_merge_changes: false # or true to handle as conflicts
+          detect_merge_changes: false  # or true to handle as conflicts
           conflict_comment: ":wave: Hi, @${author},\n\nI detected conflicts against the base branch. You'll want to sync :arrows_counterclockwise: your branch with upstream!"
