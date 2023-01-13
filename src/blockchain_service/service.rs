@@ -121,7 +121,7 @@ impl BlockchainService {
     /// Notify other nodes to add a new block.
     async fn broadcast_blockchain(&mut self, block: Box<Block>) -> Result<(), BlockchainError> {
         let cmd = BlockchainCommand::Broadcast as u8;
-        let block_ordinal = block.header.ordinal as u128;
+        let block_ordinal = block.header.ordinal;
 
         let block = *block;
         let mut buf: Vec<u8> = vec![];
