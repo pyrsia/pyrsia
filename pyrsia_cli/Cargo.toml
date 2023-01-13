@@ -1,6 +1,6 @@
 [package]
 name = "pyrsia_cli"
-version = "0.2.3"
+version = "0.2.4"
 build = "build.rs"
 description = "Decentralized Package Network"
 edition = "2021"
