@@ -544,7 +544,7 @@ mod tests {
     fn create_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
+        let (log, _) = test_util::tests::create_transparency_log_service(tmp_dir);
 
         let ps_art_id = "test_package_specific_artifact_id";
 
