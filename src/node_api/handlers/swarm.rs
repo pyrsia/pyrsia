@@ -56,7 +56,12 @@ pub async fn handle_build_docker(
     artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
     let build_id = artifact_service
-        .request_build(PackageType::Docker, request_docker_build.image)
+        .request_build(PackageType::Docker, {
+            match request_docker_build.image.contains('/') {
+                true => image.to_owned(),
+                false => format!("library/{}", image.to_owned())
+            }
+        })
         .await
         .map_err(RegistryError::from)?;
 
