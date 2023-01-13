@@ -3383,7 +3383,7 @@ dependencies = [
 
 [[package]]
 name = "pyrsia"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3445,7 +3445,7 @@ dependencies = [
 
 [[package]]
 name = "pyrsia_blockchain_network"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "aleph-bft",
  "anyhow",
@@ -3475,7 +3475,7 @@ dependencies = [
 
 [[package]]
 name = "pyrsia_cli"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -3494,7 +3494,7 @@ dependencies = [
 
 [[package]]
 name = "pyrsia_node"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "bincode",
