@@ -9,9 +9,7 @@ on:
       - '**/Cargo.toml'
       - Cargo.lock
       - 'installers/windows/*'
-      - '**/*.md'
-      - '**/*.mdx'
-      
+
 env:
   CARGO_TERM_COLOR: always
 
