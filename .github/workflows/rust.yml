@@ -275,13 +275,16 @@ jobs:
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Display coveralls.io link
         run: |
           echo '${{ steps.coveralls.outputs.coveralls-api-result }}' | jq -r ".url" | xargs echo Reults
 
   # Docker build that uses the published .deb file from the Linux build
   docker:
+    permissions:
+      contents: 'read'
+      id-token: 'write'
     runs-on: ubuntu-20.04
     needs: [build-push-linux]
     if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
@@ -310,6 +313,19 @@ jobs:
           yq e '.image.tag |= "${{ env.PKG_VERSION }}-${{ github.run_number }}"' -i installers/helm/pyrsia-node/values.yaml
           yq e '.version |= "${{ env.PKG_VERSION }}+${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
           yq e '.appVersion |= "${{ env.PKG_VERSION }}+${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
+
+      # Login to GCS
+      - name: Google Auth
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: 'projects/679352079717/locations/global/workloadIdentityPools/pyrsia-pool/providers/github-provider'
+          service_account: 'pyrsia-ghaction@pyrsia-sandbox.iam.gserviceaccount.com'
+
+      # Add gsutils
+      - name: Set up Cloud SDK
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        uses: 'google-github-actions/setup-gcloud@v1'
 
       # Add the updated helm chart to the helm NIGHTLY repo
       - name: Add the updated helm chart to the helm NIGHTLY repo
