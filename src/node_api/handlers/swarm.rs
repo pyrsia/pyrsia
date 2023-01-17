@@ -57,7 +57,7 @@ pub async fn handle_build_docker(
 ) -> Result<impl Reply, Rejection> {
     let build_id = artifact_service
         .request_build(PackageType::Docker, {
-            docker_image_name(&request_docker_build.image)
+            get_package_specific_id(&request_docker_build.image)
         })
         .await
         .map_err(RegistryError::from)?;
@@ -139,7 +139,7 @@ pub async fn handle_inspect_log_docker(
     let result = transparency_log_service
         .search_transparency_logs(
             &PackageType::Docker,
-            docker_image_name(&request_docker_log.image).as_str(),
+            get_package_specific_id(&request_docker_log.image).as_str(),
         )
         .map_err(RegistryError::from)?;
 
@@ -169,9 +169,28 @@ pub async fn handle_inspect_log_maven(
         .unwrap())
 }
 
-fn docker_image_name(package_specific_id: &str) -> String {
+fn get_package_specific_id(package_specific_id: &str) -> String {
     match package_specific_id.contains('/') {
         true => package_specific_id.to_owned(),
         false => format!("library/{}", package_specific_id),
     }
+}
+
+#[test]
+fn test_get_package_specific_id() {
+    let package_specific_id = "library/alpine:3.16.2";
+    assert_eq!(
+        package_specific_id,
+        get_package_specific_id(package_specific_id)
+    )
+}
+
+#[test]
+fn test_get_package_specific_id_as_official_image() {
+    let package_specific_id = "alpine:3.16.2";
+    let official_image_tag = "library/alpine:3.16.2";
+    assert_eq!(
+        official_image_tag,
+        get_package_specific_id(package_specific_id)
+    )
 }

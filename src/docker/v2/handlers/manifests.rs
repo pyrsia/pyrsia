@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_get_package_specific_artifact_id_from_digest() {
-        let name = "alpine";
+        let name = "library/alpine";
         let tag = "sha256:1e014f84205d569a5cc3be4e108ca614055f7e21d11928946113ab3f36054801";
 
         assert_eq!(
@@ -181,13 +181,37 @@ mod tests {
     }
 
     #[test]
-    fn test_get_package_specific_artifact_id_from_tag() {
+    fn test_get_package_specific_artifact_id_as_official_image_from_digest() {
         let name = "alpine";
+        let official_image_name = "library/alpine";
+        let tag = "sha256:1e014f84205d569a5cc3be4e108ca614055f7e21d11928946113ab3f36054801";
+
+        assert_eq!(
+            get_package_specific_artifact_id(name, tag),
+            format!("{}@{}", official_image_name, tag)
+        );
+    }
+
+    #[test]
+    fn test_get_package_specific_artifact_id_from_tag() {
+        let name = "library/alpine";
         let tag = "3.15.3";
 
         assert_eq!(
             get_package_specific_artifact_id(name, tag),
             format!("{}:{}", name, tag)
+        );
+    }
+
+    #[test]
+    fn test_get_package_specific_artifact_id_as_official_image_from_tag() {
+        let name = "alpine";
+        let official_image_name = "library/alpine";
+        let tag = "3.15.3";
+
+        assert_eq!(
+            get_package_specific_artifact_id(name, tag),
+            format!("{}:{}", official_image_name, tag)
         );
     }
 
