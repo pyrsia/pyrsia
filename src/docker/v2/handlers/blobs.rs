@@ -52,7 +52,12 @@ pub async fn handle_get_blobs(
 }
 
 fn get_package_specific_artifact_id(name: &str, digest: &str) -> String {
-    format!("{}@{}", name, digest)
+    let combined_tag = format!("{}@{}", name, digest);
+    if combined_tag.contains('/') {
+        combined_tag
+    } else {
+        format!("library/{}", combined_tag)
+    }
 }
 
 #[cfg(test)]

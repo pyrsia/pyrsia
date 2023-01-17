@@ -27,7 +27,10 @@ pub async fn fetch_manifest(
     tag: String,
     mut artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
-    debug!("Fetching manifest for {} with tag: {}", name, tag);
+    debug!(
+        "Fetching manifest for {}",
+        &get_package_specific_artifact_id(&name, &tag)
+    );
 
     let manifest_content = artifact_service
         .get_artifact(
@@ -60,8 +63,8 @@ pub async fn fetch_manifest_or_build(
     mut artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
     debug!(
-        "Fetching manifest for {} with tag: {}. If not found a build will be requested",
-        name, tag
+        "Fetching manifest for {}. If not found, a build will be requested",
+        &get_package_specific_artifact_id(&name, &tag)
     );
     let manifest_content = artifact_service
         .get_artifact_or_build(
@@ -90,10 +93,15 @@ pub async fn fetch_manifest_or_build(
 }
 
 fn get_package_specific_artifact_id(name: &str, tag: &str) -> String {
-    if tag.starts_with("sha256:") {
+    let combined_tag = if tag.starts_with("sha256:") {
         format!("{}@{}", name, tag)
     } else {
         format!("{}:{}", name, tag)
+    };
+    if combined_tag.contains('/') {
+        combined_tag
+    } else {
+        format!("library/{}", combined_tag)
     }
 }
 

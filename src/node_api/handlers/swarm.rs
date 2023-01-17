@@ -137,7 +137,10 @@ pub async fn handle_inspect_log_docker(
     transparency_log_service: TransparencyLogService,
 ) -> Result<impl Reply, Rejection> {
     let result = transparency_log_service
-        .search_transparency_logs(&PackageType::Docker, docker_image_name(&request_docker_log.image).as_str())
+        .search_transparency_logs(
+            &PackageType::Docker,
+            docker_image_name(&request_docker_log.image).as_str(),
+        )
         .map_err(RegistryError::from)?;
 
     let result_as_json = serde_json::to_string(&result).map_err(RegistryError::from)?;
@@ -169,6 +172,6 @@ pub async fn handle_inspect_log_maven(
 fn docker_image_name(package_specific_id: &str) -> String {
     match package_specific_id.contains('/') {
         true => package_specific_id.to_owned(),
-        false => format!("library/{}", package_specific_id)
+        false => format!("library/{}", package_specific_id),
     }
 }
