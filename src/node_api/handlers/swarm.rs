@@ -21,7 +21,7 @@ use crate::node_api::model::cli::{
     RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
     RequestMavenBuild, RequestMavenLog,
 };
-use crate::transparency_log::log::{TransparencyLog, TransparencyLogService};
+use crate::transparency_log::log::TransparencyLog;
 
 use crate::artifact_service::service::ArtifactService;
 use libp2p::PeerId;

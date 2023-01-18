@@ -67,6 +67,7 @@ mod tests {
     use anyhow::Context;
     use hyper::header::HeaderValue;
     use std::borrow::Borrow;
+    use std::collections::HashSet;
     use std::fs::File;
     use std::path::PathBuf;
 

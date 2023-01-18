@@ -111,15 +111,14 @@ mod tests {
     use crate::build_service::event::BuildEvent;
     use crate::network::client::command::Command;
     use crate::node_api::model::cli::{Status, TransparentLogOutputParams};
-    use crate::transparency_log::log::{AddArtifactRequest, TransparencyLog};
+    use crate::transparency_log::log::{
+        AddArtifactRequest, TransparencyLog, TransparencyLogService,
+    };
     use crate::util::test_util;
     use csv;
     use httptest::http;
-    use libp2p::gossipsub::IdentTopic;
-    use libp2p::identity::Keypair;
     use std::collections::HashSet;
     use std::future::Future;
-    use std::path::Path;
     use std::str;
 
     #[tokio::test]
@@ -394,8 +393,7 @@ mod tests {
     async fn inspect_log_docker_json() {
         setup_and_execute(|ctx| async {
             let ps_id = "artipie:0.0.7";
-            let transparency_log =
-                add_artifact(&ctx.transparency_log_service, PackageType::Docker, ps_id);
+            let transparency_log = add_artifact(&ctx.log, PackageType::Docker, ps_id);
             let request = RequestDockerLog {
                 image: ps_id.to_string(),
                 output_params: Default::default(),
@@ -419,8 +417,7 @@ mod tests {
     async fn inspect_log_docker_csv() {
         setup_and_execute(|ctx| async {
             let ps_id = "artipie:0.0.7";
-            let transparency_log =
-                add_artifact(&ctx.transparency_log_service, PackageType::Docker, ps_id);
+            let transparency_log = add_artifact(&ctx.log, PackageType::Docker, ps_id);
             let request = RequestDockerLog {
                 image: ps_id.to_string(),
                 output_params: Some(TransparentLogOutputParams {
@@ -444,8 +441,7 @@ mod tests {
     async fn inspect_log_maven_json() {
         setup_and_execute(|ctx| async {
             let ps_id = "pyrsia:adapter:0.1";
-            let transparency_log =
-                add_artifact(&ctx.transparency_log_service, PackageType::Maven2, ps_id);
+            let transparency_log = add_artifact(&ctx.log, PackageType::Maven2, ps_id);
             let request = RequestMavenLog {
                 gav: ps_id.to_string(),
                 output_params: None,
@@ -467,8 +463,7 @@ mod tests {
     async fn inspect_log_maven_csv() {
         setup_and_execute(|ctx| async {
             let ps_id = "pyrsia:adapter:0.1";
-            let transparency_log =
-                add_artifact(&ctx.transparency_log_service, PackageType::Maven2, ps_id);
+            let transparency_log = add_artifact(&ctx.log, PackageType::Maven2, ps_id);
             let request = RequestMavenLog {
                 gav: ps_id.to_string(),
                 output_params: Some(TransparentLogOutputParams {
@@ -556,22 +551,15 @@ mod tests {
         F: Future<Output = ()>,
     {
         let tmp_dir = test_util::tests::setup();
-        let local_keypair = Keypair::generate_ed25519();
-        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair.clone(), p2p_client.clone())
-                .await;
-
-        let (_build_event_receiver, artifact_service) = create_artifact_service(
-            &tmp_dir,
-            transparency_log_service.clone(),
-            p2p_client.clone(),
-        );
+        let (p2p_client, _) = test_util::tests::create_p2p_client();
+        let (artifact_service, ..) =
+            test_util::tests::create_artifact_service_with_p2p_client(&tmp_dir, p2p_client.clone());
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         op(TestContext {
             artifact_service,
             p2p_client,
-            transparency_log_service,
+            log,
         })
         .await;
 
@@ -581,18 +569,14 @@ mod tests {
     struct TestContext {
         artifact_service: ArtifactService,
         p2p_client: Client,
-        transparency_log_service: TransparencyLogService,
+        log: TransparencyLogService,
     }
 
     impl TestContext {
         fn create_route(
             self,
         ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-            make_node_routes(
-                self.artifact_service,
-                self.p2p_client,
-                self.transparency_log_service,
-            )
+            make_node_routes(self.artifact_service, self.p2p_client)
         }
     }
 }
