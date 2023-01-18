@@ -22,7 +22,9 @@
 - [Configure Access to Cluster](https://cloud.google.com/sdk/gcloud/reference/container/clusters/get-credentials) - pyrsia-nighty (has spelling mistake) or pyrsia-cluster-1
 
     ```bash
-    gcloud container clusters get-credentials <CLUSTER_NAME>
+    gcloud container clusters get-credentials <CLUSTER_NAME> -z <ZONE>
+    # e.g.
+    gcloud container clusters get-credentials pyrsia-nighty -z us-central1-c
     ```
 
 - [Install Helm](https://helm.sh/docs/intro/install/)
