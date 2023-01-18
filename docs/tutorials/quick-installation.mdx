@@ -201,12 +201,12 @@ sudo apt-get update
 sudo apt-get install -y pyrsia
 ```
 
-### Bootstrap installer other than default cluster
+### Installer Bootstrapping other than default cluster
 To connect Pyrsia peer-node authorized boot-node other than default authorize boot node, here is the hack. You have to
 make some edits to `pyrsia.service` file.
 
 ```shell
-# E.G. Boot bootstrapping nightly-cluster.
+# E.G. bootstrapping to nightly-cluster.
 sudo sed -i '/ExecStart=/ s/$/ --bootstrap-url http:\/\/boot.nightly.pyrsia.link\/status/' $(sudo find /etc -name pyrsia.service)
 
 # reload daemon & restart service
