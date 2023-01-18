@@ -21,25 +21,21 @@ use crate::network::client::Client;
 use crate::node_api::model::cli::{
     RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerLog, RequestMavenLog,
 };
-
-use crate::transparency_log::log::TransparencyLogService;
 use warp::Filter;
 
 pub fn make_node_routes(
     artifact_service: ArtifactService,
     p2p_client: Client,
-    transparency_log_service: TransparencyLogService,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let artifact_service_filter = warp::any().map(move || artifact_service.clone());
     let p2p_client_filter = warp::any().map(move || p2p_client.clone());
-    let transparency_log_service_filter = warp::any().map(move || transparency_log_service.clone());
 
     let add_authorized_node = warp::path!("authorized_node")
         .and(warp::post())
         .and(warp::path::end())
         .and(warp::body::content_length_limit(1024 * 8))
         .and(warp::body::json::<RequestAddAuthorizedNode>())
-        .and(transparency_log_service_filter.clone())
+        .and(artifact_service_filter.clone())
         .and_then(handle_add_authorized_node);
 
     let build_docker = warp::path!("build" / "docker")
@@ -63,7 +59,7 @@ pub fn make_node_routes(
         .and(warp::path::end())
         .and(warp::body::content_length_limit(1024 * 8))
         .and(warp::body::json::<RequestBuildStatus>())
-        .and(artifact_service_filter)
+        .and(artifact_service_filter.clone())
         .and_then(handle_build_status);
 
     let peers = warp::path!("peers")
@@ -83,7 +79,7 @@ pub fn make_node_routes(
         .and(warp::path::end())
         .and(warp::body::content_length_limit(1024 * 8))
         .and(warp::body::json::<RequestDockerLog>())
-        .and(transparency_log_service_filter.clone())
+        .and(artifact_service_filter.clone())
         .and_then(handle_inspect_log_docker);
 
     let inspect_maven = warp::path!("inspect" / "maven")
@@ -91,7 +87,7 @@ pub fn make_node_routes(
         .and(warp::path::end())
         .and(warp::body::content_length_limit(1024 * 8))
         .and(warp::body::json::<RequestMavenLog>())
-        .and(transparency_log_service_filter)
+        .and(artifact_service_filter)
         .and_then(handle_inspect_log_maven);
 
     warp::any().and(
@@ -110,112 +106,47 @@ pub fn make_node_routes(
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
-    use crate::blockchain_service::service::BlockchainService;
-    use crate::build_service::event::{BuildEvent, BuildEventClient};
+    use crate::blockchain_service::event::BlockchainEvent;
+    use crate::build_service::event::BuildEvent;
     use crate::network::client::command::Command;
-    use crate::network::client::Client;
     use crate::node_api::model::cli::Status;
     use crate::util::test_util;
-    use libp2p::gossipsub::IdentTopic;
-    use libp2p::identity::Keypair;
     use std::collections::HashSet;
-    use std::path::Path;
     use std::str;
-    use std::sync::Arc;
-    use tokio::sync::{mpsc, Mutex};
-
-    fn create_p2p_client(local_keypair: &Keypair) -> (mpsc::Receiver<Command>, Client) {
-        let (command_sender, command_receiver) = mpsc::channel(1);
-        let p2p_client = Client::new(
-            command_sender,
-            local_keypair.public().to_peer_id(),
-            IdentTopic::new("pyrsia-topic"),
-        );
-
-        (command_receiver, p2p_client)
-    }
-
-    async fn create_blockchain_service(
-        local_keypair: &Keypair,
-        p2p_client: Client,
-        blockchain_path: impl AsRef<Path>,
-    ) -> BlockchainService {
-        let Keypair::Ed25519(ed25519_keypair) = local_keypair;
-
-        BlockchainService::init_first_blockchain_node(
-            ed25519_keypair,
-            ed25519_keypair,
-            p2p_client,
-            blockchain_path,
-        )
-        .await
-        .expect("Creating BlockchainService failed")
-    }
-
-    fn create_artifact_service(
-        artifact_path: impl AsRef<Path>,
-        transparency_log_service: TransparencyLogService,
-        p2p_client: Client,
-    ) -> (mpsc::Receiver<BuildEvent>, ArtifactService) {
-        let (build_event_sender, build_event_receiver) = mpsc::channel(1);
-        let build_event_client = BuildEventClient::new(build_event_sender);
-
-        let artifact_service = ArtifactService::new(
-            &artifact_path,
-            transparency_log_service,
-            build_event_client,
-            p2p_client,
-        )
-        .expect("Creating ArtifactService failed");
-
-        (build_event_receiver, artifact_service)
-    }
-
-    async fn create_transparency_log_service(
-        artifact_path: impl AsRef<Path>,
-        local_keypair: Keypair,
-        p2p_client: Client,
-    ) -> TransparencyLogService {
-        let blockchain_service =
-            create_blockchain_service(&local_keypair, p2p_client, &artifact_path).await;
-
-        TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
-            .expect("Creating ArtifactService failed")
-    }
 
     #[tokio::test]
     async fn node_routes_add_authorized_node() {
         let tmp_dir = test_util::tests::setup();
 
-        let local_keypair = Keypair::generate_ed25519();
-        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair.clone(), p2p_client.clone())
-                .await;
-
-        let (_build_event_receiver, artifact_service) = create_artifact_service(
-            &tmp_dir,
-            transparency_log_service.clone(),
-            p2p_client.clone(),
-        );
+        let (p2p_client, mut p2p_command_receiver) = test_util::tests::create_p2p_client();
+        let (artifact_service, mut blockchain_event_receiver, ..) =
+            test_util::tests::create_artifact_service_with_p2p_client(&tmp_dir, p2p_client.clone());
 
         tokio::spawn(async move {
             loop {
-                match command_receiver.recv().await {
+                match blockchain_event_receiver.recv().await {
+                    Some(BlockchainEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("BlockchainEvent must match BlockchainEvent::AddBlock"),
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match p2p_command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
-                    }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
         });
 
-        let filter = make_node_routes(artifact_service, p2p_client, transparency_log_service);
+        let filter = make_node_routes(artifact_service, p2p_client.clone());
         let request = RequestAddAuthorizedNode {
-            peer_id: local_keypair.public().to_peer_id().to_string(),
+            peer_id: p2p_client.local_peer_id.to_string(),
         };
         let response = warp::test::request()
             .method("POST")
@@ -234,36 +165,20 @@ mod tests {
     async fn node_routes_build_docker() {
         let tmp_dir = test_util::tests::setup();
 
-        let local_keypair = Keypair::generate_ed25519();
-        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair.clone(), p2p_client.clone())
-                .await;
-
-        let (mut build_event_receiver, artifact_service) = create_artifact_service(
-            &tmp_dir,
-            transparency_log_service.clone(),
-            p2p_client.clone(),
-        );
+        let (p2p_client, mut p2p_command_receiver) = test_util::tests::create_p2p_client();
+        let (artifact_service, mut blockchain_event_receiver, mut build_event_receiver) =
+            test_util::tests::create_artifact_service_with_p2p_client(&tmp_dir, p2p_client.clone());
 
         tokio::spawn(async move {
             loop {
-                match command_receiver.recv().await {
-                    Some(Command::ListPeers { sender, .. }) => {
-                        let _ = sender.send(HashSet::new());
+                match blockchain_event_receiver.recv().await {
+                    Some(BlockchainEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
                     }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
-                    }
-                    _ => panic!("Command must match Command::ListPeers"),
+                    _ => panic!("BlockchainEvent must match BlockchainEvent::AddBlock"),
                 }
             }
         });
-
-        transparency_log_service
-            .add_authorized_node(local_keypair.public().to_peer_id())
-            .await
-            .expect("Error adding authorized node");
 
         let build_id = uuid::Uuid::new_v4();
         tokio::spawn(async move {
@@ -272,12 +187,31 @@ mod tests {
                     Some(BuildEvent::Start { sender, .. }) => {
                         let _ = sender.send(Ok(build_id.to_string()));
                     }
-                    _ => panic!("BuildEvent must match BuildEvent::Start"),
+                    _ => {
+                        panic!("BuildEvent must match BuildEvent::Start")
+                    }
                 }
             }
         });
 
-        let filter = make_node_routes(artifact_service, p2p_client, transparency_log_service);
+        tokio::spawn(async move {
+            loop {
+                match p2p_command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    }
+                    _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
+
+        artifact_service
+            .transparency_log_service
+            .add_authorized_node(p2p_client.local_peer_id)
+            .await
+            .expect("Error adding authorized node");
+
+        let filter = make_node_routes(artifact_service, p2p_client);
         let request = RequestDockerBuild {
             image: "alpine:3.15.2".to_owned(),
         };
@@ -300,36 +234,20 @@ mod tests {
     async fn node_routes_build_maven() {
         let tmp_dir = test_util::tests::setup();
 
-        let local_keypair = Keypair::generate_ed25519();
-        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair.clone(), p2p_client.clone())
-                .await;
-
-        let (mut build_event_receiver, artifact_service) = create_artifact_service(
-            &tmp_dir,
-            transparency_log_service.clone(),
-            p2p_client.clone(),
-        );
+        let (p2p_client, mut p2p_command_receiver) = test_util::tests::create_p2p_client();
+        let (artifact_service, mut blockchain_event_receiver, mut build_event_receiver) =
+            test_util::tests::create_artifact_service_with_p2p_client(&tmp_dir, p2p_client.clone());
 
         tokio::spawn(async move {
             loop {
-                match command_receiver.recv().await {
-                    Some(Command::ListPeers { sender, .. }) => {
-                        let _ = sender.send(HashSet::new());
+                match blockchain_event_receiver.recv().await {
+                    Some(BlockchainEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
                     }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
-                    }
-                    _ => panic!("Command must match Command::ListPeers"),
+                    _ => panic!("BlockchainEvent must match BlockchainEvent::AddBlock"),
                 }
             }
         });
-
-        transparency_log_service
-            .add_authorized_node(local_keypair.public().to_peer_id())
-            .await
-            .expect("Error adding authorized node");
 
         let build_id = uuid::Uuid::new_v4();
         tokio::spawn(async move {
@@ -338,12 +256,31 @@ mod tests {
                     Some(BuildEvent::Start { sender, .. }) => {
                         let _ = sender.send(Ok(build_id.to_string()));
                     }
-                    _ => panic!("BuildEvent must match BuildEvent::Start"),
+                    _ => {
+                        panic!("BuildEvent must match BuildEvent::Start")
+                    }
                 }
             }
         });
 
-        let filter = make_node_routes(artifact_service, p2p_client, transparency_log_service);
+        tokio::spawn(async move {
+            loop {
+                match p2p_command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    }
+                    _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
+
+        artifact_service
+            .transparency_log_service
+            .add_authorized_node(p2p_client.local_peer_id)
+            .await
+            .expect("Error adding authorized node");
+
+        let filter = make_node_routes(artifact_service, p2p_client);
         let request = RequestMavenBuild {
             gav: "commons-codec:commons-codec:1.15".to_owned(),
         };
@@ -366,19 +303,13 @@ mod tests {
     async fn node_routes_peers() {
         let tmp_dir = test_util::tests::setup();
 
-        let local_keypair = Keypair::generate_ed25519();
-        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone()).await;
-        let (_build_event_receiver, artifact_service) = create_artifact_service(
-            &tmp_dir,
-            transparency_log_service.clone(),
-            p2p_client.clone(),
-        );
+        let (p2p_client, mut p2p_command_receiver) = test_util::tests::create_p2p_client();
+        let (artifact_service, ..) =
+            test_util::tests::create_artifact_service_with_p2p_client(&tmp_dir, p2p_client.clone());
 
         tokio::spawn(async move {
             loop {
-                match command_receiver.recv().await {
+                match p2p_command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let mut set = HashSet::new();
                         set.insert(p2p_client.local_peer_id);
@@ -389,11 +320,7 @@ mod tests {
             }
         });
 
-        let filter = make_node_routes(
-            artifact_service,
-            p2p_client.clone(),
-            transparency_log_service,
-        );
+        let filter = make_node_routes(artifact_service, p2p_client.clone());
         let response = warp::test::request().path("/peers").reply(&filter).await;
 
         let expected_body =
@@ -409,29 +336,24 @@ mod tests {
     async fn node_routes_status() {
         let tmp_dir = test_util::tests::setup();
 
-        let local_keypair = Keypair::generate_ed25519();
-        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone()).await;
-        let (_build_event_receiver, artifact_service) = create_artifact_service(
-            &tmp_dir,
-            transparency_log_service.clone(),
-            p2p_client.clone(),
-        );
+        let (p2p_client, mut p2p_command_receiver) = test_util::tests::create_p2p_client();
+        let (artifact_service, ..) =
+            test_util::tests::create_artifact_service_with_p2p_client(&tmp_dir, p2p_client.clone());
 
+        let local_peer_id = p2p_client.local_peer_id;
         tokio::spawn(async move {
             loop {
-                match command_receiver.recv().await {
+                match p2p_command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let mut set = HashSet::new();
-                        set.insert(p2p_client.local_peer_id);
+                        set.insert(local_peer_id);
                         let _ = sender.send(set);
                     }
                     Some(Command::Status { sender, .. }) => {
                         let status = Status {
                             peers_count: 0,
                             peer_addrs: Vec::new(),
-                            peer_id: p2p_client.local_peer_id.to_string(),
+                            peer_id: local_peer_id.to_string(),
                         };
 
                         let _ = sender.send(status);
@@ -441,11 +363,7 @@ mod tests {
             }
         });
 
-        let filter = make_node_routes(
-            artifact_service,
-            p2p_client.clone(),
-            transparency_log_service,
-        );
+        let filter = make_node_routes(artifact_service, p2p_client.clone());
         let response = warp::test::request().path("/status").reply(&filter).await;
 
         let expected_status = Status {

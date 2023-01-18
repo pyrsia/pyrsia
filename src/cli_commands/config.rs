@@ -203,7 +203,7 @@ pub fn valid_disk_space(input: String) -> Result<String, String> {
 pub fn get_config() -> Result<CliConfig> {
     let config_path = get_config_path()?;
 
-    let cfg: CliConfig = confy::load_path(&config_path)?;
+    let cfg: CliConfig = confy::load_path(config_path)?;
 
     Ok(cfg)
 }
