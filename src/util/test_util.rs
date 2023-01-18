@@ -17,9 +17,111 @@
 #[cfg(test)]
 #[cfg(not(tarpaulin_include))]
 pub mod tests {
+    use crate::artifact_service::service::ArtifactService;
+    use crate::blockchain_service::event::{BlockchainEvent, BlockchainEventClient};
+    use crate::build_service::event::{BuildEvent, BuildEventClient};
+    use crate::network::client::command::Command;
+    use crate::network::client::Client;
+    use crate::transparency_log::log::TransparencyLogService;
+    use crate::verification_service::service::VerificationService;
+    use libp2p::gossipsub::IdentTopic;
+    use libp2p::identity::Keypair;
     use std::env;
     use std::fs;
     use std::path;
+    use tokio::sync::mpsc::{self, Receiver};
+
+    pub fn create_blockchain_event_client() -> (BlockchainEventClient, Receiver<BlockchainEvent>) {
+        let (sender, receiver) = mpsc::channel(1);
+        (BlockchainEventClient::new(sender), receiver)
+    }
+
+    pub fn create_build_event_client() -> (BuildEventClient, Receiver<BuildEvent>) {
+        let (sender, receiver) = mpsc::channel(1);
+        (BuildEventClient::new(sender), receiver)
+    }
+
+    pub fn create_p2p_client() -> (Client, Receiver<Command>) {
+        let (sender, receiver) = mpsc::channel(1);
+        (
+            Client::new(
+                sender,
+                Keypair::generate_ed25519().public().to_peer_id(),
+                IdentTopic::new("pyrsia-topic"),
+            ),
+            receiver,
+        )
+    }
+
+    pub fn create_artifact_service<P: AsRef<path::Path>>(
+        artifact_path: P,
+    ) -> (
+        ArtifactService,
+        Receiver<BlockchainEvent>,
+        Receiver<BuildEvent>,
+        Receiver<Command>,
+    ) {
+        let (blockchain_event_client, blockchain_event_receiver) = create_blockchain_event_client();
+        let (build_event_client, build_event_receiver) = create_build_event_client();
+        let (p2p_client, p2p_command_receiver) = create_p2p_client();
+
+        (
+            ArtifactService::new(
+                &artifact_path,
+                blockchain_event_client,
+                build_event_client,
+                p2p_client,
+            )
+            .unwrap(),
+            blockchain_event_receiver,
+            build_event_receiver,
+            p2p_command_receiver,
+        )
+    }
+
+    pub fn create_artifact_service_with_p2p_client<P: AsRef<path::Path>>(
+        artifact_path: P,
+        p2p_client: Client,
+    ) -> (
+        ArtifactService,
+        Receiver<BlockchainEvent>,
+        Receiver<BuildEvent>,
+    ) {
+        let (blockchain_event_client, blockchain_event_receiver) = create_blockchain_event_client();
+        let (build_event_client, build_event_receiver) = create_build_event_client();
+
+        (
+            ArtifactService::new(
+                &artifact_path,
+                blockchain_event_client,
+                build_event_client,
+                p2p_client,
+            )
+            .unwrap(),
+            blockchain_event_receiver,
+            build_event_receiver,
+        )
+    }
+
+    pub fn create_transparency_log_service<P: AsRef<path::Path>>(
+        repository_path: P,
+    ) -> (TransparencyLogService, Receiver<BlockchainEvent>) {
+        let (blockchain_event_client, blockchain_event_receiver) = create_blockchain_event_client();
+
+        (
+            TransparencyLogService::new(&repository_path, blockchain_event_client).unwrap(),
+            blockchain_event_receiver,
+        )
+    }
+
+    pub fn create_verification_service() -> (VerificationService, Receiver<BuildEvent>) {
+        let (build_event_client, build_event_receiver) = create_build_event_client();
+
+        (
+            VerificationService::new(build_event_client).unwrap(),
+            build_event_receiver,
+        )
+    }
 
     pub fn setup() -> path::PathBuf {
         let tmp_dir = tempfile::tempdir()

@@ -24,7 +24,7 @@ use super::header::Ordinal;
 use crate::error::BlockchainError;
 use crate::structures::block::Block;
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone, Decode, Encode, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Default, Decode, Encode, Hash, PartialEq, Eq)]
 pub struct Chain {
     // The block sequence is always sorted by the ordinal, guaranteed by the hash and parent hash
     blocks: Vec<Block>,

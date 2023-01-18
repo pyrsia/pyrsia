@@ -117,21 +117,15 @@ fn parse_artifact_from_full_path(
 mod tests {
     use super::*;
     use crate::artifact_service::storage::ArtifactStorage;
-    use crate::blockchain_service::service::BlockchainService;
-    use crate::build_service::event::BuildEventClient;
+    use crate::blockchain_service::event::BlockchainEvent;
     use crate::network::client::command::Command;
-    use crate::network::client::Client;
-    use crate::transparency_log::log::{AddArtifactRequest, TransparencyLogService};
+    use crate::transparency_log::log::AddArtifactRequest;
     use crate::util::test_util;
     use anyhow::Context;
     use hyper::header::HeaderValue;
-    use libp2p::gossipsub::IdentTopic;
-    use libp2p::identity::Keypair;
     use std::collections::HashSet;
     use std::fs::File;
-    use std::path::{Path, PathBuf};
-    use std::sync::Arc;
-    use tokio::sync::{mpsc, Mutex};
+    use std::path::PathBuf;
 
     const VALID_ARTIFACT_HASH: &str =
         "e11c16ff163ccc1efe01d2696c626891560fa82123601a5ff196d97b6ab156da";
@@ -139,46 +133,6 @@ mod tests {
     const INVALID_FULL_PATH: &str = "/maven2/test/1.0/test-1.0.jar";
     const VALID_MAVEN_ID: &str = "test:test:1.0";
     const VALID_MAVEN_ARTIFACT_ID: &str = "test/test/1.0/test-1.0.jar";
-
-    fn create_p2p_client(local_keypair: &Keypair) -> (mpsc::Receiver<Command>, Client) {
-        let (command_sender, command_receiver) = mpsc::channel(1);
-        let p2p_client = Client::new(
-            command_sender,
-            local_keypair.public().to_peer_id(),
-            IdentTopic::new("pyrsia-topic"),
-        );
-
-        (command_receiver, p2p_client)
-    }
-
-    async fn create_blockchain_service(
-        local_keypair: &Keypair,
-        p2p_client: Client,
-        blockchain_path: impl AsRef<Path>,
-    ) -> BlockchainService {
-        let Keypair::Ed25519(ed25519_keypair) = local_keypair;
-
-        BlockchainService::init_first_blockchain_node(
-            ed25519_keypair,
-            ed25519_keypair,
-            p2p_client,
-            blockchain_path,
-        )
-        .await
-        .expect("Creating BlockchainService failed")
-    }
-
-    async fn create_transparency_log_service(
-        artifact_path: impl AsRef<Path>,
-        local_keypair: Keypair,
-        p2p_client: Client,
-    ) -> TransparencyLogService {
-        let blockchain_service =
-            create_blockchain_service(&local_keypair, p2p_client, &artifact_path).await;
-
-        TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
-            .expect("Creating TransparencyLogService failed")
-    }
 
     #[test]
     fn parse_full_path_test() {
@@ -220,34 +174,30 @@ mod tests {
     async fn handle_get_maven_artifact_test() {
         let tmp_dir = test_util::tests::setup();
 
-        let local_keypair = Keypair::generate_ed25519();
-        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone()).await;
+        let (mut artifact_service, mut blockchain_event_receiver, _, mut p2p_command_receiver) =
+            test_util::tests::create_artifact_service(&tmp_dir);
 
         tokio::spawn(async move {
             loop {
-                match command_receiver.recv().await {
+                match blockchain_event_receiver.recv().await {
+                    Some(BlockchainEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("BlockchainEvent must match BlockchainEvent::AddBlock"),
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match p2p_command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
-                    }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
         });
-
-        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
-        let build_event_client = BuildEventClient::new(build_event_sender);
-        let mut artifact_service = ArtifactService::new(
-            &tmp_dir,
-            transparency_log_service,
-            build_event_client,
-            p2p_client,
-        )
-        .expect("Creating ArtifactService failed");
 
         let transparency_log = artifact_service
             .transparency_log_service
