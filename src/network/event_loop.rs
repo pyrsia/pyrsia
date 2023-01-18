@@ -166,7 +166,10 @@ impl PyrsiaEventLoop {
         trace!("Handle GossipsubEvent: {:?}", event);
         if let gossipsub::GossipsubEvent::Message { message, .. } = event {
             self.event_sender
-                .send(PyrsiaEvent::SimpleBlockchainRequest { data: message.data })
+                .send(PyrsiaEvent::BlockchainRequest {
+                    data: message.data,
+                    channel: None,
+                })
                 .await
                 .expect("Event receiver not to be dropped.");
         }
@@ -508,7 +511,7 @@ impl PyrsiaEventLoop {
                     self.event_sender
                         .send(PyrsiaEvent::BlockchainRequest {
                             data: request.0,
-                            channel,
+                            channel: Some(channel),
                         })
                         .await
                         .expect("Event receiver not to be dropped.");
@@ -864,10 +867,7 @@ pub enum PyrsiaEvent {
     },
     BlockchainRequest {
         data: Vec<u8>,
-        channel: ResponseChannel<BlockchainResponse>,
-    },
-    SimpleBlockchainRequest {
-        data: Vec<u8>,
+        channel: Option<ResponseChannel<BlockchainResponse>>,
     },
     RequestBuildStatus {
         build_id: String,
