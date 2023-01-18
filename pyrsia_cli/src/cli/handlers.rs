@@ -19,7 +19,7 @@ use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::node;
 use pyrsia::node_api::model::cli::{
     RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
-    RequestMavenBuild, RequestMavenLog,
+    RequestMavenBuild, RequestMavenLog, TransparentLogOutputParams,
 };
 use serde_json::Value;
 use std::collections::HashSet;
@@ -195,9 +195,10 @@ pub async fn node_list() {
     }
 }
 
-pub async fn inspect_docker_transparency_log(image: &str) {
+pub async fn inspect_docker_transparency_log(image: &str, format: Option<String>) {
     let result = node::inspect_docker_transparency_log(RequestDockerLog {
         image: image.to_owned(),
+        output_params: Some(TransparentLogOutputParams { format }),
     })
     .await;
     match result {
@@ -210,9 +211,10 @@ pub async fn inspect_docker_transparency_log(image: &str) {
     };
 }
 
-pub async fn inspect_maven_transparency_log(gav: &str) {
+pub async fn inspect_maven_transparency_log(gav: &str, format: Option<String>) {
     let result = node::inspect_maven_transparency_log(RequestMavenLog {
         gav: gav.to_owned(),
+        output_params: Some(TransparentLogOutputParams { format }),
     })
     .await;
     match result {

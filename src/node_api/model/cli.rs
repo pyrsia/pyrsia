@@ -34,8 +34,14 @@ pub struct RequestDockerBuild {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct TransparentLogOutputParams {
+    pub format: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RequestDockerLog {
     pub image: String,
+    pub output_params: Option<TransparentLogOutputParams>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -46,9 +52,44 @@ pub struct RequestMavenBuild {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RequestMavenLog {
     pub gav: String,
+    pub output_params: Option<TransparentLogOutputParams>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RequestBuildStatus {
     pub build_id: String,
+}
+
+impl TransparentLogOutputParams {
+    pub fn new() -> Self {
+        Self { format: None }
+    }
+
+    pub fn output_format(params: &Option<Self>) -> &str {
+        if let Some(params) = params {
+            if let Some(fmt) = &params.format {
+                return fmt.as_str();
+            }
+        }
+
+        "json"
+    }
+}
+
+impl Default for TransparentLogOutputParams {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RequestDockerLog {
+    pub fn output_format(&self) -> &str {
+        TransparentLogOutputParams::output_format(&self.output_params)
+    }
+}
+
+impl RequestMavenLog {
+    pub fn output_format(&self) -> &str {
+        TransparentLogOutputParams::output_format(&self.output_params)
+    }
 }

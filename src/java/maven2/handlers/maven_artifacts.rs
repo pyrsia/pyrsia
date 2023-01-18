@@ -127,7 +127,6 @@ mod tests {
     use hyper::header::HeaderValue;
     use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::Keypair;
-    use std::collections::HashSet;
     use std::fs::File;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
@@ -221,23 +220,11 @@ mod tests {
         let tmp_dir = test_util::tests::setup();
 
         let local_keypair = Keypair::generate_ed25519();
-        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
+        let (command_receiver, p2p_client) = create_p2p_client(&local_keypair);
         let transparency_log_service =
             create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone()).await;
 
-        tokio::spawn(async move {
-            loop {
-                match command_receiver.recv().await {
-                    Some(Command::ListPeers { sender, .. }) => {
-                        let _ = sender.send(HashSet::new());
-                    }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
-                    }
-                    _ => panic!("Command must match Command::ListPeers"),
-                }
-            }
-        });
+        test_util::tests::default_p2p_server_stub(command_receiver);
 
         let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
         let build_event_client = BuildEventClient::new(build_event_sender);

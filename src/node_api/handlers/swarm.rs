@@ -21,13 +21,54 @@ use crate::node_api::model::cli::{
     RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
     RequestMavenBuild, RequestMavenLog,
 };
-use crate::transparency_log::log::TransparencyLogService;
+use crate::transparency_log::log::{TransparencyLog, TransparencyLogService};
 
 use crate::artifact_service::service::ArtifactService;
 use libp2p::PeerId;
 use log::debug;
 use std::str::FromStr;
 use warp::{http::StatusCode, Rejection, Reply};
+
+pub enum ContentType {
+    JSON(&'static str),
+    CSV(&'static str),
+}
+
+impl ContentType {
+    pub fn from(format: &str) -> ContentType {
+        let lower_case_val = format.to_lowercase();
+        match lower_case_val.as_str() {
+            "json" => ContentType::JSON("application/json"),
+            "csv" => ContentType::CSV("text/csv"),
+            _ => panic!("Unknown format {}", lower_case_val),
+        }
+    }
+
+    pub fn create_response(&self, records: Vec<TransparencyLog>) -> Result<impl Reply, Rejection> {
+        let (body, content_type) = match self {
+            ContentType::JSON(val) => (
+                serde_json::to_string(&records).map_err(RegistryError::from)?,
+                val,
+            ),
+            ContentType::CSV(val) => {
+                let mut writer = csv::Writer::from_writer(vec![]);
+                for transparency_log in records {
+                    writer.serialize(transparency_log).unwrap();
+                }
+
+                let res = writer.into_inner().unwrap();
+                (String::from_utf8(res).unwrap(), val)
+            }
+        };
+
+        Ok(warp::http::response::Builder::new()
+            .status(StatusCode::OK)
+            .header("Content-Type", content_type.to_owned())
+            .header("Content-Length", body.as_bytes().len())
+            .body(body)
+            .unwrap())
+    }
+}
 
 pub async fn handle_add_authorized_node(
     request_add_authorized_node: RequestAddAuthorizedNode,
@@ -138,13 +179,7 @@ pub async fn handle_inspect_log_docker(
         .search_transparency_logs(&PackageType::Docker, &request_docker_log.image)
         .map_err(RegistryError::from)?;
 
-    let result_as_json = serde_json::to_string(&result).map_err(RegistryError::from)?;
-
-    Ok(warp::http::response::Builder::new()
-        .header("Content-Type", "application/json")
-        .status(StatusCode::OK)
-        .body(result_as_json)
-        .unwrap())
+    ContentType::from(request_docker_log.output_format()).create_response(result)
 }
 
 pub async fn handle_inspect_log_maven(
@@ -155,11 +190,5 @@ pub async fn handle_inspect_log_maven(
         .search_transparency_logs(&PackageType::Maven2, &request_maven_log.gav)
         .map_err(RegistryError::from)?;
 
-    let result_as_json = serde_json::to_string(&result).map_err(RegistryError::from)?;
-
-    Ok(warp::http::response::Builder::new()
-        .header("Content-Type", "application/json")
-        .status(StatusCode::OK)
-        .body(result_as_json)
-        .unwrap())
+    ContentType::from(request_maven_log.output_format()).create_response(result)
 }

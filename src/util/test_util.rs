@@ -17,9 +17,12 @@
 #[cfg(test)]
 #[cfg(not(tarpaulin_include))]
 pub mod tests {
+    use crate::network::client::command::Command;
+    use std::collections::HashSet;
     use std::env;
     use std::fs;
     use std::path;
+    use tokio::sync::mpsc;
 
     pub fn setup() -> path::PathBuf {
         let tmp_dir = tempfile::tempdir()
@@ -40,5 +43,21 @@ pub mod tests {
 
         env::remove_var("PYRSIA_ARTIFACT_PATH");
         env::remove_var("DEV_MODE");
+    }
+
+    pub fn default_p2p_server_stub(mut command_receiver: mpsc::Receiver<Command>) {
+        tokio::spawn(async move {
+            loop {
+                match command_receiver.recv().await {
+                    Some(Command::ListPeers { sender, .. }) => {
+                        let _ = sender.send(HashSet::new());
+                    }
+                    Some(Command::BroadcastBlock { sender, .. }) => {
+                        let _ = sender.send(anyhow::Ok(()));
+                    }
+                    _ => panic!("Command must match Command::ListPeers"),
+                }
+            }
+        });
     }
 }
