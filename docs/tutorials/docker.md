@@ -113,7 +113,7 @@ distribution to other nodes.
 
 ## Inspect the Pyrsia transparency log
 
-Now, let's take a look at the transparency logs.
+Now, let's take a look at the transparency logs. Transperency logs are a record of all publically trusted digital certificates.
 
 If you ran through all the steps of the [installation tutorial](/docs/tutorials/quick-installation.mdx), the Pyrsia CLI tool will be available.
 
