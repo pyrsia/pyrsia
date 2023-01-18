@@ -15,7 +15,7 @@
 */
 
 use crate::artifact_service::model::PackageType;
-use crate::blockchain_service::service::BlockchainService;
+use crate::blockchain_service::event::BlockchainEventClient;
 use libp2p::PeerId;
 use log::{debug, error};
 use pyrsia_blockchain_network::error::BlockchainError;
@@ -26,10 +26,8 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
-use tokio::sync::Mutex;
 use uuid::Uuid;
 
 #[derive(Debug, Error)]
@@ -69,6 +67,8 @@ pub enum TransparencyLogError {
     StorageFailure(#[from] io::Error),
     #[error("Failure while adding block to the blockchain: {0}")]
     BlockchainFailure(#[from] BlockchainError),
+    #[error("Failure while generating JSON from transparency log: {0}")]
+    SerdeJsonFailure(#[from] serde_json::error::Error),
 }
 
 #[derive(
@@ -136,7 +136,7 @@ pub struct AuthorizedNode {
 #[derive(Clone)]
 pub struct TransparencyLogService {
     storage_path: PathBuf,
-    blockchain_service: Arc<Mutex<BlockchainService>>,
+    blockchain_event_client: BlockchainEventClient,
 }
 
 impl TransparencyLog {
@@ -165,13 +165,13 @@ impl TransparencyLog {
 impl TransparencyLogService {
     pub fn new<P: AsRef<Path>>(
         repository_path: P,
-        blockchain_service: Arc<Mutex<BlockchainService>>,
+        blockchain_event_client: BlockchainEventClient,
     ) -> Result<Self, TransparencyLogError> {
         let mut absolute_path = repository_path.as_ref().to_path_buf().canonicalize()?;
         absolute_path.push("transparency_log");
         Ok(TransparencyLogService {
             storage_path: absolute_path,
-            blockchain_service,
+            blockchain_event_client,
         })
     }
 
@@ -198,11 +198,9 @@ impl TransparencyLogService {
             node_public_key: Uuid::new_v4().to_string(),
         };
 
-        let payload = serde_json::to_string(&transparency_log).unwrap();
-        self.blockchain_service
-            .lock()
-            .await
-            .add_payload(payload.into_bytes())
+        let payload = serde_json::to_string(&transparency_log)?;
+        self.blockchain_event_client
+            .add_block(payload.into_bytes())
             .await?;
 
         self.write_transparency_log(&transparency_log)
@@ -220,11 +218,9 @@ impl TransparencyLogService {
     ) -> Result<TransparencyLog, TransparencyLogError> {
         let transparency_log = TransparencyLog::from(add_artifact_request);
 
-        let payload = serde_json::to_string(&transparency_log).unwrap();
-        self.blockchain_service
-            .lock()
-            .await
-            .add_payload(payload.into_bytes())
+        let payload = serde_json::to_string(&transparency_log)?;
+        self.blockchain_event_client
+            .add_block(payload.into_bytes())
             .await?;
 
         Ok(transparency_log)
@@ -546,69 +542,18 @@ impl TransparencyLogService {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
-    use crate::{network::client::command::Command, network::client::Client, util::test_util};
-    use libp2p::gossipsub::IdentTopic;
-    use libp2p::identity::{self, Keypair};
-    use tokio::sync::mpsc;
+    use crate::blockchain_service::event::BlockchainEvent;
+    use crate::util::test_util;
+    use libp2p::identity::Keypair;
 
-    fn create_p2p_client() -> (Client, mpsc::Receiver<Command>) {
-        let local_keypair = Keypair::generate_ed25519();
-
-        let (command_sender, command_receiver) = mpsc::channel(1);
-        (
-            Client::new(
-                command_sender,
-                local_keypair.public().to_peer_id(),
-                IdentTopic::new("pyrsia-topic"),
-            ),
-            command_receiver,
-        )
-    }
-
-    async fn create_transparency_log_service(
-        artifact_path: impl AsRef<Path>,
-    ) -> TransparencyLogService {
-        let ed25519_keypair = identity::ed25519::Keypair::generate();
-        let (p2p_client, _command_receiver) = create_p2p_client();
-
-        let blockchain_service = BlockchainService::init_first_blockchain_node(
-            &ed25519_keypair,
-            &ed25519_keypair,
-            p2p_client,
-            &artifact_path,
-        )
-        .await
-        .expect("Creating BlockchainService failed");
-
-        TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
-            .unwrap()
-    }
-
-    async fn create_transparency_log_service_from_p2p_client(
-        artifact_path: impl AsRef<Path>,
-        p2p_client: Client,
-    ) -> TransparencyLogService {
-        let ed25519_keypair = identity::ed25519::Keypair::generate();
-
-        let blockchain_service = BlockchainService::init_first_blockchain_node(
-            &ed25519_keypair,
-            &ed25519_keypair,
-            p2p_client,
-            &artifact_path,
-        )
-        .await
-        .expect("Creating BlockchainService failed");
-
-        TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
-            .unwrap()
-    }
-
-    #[tokio::test]
-    async fn create_transparency_log() {
+    #[test]
+    fn create_transparency_log() {
         let tmp_dir = test_util::tests::setup();
-        let log = create_transparency_log_service(&tmp_dir).await;
+
+        let (log, _) = test_util::tests::create_transparency_log_service(tmp_dir);
 
         let ps_art_id = "test_package_specific_artifact_id";
+
         let transparency_log = TransparencyLog {
             id: "test_id".to_string(),
             package_type: Some(PackageType::Docker),
@@ -656,7 +601,7 @@ mod tests {
     async fn test_open_db() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let result = log.open_db();
         assert!(result.is_ok());
@@ -676,7 +621,7 @@ mod tests {
     async fn test_write_tranparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log = new_artifact_transparency_log_default();
 
@@ -690,7 +635,7 @@ mod tests {
     async fn test_write_twice_transparency_log_error() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log = new_artifact_transparency_log_default();
 
@@ -706,7 +651,7 @@ mod tests {
     async fn test_find_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let id = "test_id";
         let transparency_log = new_artifact_transparency_log_with_id(id);
@@ -724,7 +669,7 @@ mod tests {
     async fn test_find_transparency_log_not_found() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log = new_artifact_transparency_log_default();
 
@@ -750,7 +695,7 @@ mod tests {
     async fn test_read_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let ps_art_id = "package_specific_artifact_id";
         let transparency_log = new_artifact_transparency_log(
@@ -773,7 +718,7 @@ mod tests {
     async fn test_read_transparency_log_invalid_id() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log = new_artifact_transparency_log(
             Some(PackageType::Maven2),
@@ -803,7 +748,7 @@ mod tests {
     async fn test_read_latest_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let transparency_log1 = new_artifact_transparency_log(
             Some(PackageType::Maven2),
@@ -836,7 +781,7 @@ mod tests {
     async fn test_read_transparency_logs() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let ps_id = "package_specific_id";
         let transparency_log1 = new_artifact_transparency_log(
@@ -874,7 +819,12 @@ mod tests {
     async fn test_verify_artifact_can_be_added_to_transparency_logs() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
+        let result1 = log.verify_package_can_be_added_to_transparency_logs(
+            &PackageType::Docker,
+            "package_specific_id",
+        );
+        assert!(result1.is_ok());
 
         let ps_id = "package_specific_id";
         assert!(log
@@ -919,7 +869,7 @@ mod tests {
     async fn test_read_remove_artifact_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let ps_art_id = "package_specific_artifact_id";
         let transparency_log = new_artifact_transparency_log(
@@ -949,16 +899,16 @@ mod tests {
     async fn test_add_artifact() {
         let tmp_dir = test_util::tests::setup();
 
-        let (p2p_client, mut command_receiver) = create_p2p_client();
-        let mut log = create_transparency_log_service_from_p2p_client(&tmp_dir, p2p_client).await;
+        let (mut log, mut build_event_receiver) =
+            test_util::tests::create_transparency_log_service(&tmp_dir);
 
         tokio::spawn(async move {
             loop {
-                match command_receiver.recv().await {
-                    Some(Command::BroadcastBlock { sender, .. }) => {
+                match build_event_receiver.recv().await {
+                    Some(BlockchainEvent::AddBlock { sender, .. }) => {
                         let _ = sender.send(Ok(()));
                     }
-                    _ => panic!("Command must match Command::BroadcastBlock"),
+                    _ => panic!("BlockchainEvent must match BlockchainEvent::AddBlock"),
                 }
             }
         });
@@ -981,7 +931,7 @@ mod tests {
     async fn test_get_authorized_nodes_empty() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let result_read = log.get_authorized_nodes();
         assert!(result_read.is_ok());
@@ -994,16 +944,16 @@ mod tests {
     async fn test_add_authorized_nodes() {
         let tmp_dir = test_util::tests::setup();
 
-        let (p2p_client, mut command_receiver) = create_p2p_client();
-        let log = create_transparency_log_service_from_p2p_client(&tmp_dir, p2p_client).await;
+        let (log, mut build_event_receiver) =
+            test_util::tests::create_transparency_log_service(&tmp_dir);
 
         tokio::spawn(async move {
             loop {
-                match command_receiver.recv().await {
-                    Some(Command::BroadcastBlock { sender, .. }) => {
+                match build_event_receiver.recv().await {
+                    Some(BlockchainEvent::AddBlock { sender, .. }) => {
                         let _ = sender.send(Ok(()));
                     }
-                    _ => panic!("Command must match Command::BroadcastBlock"),
+                    _ => panic!("BlockchainEvent must match BlockchainEvent::AddBlock"),
                 }
             }
         });
@@ -1029,7 +979,7 @@ mod tests {
     async fn test_get_authorized_nodes_add() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let node_id = "node_id";
         let transparency_log = new_auth_node_transparency_log(Operation::AddNode, node_id);
@@ -1049,7 +999,7 @@ mod tests {
     async fn test_get_authorized_nodes_add_and_remove() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let first_node_id = "node_id_1";
         let transparency_log1 = new_auth_node_transparency_log(Operation::AddNode, first_node_id);
@@ -1078,7 +1028,7 @@ mod tests {
     async fn test_verify_authorized_node_can_be_added() {
         let tmp_dir = test_util::tests::setup();
 
-        let log = create_transparency_log_service(&tmp_dir).await;
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let node_id = "node_id_1";
         assert!(log

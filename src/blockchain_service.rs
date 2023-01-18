@@ -14,4 +14,5 @@
    limitations under the License.
 */
 
+pub mod event;
 pub mod service;

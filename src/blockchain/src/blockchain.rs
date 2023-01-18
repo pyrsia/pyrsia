@@ -17,7 +17,6 @@
 use libp2p::identity;
 use libp2p::identity::Keypair::Ed25519;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::path::{Path, PathBuf};
 
@@ -41,8 +40,6 @@ pub enum SignatureAlgorithm {
 }
 #[derive(Default)]
 pub struct Blockchain {
-    // trans_observers may be only used internally by blockchain service
-    trans_observers: HashMap<Transaction, Box<TransactionCallback>>,
     // chain is the blocks of the blockchain
     chain: Chain,
     // the directory on the local file system to use for persisting the blocks in the blockchain
@@ -53,7 +50,6 @@ impl Debug for Blockchain {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Blockchain")
             .field("chain", &self.chain)
-            .field("trans_observers", &self.trans_observers.len())
             .finish()
     }
 }
@@ -81,7 +77,6 @@ impl Blockchain {
         }
 
         Ok(Self {
-            trans_observers: Default::default(),
             chain,
             blockchain_path: blockchain_path.as_ref().to_path_buf(),
         })
@@ -89,25 +84,8 @@ impl Blockchain {
 
     pub fn empty_new(blockchain_path: impl AsRef<Path>) -> Self {
         Self {
-            trans_observers: Default::default(),
             chain: Default::default(),
             blockchain_path: blockchain_path.as_ref().to_path_buf(),
-        }
-    }
-
-    pub fn submit_transaction<CallBack: 'static + FnOnce(Transaction) + Send + Sync>(
-        &mut self,
-        trans: Transaction,
-        on_done: CallBack,
-    ) -> &mut Self {
-        self.trans_observers.insert(trans, Box::new(on_done));
-        self
-    }
-
-    pub fn notify_transaction_settled(&mut self, trans: Transaction) {
-        // if there were no observers, we don't care
-        if let Some(on_settled) = self.trans_observers.remove(&trans) {
-            on_settled(trans)
         }
     }
 
@@ -190,7 +168,6 @@ impl Blockchain {
 mod tests {
     use super::*;
     use std::fs;
-    use std::sync::{Arc, Mutex};
 
     fn create_tmp_dir() -> PathBuf {
         tempfile::tempdir()
@@ -235,37 +212,6 @@ mod tests {
             .expect("Block should have been committed.");
         assert!(blockchain.chain.blocks().last().unwrap().verify());
         assert_eq!(2, blockchain.chain.len());
-
-        remove_tmp_dir(tmp_dir);
-    }
-
-    #[tokio::test]
-    async fn test_add_trans_listener() {
-        let tmp_dir = create_tmp_dir();
-        let keypair = identity::ed25519::Keypair::generate();
-        let local_id = Address::from(identity::PublicKey::Ed25519(keypair.public()));
-        let mut blockchain = Blockchain::new(&keypair, &tmp_dir)
-            .await
-            .expect("Blockchain should have been created.");
-
-        let transaction = Transaction::new(
-            TransactionType::Create,
-            local_id,
-            "some transaction".as_bytes().to_vec(),
-            &keypair,
-        );
-        let called = Arc::new(Mutex::new(false));
-        blockchain
-            .submit_transaction(transaction.clone(), {
-                let called = called.clone();
-                let transaction = transaction.clone();
-                move |t: Transaction| {
-                    assert_eq!(transaction, t);
-                    *called.lock().unwrap() = true;
-                }
-            })
-            .notify_transaction_settled(transaction);
-        assert!(*called.lock().unwrap());
 
         remove_tmp_dir(tmp_dir);
     }
