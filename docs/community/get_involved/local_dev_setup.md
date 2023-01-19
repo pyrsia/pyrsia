@@ -37,7 +37,7 @@ if you are looking to make code changes.
 
   Pyrsia has a dependency on the `libp2p` crate which requires `protoc` to be installed.
   - Mac OS
-    If you have Homebrew (which you can get from https://brew.sh), just run:
+    If you have [Homebrew](https://brew.sh/), just run:
 
     ```shell
     brew install protobuf
