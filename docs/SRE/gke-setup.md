@@ -34,10 +34,13 @@
 6. Print list of name servers
    - `gcloud dns record-sets list --project pyrsia-sandbox --zone pyrsia-link --name "pyrsia.link." --type NS --format "value(rrdatas)" | tr ';' '\n'`
 
-7. Add DNS Admin to Service Account
+7. Create round robin DNS name
+   - `gcloud dns --project=pyrsia-sandbox record-sets create boot.staging.pyrsia.link. --zone="pyrsia-link" --type="CNAME" --ttl="300" --routing-policy-type="WRR" --routing-policy-data="50.0=pyrsia-node-0.staging.pyrsia.link."`
+
+8. Add DNS Admin to Service Account
    `gcloud projects add-iam-policy-binding pyrsia-sandbox --member serviceAccount:prysia-k8s@pyrsia-sandbox.iam.gserviceaccount.com --role roles/dns.admin`
 
-8. Generate Pyrsia Keys using openssl v3
+9. Generate Pyrsia Keys using openssl v3
 
    ```bash
    /usr/local/Cellar/openssl@3/3.0.7/bin/openssl genpkey -algorithm Ed25519 -out ed25519.pem
@@ -46,7 +49,7 @@
    cat id_ed25519.pri id_ed25519.pub > ed25519.ser
    ```
 
-9. Deploy Pyrsia via Helm
+10. Deploy Pyrsia via Helm
       - `helm repo update pyrsia-nightly`
       - `helm upgrade node1 --install -n pyrsia-node pyrsia-nightly/pyrsia-node --set k8s_provider=gke --set "dnsname=staging.pyrsia.link" --set bootdns=boot.staging.pyrsia.link --set keys.p2p=$(cat ed25519.ser | base64) --set keys.blockchain=$(cat ed25519.ser | base64) --version "0.2.4+2856`
 
