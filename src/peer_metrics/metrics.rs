@@ -15,6 +15,8 @@
 */
 
 /// Peer Quality Metrics
+use std::thread;
+use std::time;
 use sysinfo::{NetworkExt, ProcessExt, System, SystemExt};
 
 // peer metric constants
@@ -22,25 +24,47 @@ const CPU_STRESS_WEIGHT: f64 = 2_f64;
 const NETWORK_STRESS_WEIGHT: f64 = 0.001_f64;
 const DISK_STRESS_WEIGHT: f64 = 0.001_f64;
 
-/// Get the local stress metric to advertise to peers
-pub fn get_quality_metric() -> f64 {
-    let mut qm = get_cpu_stress() * CPU_STRESS_WEIGHT;
-    qm += get_network_stress() * NETWORK_STRESS_WEIGHT;
-    qm + get_disk_stress() * DISK_STRESS_WEIGHT
+#[derive(Default)]
+pub struct PeerMetrics {
+    system: System,
+}
+
+impl PeerMetrics {
+    pub fn new() -> Self {
+        let mut peer_metrics = Self {
+            system: System::new_all(),
+        };
+        peer_metrics.initialize();
+        peer_metrics
+    }
+
+    fn initialize(&mut self) {
+        self.system.refresh_all();
+        thread::sleep(time::Duration::from_millis(500));
+        self.system.refresh_all();
+    }
+
+    /// Get the local stress metric to advertise to peers
+    pub fn get_quality_metric(&mut self) -> f64 {
+        let mut qm = get_cpu_stress(&mut self.system) * CPU_STRESS_WEIGHT;
+        qm += get_network_stress(&mut self.system) * NETWORK_STRESS_WEIGHT;
+        qm + get_disk_stress(&mut self.system) * DISK_STRESS_WEIGHT
+    }
 }
 
 // This function gets the current CPU load on the system.
-fn get_cpu_stress() -> f64 {
-    let sys = System::new_all();
-    let load_avg = sys.load_average();
+fn get_cpu_stress(system: &mut System) -> f64 {
+    system.refresh_all();
+
+    let load_avg = system.load_average();
     load_avg.one //using the average over the last 1 minute
 }
 
 // This function gets the current network load on the system
-fn get_network_stress() -> f64 {
-    let mut sys = System::new_all();
-    sys.refresh_networks_list();
-    let networks = sys.networks();
+fn get_network_stress(system: &mut System) -> f64 {
+    system.refresh_all();
+
+    let networks = system.networks();
 
     let mut packets_in = 0;
     let mut packets_out = 0;
@@ -52,11 +76,12 @@ fn get_network_stress() -> f64 {
     //TODO: add network card capabilities to the metric. cards with > network capacity should get a lower stress number.
 }
 
-fn get_disk_stress() -> f64 {
-    let sys = System::new_all();
+fn get_disk_stress(system: &mut System) -> f64 {
+    system.refresh_all();
+
     // Sum up the disk usage measured as total read and writes per process:
     let mut total_usage = 0_u64;
-    for process in sys.processes().values() {
+    for process in system.processes().values() {
         let usage = process.disk_usage();
         total_usage = total_usage + usage.total_written_bytes + usage.total_read_bytes;
     }
@@ -70,21 +95,29 @@ mod tests {
 
     #[test]
     fn cpu_load_test() {
-        get_cpu_stress();
+        let mut peer_metrics = PeerMetrics::new();
+
+        get_cpu_stress(&mut peer_metrics.system);
     }
 
     #[test]
     fn network_load_test() {
-        get_network_stress();
+        let mut peer_metrics = PeerMetrics::new();
+
+        get_network_stress(&mut peer_metrics.system);
     }
 
     #[test]
     fn disk_load_test() {
-        get_disk_stress();
+        let mut peer_metrics = PeerMetrics::new();
+
+        get_disk_stress(&mut peer_metrics.system);
     }
 
     #[test]
     fn quality_metric_test() {
-        get_quality_metric();
+        let mut peer_metrics = PeerMetrics::new();
+
+        peer_metrics.get_quality_metric();
     }
 }
