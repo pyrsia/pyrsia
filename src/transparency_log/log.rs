@@ -56,6 +56,8 @@ pub enum TransparencyLogError {
         invalid_hash: String,
         actual_hash: String,
     },
+    #[error("Node with node ID {node_id} already exists in transparency log")]
+    InvalidNodePeerIDFormat { node_id: String },
     #[error("Invalid operation for ID {id}: {invalid_operation}")]
     InvalidOperation {
         id: String,
@@ -282,8 +284,12 @@ impl TransparencyLogService {
 
     /// Gets a list of transparency logs of which the operation is AddNode. Returns an error
     /// when no transparency log could be found.
-    pub fn get_authorized_nodes(&self) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
-        self.find_added_nodes()
+    pub fn get_authorized_nodes(&self) -> Result<Vec<PeerId>, TransparencyLogError> {
+        Ok(self
+            .find_added_nodes()?
+            .iter()
+            .map(|node| PeerId::from_str(&node.node_id).unwrap())
+            .collect::<Vec<PeerId>>())
     }
 
     /// Verifies that a specified node can be added to the transparency log database.
@@ -298,9 +304,9 @@ impl TransparencyLogService {
                 // error, can be added
                 Ok(())
             }
-            Some(logs) => {
-                for log in logs {
-                    if log.node_id == *peer_id {
+            Some(nodes) => {
+                for node in nodes {
+                    if node.eq(&PeerId::from_str(peer_id).unwrap()) {
                         return Err(TransparencyLogError::NodeAlreadyExists {
                             node_id: peer_id.to_owned(),
                         });
@@ -964,7 +970,12 @@ mod tests {
         assert!(result_read.is_ok());
         let vec = result_read.unwrap();
         assert_eq!(vec.len(), 1);
-        assert_eq!(vec.get(0).unwrap().node_id, transparency_log.node_id);
+        assert_eq!(
+            true,
+            vec.get(0)
+                .unwrap()
+                .eq(&PeerId::from_str(&transparency_log.node_id).unwrap())
+        );
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -975,7 +986,7 @@ mod tests {
 
         let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
-        let node_id = "node_id";
+        let node_id: &str = &PeerId::random().to_string();
         let transparency_log = new_auth_node_transparency_log(Operation::AddNode, node_id);
 
         assert!(log.write_transparency_log(&transparency_log).is_ok());
@@ -984,7 +995,10 @@ mod tests {
         assert!(result_read.is_ok());
         let vec = result_read.unwrap();
         assert_eq!(vec.len(), 1);
-        assert_eq!(vec.get(0).unwrap().node_id, node_id);
+        assert_eq!(
+            true,
+            vec.get(0).unwrap().eq(&PeerId::from_str(node_id).unwrap())
+        );
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -995,11 +1009,11 @@ mod tests {
 
         let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
-        let first_node_id = "node_id_1";
+        let first_node_id: &str = &PeerId::random().to_string();
         let transparency_log1 = new_auth_node_transparency_log(Operation::AddNode, first_node_id);
 
         assert!(log.write_transparency_log(&transparency_log1).is_ok());
-        let second_node_id = "node_id_2";
+        let second_node_id: &str = &PeerId::random().to_string();
         let transparency_log2 = new_auth_node_transparency_log(Operation::AddNode, second_node_id);
 
         assert!(log.write_transparency_log(&transparency_log2).is_ok());
@@ -1013,7 +1027,12 @@ mod tests {
         assert!(result_read.is_ok());
         let vec = result_read.unwrap();
         assert_eq!(vec.len(), 1);
-        assert_eq!(vec.get(0).unwrap().node_id, second_node_id);
+        assert_eq!(
+            true,
+            vec.get(0)
+                .unwrap()
+                .eq(&PeerId::from_str(second_node_id).unwrap())
+        );
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -1024,7 +1043,7 @@ mod tests {
 
         let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
-        let node_id = "node_id_1";
+        let node_id: &str = &PeerId::random().to_string();
         assert!(log
             .verify_node_can_be_added_to_transparency_logs(node_id)
             .is_ok());
