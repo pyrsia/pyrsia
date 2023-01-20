@@ -193,23 +193,23 @@ You can use the Pyrsia CLI to ensure that the peers are connected.
 
 3. Ping the Pyrsia node and list the status
 
-    ```sh
-    $ ./pyrsia ping
-    Connection Successfull !! {}
-    ```
+   ```sh
+   $ ./pyrsia ping
+   Connection Successfull !! {}
+   ```
 
-    ```sh
-    $ ./pyrsia -s
-    Connected Peers Count:       1
-    ```
+   ```sh
+   $ ./pyrsia -s
+   Connected Peers Count:       1
+   ```
 
-    If you see a status message similar to:
+   If you see a status message similar to:
 
-    ```text
-    Error: error sending request for url (http://localhost:7888/v2): error trying to connect: tcp connect error: Connection refused (os error 111)
-    ```
+   ```text
+   Error: error sending request for url (http://localhost:7888/v2): error trying to connect: tcp connect error: Connection refused (os error 111)
+   ```
 
-    then your node is likely not running. Go back to step 3 to make sure the Pyrsia Node can be started.
+   then your node is likely not running. Go back to step 3 to make sure the Pyrsia Node can be started.
 
 4. Authorize Node 1 as your build node
 
