@@ -145,11 +145,15 @@ jobs:
         run: |
           set-cargo-version Cargo.toml ${{ env.PKG_VERSION }}+${{ github.run_number }}
 
-      # build binaries. Todo: include tests
-      - name: Build Release Binaries
+      - name: Build Release and Test Binaries
+        shell: bash
         run: |
-          cargo build --workspace --lib --bins --verbose --release
+          .github/workflows/build.sh
           sccache --show-stats
+
+      - name: Execute Test Cases
+        run: |
+          cargo test --workspace --verbose --release
 
       # Create installers
       - name: Create MSIs
