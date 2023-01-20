@@ -16,6 +16,7 @@
 
 use crate::artifact_service::model::PackageType;
 use crate::blockchain_service::event::BlockchainEventClient;
+use libp2p::core::ParseError;
 use libp2p::PeerId;
 use log::{debug, error};
 use pyrsia_blockchain_network::error::BlockchainError;
@@ -56,8 +57,8 @@ pub enum TransparencyLogError {
         invalid_hash: String,
         actual_hash: String,
     },
-    #[error("Node with node ID {node_id} already exists in transparency log")]
-    InvalidNodePeerIDFormat { node_id: String },
+    #[error("Invalid peerId format: {0}")]
+    InvalidNodePeerIDFormat(#[from] ParseError),
     #[error("Invalid operation for ID {id}: {invalid_operation}")]
     InvalidOperation {
         id: String,
@@ -288,7 +289,7 @@ impl TransparencyLogService {
         Ok(self
             .find_added_nodes()?
             .iter()
-            .map(|node| PeerId::from_str(&node.node_id).unwrap())
+            .flat_map(|node| PeerId::from_str(&node.node_id))
             .collect::<Vec<PeerId>>())
     }
 
@@ -306,7 +307,7 @@ impl TransparencyLogService {
             }
             Some(nodes) => {
                 for node in nodes {
-                    if node.eq(&PeerId::from_str(peer_id).unwrap()) {
+                    if node.eq(&PeerId::from_str(peer_id)?) {
                         return Err(TransparencyLogError::NodeAlreadyExists {
                             node_id: peer_id.to_owned(),
                         });
