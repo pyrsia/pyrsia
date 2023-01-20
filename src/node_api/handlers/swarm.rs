@@ -53,11 +53,13 @@ impl ContentType {
             ContentType::CSV(val) => {
                 let mut writer = csv::Writer::from_writer(vec![]);
                 for transparency_log in records {
-                    writer.serialize(transparency_log).unwrap();
+                    writer
+                        .serialize(transparency_log)
+                        .map_err(RegistryError::from)?;
                 }
 
-                let res = writer.into_inner().unwrap();
-                (String::from_utf8(res).unwrap(), val)
+                let res = writer.into_inner().map_err(RegistryError::from)?;
+                (String::from_utf8(res).map_err(RegistryError::from)?, val)
             }
         };
 
@@ -66,7 +68,7 @@ impl ContentType {
             .header("Content-Type", content_type.to_owned())
             .header("Content-Length", body.as_bytes().len())
             .body(body)
-            .unwrap())
+            .map_err(RegistryError::from)?)
     }
 }
 
