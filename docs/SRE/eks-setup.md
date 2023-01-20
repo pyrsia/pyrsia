@@ -12,39 +12,7 @@
 
 3. Create the Cluster
 
-   - cluster.yaml
-
-      ```yaml
-      ---
-      apiVersion: eksctl.io/v1alpha5
-      kind: ClusterConfig
-      metadata:
-      name: pyrsianode
-      region: us-east-1
-      cloudWatch:
-      clusterLogging:
-         enableTypes:
-            - audit
-            - authenticator
-      managedNodeGroups:
-      - name: ng-1
-         amiFamily: AmazonLinux2
-         instanceSelector:
-            cpuArchitecture: x86_64
-            memory: 2GiB
-            vCPUs: 2
-         instanceTypes:
-            - t3.small
-            - t3a.small
-      iam:
-      withOIDC: true
-      addons:
-      - name: aws-ebs-csi-driver
-         version: v1.13.0-eksbuild.3
-         attachPolicyARNs:
-            - arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
-      ```
-
+   - See [cluster.yaml](cluster.yaml)
    - `eksctl create cluster -f cluster.yaml`
 
 4. Create Kubernetes Namespaces
@@ -52,35 +20,7 @@
       - `kubectl create namespace external-dns`
 
 5. Create Route 53 Policy
-      - route53-policy.json
-
-      ```json
-         {
-         "Version": "2012-10-17",
-         "Statement": [
-            {
-               "Effect": "Allow",
-               "Action": [
-               "route53:ChangeResourceRecordSets"
-               ],
-               "Resource": [
-               "arn:aws:route53:::hostedzone/*"
-               ]
-            },
-            {
-               "Effect": "Allow",
-               "Action": [
-               "route53:ListHostedZones",
-               "route53:ListResourceRecordSets"
-               ],
-               "Resource": [
-               "*"
-               ]
-            }
-         ]
-         }
-      ```
-
+      - See [route53-policy.json](route53-policy.json)
       - `aws iam create-policy --policy-name "AllowExternalDNSUpdates" --policy-document file://route53-policy.json`
 
 6. Attach Route 53 Policy
