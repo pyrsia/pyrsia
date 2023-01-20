@@ -35,8 +35,36 @@ if you are looking to make code changes.
 
 - Install protoc
 
-  Pyrsia has a dependency on the `libp2p` crate which requires `protoc` to be installed. For installation instructions,
-  please read the [protobuf installation guide](https://github.com/protocolbuffers/protobuf#protocol-compiler-installation).
+  Pyrsia has a dependency on the `libp2p` crate which requires `protoc` to be installed.
+  - Mac OS
+    If you have [Homebrew](https://brew.sh/), just run:
+
+    ```sh
+    brew install protobuf
+    ```
+
+    Alternately, run the following commands ([protobuf releases page](https://github.com/protocolbuffers/protobuf/releases)):
+
+    ```sh
+    PROTOC_ZIP= protoc-3.14.0-osx-x86_64.zip
+    curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.14.0/$PROTOC_ZIP
+    sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
+    sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
+    rm -f $PROTOC_ZIP
+    ```
+
+  - Linux
+    Run the following commands ([protobuf releases page](https://github.com/protocolbuffers/protobuf/releases)):
+
+    ```sh
+    PROTOC_ZIP=protoc-3.14.0-linux-x86_64.zip
+    curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.14.0/$PROTOC_ZIP
+    sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
+    sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
+    rm -f $PROTOC_ZIP
+    ```
+
+  For more detail, please read the [protobuf installation guide](https://github.com/protocolbuffers/protobuf#protocol-compiler-installation).
 
 ## Build code and run tests
 
@@ -48,7 +76,8 @@ cargo build --all-targets
 cargo test --workspace
 ```
 
-These commands should run successfully. If you have issues with these please reach out to the team on slack and report an issue/submit a PR.
+These commands should run successfully. If you have issues with these please reach out to the team [on slack](https://app.slack.com/client/TJWP1JXK6/C03U383HU1Z)
+and report [an issue](https://github.com/pyrsia/pyrsia/issues)/submit a PR.
 
 You can also check the code coverage.
 
@@ -68,7 +97,7 @@ cd $PYRSIA_HOME
 DOCKER_BUILDKIT=1 docker build -t=pyrsia/node .
 ```
 
-If everything works as expected, after a while, a new image "pyrsia/node" should appear in the docker images list.
+If everything works as expected, after a while, a new image "pyrsia/node" should appear in the local docker images list.
 
 ### Build the Pyrsia node docker image (if not present) and start the node
 
@@ -164,25 +193,25 @@ You can use the Pyrsia CLI to ensure that the peers are connected.
 
 3. Ping the Pyrsia node and list the status
 
-    ```sh
-    $ ./pyrsia ping
-    Connection Successfull !! {}
-    ```
+   ```sh
+   $ ./pyrsia ping
+   Connection Successfull !! {}
+   ```
 
-    ```sh
-    $ ./pyrsia -s
-    Connected Peers Count:       1
-    ```
+   ```sh
+   $ ./pyrsia -s
+   Connected Peers Count:       1
+   ```
 
-If you see a status message similar to:
+   If you see a status message similar to:
 
-```text
-Error: error sending request for url (http://localhost:7888/v2): error trying to connect: tcp connect error: Connection refused (os error 111)
-```
+   ```text
+   Error: error sending request for url (http://localhost:7888/v2): error trying to connect: tcp connect error: Connection refused (os error 111)
+   ```
 
-then your node is likely not running. Go back to step 3 to make sure the Pyrsia Node can be started.
+   then your node is likely not running. Go back to step 3 to make sure the Pyrsia Node can be started.
 
-5. Authorize Node 1 as your build node
+4. Authorize Node 1 as your build node
 
     ```sh
     ./pyrsia config -e --port 7888
@@ -198,7 +227,7 @@ then your node is likely not running. Go back to step 3 to make sure the Pyrsia 
     Authorize request successfully handled.
     ```
 
-6. Trigger a build from source
+5. Trigger a build from source
 
     Configure your pyrsia CLI to use either Node 1 (port 7888) or Node 2 (port 7889) and then run this:
 
@@ -209,7 +238,7 @@ then your node is likely not running. Go back to step 3 to make sure the Pyrsia 
     When triggering the build from Node 1, it will use the build pipeline. When triggering the build from Node 2,
     it will send a build request to Node 1, that will use the build pipeline.
 
-7. Inspect logs
+6. Inspect logs
 
     ```sh
     ./pyrsia inspect-log docker --image alpine:3.16.0
@@ -217,6 +246,7 @@ then your node is likely not running. Go back to step 3 to make sure the Pyrsia 
 
     This will print the transparency logs for alpine:3.16.0 in JSON format.
 
-Congratulations! You have now setup your developer environment and are ready to write code and submit a PR to Pyrsia. Head over to [contributing guidelines](/docs/community/get_involved/contributing/) to start contributing to the project.
+Congratulations! You have now set up your developer environment and are ready to write code and submit a PR to Pyrsia.
+Head over to [contributing guidelines](https://github.com/pyrsia/.github/blob/main/contributing.md) to start contributing to the project.
 
 > ⚠️ Word of caution: Running the peers for a few hours does generate network traffic and hence can drain your computer power. Ensure you are plugged into power if you are running multiple peers for a long time`
