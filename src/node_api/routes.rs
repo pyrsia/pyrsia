@@ -392,7 +392,7 @@ mod tests {
     #[tokio::test]
     async fn inspect_log_docker_json() {
         setup_and_execute(|ctx| async {
-            let ps_id = "artipie:0.0.7";
+            let ps_id = "library/artipie:0.0.7";
             let transparency_log = add_artifact(&ctx.log, PackageType::Docker, ps_id);
             let request = RequestDockerLog {
                 image: ps_id.to_string(),
@@ -416,7 +416,7 @@ mod tests {
     #[tokio::test]
     async fn inspect_log_docker_csv() {
         setup_and_execute(|ctx| async {
-            let ps_id = "artipie:0.0.7";
+            let ps_id = "library/artipie:0.0.7";
             let transparency_log = add_artifact(&ctx.log, PackageType::Docker, ps_id);
             let request = RequestDockerLog {
                 image: ps_id.to_string(),
