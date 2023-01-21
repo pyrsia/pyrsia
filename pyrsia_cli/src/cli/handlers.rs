@@ -17,47 +17,16 @@
 use crate::CONF_FILE_PATH_MSG_STARTER;
 use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::node;
+use pyrsia::node_api::handlers::swarm;
 use pyrsia::node_api::model::cli::{
     RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
     RequestMavenBuild, RequestMavenLog, TransparentLogOutputParams,
 };
-use serde_json::Value;
 use std::collections::HashSet;
 use std::io;
 use std::io::BufRead;
 
 const CONF_REMINDER_MESSAGE: &str = "Please make sure the pyrsia CLI config is up to date and matches the node configuration. For more information, run 'pyrsia config --show'";
-
-enum OutputFormat {
-    JSON,
-    CSV,
-}
-
-impl OutputFormat {
-    pub fn from(format: Option<&String>) -> Self {
-        if let Some(val) = format {
-            match val.as_str() {
-                "json" => OutputFormat::JSON,
-                "csv" => OutputFormat::CSV,
-                _ => panic!("Unknown format {:?}", val),
-            }
-        } else {
-            OutputFormat::JSON
-        }
-    }
-
-    pub fn print_logs(&self, logs: String) {
-        match self {
-            OutputFormat::JSON => {
-                let logs_as_json: Value = serde_json::from_str(logs.as_str()).unwrap();
-                println!("{}", serde_json::to_string_pretty(&logs_as_json).unwrap());
-            }
-            OutputFormat::CSV => {
-                println!("{}", logs);
-            }
-        }
-    }
-}
 
 pub fn config_add() -> anyhow::Result<()> {
     let default_config = config::CliConfig {
@@ -227,18 +196,16 @@ pub async fn node_list() {
 }
 
 pub async fn inspect_docker_transparency_log(image: &str, format: Option<String>) {
-    let output_format = OutputFormat::from(format.as_ref());
+    let content_type = swarm::ContentType::from_string(format.as_ref());
 
     let result = node::inspect_docker_transparency_log(RequestDockerLog {
         image: image.to_owned(),
-        output_params: Some(TransparentLogOutputParams {
-            format: format.clone(),
-        }),
+        output_params: Some(TransparentLogOutputParams { format }),
     })
     .await;
     match result {
         Ok(logs) => {
-            output_format.print_logs(logs);
+            content_type.print_logs(logs);
         }
         Err(error) => {
             println!("Inspect log request failed with error: {:?}", error);
@@ -247,18 +214,16 @@ pub async fn inspect_docker_transparency_log(image: &str, format: Option<String>
 }
 
 pub async fn inspect_maven_transparency_log(gav: &str, format: Option<String>) {
-    let output_format = OutputFormat::from(format.as_ref());
+    let content_type = swarm::ContentType::from_string(format.as_ref());
 
     let result = node::inspect_maven_transparency_log(RequestMavenLog {
         gav: gav.to_owned(),
-        output_params: Some(TransparentLogOutputParams {
-            format: format.clone(),
-        }),
+        output_params: Some(TransparentLogOutputParams { format }),
     })
     .await;
     match result {
         Ok(logs) => {
-            output_format.print_logs(logs);
+            content_type.print_logs(logs);
         }
         Err(error) => {
             println!("Inspect log request failed with error: {:?}", error);

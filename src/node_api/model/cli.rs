@@ -65,14 +65,12 @@ impl TransparentLogOutputParams {
         Self { format: None }
     }
 
-    pub fn output_format(params: &Option<Self>) -> &str {
+    pub fn output_format(params: &Option<Self>) -> Option<&str> {
         if let Some(params) = params {
-            if let Some(fmt) = &params.format {
-                return fmt.as_str();
-            }
+            return Some(params.format.as_ref().unwrap().as_str());
         }
 
-        "json"
+        Some("json")
     }
 }
 
@@ -83,13 +81,13 @@ impl Default for TransparentLogOutputParams {
 }
 
 impl RequestDockerLog {
-    pub fn output_format(&self) -> &str {
+    pub fn output_format(&self) -> Option<&str> {
         TransparentLogOutputParams::output_format(&self.output_params)
     }
 }
 
 impl RequestMavenLog {
-    pub fn output_format(&self) -> &str {
+    pub fn output_format(&self) -> Option<&str> {
         TransparentLogOutputParams::output_format(&self.output_params)
     }
 }

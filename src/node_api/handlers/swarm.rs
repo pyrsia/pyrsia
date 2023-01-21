@@ -35,12 +35,34 @@ pub enum ContentType {
 }
 
 impl ContentType {
-    pub fn from(format: &str) -> ContentType {
-        let lower_case_val = format.to_lowercase();
-        match lower_case_val.as_str() {
-            "json" => ContentType::JSON("application/json"),
-            "csv" => ContentType::CSV("text/csv"),
-            _ => panic!("Unknown format {}", lower_case_val),
+    pub fn from_string(format: Option<&String>) -> Self {
+        ContentType::from(match format {
+            Some(val) => Some(val.as_str()),
+            _ => None,
+        })
+    }
+
+    pub fn from(format: Option<&str>) -> Self {
+        if let Some(val) = format {
+            match val {
+                "json" => ContentType::JSON("application/json"),
+                "csv" => ContentType::CSV("text/csv"),
+                _ => panic!("Unknown format {:?}", val),
+            }
+        } else {
+            ContentType::JSON("application/json")
+        }
+    }
+
+    pub fn print_logs(&self, logs: String) {
+        match self {
+            ContentType::JSON(_) => {
+                let logs_as_json: serde_json::Value = serde_json::from_str(logs.as_str()).unwrap();
+                println!("{}", serde_json::to_string_pretty(&logs_as_json).unwrap());
+            }
+            ContentType::CSV(_) => {
+                println!("{}", logs);
+            }
         }
     }
 
