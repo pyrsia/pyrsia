@@ -283,8 +283,7 @@ impl TransparencyLogService {
         }
     }
 
-    /// Gets a list of transparency logs of which the operation is AddNode. Returns an error
-    /// when no transparency log could be found.
+    /// Get a list of auth node PeerID. Return an error when no PeerID could be found.
     pub fn get_authorized_nodes(&self) -> Result<Vec<PeerId>, TransparencyLogError> {
         Ok(self
             .find_added_nodes()?
