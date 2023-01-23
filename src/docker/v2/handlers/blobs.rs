@@ -27,8 +27,8 @@ pub async fn handle_get_blobs(
     mut artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
     debug!(
-        "Getting blob with digest: {:?}. If not found a build will be requested",
-        digest
+        "Getting blob with digest: {:?}. If not found, a build will be requested",
+        &get_package_specific_artifact_id(&name, &digest)
     );
 
     let blob_content = artifact_service
@@ -52,7 +52,12 @@ pub async fn handle_get_blobs(
 }
 
 fn get_package_specific_artifact_id(name: &str, digest: &str) -> String {
-    format!("{}@{}", name, digest)
+    let combined_tag = format!("{}@{}", name, digest);
+    if combined_tag.contains('/') {
+        combined_tag
+    } else {
+        format!("library/{}", combined_tag)
+    }
 }
 
 #[cfg(test)]
@@ -73,12 +78,24 @@ mod tests {
 
     #[test]
     fn test_get_package_specific_artifact_id_from_digest() {
-        let name = "alpine";
+        let name = "library/alpine";
         let tag = "sha256:1e014f84205d569a5cc3be4e108ca614055f7e21d11928946113ab3f36054801";
 
         assert_eq!(
             get_package_specific_artifact_id(name, tag),
             format!("{}@{}", name, tag)
+        );
+    }
+
+    #[test]
+    fn test_get_package_specific_artifact_id_as_official_image_name_from_digest() {
+        let name = "alpine";
+        let official_image_name = "library/alpine";
+        let tag = "sha256:1e014f84205d569a5cc3be4e108ca614055f7e21d11928946113ab3f36054801";
+
+        assert_eq!(
+            get_package_specific_artifact_id(name, tag),
+            format!("{}@{}", official_image_name, tag)
         );
     }
 
