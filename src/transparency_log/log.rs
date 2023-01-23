@@ -289,6 +289,7 @@ impl TransparencyLogService {
         Ok(self
             .find_added_nodes()?
             .iter()
+            //Get PeerId in the correct format, ignoring parsing errors
             .flat_map(|node| PeerId::from_str(&node.node_id))
             .collect::<Vec<PeerId>>())
     }
@@ -971,13 +972,10 @@ mod tests {
         assert!(result_read.is_ok());
         let vec = result_read.unwrap();
         assert_eq!(vec.len(), 1);
-        assert_eq!(
-            true,
-            vec.get(0)
-                .unwrap()
-                .eq(&PeerId::from_str(&transparency_log.node_id).unwrap())
-        );
-
+        assert!(vec
+            .get(0)
+            .unwrap()
+            .eq(&PeerId::from_str(&transparency_log.node_id).unwrap()));
         test_util::tests::teardown(tmp_dir);
     }
 
@@ -996,11 +994,7 @@ mod tests {
         assert!(result_read.is_ok());
         let vec = result_read.unwrap();
         assert_eq!(vec.len(), 1);
-        assert_eq!(
-            true,
-            vec.get(0).unwrap().eq(&PeerId::from_str(node_id).unwrap())
-        );
-
+        assert!(vec.get(0).unwrap().eq(&PeerId::from_str(node_id).unwrap()));
         test_util::tests::teardown(tmp_dir);
     }
 
@@ -1028,12 +1022,10 @@ mod tests {
         assert!(result_read.is_ok());
         let vec = result_read.unwrap();
         assert_eq!(vec.len(), 1);
-        assert_eq!(
-            true,
-            vec.get(0)
-                .unwrap()
-                .eq(&PeerId::from_str(second_node_id).unwrap())
-        );
+        assert!(vec
+            .get(0)
+            .unwrap()
+            .eq(&PeerId::from_str(second_node_id).unwrap()));
 
         test_util::tests::teardown(tmp_dir);
     }
