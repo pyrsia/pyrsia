@@ -21,12 +21,109 @@ use crate::node_api::model::cli::{
     RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
     RequestMavenBuild, RequestMavenLog,
 };
+use crate::transparency_log::log::TransparencyLog;
 
 use crate::artifact_service::service::ArtifactService;
 use libp2p::PeerId;
 use log::debug;
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use warp::{http::StatusCode, Rejection, Reply};
+
+#[derive(Debug, Deserialize, Serialize)]
+pub enum ContentType {
+    JSON,
+    CSV,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseContentTypeError {
+    invalid_type: String,
+}
+
+impl Clone for ContentType {
+    fn clone(&self) -> Self {
+        match self {
+            ContentType::JSON => ContentType::JSON,
+            ContentType::CSV => ContentType::CSV,
+        }
+    }
+}
+
+impl Copy for ContentType {}
+
+impl FromStr for ContentType {
+    type Err = ParseContentTypeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "json" => Ok(ContentType::JSON),
+            "csv" => Ok(ContentType::CSV),
+            _ => Err(ParseContentTypeError {
+                invalid_type: s.to_owned(),
+            }),
+        }
+    }
+}
+
+impl Default for ContentType {
+    fn default() -> Self {
+        ContentType::JSON
+    }
+}
+
+impl ContentType {
+    pub fn from(format: Option<&String>) -> Result<Self, ParseContentTypeError> {
+        if let Some(val) = format {
+            val.as_str().parse::<ContentType>()
+        } else {
+            Ok(Default::default())
+        }
+    }
+
+    pub fn print_logs(&self, logs: String) {
+        match self {
+            ContentType::JSON => {
+                let logs_as_json: serde_json::Value = serde_json::from_str(logs.as_str()).unwrap();
+                println!("{}", serde_json::to_string_pretty(&logs_as_json).unwrap());
+            }
+            ContentType::CSV => {
+                println!("{}", logs);
+            }
+        }
+    }
+
+    pub fn create_response(&self, records: Vec<TransparencyLog>) -> Result<impl Reply, Rejection> {
+        let body = match self {
+            ContentType::JSON => serde_json::to_string(&records).map_err(RegistryError::from)?,
+            ContentType::CSV => {
+                let mut writer = csv::Writer::from_writer(vec![]);
+                for transparency_log in records {
+                    writer
+                        .serialize(transparency_log)
+                        .map_err(RegistryError::from)?;
+                }
+
+                let res = writer.into_inner().map_err(RegistryError::from)?;
+                String::from_utf8(res).map_err(RegistryError::from)?
+            }
+        };
+
+        Ok(warp::http::response::Builder::new()
+            .status(StatusCode::OK)
+            .header("Content-Type", self.response_content_type())
+            .header("Content-Length", body.as_bytes().len())
+            .body(body)
+            .map_err(RegistryError::from)?)
+    }
+
+    fn response_content_type(&self) -> String {
+        match self {
+            ContentType::JSON => "application/json".to_owned(),
+            ContentType::CSV => "text/csv".to_owned(),
+        }
+    }
+}
 
 pub async fn handle_add_authorized_node(
     request_add_authorized_node: RequestAddAuthorizedNode,
@@ -144,13 +241,7 @@ pub async fn handle_inspect_log_docker(
         )
         .map_err(RegistryError::from)?;
 
-    let result_as_json = serde_json::to_string(&result).map_err(RegistryError::from)?;
-
-    Ok(warp::http::response::Builder::new()
-        .header("Content-Type", "application/json")
-        .status(StatusCode::OK)
-        .body(result_as_json)
-        .unwrap())
+    request_docker_log.format().create_response(result)
 }
 
 pub async fn handle_inspect_log_maven(
@@ -162,13 +253,7 @@ pub async fn handle_inspect_log_maven(
         .search_transparency_logs(&PackageType::Maven2, &request_maven_log.gav)
         .map_err(RegistryError::from)?;
 
-    let result_as_json = serde_json::to_string(&result).map_err(RegistryError::from)?;
-
-    Ok(warp::http::response::Builder::new()
-        .header("Content-Type", "application/json")
-        .status(StatusCode::OK)
-        .body(result_as_json)
-        .unwrap())
+    request_maven_log.format().create_response(result)
 }
 
 fn get_package_specific_id(package_specific_id: &str) -> String {

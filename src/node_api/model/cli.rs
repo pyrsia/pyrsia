@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use crate::node_api::handlers::swarm;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Default)]
@@ -34,8 +35,14 @@ pub struct RequestDockerBuild {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct TransparencyLogOutputParams {
+    pub format: Option<swarm::ContentType>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RequestDockerLog {
     pub image: String,
+    pub output_params: Option<TransparencyLogOutputParams>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -46,9 +53,46 @@ pub struct RequestMavenBuild {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RequestMavenLog {
     pub gav: String,
+    pub output_params: Option<TransparencyLogOutputParams>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RequestBuildStatus {
     pub build_id: String,
+}
+
+impl TransparencyLogOutputParams {
+    pub fn new() -> Self {
+        Self {
+            format: None::<swarm::ContentType>,
+        }
+    }
+
+    fn format(params: &Option<Self>) -> swarm::ContentType {
+        if let Some(params) = params {
+            if let Some(val) = params.format {
+                return val;
+            }
+        };
+
+        Default::default()
+    }
+}
+
+impl Default for TransparencyLogOutputParams {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RequestDockerLog {
+    pub fn format(&self) -> swarm::ContentType {
+        TransparencyLogOutputParams::format(&self.output_params)
+    }
+}
+
+impl RequestMavenLog {
+    pub fn format(&self) -> swarm::ContentType {
+        TransparencyLogOutputParams::format(&self.output_params)
+    }
 }
