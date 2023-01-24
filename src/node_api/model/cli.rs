@@ -75,7 +75,7 @@ impl TransparencyLogOutputParams {
             }
         };
 
-        swarm::ContentType::JSON
+        Default::default()
     }
 }
 
