@@ -85,7 +85,7 @@ On Windows you can see the logs in the command prompt you used to run the Pyrsia
 You will see something like this:
 
 ```text
-DEBUG pyrsia::docker::v2::handlers::manifests > Fetching manifest for alpine with tag: 3.16
+DEBUG pyrsia::docker::v2::handlers::manifests > Fetching manifest for library/alpine:3.16.0
 INFO  pyrsia::artifact_service::storage       > An artifact is being pulled from the artifact manager b0ed9f25-f322-47ef-8dac-03154209cfcf
 ```
 
@@ -113,7 +113,7 @@ distribution to other nodes.
 
 ## Inspect the Pyrsia transparency log
 
-Now, let's take a look at the transparency logs.
+Now, let's take a look at the transparency logs. Transperency logs are a record of all publically trusted digital certificates.
 
 If you ran through all the steps of the [installation tutorial](/docs/tutorials/quick-installation.mdx), the Pyrsia CLI tool will be available.
 

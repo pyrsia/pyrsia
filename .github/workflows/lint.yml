@@ -1,0 +1,80 @@
+---
+name: Linting
+on:
+  push:
+  pull_request:
+    paths:  # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-lint-skipped.yml#L8
+      - .github/workflows/lint.yml
+      - .github/workflows/.cargo/audit.toml
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - Cargo.lock
+      - 'installers/**'
+      - '**/*.md'
+      - '**/*.mdx'
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pyrsia/rust-toolchain@v2
+        with:
+          packages: cargo-audit
+      - run: |
+          cargo audit
+
+  rustfmt:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pyrsia/rust-toolchain@v2
+        with:
+          components: rustfmt
+      - run: |
+          cargo-fmt --check
+
+  clippy:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pyrsia/rust-toolchain@v2
+        with:
+          components: clippy
+      - uses: olix0r/cargo-action-fmt/setup@v2
+      - run: |
+          cargo clippy --all-features --message-format=json | cargo-action-fmt
+
+  license-header:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: viperproject/check-license-header@v2
+        with:
+          path: .
+          config: .github/license-check/config.json
+
+  inclusive-lint:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Woke for Inclusive Linting
+        run: |
+            curl -sSfL https://git.io/getwoke | bash -s --
+            bin/woke --exit-1-on-failure
+        shell: bash
+
+  markdown-docs:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: github/super-linter/slim@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MARKDOWN_CONFIG_FILE: .markdownlint.yaml
+          FILTER_REGEX_INCLUDE: .*\.[md|mdx]
+          FILTER_REGEX_EXCLUDE: pull_request_template\.md
+          VALIDATE_EDITORCONFIGE: false
+          VALIDATE_GITLEAKS: false
+          VALIDATE_NATURAL_LANGUAGE: false
+          MULTI_STATUS: false

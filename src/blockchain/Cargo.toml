@@ -1,12 +1,12 @@
 [package]
 name = "pyrsia_blockchain_network"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 
 [dependencies]
 aleph-bft = "0.8.4"
 anyhow = "1.0.68"
-async-trait = "0.1.59"
+async-trait = "0.1.62"
 bincode = "1.3.3"
 clap = { version = "4.0.32", features = ["derive"] }
 codec = {package = "parity-scale-codec", version = "2.3.1", default-features = false, features = ["derive"]}

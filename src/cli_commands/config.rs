@@ -25,6 +25,27 @@ use serde::{Deserialize, Serialize};
 
 const CONF_FILE: &str = "pyrsia-cli";
 
+/// The name of the environment variable to use for hardcoding the location
+/// of the configuration file during testing.
+const PYRSIA_CONFIG_LOCATION_FOR_TEST: &str = "PYRSIA_CONFIG_LOCATION_FOR_TEST";
+
+/// Gets the path of the configuration file. We always use [`confy::load_path`] and
+/// [`confy::store_path`] (instead of [`confy::load`] and [`confy::store`] respectively).
+/// That way we have full control over the exact location of the configuration file.
+/// This is particularly useful during testing. Setting the environment variable named
+/// [`PYRSIA_CONFIG_LOCATION_FOR_TEST`] will set the config path to that value.
+fn get_config_path() -> Result<PathBuf, confy::ConfyError> {
+    if cfg!(test) {
+        if let Ok(config_path_for_test) = std::env::var(PYRSIA_CONFIG_LOCATION_FOR_TEST) {
+            Ok(PathBuf::from(config_path_for_test))
+        } else {
+            confy::get_configuration_file_path(CONF_FILE, None)
+        }
+    } else {
+        confy::get_configuration_file_path(CONF_FILE, None)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CliConfig {
     pub host: String,
@@ -58,7 +79,9 @@ impl PartialEq for CliConfig {
 }
 
 pub fn add_config(new_cfg: CliConfig) -> Result<()> {
-    let mut cfg: CliConfig = confy::load(CONF_FILE, None)?;
+    let config_path = get_config_path()?;
+
+    let mut cfg: CliConfig = confy::load_path(&config_path)?;
     if !new_cfg.host.is_empty() {
         cfg.host = new_cfg.host
     }
@@ -71,7 +94,7 @@ pub fn add_config(new_cfg: CliConfig) -> Result<()> {
         cfg.disk_allocated = new_cfg.disk_allocated
     }
 
-    confy::store(CONF_FILE, None, &cfg)?;
+    confy::store_path(&config_path, &cfg)?;
 
     Ok(())
 }
@@ -178,14 +201,15 @@ pub fn valid_disk_space(input: String) -> Result<String, String> {
 }
 
 pub fn get_config() -> Result<CliConfig> {
-    let cfg: CliConfig = confy::load(CONF_FILE, None)?;
+    let config_path = get_config_path()?;
+
+    let cfg: CliConfig = confy::load_path(config_path)?;
 
     Ok(cfg)
 }
 
 pub fn get_config_file_path() -> Result<PathBuf> {
-    let path_buf: PathBuf = confy::get_configuration_file_path(CONF_FILE, None)?;
-    Ok(path_buf)
+    confy::get_configuration_file_path(CONF_FILE, None).map_err(|e| e.into())
 }
 
 #[cfg(test)]
@@ -243,17 +267,20 @@ mod tests {
 
     fn setup_temp_home_dir_and_execute<F>(op: F)
     where
-        F: FnOnce() -> (),
+        F: FnOnce(),
     {
-        let env_home_original = std::env::var("HOME").unwrap();
         let tmp_dir = tempfile::tempdir()
             .expect("could not create temporary directory")
             .into_path();
-        std::env::set_var("HOME", tmp_dir.to_str().unwrap());
+
+        std::env::set_var(
+            PYRSIA_CONFIG_LOCATION_FOR_TEST,
+            tmp_dir.join("pyrsia-cli.config"),
+        );
 
         op();
 
-        std::env::set_var("HOME", env_home_original);
+        std::env::remove_var(PYRSIA_CONFIG_LOCATION_FOR_TEST);
         fs::remove_dir_all(tmp_dir).expect("failed to clean up temporary directory");
     }
 
@@ -272,10 +299,9 @@ mod tests {
         }
         assert_eq!(
             CliConfig {
-                host: host_name.unwrap_or_else(|| { existing_cli_config.host }),
-                port: port.unwrap_or_else(|| { existing_cli_config.port }),
-                disk_allocated: disk_allocated
-                    .unwrap_or_else(|| { existing_cli_config.disk_allocated }),
+                host: host_name.unwrap_or(existing_cli_config.host),
+                port: port.unwrap_or(existing_cli_config.port),
+                disk_allocated: disk_allocated.unwrap_or(existing_cli_config.disk_allocated),
             },
             updated_cli_config
         );

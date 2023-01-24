@@ -1,10 +1,11 @@
+---
 name: Rust
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    paths: # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-skipped.yml#L8
+    paths:  # Make sure to keep sync'd https://github.com/pyrsia/pyrsia/blob/main/.github/workflows/rust-skipped.yml#L8
       - .github/workflows/rust.yml
       - '**/*.rs'
       - '**/Cargo.toml'
@@ -27,90 +28,91 @@ jobs:
       RUSTC_WRAPPER: /Users/runner/.cargo/bin/sccache
       CARGO_INCREMENTAL: 0
     steps:
-    - uses: actions/checkout@v3
-    - uses: pyrsia/rust-toolchain@v1
+      - uses: actions/checkout@v3
 
-    # Use sscache store in GitHub cache
-    - uses: actions/cache@v3
-      with:
-        path: /Users/runner/Library/Caches/Mozilla.sccache
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      # Use sscache store in GitHub cache
+      - uses: actions/cache@v3
+        with:
+          path: /Users/runner/Library/Caches/Mozilla.sccache
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    # Install sccache from binary
-    - run: |
-        .github/workflows/sccache-macos.sh
-        sccache --start-server
-        sccache --show-stats
+      # Install sccache from binary
+      - name: Start sccache
+        run: |
+          .github/workflows/sccache-macos.sh
+          sccache --start-server
+          sccache --show-stats
 
-    # Need to add build number to version number
-    - id: add-fqbvn-and-export
-      name: Add Build Number to Version Number and Export to Output
-      #      if:  github.repository_owner == 'pyrsia' && github.event_name == 'push' && github.event.pull_request.merged == true
-      run: |
-        brew install gnu-sed
-        echo -n 'export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"' >> ~/.zshrc
-        . ~/.zshrc
-        sed -ir.bak "0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\1\2\4+${{ github.run_number }}\5/" Cargo.toml
-        echo "TAG_NAME=$(sed -n '0,/version/ s/\(^version = \"\)\([[:digit:]]\(.[[:digit:]]\+\)\+\)\(.*\)\(\"$\)/\2\4/p' Cargo.toml)" >> $GITHUB_OUTPUT
-      shell: /bin/zsh -e {0}
+      - uses: pyrsia/rust-toolchain@v2
+        with:
+          packages: set-cargo-version
 
-    - name: Build Release and Test Binaries
-      run: |
-        .github/workflows/build.sh
-        sccache --show-stats
+      # Need to add build number to version number
+      - id: add-fqbvn-and-export
+        name: Add Build Number to Version Number and Export to Output
+        #      if:  github.repository_owner == 'pyrsia' && github.event_name == 'push' && github.event.pull_request.merged == true
+        run: |
+          set-cargo-version Cargo.toml ${{ env.PKG_VERSION }}+${{ github.run_number }}
+          echo "TAG_NAME=${{ env.PKG_VERSION }}+${{ github.run_number }}" >> $GITHUB_OUTPUT
+        shell: /bin/zsh -e {0}
 
-    - name: Execute Test Cases
-      run: |
-        cargo test --workspace --verbose --release
+      - name: Build Release and Test Binaries
+        run: |
+          .github/workflows/build.sh
+          sccache --show-stats
 
-    # Creates installer archive of pyrsia and pyrsia_node
-    - id: generate-homebrew-archives
-      name: Create Pyrsia Homebrew archives
-      run: |
-        tar -C target/release -czf pyrsia-${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }}.tar.gz pyrsia pyrsia_node
-      shell: /bin/zsh -e {0}
+      - name: Execute Test Cases
+        run: |
+          cargo test --workspace --verbose --release
 
-    - id: build-osx-google-auth
-      name: Google Auth
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: 'google-github-actions/auth@v1'
-      with:
-        workload_identity_provider: 'projects/679352079717/locations/global/workloadIdentityPools/pyrsia-pool/providers/github-provider'
-        service_account: 'pyrsia-ghaction@pyrsia-sandbox.iam.gserviceaccount.com'
+      # Creates installer archive of pyrsia and pyrsia_node
+      - id: generate-homebrew-archives
+        name: Create Pyrsia Homebrew archives
+        run: |
+          tar -C target/release -czf pyrsia-${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }}.tar.gz pyrsia pyrsia_node
+        shell: /bin/zsh -e {0}
 
-    - id: build-osx-setup-cloud-sdk
-      name: Set up Cloud SDK
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: 'google-github-actions/setup-gcloud@v1'
+      - id: build-osx-google-auth
+        name: Google Auth
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: 'projects/679352079717/locations/global/workloadIdentityPools/pyrsia-pool/providers/github-provider'
+          service_account: 'pyrsia-ghaction@pyrsia-sandbox.iam.gserviceaccount.com'
 
-    - id: build-osx-install-crcmod-gsutil-version-info
-      name: 'Install crcmod and gsutil version info'
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      run: |
-        pip3 install -U crcmod
-        gsutil version -l
-        gcloud info
-      shell: /bin/zsh -e {0}
+      - id: build-osx-setup-cloud-sdk
+        name: Set up Cloud SDK
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        uses: 'google-github-actions/setup-gcloud@v1'
 
-    # Publish nightly version of installer archive to cloud bucket
-    - id: build-osx-publish-nightly-gcs-repo
-      name: Publish Build to NIGHTLY GCS repo
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      run: |
-        .github/workflows/homebrew-installer-upload.sh ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} latest x86_64
-      shell: /bin/zsh -e {0}
-      env:
-        GPG_KEY: ${{ secrets.GPG_KEY }}
+      - id: build-osx-install-crcmod-gsutil-version-info
+        name: 'Install crcmod and gsutil version info'
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        run: |
+          pip3 install -U crcmod
+          gsutil version -l
+          gcloud info
+        shell: /bin/zsh -e {0}
 
-    # Publish stable version of installer archive to cloud bucket
-    - id: build-osx-publish-stable-gcs-repo
-      name: Publish Release to STABLE GCS repo
-      if: github.repository_owner == 'pyrsia' && github.event_name == 'release'
-      run: |
-        .github/workflows/homebrew-installer-upload.sh ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} stable x86_64
-      shell: /bin/zsh -e {0}
-      env:
-        GPG_KEY: ${{ secrets.GPG_KEY }}
+      # Publish nightly version of installer archive to cloud bucket
+      - id: build-osx-publish-nightly-gcs-repo
+        name: Publish Build to NIGHTLY GCS repo
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        run: |
+          .github/workflows/homebrew-installer-upload.sh ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} latest x86_64
+        shell: /bin/zsh -e {0}
+        env:
+          GPG_KEY: ${{ secrets.GPG_KEY }}
+
+      # Publish stable version of installer archive to cloud bucket
+      - id: build-osx-publish-stable-gcs-repo
+        name: Publish Release to STABLE GCS repo
+        if: github.repository_owner == 'pyrsia' && github.event_name == 'release'
+        run: |
+          .github/workflows/homebrew-installer-upload.sh ${{ steps.add-fqbvn-and-export.outputs.TAG_NAME }} stable x86_64
+        shell: /bin/zsh -e {0}
+        env:
+          GPG_KEY: ${{ secrets.GPG_KEY }}
 
   # Windows Build Job
   build-windows:
@@ -120,7 +122,6 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
       - uses: actions/checkout@v3
-      - uses: pyrsia/rust-toolchain@v1
 
       # Use sscache store in GitHub cache
       - uses: actions/cache@v3
@@ -135,17 +136,24 @@ jobs:
           sccache --start-server
           sccache --show-stats
 
+      - uses: pyrsia/rust-toolchain@v2
+        with:
+          packages: set-cargo-version
+
       # Need to add build number to version number
       - name: Add Build to Version Number
-        shell: cmd
         run: |
-          "C:\Program Files\Git\usr\bin\sed.exe" -i "s/version = \"0.2.3\"/version = \"0.2.3+${{ github.run_number }}\"/" Cargo.toml
+          set-cargo-version Cargo.toml ${{ env.PKG_VERSION }}+${{ github.run_number }}
 
-      # build binaries. Todo: include tests
-      - name: Build Release Binaries
+      - name: Build Release and Test Binaries
+        shell: bash
         run: |
-          cargo build --workspace --lib --bins --verbose --release
+          .github/workflows/build.sh
           sccache --show-stats
+
+      - name: Execute Test Cases
+        run: |
+          cargo test --workspace --verbose --release
 
       # Create installers
       - name: Create MSIs
@@ -184,157 +192,153 @@ jobs:
       RUSTC_WRAPPER: /home/runner/.cargo/bin/sccache
       CARGO_INCREMENTAL: 0
     steps:
-    - uses: actions/checkout@v3
-    - uses: pyrsia/rust-toolchain@v1
+      - uses: actions/checkout@v3
 
-    # Use sscache store in GitHub cache
-    - uses: actions/cache@v3
-      with:
-        path: /home/runner/.cache/sccache
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      # Use sscache store in GitHub cache
+      - uses: actions/cache@v3
+        with:
+          path: /home/runner/.cache/sccache
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    # Install sccache from binary
-    - run: |
-        .github/workflows/sccache-linux.sh
-        sccache --start-server
-        sccache --show-stats
+      # Install and start sccache from binary
+      - name: Start sccache
+        run: |
+          .github/workflows/sccache-linux.sh
+          sccache --start-server
+          sccache --show-stats
 
-    # Need to add build number to version number
-    - name: Add Build to Version Number
-      run: |
-        sed -i.bak "/^version = \"0.2.3\"/s/\"\$/+${{ github.run_number }}\"/" Cargo.toml
+      - uses: pyrsia/rust-toolchain@v2
+        with:
+          packages: cargo-deb set-cargo-version
 
-    # Run cargo build in parallel using sscache to avoid OS locking errors
-    - name: Build Release and Test Binaries
-      run: |
-        .github/workflows/build.sh
-        sccache --show-stats
+      # Need to add build number to version number
+      - name: Add Build to Version Number
+        run: |
+          set-cargo-version Cargo.toml ${{ env.PKG_VERSION }}+${{ github.run_number }}
 
-    - name: Execute Test Cases
-      run: |
-        cargo test --workspace --verbose --release
+      # Run cargo build in parallel using sscache to avoid OS locking errors
+      - name: Build Release and Test Binaries
+        run: |
+          .github/workflows/build.sh
+          sccache --show-stats
 
-    # Install cargo deb
-    - name: Install cargo-deb
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: actions-rs/cargo@v1.0.3
-      with:
-        command: install
-        args: cargo-deb --force
+      - name: Execute Test Cases
+        run: |
+          cargo test --workspace --verbose --release
 
-    # Create Pyrsia .deb file
-    - name: Package Pyrsia as deb file
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: actions-rs/cargo@v1.0.3
-      with:
-        command: deb
-        args: --no-build -v
+      # Create Pyrsia .deb file
+      - name: Package Pyrsia as deb file
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        run: |
+          cargo deb --no-build -v
 
-    # Login to GCS
-    - name: Google Auth
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: 'google-github-actions/auth@v1'
-      with:
-        workload_identity_provider: 'projects/679352079717/locations/global/workloadIdentityPools/pyrsia-pool/providers/github-provider'
-        service_account: 'pyrsia-ghaction@pyrsia-sandbox.iam.gserviceaccount.com'
+      # Login to GCS
+      - name: Google Auth
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: 'projects/679352079717/locations/global/workloadIdentityPools/pyrsia-pool/providers/github-provider'
+          service_account: 'pyrsia-ghaction@pyrsia-sandbox.iam.gserviceaccount.com'
 
-    # Add gsutils
-    - name: Set up Cloud SDK
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      uses: 'google-github-actions/setup-gcloud@v1'
+      # Add gsutils
+      - name: Set up Cloud SDK
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        uses: 'google-github-actions/setup-gcloud@v1'
 
-    # Add the prysia .deb file to the NIGHTLY apt repo which resides on GCS
-    - name: Publish Build to NIGHTLY GCS repo
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      run: |
-        .github/workflows/aptly.sh target/debian/pyrsia_0.2.3+${{ github.run_number }}_amd64.deb nightly
-      env:
-        GPG_KEY: ${{ secrets.GPG_KEY }}
+      # Add the prysia .deb file to the NIGHTLY apt repo which resides on GCS
+      - name: Publish Build to NIGHTLY GCS repo
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        run: |
+          .github/workflows/aptly.sh target/debian/pyrsia_${{ env.PKG_VERSION }}+${{ github.run_number }}_amd64.deb nightly
+        env:
+          GPG_KEY: ${{ secrets.GPG_KEY }}
 
-    # Add the prysia .deb file to the STABLE apt repo which resides on GCS
-    - name: Publish Release to STABLE GCS repo
-      # Only add to STABLE on publishing of a release
-      if: github.repository_owner == 'pyrsia' && github.event_name == 'release'
-      run: |
-        .github/workflows/aptly.sh target/debian/pyrsia_0.2.3+${{ github.run_number }}_amd64.deb stable
-      env:
-        GPG_KEY: ${{ secrets.GPG_KEY }}
+      # Add the prysia .deb file to the STABLE apt repo which resides on GCS
+      - name: Publish Release to STABLE GCS repo
+        # Only add to STABLE on publishing of a release
+        if: github.repository_owner == 'pyrsia' && github.event_name == 'release'
+        run: |
+          .github/workflows/aptly.sh target/debian/pyrsia_${{ env.PKG_VERSION }}+${{ github.run_number }}_amd64.deb stable
+        env:
+          GPG_KEY: ${{ secrets.GPG_KEY }}
 
-    # Update the helm chart values with the image tag
-    - name: Add Build to Version Number in Chart and Values files
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      run: |
-        sudo go install github.com/mikefarah/yq/v4@latest
-        yq e '.image.tag |= "0.2.3-${{ github.run_number }}"' -i installers/helm/pyrsia-node/values.yaml
-        yq e '.version |= "0.2.3+${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
-        yq e '.appVersion |= "0.2.3+${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
-
-    # Add the updated helm chart to the helm NIGHTLY repo
-    - name: Add the updated helm chart to the helm NIGHTLY repo
-      if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
-      run: |
-        .github/workflows/chartmuseum.sh nightly
-
-    # Add the updated helm chart to the helm STABLE repo
-    - name: Add the updated helm chart to the helm STABLE repo
-      if: github.repository_owner == 'pyrsia' && github.event_name == 'release'
-      run: |
-        .github/workflows/chartmuseum.sh stable
-
-  # Coverage wipes the cache in order to instrument the code.  No need to wait for other jobs to run it.
   coverage:
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
+      - uses: actions/checkout@v3
+      - uses: pyrsia/rust-toolchain@v2
+        with:
+          packages: cargo-tarpaulin
 
-    - uses: pyrsia/rust-toolchain@v1
+      - name: Run cargo-tarpaulin
+        run: |
+          cargo tarpaulin --workspace --lib --bins --tests --benches --examples --out Lcov --output-dir ./coverage -- --test-threads 1
 
-    - name: Run cargo-tarpaulin
-      uses: actions-rs/tarpaulin@v0.1
-      with:
-        args: '--all-targets --workspace -- --test-threads 1'
+      - name: Upload to coveralls.io
+        id: coveralls
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Upload to codecov.io
-      uses: codecov/codecov-action@v3
-      with:
-        token: ${{secrets.CODECOV_TOKEN}}
-        fail_ci_if_error: ${{ github.repository_owner == 'pyrsia' }}
+      - name: Display coveralls.io link
+        run: |
+          echo '${{ steps.coveralls.outputs.coveralls-api-result }}' | jq -r ".url" | xargs echo Reults
 
   # Docker build that uses the published .deb file from the Linux build
   docker:
+    permissions:
+      contents: 'read'
+      id-token: 'write'
     runs-on: ubuntu-20.04
     needs: [build-push-linux]
     if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
     steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 2
+      - uses: actions/checkout@v3
+      - uses: pyrsia/rust-toolchain@v2  # Setup toolchain to pull version info from Cargo.toml
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-    - name: Login to DockerHub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Build and Push Docker Image for Pyrsia Node
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          file: installers/docker/AptGet.Dockerfile
+          tags: pyrsiaoss/pyrsia-node:${{ env.PKG_VERSION }}-${{ github.run_number }}
 
-    - name: Build and Push Docker Image for Pyrsia Node
-      uses: docker/build-push-action@v3
-      with:
-        context: .
-        push: true
-        file: installers/docker/AptGet.Dockerfile
-        tags: pyrsiaoss/pyrsia-node:0.2.3-${{ github.run_number }}
+      # Update the helm chart values with the image tag
+      - name: Add Build to Version Number in Chart and Values files
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        run: |
+          sudo go install github.com/mikefarah/yq/v4@latest
+          yq e '.image.tag |= "${{ env.PKG_VERSION }}-${{ github.run_number }}"' -i installers/helm/pyrsia-node/values.yaml
+          yq e '.version |= "${{ env.PKG_VERSION }}+${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
+          yq e '.appVersion |= "${{ env.PKG_VERSION }}+${{ github.run_number }}"' -i installers/helm/pyrsia-node/Chart.yaml
 
-    - name: Only build if CodeCoverage.Dockerfile changed
-      uses: tj-actions/changed-files@v35
-      id: changed-files
+      # Login to GCS
+      - name: Google Auth
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: 'projects/679352079717/locations/global/workloadIdentityPools/pyrsia-pool/providers/github-provider'
+          service_account: 'pyrsia-ghaction@pyrsia-sandbox.iam.gserviceaccount.com'
 
-    - name: Build and Push Code Coverage Base Image
-      if: contains(steps.changed-files.outputs.all_changed_and_modified_files, 'CodeCoverage.Dockerfile')
-      uses: docker/build-push-action@v3
-      with:
-        context: .
-        push: true
-        file: installers/docker/CodeCoverage.Dockerfile
-        tags: pyrsiaoss/codecoverage:1.0
+      # Add gsutils
+      - name: Set up Cloud SDK
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        uses: 'google-github-actions/setup-gcloud@v1'
+
+      # Add the updated helm chart to the helm NIGHTLY repo
+      - name: Add the updated helm chart to the helm NIGHTLY repo
+        if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
+        run: |
+          .github/workflows/chartmuseum.sh nightly
+
+      # Add the updated helm chart to the helm STABLE repo
+      - name: Add the updated helm chart to the helm STABLE repo
+        if: github.repository_owner == 'pyrsia' && github.event_name == 'release'
+        run: |
+          .github/workflows/chartmuseum.sh stable

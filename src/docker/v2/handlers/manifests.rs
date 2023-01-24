@@ -27,7 +27,10 @@ pub async fn fetch_manifest(
     tag: String,
     mut artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
-    debug!("Fetching manifest for {} with tag: {}", name, tag);
+    debug!(
+        "Fetching manifest for {}",
+        &get_package_specific_artifact_id(&name, &tag)
+    );
 
     let manifest_content = artifact_service
         .get_artifact(
@@ -60,8 +63,8 @@ pub async fn fetch_manifest_or_build(
     mut artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
     debug!(
-        "Fetching manifest for {} with tag: {}. If not found a build will be requested",
-        name, tag
+        "Fetching manifest for {}. If not found, a build will be requested",
+        &get_package_specific_artifact_id(&name, &tag)
     );
     let manifest_content = artifact_service
         .get_artifact_or_build(
@@ -90,10 +93,15 @@ pub async fn fetch_manifest_or_build(
 }
 
 fn get_package_specific_artifact_id(name: &str, tag: &str) -> String {
-    if tag.starts_with("sha256:") {
+    let combined_tag = if tag.starts_with("sha256:") {
         format!("{}@{}", name, tag)
     } else {
         format!("{}:{}", name, tag)
+    };
+    if combined_tag.contains('/') {
+        combined_tag
+    } else {
+        format!("library/{}", combined_tag)
     }
 }
 
@@ -101,69 +109,21 @@ fn get_package_specific_artifact_id(name: &str, tag: &str) -> String {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
-    use crate::blockchain_service::service::BlockchainService;
-    use crate::build_service::event::BuildEventClient;
+    use crate::artifact_service::storage::ArtifactStorage;
+    use crate::blockchain_service::event::BlockchainEvent;
     use crate::network::client::command::Command;
-    use crate::network::client::Client;
     use crate::transparency_log::log::AddArtifactRequest;
     use crate::util::test_util;
-    use crate::{
-        artifact_service::storage::ArtifactStorage, transparency_log::log::TransparencyLogService,
-    };
     use anyhow::Context;
     use hyper::header::HeaderValue;
-    use libp2p::gossipsub::IdentTopic;
-    use libp2p::identity::Keypair;
     use std::borrow::Borrow;
     use std::collections::HashSet;
     use std::fs::File;
-    use std::path::{Path, PathBuf};
-    use std::sync::Arc;
-    use tokio::sync::{mpsc, Mutex};
-
-    fn create_p2p_client(local_keypair: &Keypair) -> (mpsc::Receiver<Command>, Client) {
-        let (command_sender, command_receiver) = mpsc::channel(1);
-        let p2p_client = Client::new(
-            command_sender,
-            local_keypair.public().to_peer_id(),
-            IdentTopic::new("pyrsia-topic"),
-        );
-
-        (command_receiver, p2p_client)
-    }
-
-    async fn create_blockchain_service(
-        local_keypair: &Keypair,
-        p2p_client: Client,
-        blockchain_path: impl AsRef<Path>,
-    ) -> BlockchainService {
-        let Keypair::Ed25519(ed25519_keypair) = local_keypair;
-
-        BlockchainService::init_first_blockchain_node(
-            ed25519_keypair,
-            ed25519_keypair,
-            p2p_client,
-            blockchain_path,
-        )
-        .await
-        .expect("Creating BlockchainService failed")
-    }
-
-    async fn create_transparency_log_service(
-        artifact_path: impl AsRef<Path>,
-        local_keypair: Keypair,
-        p2p_client: Client,
-    ) -> TransparencyLogService {
-        let blockchain_service =
-            create_blockchain_service(&local_keypair, p2p_client, &artifact_path).await;
-
-        TransparencyLogService::new(artifact_path, Arc::new(Mutex::new(blockchain_service)))
-            .expect("Creating TransparencyLogService failed")
-    }
+    use std::path::PathBuf;
 
     #[test]
     fn test_get_package_specific_artifact_id_from_digest() {
-        let name = "alpine";
+        let name = "library/alpine";
         let tag = "sha256:1e014f84205d569a5cc3be4e108ca614055f7e21d11928946113ab3f36054801";
 
         assert_eq!(
@@ -173,13 +133,37 @@ mod tests {
     }
 
     #[test]
-    fn test_get_package_specific_artifact_id_from_tag() {
+    fn test_get_package_specific_artifact_id_as_official_image_from_digest() {
         let name = "alpine";
+        let official_image_name = "library/alpine";
+        let tag = "sha256:1e014f84205d569a5cc3be4e108ca614055f7e21d11928946113ab3f36054801";
+
+        assert_eq!(
+            get_package_specific_artifact_id(name, tag),
+            format!("{}@{}", official_image_name, tag)
+        );
+    }
+
+    #[test]
+    fn test_get_package_specific_artifact_id_from_tag() {
+        let name = "library/alpine";
         let tag = "3.15.3";
 
         assert_eq!(
             get_package_specific_artifact_id(name, tag),
             format!("{}:{}", name, tag)
+        );
+    }
+
+    #[test]
+    fn test_get_package_specific_artifact_id_as_official_image_from_tag() {
+        let name = "alpine";
+        let official_image_name = "library/alpine";
+        let tag = "3.15.3";
+
+        assert_eq!(
+            get_package_specific_artifact_id(name, tag),
+            format!("{}:{}", official_image_name, tag)
         );
     }
 
@@ -190,20 +174,7 @@ mod tests {
         let name = "name_manifests";
         let tag = "tag_fetch_manifest_unknown_in_artifact_service";
 
-        let local_keypair = Keypair::generate_ed25519();
-        let (_command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone()).await;
-
-        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
-        let build_event_client = BuildEventClient::new(build_event_sender);
-        let artifact_service = ArtifactService::new(
-            &tmp_dir,
-            transparency_log_service,
-            build_event_client,
-            p2p_client,
-        )
-        .expect("Creating ArtifactService failed");
+        let (artifact_service, ..) = test_util::tests::create_artifact_service(&tmp_dir);
 
         let result = fetch_manifest(name.to_string(), tag.to_string(), artifact_service).await;
 
@@ -231,34 +202,30 @@ mod tests {
         let package_specific_id = format!("{}:{}", name, tag);
         let package_specific_artifact_id = get_package_specific_artifact_id(name, tag);
 
-        let local_keypair = Keypair::generate_ed25519();
-        let (mut command_receiver, p2p_client) = create_p2p_client(&local_keypair);
-        let transparency_log_service =
-            create_transparency_log_service(&tmp_dir, local_keypair, p2p_client.clone()).await;
+        let (mut artifact_service, mut blockchain_event_receiver, _, mut p2p_command_receiver) =
+            test_util::tests::create_artifact_service(&tmp_dir);
 
         tokio::spawn(async move {
             loop {
-                match command_receiver.recv().await {
+                match blockchain_event_receiver.recv().await {
+                    Some(BlockchainEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("BlockchainEvent must match BlockchainEvent::AddBlock"),
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                match p2p_command_receiver.recv().await {
                     Some(Command::ListPeers { sender, .. }) => {
                         let _ = sender.send(HashSet::new());
-                    }
-                    Some(Command::BroadcastBlock { sender, .. }) => {
-                        let _ = sender.send(anyhow::Ok(()));
                     }
                     _ => panic!("Command must match Command::ListPeers"),
                 }
             }
         });
-
-        let (build_event_sender, _build_event_receiver) = mpsc::channel(1);
-        let build_event_client = BuildEventClient::new(build_event_sender);
-        let mut artifact_service = ArtifactService::new(
-            &tmp_dir,
-            transparency_log_service,
-            build_event_client,
-            p2p_client,
-        )
-        .expect("Creating ArtifactService failed");
 
         let transparency_log = artifact_service
             .transparency_log_service

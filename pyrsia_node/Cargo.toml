@@ -1,6 +1,6 @@
 [package]
 name = "pyrsia_node"
-version = "0.2.3"
+version = "0.2.4"
 description = "Pyrsia Node instance which can connect and participate in the Pyrsia Network with other Nodes"
 authors = ["pyrsiaoss <pyrsiaopensource@gmail.com>"]
 edition = "2021"
@@ -20,7 +20,7 @@ json = "0.12.4"
 libp2p = { version = "0.50.0", features = [ "autonat", "dns", "identify", "floodsub", "gossipsub", "kad", "macros", "mplex", "noise", "request-response", "serde", "tcp", "tokio", "yamux" ]}
 log = "0.4.17"
 pretty_env_logger = "0.4.0"
-reqwest = { version = "0.11.13", features = ["blocking", "rustls-tls"], default-features = false}
+reqwest = { version = "0.11.14", features = ["blocking", "rustls-tls"], default-features = false}
 test-log = "0.2.8"
 tokio = { version = "1", features = [ "macros", "rt-multi-thread", "io-std" ] }
 tokio-stream = "0.1.11"

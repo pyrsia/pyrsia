@@ -113,8 +113,7 @@ fn save_ed25519(
     keypair_path: &Path,
 ) -> Result<(), Box<dyn error::Error>> {
     let parent = keypair_path.parent().unwrap();
-    std::fs::create_dir_all(parent)
-        .unwrap_or_else(|e| panic!("Error creating dir {}: {}", parent.display(), e));
+    std::fs::create_dir_all(parent)?;
     let mut keypair_file = fs::File::create(keypair_path)?;
     keypair_file.write_all(&keypair.encode())?;
     Ok(())
@@ -124,6 +123,7 @@ fn save_ed25519(
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn load_non_existing_keypair_generates_new_keypair_and_saves_it() {
@@ -136,11 +136,16 @@ mod tests {
 
     #[test]
     fn keypair_generates_new_keypair_but_does_not_save_it() {
-        let tmp_dir = tempfile::tempdir().unwrap();
-        let mut perms = fs::metadata(&tmp_dir).unwrap().permissions();
-        perms.set_readonly(true);
-        let _ = fs::set_permissions(&tmp_dir, perms);
-        let tmp_file = tmp_dir.path().join("keypair_fails");
+        let tmp_dir = if cfg!(target_os = "windows") {
+            PathBuf::from("AB:\\remarkable")
+        } else {
+            let tmp_dir = tempfile::tempdir().unwrap().into_path();
+            let mut perms = fs::metadata(&tmp_dir).unwrap().permissions();
+            perms.set_readonly(true);
+            fs::set_permissions(&tmp_dir, perms).unwrap();
+            tmp_dir
+        };
+        let tmp_file = tmp_dir.join("keypair_fails");
         load_or_generate_ed25519(tmp_file.as_path());
         assert!(!tmp_file.as_path().exists());
     }

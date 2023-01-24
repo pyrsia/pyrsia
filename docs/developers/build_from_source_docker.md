@@ -1,5 +1,5 @@
 ---
-sidebar_position: 1
+sidebar_position: 10
 ---
 
 # Pyrsia demo: build Docker images from source
@@ -344,7 +344,7 @@ You'll see this in the Pyrsia logs of node B:
 
 ```text
 INFO  pyrsia_registry                      > 127.0.0.1:57054 "GET /v2/ HTTP/1.1" 200 "-" "docker/20.10.21 go/go1.18.7 git-commit/3056208 kernel/5.15.0-56-generic os/linux arch/amd64 UpstreamClient(Docker-Client/20.10.21 \(linux\))" 103.551µs
-DEBUG pyrsia::docker::v2::handlers::manifests > Fetching manifest for alpine with tag: 3.16.0
+DEBUG pyrsia::docker::v2::handlers::manifests > Fetching manifest for library/alpine:3.16.0
 INFO  pyrsia::artifact_service::storage       > An artifact is being pulled from the artifact manager 40ed45f7-8288-4af2-bcd3-d18a375e0129
 DEBUG pyrsia::network::client                 > p2p::Client::list_providers "40ed45f7-8288-4af2-bcd3-d18a375e0129"
 DEBUG pyrsia::network::client                 > p2p::Client::get_idle_peer() entered with 1 peers
