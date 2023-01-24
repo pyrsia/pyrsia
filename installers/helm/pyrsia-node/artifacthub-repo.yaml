@@ -10,6 +10,6 @@
 # NOT apply to ownership claim operations, which are processed immediately.
 #
 repositoryID: 842cb03f-6e15-4b38-841f-f9ebf5a974dc
-owners: 
+owners:
   - name: pyrsiaoss
     email: pyrsiaopensource@gmail.com
