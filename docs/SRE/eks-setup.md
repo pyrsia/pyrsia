@@ -24,7 +24,7 @@
       - `aws iam create-policy --policy-name "AllowExternalDNSUpdates" --policy-document file://route53-policy.json`
 
 6. Attach Route 53 Policy
-      - `aws iam attach-role-policy --role-name $(aws eks describe-nodegroup --cluster-name pyrsianode --nodegroup-name ng-1 --query nodegroup.nodeRole --out text | awk -F/ '{print $2}') --policy-arn $(aws iam list-policies --query 'Policies[?PolicyName==`AllowExternalDNSUpdates`].Arn' --output text)`
+      - `aws iam attach-role-policy --role-name $(aws eks describe-nodegroup --cluster-name pyrsia-staging --nodegroup-name ng-1 --query nodegroup.nodeRole --out text | awk -F/ '{print $2}') --policy-arn $(aws iam list-policies --query 'Policies[?PolicyName==`AllowExternalDNSUpdates`].Arn' --output text)`
 
 7. Setup Route 53 Domain
       - `aws route53 create-hosted-zone --name "pyrsia-aws.link." --caller-reference "external-dns-$(date +%s)"`
@@ -50,15 +50,15 @@
       --hosted-zone-id $(aws route53 list-hosted-zones-by-name --output json --dns-name "pyrsia-aws.link." | jq -r ".HostedZones[0].Id" | cut -d/ -f3) \
       --change-batch '
       {
-         "Comment": "Creating Alias resource for boot.nightly.pyrsia-aws.link",
+         "Comment": "Creating Alias resource for boot.staging.pyrsia-aws.link",
          "Changes": [
             {
                "Action": "CREATE",
                "ResourceRecordSet": {
-               "Name": "boot.nightly.pyrsia-aws.link",
+               "Name": "boot.staging.pyrsia-aws.link",
                "Type": "A",
                "AliasTarget": {
-                  "DNSName": "pyrsia-node-0.nightly.pyrsia-aws.link",
+                  "DNSName": "pyrsia-node-0.staging.pyrsia-aws.link",
                   "EvaluateTargetHealth": false,
                   "HostedZoneId": "'$(aws route53 list-hosted-zones-by-name --output json --dns-name "pyrsia-aws.link." | jq -r ".HostedZones[0].Id" | cut -d/ -f3 )'"
                }
@@ -70,6 +70,6 @@
 
 11. Deploy Pyrsia via Helm
       - `helm repo update pyrsia-nightly`
-      - `helm upgrade node1 --install -n pyrsia-node pyrsia-nightly/pyrsia-node --set k8s_provider=eks --set "dnsname=nightly.pyrsia-aws.link" --set bootdns=boot.nightly.pyrsia-aws.link --set keys.p2p=$(cat ed25519.ser | base64) --set keys.blockchain=$(cat ed25519.ser | base64)  --version "0.2.4+2856`
+      - `helm upgrade node1 --install -n pyrsia-node pyrsia-staging/pyrsia-node --set k8s_provider=eks --set "domain=staging.pyrsia-aws.link" --set bootdns=boot.staging.pyrsia.link --set keys.p2p=$(cat ed25519.ser | base64) --set keys.blockchain=$(cat ed25519.ser | base64)  --version "0.2.4+2856`
 
       > Note: The above helm command does not setup the Pyrsia Node to use a Build Node.  `--set "buildnode=http://35.193.148.20:8080"` parameter is needed for build node configuraion.

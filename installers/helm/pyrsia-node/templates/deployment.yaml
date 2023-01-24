@@ -24,7 +24,7 @@ spec:
       containers:
         - name: {{ include "pyrsia-node.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}    
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: pyrsia
               containerPort: 80
@@ -35,12 +35,14 @@ spec:
               value: DEBUG
             - name: PYRSIA_ARTIFACT_PATH
               value: /usr/local/var/pyrsia
-            - name: PYRSIA_BLOCKCHAIN_PATH 
+            - name: PYRSIA_BLOCKCHAIN_PATH
               value: /usr/local/var/pyrsia/blockchain
             - name: PYRSIA_KEYPAIR
               value: /usr/local/var/pyrsia-keys/ed25519.ser
             - name: PYRSIA_BOOTDNS
               value: {{ printf "%s" ( .Values.bootdns | default "boot.pyrsia.link" ) }}
+            - name: PYRSIA_DOMAIN
+              value: {{ printf "%s" ( .Values.domain | default "pyrsia.link" ) }}
             {{- if .Values.buildnode }}
             - name: PYRSIA_BUILDNODE
               value: {{ .Values.buildnode }}
@@ -60,7 +62,7 @@ spec:
       volumes:
         - name: pyrsia-keys
           secret:
-            secretName: pyrsia-keys  
+            secretName: pyrsia-keys
   volumeClaimTemplates:
   - metadata:
       name: pyrsia-storage

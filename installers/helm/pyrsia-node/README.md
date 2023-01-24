@@ -48,7 +48,7 @@ gcloud kms keys create ${KEY} --keyring ${KEYRING} --project ${GKE_PROJECT_ID} -
 kubectl create namespace ${PYRSIA_NS}
 helm repo add pyrsiaoss https://helmrepo.pyrsia.io/repos/nightly
 helm repo update
-helm upgrade pyrsia pyrsiaoss/pyrsia-node -n ${PYRSIA_NS} --install --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/${GKE_PROJECT_ID}/locations/global/keyRings/${KEYRING}/cryptoKeys/${KEY}" --set external_dns_ns=${EXTERNALDNS_NS} --set dnsname=${EXTERNALDNS_DOMAIN}
+helm upgrade pyrsia pyrsiaoss/pyrsia-node -n ${PYRSIA_NS} --install --set "k8s_provider=gke" --set "p2pkeys.kms_key_id=projects/${GKE_PROJECT_ID}/locations/global/keyRings/${KEYRING}/cryptoKeys/${KEY}" --set external_dns_ns=${EXTERNALDNS_NS} --set domain=${EXTERNALDNS_DOMAIN}
 
 ```
 
@@ -120,7 +120,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | `k8s_provider`           | Environment that is running Kubernetes        | gke, aks, eks, oke |
 | `p2pkeys.kms_key_id`     | KMS Key to Encrypt Pyrsia Keys Volume         | Name of the CSI Key.  For example, under GKE: `projects/<PROJECT>locations/global/keyRings/<KEYRING>/cryptoKeys/<KEY>` |
 | `external_dns_ns`        | Namespace for the External DNS pod/service | default: external-dns |
-| `dnsname`                | DNS Name for the nodes                     | default: pyrsia.link  |
+| `domain`                | DNS Name for the nodes                     | default: pyrsia.link  |
 | `buildnode`              | URL for the Build Node                     | |
 
 > NOTE: Once this chart is deployed, it is not possible to change the application's access credentials, such as usernames or passwords, using Helm. To change these application credentials after deployment, delete any persistent volumes (PVs) used by the chart and re-deploy it, or use the application's built-in administrative tools if available.

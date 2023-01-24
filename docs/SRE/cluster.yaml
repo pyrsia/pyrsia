@@ -2,7 +2,7 @@
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 metadata:
-  name: pyrsianode
+  name: pyrsia-staging
   region: us-east-1
 cloudWatch:
   clusterLogging:
