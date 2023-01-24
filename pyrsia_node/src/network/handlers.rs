@@ -94,6 +94,26 @@ pub async fn handle_request_build(
     p2p_client.respond_build(&build_id, channel).await
 }
 
+/// Respond to a RequestBuild event by getting the build
+/// based on the provided package_type and package_specific_id.
+pub async fn handle_trigger_build(
+    peer_id: PeerId,
+    build_event_client: BuildEventClient,
+    package_type: PackageType,
+    package_specific_id: &str,
+) -> anyhow::Result<()> {
+    debug!(
+        "Handling trigger build: {:?} : {}",
+        package_type, package_specific_id
+    );
+
+    build_event_client
+        .trigger_build(peer_id, package_type, package_specific_id.to_string())
+        .await
+        .map(|_| ())
+        .map_err(|e| e.into())
+}
+
 //Respond to the IdleMetricRequest event
 pub async fn handle_request_idle_metric(
     mut p2p_client: Client,

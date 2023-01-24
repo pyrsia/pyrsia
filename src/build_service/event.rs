@@ -20,7 +20,8 @@ use crate::build_service::error::BuildError;
 use crate::build_service::model::{BuildResult, BuildStatus, BuildTrigger};
 use crate::build_service::service::BuildService;
 use crate::verification_service::service::VerificationService;
-use log::{debug, error, warn};
+use libp2p::PeerId;
+use log::{debug, error, info, warn};
 use tokio::sync::{mpsc, oneshot};
 
 #[derive(Debug)]
@@ -37,6 +38,7 @@ pub enum BuildEvent {
         package_type: PackageType,
         package_specific_id: String,
         sender: oneshot::Sender<Result<String, BuildError>>,
+        build_trigger: BuildTrigger,
     },
     Succeeded {
         build_id: String,
@@ -78,6 +80,30 @@ impl BuildEventClient {
                 package_type,
                 package_specific_id,
                 sender,
+                build_trigger: BuildTrigger::FromSource,
+            })
+            .await
+            .unwrap_or_else(|e| {
+                error!("Error build_event_sender. {:#?}", e);
+            });
+        receiver
+            .await
+            .map_err(|e| BuildError::InitializationFailed(e.to_string()))?
+    }
+
+    pub async fn trigger_build(
+        &self,
+        requestor: PeerId,
+        package_type: PackageType,
+        package_specific_id: String,
+    ) -> Result<String, BuildError> {
+        let (sender, receiver) = oneshot::channel();
+        self.build_event_sender
+            .send(BuildEvent::Start {
+                package_type,
+                package_specific_id,
+                sender,
+                build_trigger: BuildTrigger::AuthoritiveLeader(requestor),
             })
             .await
             .unwrap_or_else(|e| {
@@ -223,10 +249,11 @@ impl BuildEventLoop {
                 package_type,
                 package_specific_id,
                 sender,
+                build_trigger,
             } => {
                 let result = self
                     .build_service
-                    .start_build(package_type, package_specific_id, BuildTrigger::FromSource)
+                    .start_build(package_type, package_specific_id, build_trigger)
                     .await;
                 sender.send(result).unwrap_or_else(|e| {
                     error!("build error. {:#?}", e);
@@ -303,6 +330,10 @@ impl BuildEventLoop {
                         self.artifact_service
                             .handle_build_result(&build_id, build_result)
                             .await
+                    }
+                    BuildTrigger::AuthoritiveLeader(leader_peer_id) => {
+                        info!("Finished build with ID {}, triggered by authorative leader node {:?}: {:?}", build_id, leader_peer_id, build_result);
+                        Ok(())
                     }
                     BuildTrigger::Verification => {
                         self.verification_service

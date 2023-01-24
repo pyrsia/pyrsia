@@ -25,9 +25,9 @@ use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
 use libp2p::core::{Multiaddr, PeerId};
-use libp2p::gossipsub;
 use libp2p::request_response::ResponseChannel;
 use log::debug;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use tokio::sync::{mpsc, oneshot};
 
@@ -71,24 +71,24 @@ impl From<&str> for ArtifactHash {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TriggerBuildData {
+    pub package_type: PackageType,
+    pub package_specific_id: String,
+}
+
 /// The `Client` provides entry points to interact with the libp2p swarm.
 #[derive(Clone, Debug)]
 pub struct Client {
     pub sender: mpsc::Sender<Command>,
     pub local_peer_id: PeerId,
-    pyrsia_topic: gossipsub::IdentTopic,
 }
 
 impl Client {
-    pub fn new(
-        sender: mpsc::Sender<Command>,
-        local_peer_id: PeerId,
-        pyrsia_topic: gossipsub::IdentTopic,
-    ) -> Self {
+    pub fn new(sender: mpsc::Sender<Command>, local_peer_id: PeerId) -> Self {
         Self {
             sender,
             local_peer_id,
-            pyrsia_topic,
         }
     }
 
@@ -221,6 +221,29 @@ impl Client {
         self.sender
             .send(Command::RequestBuild {
                 peer: *peer_id,
+                package_type: package_type.to_owned(),
+                package_specific_id: package_specific_id.to_owned(),
+                sender,
+            })
+            .await?;
+
+        receiver.await?
+    }
+
+    /// Trigger a build on all authorized nodes.
+    pub async fn trigger_build(
+        &mut self,
+        package_type: PackageType,
+        package_specific_id: String,
+    ) -> anyhow::Result<()> {
+        debug!(
+            "p2p::Client::trigger_build: {:?}: {:?}",
+            package_type, package_specific_id
+        );
+
+        let (sender, receiver) = oneshot::channel();
+        self.sender
+            .send(Command::TriggerBuild {
                 package_type: package_type.to_owned(),
                 package_specific_id: package_specific_id.to_owned(),
                 sender,
@@ -396,11 +419,7 @@ impl Client {
 
         let (sender, receiver) = oneshot::channel();
         self.sender
-            .send(Command::BroadcastBlock {
-                topic: self.pyrsia_topic.clone(),
-                block,
-                sender,
-            })
+            .send(Command::BroadcastBlock { block, sender })
             .await?;
         receiver.await?
     }
@@ -449,7 +468,7 @@ impl Client {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use super::*;
-    use libp2p::gossipsub::IdentTopic;
+    use crate::util::test_util;
     use libp2p::identity::{self, Keypair};
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
     use pyrsia_blockchain_network::structures::block::Block;
@@ -458,13 +477,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_listen() {
-        let (sender, mut receiver) = mpsc::channel(1);
-
-        let mut client = Client {
-            sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
-        };
+        let (mut client, mut receiver) = test_util::tests::create_p2p_client();
 
         let address: Multiaddr = "/ip4/127.0.0.1".parse().unwrap();
         let cloned_address = address.clone();
@@ -483,14 +496,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_dial() {
-        let (sender, mut receiver) = mpsc::channel(1);
-
-        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
-        let mut client = Client {
-            sender,
-            local_peer_id,
-            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
-        };
+        let (mut client, mut receiver) = test_util::tests::create_p2p_client();
+        let local_peer_id = client.local_peer_id;
 
         let address: Multiaddr = "/ip4/127.0.0.1".parse().unwrap();
         let cloned_address = address.clone();
@@ -510,14 +517,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_peers() {
-        let (sender, mut receiver) = mpsc::channel(1);
-
-        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
-        let mut client = Client {
-            sender,
-            local_peer_id,
-            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
-        };
+        let (mut client, mut receiver) = test_util::tests::create_p2p_client();
 
         tokio::spawn(async move { client.list_peers().await });
 
@@ -533,14 +533,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_status() {
-        let (sender, mut receiver) = mpsc::channel(1);
-
-        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
-        let mut client = Client {
-            sender,
-            local_peer_id,
-            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
-        };
+        let (mut client, mut receiver) = test_util::tests::create_p2p_client();
 
         tokio::spawn(async move { client.status().await });
 
@@ -556,14 +549,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_idle_metric() {
-        let (sender, mut receiver) = mpsc::channel(1);
-
-        let local_peer_id = Keypair::generate_ed25519().public().to_peer_id();
-        let mut client = Client {
-            sender,
-            local_peer_id,
-            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
-        };
+        let (mut client, mut receiver) = test_util::tests::create_p2p_client();
+        let local_peer_id = client.local_peer_id;
 
         let mut peers: HashSet<PeerId> = HashSet::new();
         peers.insert(client.local_peer_id);
@@ -586,13 +573,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_provide() {
-        let (sender, mut receiver) = mpsc::channel(1);
-
-        let mut client = Client {
-            sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
-        };
+        let (mut client, mut receiver) = test_util::tests::create_p2p_client();
 
         let random_artifact_id: String = thread_rng()
             .sample_iter(&Alphanumeric)
@@ -615,13 +596,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_providers() {
-        let (sender, mut receiver) = mpsc::channel(1);
-
-        let mut client = Client {
-            sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
-        };
+        let (mut client, mut receiver) = test_util::tests::create_p2p_client();
 
         let random_artifact_id: String = thread_rng()
             .sample_iter(&Alphanumeric)
@@ -644,13 +619,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_request_artifact() {
-        let (sender, mut receiver) = mpsc::channel(1);
-
-        let mut client = Client {
-            sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
-        };
+        let (mut client, mut receiver) = test_util::tests::create_p2p_client();
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
         let random_artifact_id: String = thread_rng()
@@ -679,13 +648,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_request_docker_build() {
-        let (sender, mut receiver) = mpsc::channel(1);
-
-        let mut client = Client {
-            sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
-        };
+        let (mut client, mut receiver) = test_util::tests::create_p2p_client();
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
         let docker_package_type = PackageType::Docker;
@@ -720,6 +683,36 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_trigger_build() {
+        let (mut client, mut receiver) = test_util::tests::create_p2p_client();
+
+        let docker_package_type = PackageType::Docker;
+        let random_package_specific_id: String = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect();
+        let cloned_random_package_specific_id = random_package_specific_id.clone();
+
+        tokio::spawn(async move {
+            client
+                .trigger_build(docker_package_type, random_package_specific_id)
+                .await
+        });
+
+        tokio::select! {
+            command = receiver.recv() => match command {
+                Some(Command::TriggerBuild { package_type, package_specific_id, sender, .. }) => {
+                    assert_eq!(package_type, docker_package_type);
+                    assert_eq!(package_specific_id, cloned_random_package_specific_id);
+                    let _ = sender.send(Ok(()));
+                },
+                _ => panic!("Command must match Command::TriggerBuild")
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn test_request_blockchain() {
         let (sender, mut receiver) = mpsc::channel(1);
         let local_key = identity::ed25519::Keypair::generate();
@@ -727,7 +720,6 @@ mod tests {
         let mut client = Client {
             sender,
             local_peer_id: identity::PublicKey::Ed25519(local_key.public()).to_peer_id(),
-            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
         };
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
@@ -780,13 +772,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_request_build_status() {
-        let (sender, mut receiver) = mpsc::channel(1);
-
-        let mut client = Client {
-            sender,
-            local_peer_id: Keypair::generate_ed25519().public().to_peer_id(),
-            pyrsia_topic: IdentTopic::new("pyrsia-blockchain-topic"),
-        };
+        let (mut client, mut receiver) = test_util::tests::create_p2p_client();
 
         let other_peer_id = Keypair::generate_ed25519().public().to_peer_id();
         const BUILD_ID: &str = "b024a136-9021-42a1-b8de-c665c94470f4";

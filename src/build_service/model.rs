@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -42,6 +43,7 @@ pub struct BuildResultArtifact {
 #[derive(Debug)]
 pub enum BuildTrigger {
     FromSource,
+    AuthoritiveLeader(PeerId),
     Verification,
 }
 

@@ -21,12 +21,15 @@ use super::model::{BuildResult, BuildResultArtifact, BuildStatus, BuildTrigger};
 use super::pipeline::service::PipelineService;
 use crate::artifact_service::model::PackageType;
 use crate::build_service::model::BuildInfo;
+use crate::transparency_log::log::TransparencyLogService;
 use bytes::Buf;
+use libp2p::PeerId;
 use log::{debug, error, warn};
 use multihash::Hasher;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 /// The build service is a component used by authorized nodes only. It is
 /// the entrypoint to the authorized node's build pipeline infrastructure.
@@ -34,6 +37,7 @@ use std::path::{Path, PathBuf};
 pub struct BuildService {
     repository_path: PathBuf,
     build_event_client: BuildEventClient,
+    transparency_log_service: TransparencyLogService,
     mapping_service: MappingService,
     pipeline_service: PipelineService,
 }
@@ -42,6 +46,7 @@ impl BuildService {
     pub fn new<P: AsRef<Path>>(
         repository_path: P,
         build_event_client: BuildEventClient,
+        transparency_log_service: TransparencyLogService,
         mapping_service_endpoint: &str,
         pipeline_service_endpoint: &str,
     ) -> Result<Self, anyhow::Error> {
@@ -49,6 +54,7 @@ impl BuildService {
         Ok(BuildService {
             repository_path,
             build_event_client,
+            transparency_log_service,
             mapping_service: MappingService::new(mapping_service_endpoint),
             pipeline_service: PipelineService::new(pipeline_service_endpoint),
         })
@@ -65,6 +71,17 @@ impl BuildService {
             "Starting build for package type {:?} and specific ID {:}",
             package_type, package_specific_id
         );
+
+        if let BuildTrigger::AuthoritiveLeader(leader_peer_id) = build_trigger {
+            let authorized_nodes = self.transparency_log_service.get_authorized_nodes()?;
+            let leader_is_authorized = authorized_nodes
+                .iter()
+                .map(|node| PeerId::from_str(&node.node_id).unwrap())
+                .any(|peer_id| peer_id == leader_peer_id);
+            if !leader_is_authorized {
+                return Err(BuildError::UnauthorizedPeerId(leader_peer_id));
+            }
+        }
 
         let mapping_info = self
             .mapping_service
@@ -313,6 +330,8 @@ mod tests {
 
         let (sender, _) = mpsc::channel(1);
 
+        let (transparency_log_service, _blockchain_event_receiver) =
+            test_util::tests::create_transparency_log_service(&tmp_dir);
         let build_event_client = BuildEventClient::new(sender);
 
         let mapping_info = MappingInfo {
@@ -341,6 +360,7 @@ mod tests {
         let build_service = BuildService::new(
             &tmp_dir,
             build_event_client,
+            transparency_log_service,
             mapping_service_endpoint,
             pipeline_service_endpoint,
         )
@@ -355,6 +375,46 @@ mod tests {
             .unwrap();
 
         assert_eq!(build_id_result, build_id);
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_start_build_triggered_from_unauthorized_node() {
+        let tmp_dir = test_util::tests::setup();
+
+        let package_type = PackageType::Docker;
+        let package_specific_id = "alpine:3.15.2";
+
+        let (sender, _) = mpsc::channel(1);
+
+        let (transparency_log_service, _blockchain_event_receiver) =
+            test_util::tests::create_transparency_log_service(&tmp_dir);
+        let build_event_client = BuildEventClient::new(sender);
+
+        let random_peer_id = PeerId::random();
+
+        let build_service = BuildService::new(
+            &tmp_dir,
+            build_event_client,
+            transparency_log_service,
+            "https://not_used.com",
+            "https://not_used.com",
+        )
+        .unwrap();
+        let build_id_error = build_service
+            .start_build(
+                package_type,
+                package_specific_id.to_owned(),
+                BuildTrigger::AuthoritiveLeader(random_peer_id),
+            )
+            .await
+            .unwrap_err();
+
+        match build_id_error {
+            BuildError::UnauthorizedPeerId(peer_id) => assert_eq!(peer_id, random_peer_id),
+            _ => panic!(""),
+        };
 
         test_util::tests::teardown(tmp_dir);
     }

@@ -22,7 +22,6 @@ use crate::network::build_status_protocol::BuildStatusResponse;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
 use libp2p::core::{Multiaddr, PeerId};
-use libp2p::gossipsub;
 use libp2p::request_response::ResponseChannel;
 use std::collections::HashSet;
 use strum_macros::Display;
@@ -39,7 +38,6 @@ pub enum Command {
         sender: oneshot::Sender<anyhow::Result<()>>,
     },
     BroadcastBlock {
-        topic: gossipsub::IdentTopic,
         block: Vec<u8>,
         sender: oneshot::Sender<anyhow::Result<()>>,
     },
@@ -78,6 +76,11 @@ pub enum Command {
     RespondBuild {
         build_id: String,
         channel: ResponseChannel<BuildResponse>,
+    },
+    TriggerBuild {
+        package_type: PackageType,
+        package_specific_id: String,
+        sender: oneshot::Sender<anyhow::Result<()>>,
     },
     RequestArtifact {
         artifact_id: String,

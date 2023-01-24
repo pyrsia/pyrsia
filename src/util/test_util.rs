@@ -24,7 +24,6 @@ pub mod tests {
     use crate::network::client::Client;
     use crate::transparency_log::log::TransparencyLogService;
     use crate::verification_service::service::VerificationService;
-    use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::Keypair;
     use std::env;
     use std::fs;
@@ -44,11 +43,7 @@ pub mod tests {
     pub fn create_p2p_client() -> (Client, Receiver<Command>) {
         let (sender, receiver) = mpsc::channel(1);
         (
-            Client::new(
-                sender,
-                Keypair::generate_ed25519().public().to_peer_id(),
-                IdentTopic::new("pyrsia-topic"),
-            ),
+            Client::new(sender, Keypair::generate_ed25519().public().to_peer_id()),
             receiver,
         )
     }
@@ -61,14 +56,15 @@ pub mod tests {
         Receiver<BuildEvent>,
         Receiver<Command>,
     ) {
-        let (blockchain_event_client, blockchain_event_receiver) = create_blockchain_event_client();
+        let (transparency_log_service, blockchain_event_receiver) =
+            create_transparency_log_service(&artifact_path);
         let (build_event_client, build_event_receiver) = create_build_event_client();
         let (p2p_client, p2p_command_receiver) = create_p2p_client();
 
         (
             ArtifactService::new(
                 &artifact_path,
-                blockchain_event_client,
+                transparency_log_service,
                 build_event_client,
                 p2p_client,
             )
@@ -87,13 +83,14 @@ pub mod tests {
         Receiver<BlockchainEvent>,
         Receiver<BuildEvent>,
     ) {
-        let (blockchain_event_client, blockchain_event_receiver) = create_blockchain_event_client();
+        let (transparency_log_service, blockchain_event_receiver) =
+            create_transparency_log_service(&artifact_path);
         let (build_event_client, build_event_receiver) = create_build_event_client();
 
         (
             ArtifactService::new(
                 &artifact_path,
-                blockchain_event_client,
+                transparency_log_service,
                 build_event_client,
                 p2p_client,
             )

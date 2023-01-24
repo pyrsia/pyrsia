@@ -16,7 +16,6 @@
 
 use super::model::PackageType;
 use super::storage::ArtifactStorage;
-use crate::blockchain_service::event::BlockchainEventClient;
 use crate::build_service::error::BuildError;
 use crate::build_service::event::BuildEventClient;
 use crate::build_service::model::BuildResult;
@@ -49,7 +48,7 @@ pub struct ArtifactService {
 impl ArtifactService {
     pub fn new<P: AsRef<Path>>(
         artifact_path: P,
-        blockchain_event_client: BlockchainEventClient,
+        transparency_log_service: TransparencyLogService,
         build_event_client: BuildEventClient,
         p2p_client: Client,
     ) -> anyhow::Result<Self> {
@@ -57,10 +56,7 @@ impl ArtifactService {
         Ok(ArtifactService {
             artifact_storage,
             build_event_client,
-            transparency_log_service: TransparencyLogService::new(
-                artifact_path,
-                blockchain_event_client,
-            )?,
+            transparency_log_service,
             p2p_client,
         })
     }
@@ -901,10 +897,10 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert_eq!(
-            error,
-            BuildError::InitializationFailed("No authorized nodes found".to_owned())
-        );
+        match error {
+            BuildError::InitializationFailed(msg) => assert_eq!(msg, "No authorized nodes found"),
+            _ => panic!("Invalid BuildError: {}", error),
+        }
 
         test_util::tests::teardown(tmp_dir);
     }
