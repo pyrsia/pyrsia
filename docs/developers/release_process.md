@@ -39,7 +39,7 @@ Once all the above steps are completed and verified to be success, start the rel
 
 ## Release to Nightly Cluster & Testing
 
-- [ ] Deploy to nightly cluster - Refer https://pyrsia.io/docs/sre/kubernetes-helm/
+- [ ] Deploy to nightly cluster - Refer [Managing Pyrsia on Kubernetes](https://pyrsia.io/docs/sre/kubernetes-helm/)
 - [ ] Run installers + manual confidence tests connecting to nightly
   - [ ] macOS (Scope: Authorize Node, Agent Node, Build Node)
   - [ ] Windows (Scope: Agent Node i.e. end user testing only)
@@ -66,6 +66,7 @@ Once all the above steps are completed and verified to be success, start the rel
     systemctl daemon-reload
     service pyrsia restart
     ```
+
   - [ ] Docker (Scope: Agent Node i.e. end user testing only)
 
 ## Deployment
@@ -74,7 +75,7 @@ Once all the above steps are completed and verified to be success, start the rel
 [brew repo](https://brewrepo.pyrsia.io/stable/x86_64/) contain the correct latest release
 - [ ] Upload Windows MSI to GitHub release. Find the Windows installers from Artifacts section of GitHub action runs for
 the release.
-- [ ] Deploy the production authorized nodes with this release. Refer https://pyrsia.io/docs/sre/kubernetes-helm/
+- [ ] Deploy the production authorized nodes with this release. Refer [Managing Pyrsia on Kubernetes](https://pyrsia.io/docs/sre/kubernetes-helm/)
 - [ ] Run installers + [manual confidence tests](/docs/developers/postrelease_manual_tests.md) connecting to production
   - [ ] Linux
   - [ ] MacOS

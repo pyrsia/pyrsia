@@ -96,7 +96,7 @@ Starting build with ID 54d72bb8-7cd6-4300-a669-467e4375cf4c
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 100 2733k  100 2733k    0     0  2165k      0  0:00:01  0:00:01 --:--:-- 3808k
 ```
-![Screenshot 2023-01-11 at 12.14.47 AM.png](..%2F..%2F..%2F..%2F..%2F..%2F..%2Fvar%2Ffolders%2Ft4%2F988_x1gd1d1_c94ntklhnnmm0000gp%2FT%2FTemporaryItems%2FNSIRD_screencaptureui_zNd1wt%2FScreenshot%202023-01-11%20at%2012.14.47%20AM.png)
+
 And inspect the logs:
 
 ```sh
@@ -105,11 +105,11 @@ And inspect the logs:
 
 ... test any of the newly added features ...
 
-
 ## Run Authority Node, Build Pipeline & Agent Node on Docker Desktop
 
 Using the following docker related files with the given contents will enable you to run Authority Node, Build Pipeline
 and Agent node in your Docker Desktop
+
 ```text
 .
 ├── Dockerfile
