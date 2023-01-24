@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use crate::node_api::handlers::swarm;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Default)]
@@ -34,14 +35,14 @@ pub struct RequestDockerBuild {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct TransparentLogOutputParams {
-    pub format: Option<String>,
+pub struct TransparencyLogOutputParams {
+    pub format: Option<swarm::ContentType>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RequestDockerLog {
     pub image: String,
-    pub output_params: Option<TransparentLogOutputParams>,
+    pub output_params: Option<TransparencyLogOutputParams>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -52,7 +53,7 @@ pub struct RequestMavenBuild {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RequestMavenLog {
     pub gav: String,
-    pub output_params: Option<TransparentLogOutputParams>,
+    pub output_params: Option<TransparencyLogOutputParams>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -60,34 +61,38 @@ pub struct RequestBuildStatus {
     pub build_id: String,
 }
 
-impl TransparentLogOutputParams {
+impl TransparencyLogOutputParams {
     pub fn new() -> Self {
-        Self { format: None }
+        Self {
+            format: None::<swarm::ContentType>,
+        }
     }
 
-    pub fn output_format(params: &Option<Self>) -> Option<&str> {
+    fn format(params: &Option<Self>) -> swarm::ContentType {
         if let Some(params) = params {
-            return Some(params.format.as_ref().unwrap().as_str());
-        }
+            if let Some(val) = params.format {
+                return val;
+            }
+        };
 
-        Some("json")
+        swarm::ContentType::JSON
     }
 }
 
-impl Default for TransparentLogOutputParams {
+impl Default for TransparencyLogOutputParams {
     fn default() -> Self {
         Self::new()
     }
 }
 
 impl RequestDockerLog {
-    pub fn output_format(&self) -> Option<&str> {
-        TransparentLogOutputParams::output_format(&self.output_params)
+    pub fn format(&self) -> swarm::ContentType {
+        TransparencyLogOutputParams::format(&self.output_params)
     }
 }
 
 impl RequestMavenLog {
-    pub fn output_format(&self) -> Option<&str> {
-        TransparentLogOutputParams::output_format(&self.output_params)
+    pub fn format(&self) -> swarm::ContentType {
+        TransparencyLogOutputParams::format(&self.output_params)
     }
 }

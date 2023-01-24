@@ -110,7 +110,7 @@ mod tests {
     use crate::blockchain_service::event::BlockchainEvent;
     use crate::build_service::event::BuildEvent;
     use crate::network::client::command::Command;
-    use crate::node_api::model::cli::{Status, TransparentLogOutputParams};
+    use crate::node_api::model::cli::{Status, TransparencyLogOutputParams};
     use crate::transparency_log::log::{
         AddArtifactRequest, TransparencyLog, TransparencyLogService,
     };
@@ -420,8 +420,8 @@ mod tests {
             let transparency_log = add_artifact(&ctx.log, PackageType::Docker, ps_id);
             let request = RequestDockerLog {
                 image: ps_id.to_string(),
-                output_params: Some(TransparentLogOutputParams {
-                    format: Some("csv".to_string()),
+                output_params: Some(TransparencyLogOutputParams {
+                    format: Some(ContentType::CSV),
                 }),
             };
             let filter = ctx.create_route();
@@ -466,8 +466,8 @@ mod tests {
             let transparency_log = add_artifact(&ctx.log, PackageType::Maven2, ps_id);
             let request = RequestMavenLog {
                 gav: ps_id.to_string(),
-                output_params: Some(TransparentLogOutputParams {
-                    format: Some("csv".to_string()),
+                output_params: Some(TransparencyLogOutputParams {
+                    format: Some(ContentType::CSV),
                 }),
             };
             let filter = ctx.create_route();
