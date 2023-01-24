@@ -142,6 +142,29 @@ pub struct TransparencyLogService {
     blockchain_event_client: BlockchainEventClient,
 }
 
+impl TransparencyLog {
+    pub fn from(add_artifact_request: AddArtifactRequest) -> TransparencyLog {
+        TransparencyLog {
+            id: Uuid::new_v4().to_string(),
+            package_type: Some(add_artifact_request.package_type),
+            package_specific_id: add_artifact_request.package_specific_id.clone(),
+            num_artifacts: add_artifact_request.num_artifacts,
+            package_specific_artifact_id: add_artifact_request.package_specific_artifact_id.clone(),
+            artifact_hash: add_artifact_request.artifact_hash,
+            source_hash: "".to_owned(),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            operation: Operation::AddArtifact,
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        }
+    }
+}
+
 impl TransparencyLogService {
     pub fn new<P: AsRef<Path>>(
         repository_path: P,
@@ -196,24 +219,7 @@ impl TransparencyLogService {
         &mut self,
         add_artifact_request: AddArtifactRequest,
     ) -> Result<TransparencyLog, TransparencyLogError> {
-        let transparency_log = TransparencyLog {
-            id: Uuid::new_v4().to_string(),
-            package_type: Some(add_artifact_request.package_type),
-            package_specific_id: add_artifact_request.package_specific_id.clone(),
-            num_artifacts: add_artifact_request.num_artifacts,
-            package_specific_artifact_id: add_artifact_request.package_specific_artifact_id.clone(),
-            artifact_hash: add_artifact_request.artifact_hash,
-            source_hash: "".to_owned(),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            operation: Operation::AddArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let transparency_log = TransparencyLog::from(add_artifact_request);
 
         let payload = serde_json::to_string(&transparency_log)?;
         self.blockchain_event_client

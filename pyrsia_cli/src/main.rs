@@ -97,12 +97,18 @@ async fn main() {
         }
         Some(("inspect-log", build_matches)) => match build_matches.subcommand() {
             Some(("docker", docker_matches)) => {
-                inspect_docker_transparency_log(docker_matches.get_one::<String>("image").unwrap())
-                    .await;
+                inspect_docker_transparency_log(
+                    docker_matches.get_one::<String>("image").unwrap(),
+                    docker_matches.get_one::<String>("format").cloned(),
+                )
+                .await;
             }
             Some(("maven", maven_matches)) => {
-                inspect_maven_transparency_log(maven_matches.get_one::<String>("gav").unwrap())
-                    .await;
+                inspect_maven_transparency_log(
+                    maven_matches.get_one::<String>("gav").unwrap(),
+                    maven_matches.get_one::<String>("format").cloned(),
+                )
+                .await;
             }
             _ => {}
         },
