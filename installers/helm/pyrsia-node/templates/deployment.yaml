@@ -24,7 +24,7 @@ spec:
       containers:
         - name: {{ include "pyrsia-node.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}        
+          imagePullPolicy: {{ .Values.image.pullPolicy }}    
           ports:
             - name: pyrsia
               containerPort: 80
@@ -38,9 +38,9 @@ spec:
             - name: PYRSIA_BLOCKCHAIN_PATH 
               value: /usr/local/var/pyrsia/blockchain
             - name: PYRSIA_KEYPAIR
-              value: /usr/local/var/pyrsia-p2p-keys/ed25519.ser
+              value: /usr/local/var/pyrsia-keys/ed25519.ser
             - name: PYRSIA_BOOTDNS
-              value: {{ printf "%s-0.%s" (include "pyrsia-node.name" .) (.Values.bootdns | default "pyrsia.link") }} 
+              value: {{ printf "%s" ( .Values.bootdns | default "boot.pyrsia.link" ) }}
             {{- if .Values.buildnode }}
             - name: PYRSIA_BUILDNODE
               value: {{ .Values.buildnode }}
@@ -55,21 +55,18 @@ spec:
             # name must match the volume name below
             - name: pyrsia-storage
               mountPath: "/usr/local/var/pyrsia"
-            - name: pyrsia-p2p-keys
-              mountPath: /usr/local/var/pyrsia-p2p-keys
+            - name: pyrsia-keys
+              mountPath: /usr/local/var/pyrsia-keys
+      volumes:
+        - name: pyrsia-keys
+          secret:
+            secretName: pyrsia-keys  
   volumeClaimTemplates:
   - metadata:
       name: pyrsia-storage
     spec:
       accessModes: [ "ReadWriteOnce" ]
+      storageClassName: pyrsia-sc
       resources:
         requests:
           storage: 1500Gi
-  - metadata:
-      name: pyrsia-p2p-keys
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 10Gi
-      storageClassName: pyrsia-csi              
