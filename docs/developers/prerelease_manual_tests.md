@@ -116,7 +116,7 @@ and Agent node in your Docker Desktop
 └── docker-compose.yml
 ```
 
-_build_pipeline_prototype/Dockerfile_
+### build_pipeline_prototype/Dockerfile
 
 ```dockerfile
 FROM rust:1.66.1-buster
@@ -128,7 +128,7 @@ RUN rustup default ${RUST_VERSION}; \
 WORKDIR pyrsia_build_pipeline_prototype
 ```
 
-_docker-compose.yml_
+### docker-compose.yml
 
 ```dockerfile
 version: "3.9"
