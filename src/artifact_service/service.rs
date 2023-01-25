@@ -32,7 +32,6 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::str;
-use std::str::FromStr;
 
 /// The artifact service is the component that handles everything related to
 /// pyrsia artifacts. It allows artifacts to be retrieved and added to the
@@ -88,8 +87,7 @@ impl ArtifactService {
 
         let peer_id = match nodes
             .iter()
-            .map(|node| PeerId::from_str(&node.node_id).unwrap())
-            .find_or_last(|&auth_peer_id| local_peer_id.eq(&auth_peer_id))
+            .find_or_last(|&auth_peer_id| local_peer_id.eq(auth_peer_id))
         {
             Some(auth_peer_id) => {
                 debug!(
@@ -106,7 +104,7 @@ impl ArtifactService {
             .verify_package_can_be_added_to_transparency_logs(&package_type, &package_specific_id)
             .map_err(|t| BuildError::ArtifactAlreadyExists(t.to_string()))?;
 
-        if local_peer_id.eq(&peer_id) {
+        if local_peer_id.eq(peer_id) {
             debug!("Start local build in authorized node");
             self.build_event_client
                 .start_build(package_type, package_specific_id)
@@ -115,7 +113,7 @@ impl ArtifactService {
             debug!("Request build in authorized node from p2p network");
             self.p2p_client
                 .clone()
-                .request_build(&peer_id, package_type, package_specific_id.clone())
+                .request_build(peer_id, package_type, package_specific_id.clone())
                 .await
                 .map_err(|e| BuildError::InitializationFailed(e.to_string()))
         }
@@ -184,8 +182,7 @@ impl ArtifactService {
 
         let peer_id = match nodes
             .iter()
-            .map(|node| PeerId::from_str(&node.node_id).unwrap())
-            .find_or_last(|&auth_peer_id| local_peer_id.eq(&auth_peer_id))
+            .find_or_last(|&auth_peer_id| local_peer_id.eq(auth_peer_id))
         {
             Some(auth_peer_id) => {
                 debug!(
@@ -197,14 +194,14 @@ impl ArtifactService {
             None => panic!("Error while looking for authorized nodes (build status)"),
         };
 
-        if local_peer_id.eq(&peer_id) {
+        if local_peer_id.eq(peer_id) {
             debug!("Get build status (authorized node)");
             self.build_event_client.get_build_status(build_id).await
         } else {
             debug!("Request build status in authorized node from p2p network");
             self.p2p_client
                 .clone()
-                .request_build_status(&peer_id, String::from(build_id))
+                .request_build_status(peer_id, String::from(build_id))
                 .await
                 .map_err(|e| BuildError::BuildStatusFailed(e.to_string()))
         }

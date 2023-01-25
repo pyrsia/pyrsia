@@ -55,26 +55,36 @@ spec:
         app.kubernetes.io/name: external-dns
     spec:
       serviceAccountName: external-dns
+      {{- $hldomain := "pyrsia.link" -}}
+      {{ if .Values.dnsname }}
+        {{- $hldomain = (join "." (reverse (slice (reverse (splitList "." .Values.dnsname)) 0 2 ))) -}}       
+      {{ end }}
       containers:
         - name: external-dns
           image: k8s.gcr.io/external-dns/external-dns:v0.11.0
+          {{- if eq .Values.k8s_provider "gke" }}
           args:
             - --source=service
             - --source=ingress
-            - --domain-filter=pyrsia.link # will make ExternalDNS see only the hosted zones matching provided domain, omit to process all available hosted zones
+            - --domain-filter={{ $hldomain }} 
             - --provider=google
             - --log-format=json # google cloud logs parses severity of the "text" log format incorrectly
             - --google-zone-visibility=public # Use this to filter to only zones with this visibility. Set to either 'public' or 'private'. Omitting will match public and private zones
             - --policy=upsert-only # would prevent ExternalDNS from deleting any records, omit to enable full synchronization
             - --registry=txt
-            - --txt-owner-id=my-identifier
+            - --txt-owner-id=pyrsia-node
+          {{- end }}
+          {{- if eq .Values.k8s_provider "eks" }}
+          args:
+            - --source=service
+            - --source=ingress
+            - --domain-filter={{ $hldomain }}
+            - --provider=aws
+            - --policy=upsert-only
+            - --aws-zone-type=public
+            - --registry=txt
+            - --txt-owner-id=pyrsia-node
           env:
-             - name: GOOGLE_APPLICATION_CREDENTIALS
-               value: /etc/secrets/service-account/credentials.json
-          volumeMounts:
-            - name: google-service-account
-              mountPath: /etc/secrets/service-account/
-      volumes:
-        - name: google-service-account
-          secret:
-            secretName: external-dns
+            - name: AWS_DEFAULT_REGION
+              value: us-east-1          
+          {{- end }}

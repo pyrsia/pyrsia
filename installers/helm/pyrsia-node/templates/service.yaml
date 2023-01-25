@@ -21,7 +21,7 @@ spec:
       protocol: TCP
       name: p2p
 ---
-{{ if ge .Values.replicaCount 2 }}
+{{ if ge (int .Values.replicaCount) 2 }}
 kind: Service
 apiVersion: v1
 metadata:
@@ -45,7 +45,7 @@ spec:
       name: p2p
 {{ end }}
 ---
-{{ if ge .Values.replicaCount 3 }}
+{{ if ge (int .Values.replicaCount) 3 }}
 kind: Service
 apiVersion: v1
 metadata:

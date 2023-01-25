@@ -1,24 +1,23 @@
----
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: pyrsia-csi
+  name: pyrsia-sc
+{{- if eq .Values.k8s_provider "eks" }}
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  fsType: ext4
+  encrypted: "true"
 reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+{{- end }}
 {{- if eq .Values.k8s_provider "gke" }}
 provisioner: pd.csi.storage.gke.io
+allowVolumeExpansion: true
 parameters:
-  type: pd-balanced
-  disk-encryption-kms-key: {{ .Values.p2pkeys.kms_key_id }}
+  type: pd-standard
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
 {{- end }}
-{{- if eq .Values.k8s_provider "oke" }}
-provisioner: blockvolume.csi.oraclecloud.com
-parameters:
-  vpusPerGB: "0"
-  attachment-type: "paravirtualized"
-  kms-key-id: {{ .Values.p2pkeys.kms_key_id }}
-spec:
-  selector:
-    matchLabels:
-      failure-domain.beta.kubernetes.io/zone: us-phoenix-1
-{{- end }}
----
