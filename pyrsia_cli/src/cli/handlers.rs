@@ -17,11 +17,11 @@
 use crate::CONF_FILE_PATH_MSG_STARTER;
 use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::node;
+use pyrsia::node_api::handlers::swarm;
 use pyrsia::node_api::model::cli::{
     RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
-    RequestMavenBuild, RequestMavenLog,
+    RequestMavenBuild, RequestMavenLog, TransparencyLogOutputParams,
 };
-use serde_json::Value;
 use std::collections::HashSet;
 use std::io;
 use std::io::BufRead;
@@ -195,14 +195,19 @@ pub async fn node_list() {
     }
 }
 
-pub async fn inspect_docker_transparency_log(image: &str) {
+pub async fn inspect_docker_transparency_log(image: &str, format: Option<String>) {
+    let content_type = swarm::ContentType::from(format.as_ref()).unwrap();
+
     let result = node::inspect_docker_transparency_log(RequestDockerLog {
         image: image.to_owned(),
+        output_params: Some(TransparencyLogOutputParams {
+            format: Some(content_type),
+        }),
     })
     .await;
     match result {
         Ok(logs) => {
-            print_logs(logs);
+            content_type.print_logs(logs);
         }
         Err(error) => {
             println!("Inspect log request failed with error: {:?}", error);
@@ -210,24 +215,24 @@ pub async fn inspect_docker_transparency_log(image: &str) {
     };
 }
 
-pub async fn inspect_maven_transparency_log(gav: &str) {
+pub async fn inspect_maven_transparency_log(gav: &str, format: Option<String>) {
+    let content_type = swarm::ContentType::from(format.as_ref()).unwrap();
+
     let result = node::inspect_maven_transparency_log(RequestMavenLog {
         gav: gav.to_owned(),
+        output_params: Some(TransparencyLogOutputParams {
+            format: Some(content_type),
+        }),
     })
     .await;
     match result {
         Ok(logs) => {
-            print_logs(logs);
+            content_type.print_logs(logs);
         }
         Err(error) => {
             println!("Inspect log request failed with error: {:?}", error);
         }
     };
-}
-
-fn print_logs(logs: String) {
-    let logs_as_json: Value = serde_json::from_str(logs.as_str()).unwrap();
-    println!("{}", serde_json::to_string_pretty(&logs_as_json).unwrap());
 }
 
 /// Read user input interactively until the validation passed
