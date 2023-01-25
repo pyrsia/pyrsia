@@ -15,6 +15,7 @@
 */
 
 use crate::artifact_service::model::PackageType;
+use crate::build_service::model::BuildStatus;
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::blockchain_protocol::BlockchainResponse;
 use crate::network::build_protocol::BuildResponse;
@@ -77,7 +78,7 @@ pub enum Command {
         build_id: String,
         channel: ResponseChannel<BuildResponse>,
     },
-    TriggerBuild {
+    VerifyBuild {
         package_type: PackageType,
         package_specific_id: String,
         sender: oneshot::Sender<anyhow::Result<()>>,
@@ -111,10 +112,10 @@ pub enum Command {
     RequestBuildStatus {
         peer: PeerId,
         build_id: String,
-        sender: oneshot::Sender<anyhow::Result<String>>,
+        sender: oneshot::Sender<anyhow::Result<BuildStatus>>,
     },
     RespondBuildStatus {
-        status: String,
+        status: BuildStatus,
         channel: ResponseChannel<BuildStatusResponse>,
     },
 }

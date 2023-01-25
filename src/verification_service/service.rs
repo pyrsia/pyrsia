@@ -19,6 +19,7 @@ use crate::build_service::error::BuildError;
 use crate::build_service::event::BuildEventClient;
 use crate::build_service::model::BuildResult;
 use crate::transparency_log::log::{Operation, TransparencyLog};
+use libp2p::PeerId;
 use log::{error, info};
 use std::collections::HashMap;
 use thiserror::Error;
@@ -154,12 +155,11 @@ impl VerificationService {
                 let build_id = self
                     .build_event_client
                     .verify_build(
+                        PeerId::random(),
                         transparency_log
                             .package_type
                             .expect("Package type should not be empty"),
-                        transparency_log.package_specific_id.clone(),
-                        transparency_log.package_specific_artifact_id.clone(),
-                        transparency_log.artifact_hash.clone(),
+                        &transparency_log.package_specific_id,
                     )
                     .await?;
 
@@ -293,10 +293,11 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::Verify {
+                    Some(BuildEvent::Start {
                         package_type: sent_package_type,
                         package_specific_id: sent_package_specific_id,
                         sender,
+                        ..
                     }) => {
                         let build_id = uuid::Uuid::new_v4().to_string();
                         assert_eq!(sent_package_type, package_type);
@@ -304,7 +305,7 @@ mod tests {
                         let _ = sender.send(Ok(build_id));
                     }
                     _ => {
-                        panic!("BuildEvent must match BuildEvent::Verify")
+                        panic!("BuildEvent must match BuildEvent::Start")
                     }
                 }
             }
@@ -358,11 +359,11 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::Verify { sender, .. }) => {
+                    Some(BuildEvent::Start { sender, .. }) => {
                         let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => {
-                        panic!("BuildEvent must match BuildEvent::Verify")
+                        panic!("BuildEvent must match BuildEvent::Start")
                     }
                 }
             }
@@ -436,11 +437,11 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::Verify { sender, .. }) => {
+                    Some(BuildEvent::Start { sender, .. }) => {
                         let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => {
-                        panic!("BuildEvent must match BuildEvent::Verify")
+                        panic!("BuildEvent must match BuildEvent::Start")
                     }
                 }
             }
@@ -515,11 +516,11 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::Verify { sender, .. }) => {
+                    Some(BuildEvent::Start { sender, .. }) => {
                         let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => {
-                        panic!("BuildEvent must match BuildEvent::Verify")
+                        panic!("BuildEvent must match BuildEvent::Start")
                     }
                 }
             }
@@ -606,11 +607,11 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::Verify { sender, .. }) => {
+                    Some(BuildEvent::Start { sender, .. }) => {
                         let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => {
-                        panic!("BuildEvent must match BuildEvent::Verify")
+                        panic!("BuildEvent must match BuildEvent::Start")
                     }
                 }
             }
@@ -701,11 +702,11 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::Verify { sender, .. }) => {
+                    Some(BuildEvent::Start { sender, .. }) => {
                         let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => {
-                        panic!("BuildEvent must match BuildEvent::Verify")
+                        panic!("BuildEvent must match BuildEvent::Start")
                     }
                 }
             }

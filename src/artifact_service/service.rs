@@ -18,7 +18,7 @@ use super::model::PackageType;
 use super::storage::ArtifactStorage;
 use crate::build_service::error::BuildError;
 use crate::build_service::event::BuildEventClient;
-use crate::build_service::model::BuildResult;
+use crate::build_service::model::{BuildResult, BuildStatus};
 use crate::network::client::Client;
 use crate::transparency_log::log::{
     AddArtifactRequest, TransparencyLog, TransparencyLogError, TransparencyLogService,
@@ -107,13 +107,13 @@ impl ArtifactService {
         if local_peer_id.eq(peer_id) {
             debug!("Start local build in authorized node");
             self.build_event_client
-                .start_build(package_type, package_specific_id)
+                .start_build(package_type, &package_specific_id)
                 .await
         } else {
             debug!("Request build in authorized node from p2p network");
             self.p2p_client
                 .clone()
-                .request_build(peer_id, package_type, package_specific_id.clone())
+                .request_build(peer_id, package_type, &package_specific_id)
                 .await
                 .map_err(|e| BuildError::InitializationFailed(e.to_string()))
         }
@@ -171,7 +171,7 @@ impl ArtifactService {
         Ok(())
     }
 
-    pub async fn get_build_status(&mut self, build_id: &str) -> Result<String, BuildError> {
+    pub async fn get_build_status(&mut self, build_id: &str) -> Result<BuildStatus, BuildError> {
         let local_peer_id = self.p2p_client.local_peer_id;
         debug!("Got local node with peer_id: {:?}", local_peer_id.clone());
 
@@ -1039,12 +1039,11 @@ mod tests {
         let (mut artifact_service, mut blockchain_event_receiver, mut build_event_receiver) =
             test_util::tests::create_artifact_service_with_p2p_client(&tmp_dir, p2p_client.clone());
 
-        let build_status: &str = "RUNNING";
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
                     Some(BuildEvent::Status { sender, .. }) => {
-                        let _ = sender.send(Ok(build_status.to_owned()));
+                        let _ = sender.send(Ok(BuildStatus::Running));
                     }
                     other => panic!("BuildEvent must match BuildEvent::Status, was: {:?}", other),
                 }
@@ -1083,9 +1082,9 @@ mod tests {
             .unwrap();
 
         let build_id = uuid::Uuid::new_v4().to_string();
-        let result = artifact_service.get_build_status(&build_id).await.unwrap();
+        let build_status = artifact_service.get_build_status(&build_id).await.unwrap();
 
-        assert_eq!(result, build_status);
+        assert_eq!(build_status, BuildStatus::Running);
         test_util::tests::teardown(tmp_dir);
     }
 
@@ -1096,7 +1095,6 @@ mod tests {
         let (mut artifact_service, mut blockchain_event_receiver, _, mut p2p_command_receiver) =
             test_util::tests::create_artifact_service(&tmp_dir);
 
-        let build_status: &str = "RUNNING";
         tokio::spawn(async move {
             loop {
                 match p2p_command_receiver.recv().await {
@@ -1104,7 +1102,7 @@ mod tests {
                         let _ = sender.send(HashSet::new());
                     }
                     Some(Command::RequestBuildStatus { sender, .. }) => {
-                        let _ = sender.send(Ok(build_status.to_owned()));
+                        let _ = sender.send(Ok(BuildStatus::Running));
                     }
                     other => panic!(
                         "Command must match Command::ListPeers or Command::RequestBuildStatus, was: {:?}",
@@ -1137,9 +1135,9 @@ mod tests {
 
         // request build status
         let build_id = uuid::Uuid::new_v4().to_string();
-        let result = artifact_service.get_build_status(&build_id).await.unwrap();
+        let build_status = artifact_service.get_build_status(&build_id).await.unwrap();
 
-        assert_eq!(result, build_status);
+        assert_eq!(build_status, BuildStatus::Running);
         test_util::tests::teardown(tmp_dir);
     }
 }

@@ -32,7 +32,7 @@ pub enum BuildEvent {
     },
     Status {
         build_id: String,
-        sender: oneshot::Sender<Result<String, BuildError>>,
+        sender: oneshot::Sender<Result<BuildStatus, BuildError>>,
     },
     Start {
         package_type: PackageType,
@@ -52,11 +52,6 @@ pub enum BuildEvent {
         build_trigger: BuildTrigger,
         build_result: BuildResult,
     },
-    Verify {
-        package_type: PackageType,
-        package_specific_id: String,
-        sender: oneshot::Sender<Result<String, BuildError>>,
-    },
 }
 
 #[derive(Clone)]
@@ -72,13 +67,13 @@ impl BuildEventClient {
     pub async fn start_build(
         &self,
         package_type: PackageType,
-        package_specific_id: String,
+        package_specific_id: &str,
     ) -> Result<String, BuildError> {
         let (sender, receiver) = oneshot::channel();
         self.build_event_sender
             .send(BuildEvent::Start {
                 package_type,
-                package_specific_id,
+                package_specific_id: package_specific_id.to_owned(),
                 sender,
                 build_trigger: BuildTrigger::FromSource,
             })
@@ -91,19 +86,19 @@ impl BuildEventClient {
             .map_err(|e| BuildError::InitializationFailed(e.to_string()))?
     }
 
-    pub async fn trigger_build(
+    pub async fn verify_build(
         &self,
         requestor: PeerId,
         package_type: PackageType,
-        package_specific_id: String,
+        package_specific_id: &str,
     ) -> Result<String, BuildError> {
         let (sender, receiver) = oneshot::channel();
         self.build_event_sender
             .send(BuildEvent::Start {
                 package_type,
-                package_specific_id,
+                package_specific_id: package_specific_id.to_owned(),
                 sender,
-                build_trigger: BuildTrigger::AuthoritiveLeader(requestor),
+                build_trigger: BuildTrigger::Verification(requestor),
             })
             .await
             .unwrap_or_else(|e| {
@@ -114,30 +109,7 @@ impl BuildEventClient {
             .map_err(|e| BuildError::InitializationFailed(e.to_string()))?
     }
 
-    pub async fn verify_build(
-        &self,
-        package_type: PackageType,
-        package_specific_id: String,
-        _package_specific_artifact_id: String,
-        _artifact_hash: String,
-    ) -> Result<String, BuildError> {
-        let (sender, receiver) = oneshot::channel();
-        self.build_event_sender
-            .send(BuildEvent::Verify {
-                package_type,
-                package_specific_id,
-                sender,
-            })
-            .await
-            .unwrap_or_else(|e| {
-                error!("Error build_event_sender. {:#?}", e);
-            });
-        receiver
-            .await
-            .map_err(|e| BuildError::InitializationFailed(e.to_string()))?
-    }
-
-    pub async fn get_build_status(&self, build_id: &str) -> Result<String, BuildError> {
+    pub async fn get_build_status(&self, build_id: &str) -> Result<BuildStatus, BuildError> {
         let (sender, receiver) = oneshot::channel();
         self.build_event_sender
             .send(BuildEvent::Status {
@@ -157,7 +129,7 @@ impl BuildEventClient {
         &self,
         build_id: &str,
         package_type: PackageType,
-        package_specific_id: String,
+        package_specific_id: &str,
         build_trigger: BuildTrigger,
         artifact_urls: Vec<String>,
     ) {
@@ -165,7 +137,7 @@ impl BuildEventClient {
             .send(BuildEvent::Succeeded {
                 build_id: build_id.to_owned(),
                 package_type,
-                package_specific_id,
+                package_specific_id: package_specific_id.to_owned(),
                 build_trigger,
                 artifact_urls,
             })
@@ -259,23 +231,6 @@ impl BuildEventLoop {
                     error!("build error. {:#?}", e);
                 });
             }
-            BuildEvent::Verify {
-                package_type,
-                package_specific_id,
-                sender,
-            } => {
-                let result = self
-                    .build_service
-                    .start_build(
-                        package_type,
-                        package_specific_id,
-                        BuildTrigger::Verification,
-                    )
-                    .await;
-                sender.send(result).unwrap_or_else(|e| {
-                    error!("build error. {:#?}", e);
-                });
-            }
             BuildEvent::Failed {
                 build_id,
                 build_error,
@@ -286,19 +241,11 @@ impl BuildEventLoop {
                     .handle_build_failed(&build_id, build_error);
             }
             BuildEvent::Status { build_id, sender } => {
-                let result = match self.build_service.get_build_status(&build_id).await {
-                    Ok(build_info) => {
-                        let build_status = match build_info.status {
-                            BuildStatus::Running => String::from("RUNNING"),
-                            BuildStatus::Success { .. } => String::from("SUCCESS"),
-                            BuildStatus::Failure(message) => {
-                                format!("FAILED - (Error: {})", message)
-                            }
-                        };
-                        Ok(build_status)
-                    }
-                    Err(build_error) => Err(build_error),
-                };
+                let result = self
+                    .build_service
+                    .get_build_status(&build_id)
+                    .await
+                    .map(|info| info.status);
                 sender.send(result).unwrap_or_else(|build_error| {
                     error!("build error. {:#?}", build_error);
                 });
@@ -331,11 +278,8 @@ impl BuildEventLoop {
                             .handle_build_result(&build_id, build_result)
                             .await
                     }
-                    BuildTrigger::AuthoritiveLeader(leader_peer_id) => {
+                    BuildTrigger::Verification(leader_peer_id) => {
                         info!("Finished build with ID {}, triggered by authorative leader node {:?}: {:?}", build_id, leader_peer_id, build_result);
-                        Ok(())
-                    }
-                    BuildTrigger::Verification => {
                         self.verification_service
                             .handle_build_result(&build_id, build_result)
                             .await
@@ -348,6 +292,199 @@ impl BuildEventLoop {
                 }
 
                 self.build_service.clean_up_build(&build_id);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+#[cfg(not(tarpaulin_include))]
+mod tests {
+    use super::*;
+    use crate::build_service::model::BuildResultArtifact;
+    use crate::util::test_util;
+    use hyper::StatusCode;
+    use std::path::PathBuf;
+
+    #[tokio::test]
+    async fn test_start_build() {
+        let (client, mut receiver) = test_util::tests::create_build_event_client();
+
+        let random_package_specific_id = test_util::tests::random_string(30);
+        let cloned_random_package_specific_id = random_package_specific_id.clone();
+
+        tokio::spawn(async move {
+            client
+                .start_build(PackageType::Docker, &random_package_specific_id)
+                .await
+        });
+
+        tokio::select! {
+            command = receiver.recv() => match command {
+                Some(BuildEvent::Start { package_type, package_specific_id, sender, build_trigger }) => {
+                    assert_eq!(package_type, PackageType::Docker);
+                    assert_eq!(package_specific_id, cloned_random_package_specific_id);
+                    assert_eq!(build_trigger, BuildTrigger::FromSource);
+                    let _ = sender.send(Ok(String::from("ok")));
+                },
+                _ => panic!("Command must match BuildEvent::Start")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_verify_build() {
+        let (client, mut receiver) = test_util::tests::create_build_event_client();
+
+        let requestor = PeerId::random();
+        let random_package_specific_id = test_util::tests::random_string(30);
+        let cloned_random_package_specific_id = random_package_specific_id.clone();
+
+        tokio::spawn(async move {
+            client
+                .verify_build(requestor, PackageType::Docker, &random_package_specific_id)
+                .await
+        });
+
+        tokio::select! {
+            command = receiver.recv() => match command {
+                Some(BuildEvent::Start { package_type, package_specific_id, sender, build_trigger }) => {
+                    assert_eq!(package_type, PackageType::Docker);
+                    assert_eq!(package_specific_id, cloned_random_package_specific_id);
+                    assert_eq!(build_trigger, BuildTrigger::Verification(requestor));
+                    let _ = sender.send(Ok(String::from("ok")));
+                },
+                _ => panic!("Command must match BuildEvent::Start")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_build_status() {
+        let (client, mut receiver) = test_util::tests::create_build_event_client();
+
+        let random_build_id = test_util::tests::random_string(30);
+        let cloned_random_build_id = random_build_id.clone();
+
+        tokio::spawn(async move { client.get_build_status(&random_build_id).await });
+
+        tokio::select! {
+            command = receiver.recv() => match command {
+                Some(BuildEvent::Status { build_id, sender }) => {
+                    assert_eq!(build_id, cloned_random_build_id);
+                    let _ = sender.send(Ok(BuildStatus::Running));
+                },
+                _ => panic!("Command must match BuildEvent::Status")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_build_succeeded() {
+        let (client, mut receiver) = test_util::tests::create_build_event_client();
+
+        let random_build_id = test_util::tests::random_string(30);
+        let cloned_random_build_id = random_build_id.clone();
+        let random_package_specific_id = test_util::tests::random_string(30);
+        let cloned_random_package_specific_id = random_package_specific_id.clone();
+        let artifact_urls = vec![String::from("url_1"), String::from("url_2")];
+        let cloned_artifact_urls = artifact_urls.clone();
+
+        tokio::spawn(async move {
+            client
+                .build_succeeded(
+                    &random_build_id,
+                    PackageType::Docker,
+                    &random_package_specific_id,
+                    BuildTrigger::FromSource,
+                    artifact_urls,
+                )
+                .await
+        });
+
+        tokio::select! {
+            command = receiver.recv() => match command {
+                Some(BuildEvent::Succeeded { build_id, package_type, package_specific_id, build_trigger, artifact_urls }) => {
+                    assert_eq!(build_id, cloned_random_build_id);
+                    assert_eq!(package_type, PackageType::Docker);
+                    assert_eq!(package_specific_id, cloned_random_package_specific_id);
+                    assert_eq!(build_trigger, BuildTrigger::FromSource);
+                    assert_eq!(artifact_urls, cloned_artifact_urls);
+                },
+                _ => panic!("Command must match BuildEvent::Succeeded")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_build_failed() {
+        let (client, mut receiver) = test_util::tests::create_build_event_client();
+
+        let random_build_id = test_util::tests::random_string(30);
+        let cloned_random_build_id = random_build_id.clone();
+
+        tokio::spawn(async move {
+            client
+                .build_failed(
+                    &random_build_id,
+                    BuildError::MappingServiceEndpointFailure(StatusCode::BAD_REQUEST),
+                )
+                .await
+        });
+
+        tokio::select! {
+            command = receiver.recv() => match command {
+                Some(BuildEvent::Failed { build_id, build_error }) => {
+                    assert_eq!(build_id, cloned_random_build_id);
+                    match build_error {
+                        BuildError::MappingServiceEndpointFailure(status_code) => assert_eq!(status_code, StatusCode::BAD_REQUEST),
+                        e => panic!("Invalid Error encountered: {:?}", e),
+                    }
+                },
+                _ => panic!("Command must match BuildEvent::Failed")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_build_result() {
+        let (client, mut receiver) = test_util::tests::create_build_event_client();
+
+        let random_build_id = test_util::tests::random_string(30);
+        let cloned_random_build_id = random_build_id.clone();
+        let random_package_specific_id = test_util::tests::random_string(30);
+        let cloned_random_package_specific_id = random_package_specific_id.clone();
+        let artifacts = vec![BuildResultArtifact {
+            artifact_specific_id: "artifact_specific_id_1".to_owned(),
+            artifact_location: PathBuf::from("/tmp/build/artifact1.bin"),
+            artifact_hash: "artifact_hash_1".to_owned(),
+        }];
+        let cloned_artifacts = artifacts.clone();
+
+        tokio::spawn(async move {
+            client
+                .build_result(
+                    &random_build_id,
+                    BuildTrigger::FromSource,
+                    BuildResult {
+                        package_type: PackageType::Docker,
+                        package_specific_id: random_package_specific_id.to_owned(),
+                        artifacts,
+                    },
+                )
+                .await
+        });
+
+        tokio::select! {
+            command = receiver.recv() => match command {
+                Some(BuildEvent::Result { build_id, build_trigger, build_result }) => {
+                    assert_eq!(build_id, cloned_random_build_id);
+                    assert_eq!(build_trigger, BuildTrigger::FromSource);
+                    assert_eq!(build_result.package_type, PackageType::Docker);
+                    assert_eq!(build_result.package_specific_id, cloned_random_package_specific_id);
+                    assert_eq!(build_result.artifacts, cloned_artifacts);
+                },
+                _ => panic!("Command must match BuildEvent::Succeeded")
             }
         }
     }

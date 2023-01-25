@@ -60,7 +60,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut peer_metrics = PeerMetrics::new();
 
     debug!("Create p2p components");
-    let (mut p2p_client, local_keypair, mut p2p_events, event_loop) =
+    let (p2p_client, local_keypair, mut p2p_events, event_loop) =
         p2p::setup_libp2p_swarm(args.max_provided_keys)?;
 
     debug!("Start p2p event loop");
@@ -131,16 +131,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         );
                     }
                 }
-                pyrsia::network::event_loop::PyrsiaEvent::TriggerBuild {
+                pyrsia::network::event_loop::PyrsiaEvent::VerifyBuild {
                     peer_id,
                     package_type,
                     package_specific_id,
                 } => {
                     debug!(
-                        "Main::p2p trigger build: {:?} : {}",
+                        "Main::p2p verify build: {:?} : {}",
                         package_type, package_specific_id
                     );
-                    if let Err(error) = handlers::handle_trigger_build(
+                    if let Err(error) = handlers::handle_verify_build(
                         peer_id,
                         build_event_client.clone(),
                         package_type,
@@ -149,7 +149,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .await
                     {
                         warn!(
-                            "This node failed to trigger build with package type {:?} and id {}. Error: {:?}",
+                            "This node failed to verify build with package type {:?} and id {}. Error: {:?}",
                             package_type, package_specific_id, error
                         );
                     }
@@ -249,7 +249,7 @@ async fn establish_connection_with_p2p_network(
 }
 
 async fn connect_to_p2p_network(
-    mut p2p_client: Client,
+    p2p_client: Client,
     args: &PyrsiaNodeArgs,
 ) -> anyhow::Result<Option<PeerId>> {
     p2p_client.listen(&args.listen_address).await?;
@@ -370,13 +370,14 @@ async fn setup_pyrsia_services(
         &artifact_path,
         transparency_log_service.clone(),
         build_event_client.clone(),
-        p2p_client,
+        p2p_client.clone(),
     )?;
 
     debug!("Create build service");
     let build_service = setup_build_service(
         &artifact_path,
         build_event_client.clone(),
+        p2p_client,
         transparency_log_service,
         args,
     )?;
@@ -427,12 +428,14 @@ fn setup_artifact_service(
 fn setup_build_service(
     artifact_path: &Path,
     build_event_client: BuildEventClient,
+    p2p_client: Client,
     transparency_log_service: TransparencyLogService,
     args: &PyrsiaNodeArgs,
 ) -> Result<BuildService> {
     let build_service = BuildService::new(
         artifact_path,
         build_event_client,
+        p2p_client,
         transparency_log_service,
         &args.mapping_service_endpoint,
         &args.pipeline_service_endpoint,

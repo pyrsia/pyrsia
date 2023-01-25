@@ -25,6 +25,8 @@ pub mod tests {
     use crate::transparency_log::log::TransparencyLogService;
     use crate::verification_service::service::VerificationService;
     use libp2p::identity::Keypair;
+    use rand::distributions::Alphanumeric;
+    use rand::{thread_rng, Rng};
     use std::env;
     use std::fs;
     use std::path;
@@ -139,5 +141,13 @@ pub mod tests {
 
         env::remove_var("PYRSIA_ARTIFACT_PATH");
         env::remove_var("DEV_MODE");
+    }
+
+    pub fn random_string(length: usize) -> String {
+        thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(length)
+            .map(char::from)
+            .collect()
     }
 }

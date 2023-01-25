@@ -21,15 +21,14 @@ use super::model::{BuildResult, BuildResultArtifact, BuildStatus, BuildTrigger};
 use super::pipeline::service::PipelineService;
 use crate::artifact_service::model::PackageType;
 use crate::build_service::model::BuildInfo;
+use crate::network::client::Client;
 use crate::transparency_log::log::TransparencyLogService;
 use bytes::Buf;
-use libp2p::PeerId;
 use log::{debug, error, warn};
 use multihash::Hasher;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 /// The build service is a component used by authorized nodes only. It is
 /// the entrypoint to the authorized node's build pipeline infrastructure.
@@ -37,6 +36,7 @@ use std::str::FromStr;
 pub struct BuildService {
     repository_path: PathBuf,
     build_event_client: BuildEventClient,
+    p2p_client: Client,
     transparency_log_service: TransparencyLogService,
     mapping_service: MappingService,
     pipeline_service: PipelineService,
@@ -46,6 +46,7 @@ impl BuildService {
     pub fn new<P: AsRef<Path>>(
         repository_path: P,
         build_event_client: BuildEventClient,
+        p2p_client: Client,
         transparency_log_service: TransparencyLogService,
         mapping_service_endpoint: &str,
         pipeline_service_endpoint: &str,
@@ -54,6 +55,7 @@ impl BuildService {
         Ok(BuildService {
             repository_path,
             build_event_client,
+            p2p_client,
             transparency_log_service,
             mapping_service: MappingService::new(mapping_service_endpoint),
             pipeline_service: PipelineService::new(pipeline_service_endpoint),
@@ -72,14 +74,23 @@ impl BuildService {
             package_type, package_specific_id
         );
 
-        if let BuildTrigger::AuthoritiveLeader(leader_peer_id) = build_trigger {
-            let authorized_nodes = self.transparency_log_service.get_authorized_nodes()?;
-            let leader_is_authorized = authorized_nodes
-                .iter()
-                .map(|node| PeerId::from_str(&node.node_id).unwrap())
-                .any(|peer_id| peer_id == leader_peer_id);
-            if !leader_is_authorized {
-                return Err(BuildError::UnauthorizedPeerId(leader_peer_id));
+        match build_trigger {
+            BuildTrigger::FromSource => {
+                if let Err(e) = self
+                    .p2p_client
+                    .verify_build(package_type, &package_specific_id)
+                    .await
+                {
+                    return Err(BuildError::InitializationFailed(e.to_string()));
+                }
+            }
+            BuildTrigger::Verification(requestor) => {
+                let authorized_nodes = self.transparency_log_service.get_authorized_nodes()?;
+                let leader_is_authorized =
+                    authorized_nodes.iter().any(|peer_id| peer_id == &requestor);
+                if !leader_is_authorized {
+                    return Err(BuildError::UnauthorizedPeerId(requestor));
+                }
             }
         }
 
@@ -108,7 +119,7 @@ impl BuildService {
                                     .build_succeeded(
                                         &build_id,
                                         package_type,
-                                        package_specific_id,
+                                        &package_specific_id,
                                         build_trigger,
                                         artifact_urls,
                                     )
@@ -317,6 +328,7 @@ fn get_docker_image_name(package_specific_id: &str) -> String {
 mod tests {
     use super::*;
     use crate::build_service::mapping::model::MappingInfo;
+    use crate::network::client::command::Command;
     use crate::util::test_util;
     use httptest::{matchers, responders, Expectation, Server};
     use tokio::sync::mpsc;
@@ -330,9 +342,21 @@ mod tests {
 
         let (sender, _) = mpsc::channel(1);
 
+        let (p2p_client, mut p2p_command_receiver) = test_util::tests::create_p2p_client();
         let (transparency_log_service, _blockchain_event_receiver) =
             test_util::tests::create_transparency_log_service(&tmp_dir);
         let build_event_client = BuildEventClient::new(sender);
+
+        tokio::spawn(async move {
+            loop {
+                match p2p_command_receiver.recv().await {
+                    Some(Command::VerifyBuild { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::VerifyBuild"),
+                }
+            }
+        });
 
         let mapping_info = MappingInfo {
             package_type: PackageType::Docker,
@@ -360,6 +384,7 @@ mod tests {
         let build_service = BuildService::new(
             &tmp_dir,
             build_event_client,
+            p2p_client,
             transparency_log_service,
             mapping_service_endpoint,
             pipeline_service_endpoint,
@@ -388,15 +413,28 @@ mod tests {
 
         let (sender, _) = mpsc::channel(1);
 
+        let (p2p_client, mut p2p_command_receiver) = test_util::tests::create_p2p_client();
         let (transparency_log_service, _blockchain_event_receiver) =
             test_util::tests::create_transparency_log_service(&tmp_dir);
         let build_event_client = BuildEventClient::new(sender);
 
-        let random_peer_id = PeerId::random();
+        tokio::spawn(async move {
+            loop {
+                match p2p_command_receiver.recv().await {
+                    Some(Command::VerifyBuild { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    _ => panic!("Command must match Command::VerifyBuild"),
+                }
+            }
+        });
+
+        let random_peer_id = libp2p::PeerId::random();
 
         let build_service = BuildService::new(
             &tmp_dir,
             build_event_client,
+            p2p_client,
             transparency_log_service,
             "https://not_used.com",
             "https://not_used.com",
@@ -406,14 +444,14 @@ mod tests {
             .start_build(
                 package_type,
                 package_specific_id.to_owned(),
-                BuildTrigger::AuthoritiveLeader(random_peer_id),
+                BuildTrigger::Verification(random_peer_id),
             )
             .await
             .unwrap_err();
 
         match build_id_error {
             BuildError::UnauthorizedPeerId(peer_id) => assert_eq!(peer_id, random_peer_id),
-            _ => panic!(""),
+            e => panic!("Invalid Error encountered: {:?}", e),
         };
 
         test_util::tests::teardown(tmp_dir);

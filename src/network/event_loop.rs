@@ -15,13 +15,14 @@
 */
 
 use crate::artifact_service::model::PackageType;
+use crate::build_service::model::BuildStatus;
 use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse};
 use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::blockchain_protocol::{BlockchainRequest, BlockchainResponse};
 use crate::network::build_protocol::{BuildRequest, BuildResponse};
 use crate::network::build_status_protocol::{BuildStatusRequest, BuildStatusResponse};
 use crate::network::client::command::Command;
-use crate::network::client::TriggerBuildData;
+use crate::network::client::VerifyBuildData;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::cli::Status;
 use crate::util::env_util::read_var;
@@ -51,7 +52,7 @@ type PendingRequestArtifactMap = HashMap<RequestId, oneshot::Sender<anyhow::Resu
 type PendingRequestBuildMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<String>>>;
 type PendingRequestIdleMetricMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<PeerMetrics>>>;
 type PendingRequestBlockchainMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<Vec<u8>>>>;
-type PendingBuildStatusMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<String>>>;
+type PendingBuildStatusMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<BuildStatus>>>;
 
 struct PendingListProviders {
     sender: oneshot::Sender<HashSet<PeerId>>,
@@ -187,13 +188,13 @@ impl PyrsiaEventLoop {
         if let gossipsub::GossipsubEvent::Message { message, .. } = event {
             if message.topic == self.build_topic.hash() {
                 if let Some(source) = message.source {
-                    match deserialize::<TriggerBuildData>(&message.data) {
-                        Ok(trigger_build_data) => {
+                    match deserialize::<VerifyBuildData>(&message.data) {
+                        Ok(verify_build_data) => {
                             self.event_sender
-                                .send(PyrsiaEvent::TriggerBuild {
+                                .send(PyrsiaEvent::VerifyBuild {
                                     peer_id: source,
-                                    package_type: trigger_build_data.package_type,
-                                    package_specific_id: trigger_build_data.package_specific_id,
+                                    package_type: verify_build_data.package_type,
+                                    package_specific_id: verify_build_data.package_specific_id,
                                 })
                                 .await
                                 .expect("Event receiver not to be dropped.");
@@ -802,16 +803,16 @@ impl PyrsiaEventLoop {
                     .send_response(channel, BuildResponse(build_id))
                     .expect("Connection to peer to be still open.");
             }
-            Command::TriggerBuild {
+            Command::VerifyBuild {
                 package_type,
                 package_specific_id,
                 sender,
             } => {
-                let trigger_build_data = TriggerBuildData {
+                let verify_build_data = VerifyBuildData {
                     package_type,
                     package_specific_id,
                 };
-                match serialize(&trigger_build_data) {
+                match serialize(&verify_build_data) {
                     Ok(serialized_data) => {
                         sender
                             .send(
@@ -932,7 +933,7 @@ pub enum PyrsiaEvent {
         package_specific_id: String,
         channel: ResponseChannel<BuildResponse>,
     },
-    TriggerBuild {
+    VerifyBuild {
         peer_id: PeerId,
         package_type: PackageType,
         package_specific_id: String,
@@ -1101,8 +1102,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dial_address_with_listener() {
-        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2, _) = create_test_swarm();
+        let (p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (p2p_client_2, event_loop_2, _) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
         tokio::spawn(event_loop_2.run());
@@ -1127,8 +1128,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dial_address_without_listener() {
-        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2, _) = create_test_swarm();
+        let (p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (p2p_client_2, event_loop_2, _) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
         tokio::spawn(event_loop_2.run());
@@ -1153,7 +1154,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dial_with_invalid_peer_id() {
-        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (p2p_client_1, event_loop_1, _) = create_test_swarm();
         let (p2p_client_2, _, _) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
@@ -1174,8 +1175,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_request_build_loop() {
-        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2, mut event_receiver_2) = create_test_swarm();
+        let (p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (p2p_client_2, event_loop_2, mut event_receiver_2) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
         tokio::spawn(event_loop_2.run());
@@ -1217,11 +1218,7 @@ mod tests {
         });
 
         let result = p2p_client_1
-            .request_build(
-                &p2p_client_2_peer_id,
-                package_type,
-                package_specific_id.to_string(),
-            )
+            .request_build(&p2p_client_2_peer_id, package_type, package_specific_id)
             .await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), expected_build_id.to_string());
@@ -1229,9 +1226,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_list_providers_with_interconnected_peer() {
-        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2, _) = create_test_swarm();
-        let (mut p2p_client_3, event_loop_3, _) = create_test_swarm();
+        let (p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (p2p_client_2, event_loop_2, _) = create_test_swarm();
+        let (p2p_client_3, event_loop_3, _) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
         tokio::spawn(event_loop_2.run());
