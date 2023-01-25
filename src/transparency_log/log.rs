@@ -1037,7 +1037,7 @@ mod tests {
         let tmp_dir = test_util::tests::setup();
         let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
-        let node_id = "test_node_id";
+        let node_id: &str = &PeerId::random().to_string();
         let tl_add_1 = new_auth_node_transparency_log(Operation::AddNode, node_id);
         assert!(log.write_transparency_log(&tl_add_1).is_ok());
 
@@ -1051,7 +1051,7 @@ mod tests {
         assert!(log.write_transparency_log(&tl_add_2).is_ok());
 
         let res = log.get_authorized_nodes().unwrap();
-        assert!(res.iter().any(|t| t.node_id.eq(node_id)));
+        assert!(res.iter().any(|peer_id| peer_id.to_string().eq(node_id)));
 
         test_util::tests::teardown(tmp_dir);
     }
