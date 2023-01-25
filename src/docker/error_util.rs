@@ -20,6 +20,7 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::error::Error;
+use std::string::FromUtf8Error;
 use warp::http::StatusCode;
 use warp::reject::Reject;
 use warp::{Rejection, Reply};
@@ -125,6 +126,38 @@ impl From<Box<dyn Error + Send>> for RegistryError {
     fn from(err: Box<dyn Error + Send>) -> RegistryError {
         RegistryError {
             code: RegistryErrorCode::Unknown(err.to_string()),
+        }
+    }
+}
+
+impl From<csv::Error> for RegistryError {
+    fn from(value: csv::Error) -> Self {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(value.to_string()),
+        }
+    }
+}
+
+impl From<csv::IntoInnerError<csv::Writer<Vec<u8>>>> for RegistryError {
+    fn from(value: csv::IntoInnerError<csv::Writer<Vec<u8>>>) -> Self {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(value.to_string()),
+        }
+    }
+}
+
+impl From<FromUtf8Error> for RegistryError {
+    fn from(value: FromUtf8Error) -> Self {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(value.to_string()),
+        }
+    }
+}
+
+impl From<hyper::http::Error> for RegistryError {
+    fn from(value: hyper::http::Error) -> Self {
+        RegistryError {
+            code: RegistryErrorCode::Unknown(value.to_string()),
         }
     }
 }

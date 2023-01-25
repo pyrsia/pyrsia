@@ -16,6 +16,7 @@
 
 use crate::artifact_service::model::PackageType;
 use crate::blockchain_service::event::BlockchainEventClient;
+use libp2p::core::ParseError;
 use libp2p::PeerId;
 use log::{debug, error};
 use pyrsia_blockchain_network::error::BlockchainError;
@@ -56,6 +57,8 @@ pub enum TransparencyLogError {
         invalid_hash: String,
         actual_hash: String,
     },
+    #[error("Invalid peerId format: {0}")]
+    InvalidNodePeerIDFormat(#[from] ParseError),
     #[error("Invalid operation for ID {id}: {invalid_operation}")]
     InvalidOperation {
         id: String,
@@ -139,6 +142,29 @@ pub struct TransparencyLogService {
     blockchain_event_client: BlockchainEventClient,
 }
 
+impl TransparencyLog {
+    pub fn from(add_artifact_request: AddArtifactRequest) -> TransparencyLog {
+        TransparencyLog {
+            id: Uuid::new_v4().to_string(),
+            package_type: Some(add_artifact_request.package_type),
+            package_specific_id: add_artifact_request.package_specific_id.clone(),
+            num_artifacts: add_artifact_request.num_artifacts,
+            package_specific_artifact_id: add_artifact_request.package_specific_artifact_id.clone(),
+            artifact_hash: add_artifact_request.artifact_hash,
+            source_hash: "".to_owned(),
+            artifact_id: Uuid::new_v4().to_string(),
+            source_id: Uuid::new_v4().to_string(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            operation: Operation::AddArtifact,
+            node_id: Uuid::new_v4().to_string(),
+            node_public_key: Uuid::new_v4().to_string(),
+        }
+    }
+}
+
 impl TransparencyLogService {
     pub fn new<P: AsRef<Path>>(
         repository_path: P,
@@ -193,24 +219,7 @@ impl TransparencyLogService {
         &mut self,
         add_artifact_request: AddArtifactRequest,
     ) -> Result<TransparencyLog, TransparencyLogError> {
-        let transparency_log = TransparencyLog {
-            id: Uuid::new_v4().to_string(),
-            package_type: Some(add_artifact_request.package_type),
-            package_specific_id: add_artifact_request.package_specific_id.clone(),
-            num_artifacts: add_artifact_request.num_artifacts,
-            package_specific_artifact_id: add_artifact_request.package_specific_artifact_id.clone(),
-            artifact_hash: add_artifact_request.artifact_hash,
-            source_hash: "".to_owned(),
-            artifact_id: Uuid::new_v4().to_string(),
-            source_id: Uuid::new_v4().to_string(),
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            operation: Operation::AddArtifact,
-            node_id: Uuid::new_v4().to_string(),
-            node_public_key: Uuid::new_v4().to_string(),
-        };
+        let transparency_log = TransparencyLog::from(add_artifact_request);
 
         let payload = serde_json::to_string(&transparency_log)?;
         self.blockchain_event_client
@@ -280,10 +289,14 @@ impl TransparencyLogService {
         }
     }
 
-    /// Gets a list of transparency logs of which the operation is AddNode. Returns an error
-    /// when no transparency log could be found.
-    pub fn get_authorized_nodes(&self) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
-        self.find_added_nodes()
+    /// Get a list of auth node PeerID. Return an error when no PeerID could be found.
+    pub fn get_authorized_nodes(&self) -> Result<Vec<PeerId>, TransparencyLogError> {
+        Ok(self
+            .find_added_nodes()?
+            .iter()
+            //Get PeerId in the correct format, ignoring parsing errors
+            .flat_map(|node| PeerId::from_str(&node.node_id))
+            .collect::<Vec<PeerId>>())
     }
 
     /// Verifies that a specified node can be added to the transparency log database.
@@ -298,9 +311,9 @@ impl TransparencyLogService {
                 // error, can be added
                 Ok(())
             }
-            Some(logs) => {
-                for log in logs {
-                    if log.node_id == *peer_id {
+            Some(nodes) => {
+                for node in nodes {
+                    if node.eq(&PeerId::from_str(peer_id)?) {
                         return Err(TransparencyLogError::NodeAlreadyExists {
                             node_id: peer_id.to_owned(),
                         });
@@ -964,8 +977,10 @@ mod tests {
         assert!(result_read.is_ok());
         let vec = result_read.unwrap();
         assert_eq!(vec.len(), 1);
-        assert_eq!(vec.get(0).unwrap().node_id, transparency_log.node_id);
-
+        assert!(vec
+            .get(0)
+            .unwrap()
+            .eq(&PeerId::from_str(&transparency_log.node_id).unwrap()));
         test_util::tests::teardown(tmp_dir);
     }
 
@@ -975,7 +990,7 @@ mod tests {
 
         let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
-        let node_id = "node_id";
+        let node_id: &str = &PeerId::random().to_string();
         let transparency_log = new_auth_node_transparency_log(Operation::AddNode, node_id);
 
         assert!(log.write_transparency_log(&transparency_log).is_ok());
@@ -984,8 +999,7 @@ mod tests {
         assert!(result_read.is_ok());
         let vec = result_read.unwrap();
         assert_eq!(vec.len(), 1);
-        assert_eq!(vec.get(0).unwrap().node_id, node_id);
-
+        assert!(vec.get(0).unwrap().eq(&PeerId::from_str(node_id).unwrap()));
         test_util::tests::teardown(tmp_dir);
     }
 
@@ -995,11 +1009,11 @@ mod tests {
 
         let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
-        let first_node_id = "node_id_1";
+        let first_node_id: &str = &PeerId::random().to_string();
         let transparency_log1 = new_auth_node_transparency_log(Operation::AddNode, first_node_id);
 
         assert!(log.write_transparency_log(&transparency_log1).is_ok());
-        let second_node_id = "node_id_2";
+        let second_node_id: &str = &PeerId::random().to_string();
         let transparency_log2 = new_auth_node_transparency_log(Operation::AddNode, second_node_id);
 
         assert!(log.write_transparency_log(&transparency_log2).is_ok());
@@ -1013,7 +1027,10 @@ mod tests {
         assert!(result_read.is_ok());
         let vec = result_read.unwrap();
         assert_eq!(vec.len(), 1);
-        assert_eq!(vec.get(0).unwrap().node_id, second_node_id);
+        assert!(vec
+            .get(0)
+            .unwrap()
+            .eq(&PeerId::from_str(second_node_id).unwrap()));
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -1024,7 +1041,7 @@ mod tests {
 
         let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
-        let node_id = "node_id_1";
+        let node_id: &str = &PeerId::random().to_string();
         assert!(log
             .verify_node_can_be_added_to_transparency_logs(node_id)
             .is_ok());

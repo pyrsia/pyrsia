@@ -82,12 +82,18 @@ pub fn cli_parser() -> ArgMatches {
                         .arg_required_else_help(true)
                         .args(&[
                             arg!(--image <IMAGE> "The docker image (e.g. alpine:3.15.3 or alpine@sha256:1e014f84205d569a5cc3be4e108ca614055f7e21d11928946113ab3f36054801"),
+                            arg!(--format <FORMAT> "The output format")
+                                .value_parser(["json", "csv"])
+                                .default_value("json"),
                         ]),
                     Command::new("maven")
                         .about("Show transparency logs for a maven artifact")
                         .arg_required_else_help(true)
                         .args(&[
                             arg!(--gav <GAV> "The maven GAV (e.g. org.myorg:my-artifact:1.1.0)"),
+                            arg!(--format <FORMAT> "The output format")
+                                .value_parser(["json", "csv"])
+                                .default_value("json"),
                         ]),
                 ]),
             Command::new("list")
