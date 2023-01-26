@@ -272,7 +272,7 @@ jobs:
 
       - name: Run cargo-tarpaulin
         run: |
-          cargo tarpaulin --workspace --lib --bins --tests --benches --examples --out Lcov --output-dir ./coverage -- --test-threads 1
+          cargo tarpaulin --workspace --lib --bins --tests --benches --out Lcov --output-dir ./coverage
 
       - name: Upload to coveralls.io
         id: coveralls
