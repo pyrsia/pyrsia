@@ -312,8 +312,8 @@ impl TransparencyLogService {
             FROM TRANSPARENCYLOG
             WHERE (operation = '{}' or operation = '{}') and node_id = '{}'
             ORDER BY timestamp DESC limit 1",
-            Operation::AddNode.to_string(),
-            Operation::RemoveNode.to_string(),
+            Operation::AddNode,
+            Operation::RemoveNode,
             peer_id
         );
 
