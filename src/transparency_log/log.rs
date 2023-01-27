@@ -475,8 +475,6 @@ impl TransparencyLogService {
     }
 
     fn find_added_nodes(&self) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
-        let add_node = &Operation::AddNode.to_string();
-        let remove_node = &Operation::RemoveNode.to_string();
         let select = format!(
             "SELECT * FROM (
               SELECT
@@ -486,9 +484,10 @@ impl TransparencyLogService {
               FROM TRANSPARENCYLOG
               WHERE operation = '{}' or operation = '{}'
               GROUP BY node_id
-              ORDER BY timestamp ASC
             ) WHERE operation = '{}'",
-            add_node, remove_node, add_node
+            Operation::AddNode,
+            Operation::RemoveNode,
+            Operation::AddNode
         );
 
         let res = self.process_query(select.as_str())?;
