@@ -72,13 +72,13 @@ Details about the Chart Values and Installation steps are documented in the char
 
     > Note: Change the --version of the chart to reflect the image tag you want to deploy.  The image tag and chart version are kept in sync.
 
-    - Nightly
+    - Staging
 
         ```bash
         helm upgrade --install node1 -n pyrsia-node pyrsia-nightly/pyrsia-node --set "k8s_provider=gke" --set "domain=staging.pyrsia.link" --set "bootdns=boot.staging.pyrsia.link"  --set "replicaCount=1" --set "buildnode=http://35.193.148.20:8080" --set keys.p2p=$(cat ed25519.ser | base64) --set keys.blockchain=$(cat ed25519.ser | base64) --version "0.2.1+2562"
         ```
 
-    - Nightly from branch
+    - Staging from branch
 
         From the root of your Pyrsia repo:
 
