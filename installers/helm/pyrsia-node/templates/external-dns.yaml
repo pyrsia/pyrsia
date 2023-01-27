@@ -62,7 +62,7 @@ spec:
       containers:
         - name: external-dns
           image: k8s.gcr.io/external-dns/external-dns:v0.11.0
-          {{- if eq .Values.k8s_provider "gke" }}
+          {{- if contains "gke" (.Capabilities.KubeVersion.Version | toString) }}
           args:
             - --source=service
             - --source=ingress
@@ -74,7 +74,7 @@ spec:
             - --registry=txt
             - --txt-owner-id=pyrsia-node
           {{- end }}
-          {{- if eq .Values.k8s_provider "eks" }}
+          {{- if contains "eks" (.Capabilities.KubeVersion.Version | toString) }}
           args:
             - --source=service
             - --source=ingress
