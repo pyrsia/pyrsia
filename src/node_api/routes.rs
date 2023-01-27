@@ -15,10 +15,10 @@
 */
 
 use super::handlers::swarm::*;
-use super::model::cli::{RequestDockerBuild, RequestMavenBuild};
+use super::model::request::{RequestDockerBuild, RequestMavenBuild};
 use crate::artifact_service::service::ArtifactService;
 use crate::network::client::Client;
-use crate::node_api::model::cli::{
+use crate::node_api::model::request::{
     RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerLog, RequestMavenLog,
 };
 use warp::Filter;
@@ -110,7 +110,7 @@ mod tests {
     use crate::blockchain_service::event::BlockchainEvent;
     use crate::build_service::event::BuildEvent;
     use crate::network::client::command::Command;
-    use crate::node_api::model::cli::{Status, TransparencyLogOutputParams};
+    use crate::node_api::model::request::*;
     use crate::transparency_log::log::{
         AddArtifactRequest, TransparencyLog, TransparencyLogService,
     };
@@ -422,6 +422,7 @@ mod tests {
                 image: ps_id.to_string(),
                 output_params: Some(TransparencyLogOutputParams {
                     format: Some(ContentType::CSV),
+                    content: None,
                 }),
             };
             let filter = ctx.create_route();
@@ -468,6 +469,7 @@ mod tests {
                 gav: ps_id.to_string(),
                 output_params: Some(TransparencyLogOutputParams {
                     format: Some(ContentType::CSV),
+                    content: None,
                 }),
             };
             let filter = ctx.create_route();
@@ -479,6 +481,108 @@ mod tests {
                 .await;
 
             assert_response_csv(response, transparency_log);
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn inspect_log_maven_json_partial_output() {
+        setup_and_execute(|ctx| async {
+            let ps_id = "pyrsia:adapter:0.1";
+            let log = add_artifact(&ctx.log, PackageType::Maven2, ps_id);
+            let request = RequestMavenLog {
+                gav: ps_id.to_string(),
+                output_params: Some(TransparencyLogOutputParams {
+                    format: Some(ContentType::JSON),
+                    content: Some(Content {
+                        fields: vec![
+                            TransparencyLogField::Id,
+                            TransparencyLogField::PackageType,
+                            TransparencyLogField::PackageSpecificArtifactId,
+                            TransparencyLogField::Timestamp,
+                            TransparencyLogField::Operation,
+                            TransparencyLogField::NodeId,
+                        ],
+                    }),
+                }),
+            };
+            let filter = ctx.create_route();
+            let response = warp::test::request()
+                .method("POST")
+                .path("/inspect/maven")
+                .json(&request)
+                .reply(&filter)
+                .await;
+
+            let expected = [
+                "[{\"id\":\"",
+                log.id.as_str(),
+                "\",\"package_type\":\"",
+                log.package_type.unwrap().to_string().as_str(),
+                "\",\"package_specific_artifact_id\":\"",
+                log.package_specific_artifact_id.as_str(),
+                "\",\"timestamp\":",
+                log.timestamp.to_string().as_str(),
+                ",\"operation\":\"",
+                log.operation.to_string().as_str(),
+                "\",\"node_id\":\"",
+                log.node_id.as_str(),
+                "\"}]",
+            ]
+            .join("");
+
+            let actual = String::from_utf8(response.body().to_vec()).unwrap();
+            assert_eq!(expected, actual);
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn inspect_log_docker_csv_partial_output() {
+        setup_and_execute(|ctx| async {
+            let ps_id = "library/artipie:0.0.7";
+            let log = add_artifact(&ctx.log, PackageType::Docker, ps_id);
+            let request = RequestDockerLog {
+                image: ps_id.to_string(),
+                output_params: Some(TransparencyLogOutputParams {
+                    format: Some(ContentType::CSV),
+                    content: Some(Content {
+                        fields: vec![
+                            TransparencyLogField::PackageType,
+                            TransparencyLogField::PackageSpecificArtifactId,
+                            TransparencyLogField::Timestamp,
+                            TransparencyLogField::Id,
+                            TransparencyLogField::Operation,
+                            TransparencyLogField::NodeId,
+                        ],
+                    }),
+                }),
+            };
+            let filter = ctx.create_route();
+            let response = warp::test::request()
+                .method("POST")
+                .path("/inspect/docker")
+                .json(&request)
+                .reply(&filter)
+                .await;
+
+            let expected = [
+                "package_type,package_specific_artifact_id,timestamp,id,operation,node_id\n",
+                format!(
+                    "{},{},{},{},{},{}\n",
+                    log.package_type.unwrap().to_string().as_str(),
+                    log.package_specific_artifact_id.as_str(),
+                    log.timestamp.to_string().as_str(),
+                    log.id.as_str(),
+                    log.operation.to_string().as_str(),
+                    log.node_id.as_str(),
+                )
+                .as_str(),
+            ]
+            .join("");
+
+            let actual = String::from_utf8(response.body().to_vec()).unwrap();
+            assert_eq!(expected, actual);
         })
         .await;
     }

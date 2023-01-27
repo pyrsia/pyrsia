@@ -85,6 +85,7 @@ pub fn cli_parser() -> ArgMatches {
                             arg!(--format <FORMAT> "The output format")
                                 .value_parser(["json", "csv"])
                                 .default_value("json"),
+                            arg!(--fields <FIELDS> "The list of output fields separated by comma ','. Available fields: id, package_type, package_specific_id, num_artifacts, package_specific_artifact_id, artifact_hash, source_hash, artifact_id, source_id, timestamp, operation, node_id, node_public_key"),
                         ]),
                     Command::new("maven")
                         .about("Show transparency logs for a maven artifact")
@@ -94,6 +95,7 @@ pub fn cli_parser() -> ArgMatches {
                             arg!(--format <FORMAT> "The output format")
                                 .value_parser(["json", "csv"])
                                 .default_value("json"),
+                            arg!(--fields <FIELDS> "The list of output fields separated by comma ','. Available fields: id, package_type, package_specific_id, num_artifacts, package_specific_artifact_id, artifact_hash, source_hash, artifact_id, source_id, timestamp, operation, node_id, node_public_key"),
                         ]),
                 ]),
             Command::new("list")
