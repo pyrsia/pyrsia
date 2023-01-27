@@ -77,42 +77,42 @@
 
 10. Generate Pyrsia Keys using openssl v3
 
-   ```bash
-   openssl genpkey -algorithm Ed25519 -out ed25519.pem
-   openssl pkey -in ed25519.pem -pubout -outform DER | tail -c +13 > id_ed25519.pub
-   openssl pkey -in ed25519.pem -out - -outform DER | tail -c +17 > id_ed25519.pri
-   cat id_ed25519.pri id_ed25519.pub > ed25519.ser
-   ```
+      ```bash
+      openssl genpkey -algorithm Ed25519 -out ed25519.pem
+      openssl pkey -in ed25519.pem -pubout -outform DER | tail -c +13 > id_ed25519.pub
+      openssl pkey -in ed25519.pem -out - -outform DER | tail -c +17 > id_ed25519.pri
+      cat id_ed25519.pri id_ed25519.pub > ed25519.ser
+      ```
 
 11. Create DNS Alias
 
-   ```bash
+      ```bash
 
-   aws route53 change-resource-record-sets \
-   --hosted-zone-id $(aws route53 list-hosted-zones-by-name --output json --dns-name "${PYRSIA_BASE_DOMAIN}." | jq -r ".HostedZones[0].Id" | cut -d/ -f3) \
-   --change-batch '
-   {
-      "Comment": "Creating Alias resource for '${PYRSIA_BOOTDNS}'",
-      "Changes": [
-         {
-            "Action": "CREATE",
-            "ResourceRecordSet": {
-            "Name": "'${PYRSIA_BOOTDNS}'",
-            "Type": "A",
-            "AliasTarget": {
-               "DNSName": "'${PYRSIA_NODE_ZERO}'",
-               "EvaluateTargetHealth": false,
-               "HostedZoneId": "'$(aws route53 list-hosted-zones-by-name --output json --dns-name "${PYRSIA_BASE_DOMAIN}}." | jq -r ".HostedZones[0].Id" | cut -d/ -f3 )'"
+      aws route53 change-resource-record-sets \
+      --hosted-zone-id $(aws route53 list-hosted-zones-by-name --output json --dns-name "${PYRSIA_BASE_DOMAIN}." | jq -r ".HostedZones[0].Id" | cut -d/ -f3) \
+      --change-batch '
+      {
+         "Comment": "Creating Alias resource for '${PYRSIA_BOOTDNS}'",
+         "Changes": [
+            {
+               "Action": "CREATE",
+               "ResourceRecordSet": {
+               "Name": "'${PYRSIA_BOOTDNS}'",
+               "Type": "A",
+               "AliasTarget": {
+                  "DNSName": "'${PYRSIA_NODE_ZERO}'",
+                  "EvaluateTargetHealth": false,
+                  "HostedZoneId": "'$(aws route53 list-hosted-zones-by-name --output json --dns-name "${PYRSIA_BASE_DOMAIN}}." | jq -r ".HostedZones[0].Id" | cut -d/ -f3 )'"
+               }
+               }
             }
-            }
-         }
-      ]
-   }'
-   ```
+         ]
+      }'
+      ```
 
 12. Deploy Pyrsia via Helm
 
-   - `helm repo update pyrsia-nightly`
-   - `helm upgrade node1 --install -n pyrsia-node pyrsia-staging/pyrsia-node --set k8s_provider=eks --set "domain=${PYRSIA_DOMAIN}" --set bootdns=${PYRSIA_BOOTDNS} --set keys.p2p=$(cat ed25519.ser | base64) --set keys.blockchain=$(cat ed25519.ser | base64)  --version "${CHART_VERSION}"`
+- `helm repo update pyrsia-nightly`
+- `helm upgrade node1 --install -n pyrsia-node pyrsia-staging/pyrsia-node --set k8s_provider=eks --set "domain=${PYRSIA_DOMAIN}" --set bootdns=${PYRSIA_BOOTDNS} --set keys.p2p=$(cat ed25519.ser | base64) --set keys.blockchain=$(cat ed25519.ser | base64)  --version "${CHART_VERSION}"`
 
    > Note: The above helm command does not setup the Pyrsia Node to use a Build Node.  `--set "buildnode=http://35.193.148.20:8080"` parameter is needed for build node configuration.

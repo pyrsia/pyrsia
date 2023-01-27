@@ -57,12 +57,12 @@
 
 10. Generate Pyrsia Keys using openssl v3
 
-   ```bash
-   /usr/local/Cellar/openssl@3/3.0.7/bin/openssl genpkey -algorithm Ed25519 -out ed25519.pem
-   /usr/local/Cellar/openssl@3/3.0.7/bin/openssl pkey -in ed25519.pem -pubout -outform DER | tail -c +13 > id_ed25519.pub
-   /usr/local/Cellar/openssl@3/3.0.7/bin/openssl pkey -in ed25519.pem -out - -outform DER | tail -c +17 > id_ed25519.pri
-   cat id_ed25519.pri id_ed25519.pub > ed25519.ser
-   ```
+      ```bash
+      /usr/local/Cellar/openssl@3/3.0.7/bin/openssl genpkey -algorithm Ed25519 -out ed25519.pem
+      /usr/local/Cellar/openssl@3/3.0.7/bin/openssl pkey -in ed25519.pem -pubout -outform DER | tail -c +13 > id_ed25519.pub
+      /usr/local/Cellar/openssl@3/3.0.7/bin/openssl pkey -in ed25519.pem -out - -outform DER | tail -c +17 > id_ed25519.pri
+      cat id_ed25519.pri id_ed25519.pub > ed25519.ser
+      ```
 
 11. Deploy Pyrsia via Helm
       - `helm repo update pyrsia-nightly`
