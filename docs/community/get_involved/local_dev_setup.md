@@ -2,6 +2,10 @@
 
 Pyrsia uses [Rust programming language](https://www.rust-lang.org/) and will require you to setup Rust and it's dependencies.
 
+> **For Windows users:** For development of Pyrsia, Windows Subsystem for Linux (WSL) is required.
+Follow [the install guide](https://learn.microsoft.com/en-us/windows/wsl/install)
+and set up your environment in WSL.
+
 ## Download the Source Code
 
 Clone the project repo
