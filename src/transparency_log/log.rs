@@ -306,23 +306,29 @@ impl TransparencyLogService {
         &self,
         peer_id: &str,
     ) -> Result<(), TransparencyLogError> {
-        match self.get_authorized_nodes().ok() {
-            None => {
-                // error, can be added
-                Ok(())
-            }
-            Some(nodes) => {
-                for node in nodes {
-                    if node.eq(&PeerId::from_str(peer_id)?) {
-                        return Err(TransparencyLogError::NodeAlreadyExists {
-                            node_id: peer_id.to_owned(),
-                        });
-                    }
-                }
-                // was removed, can be added
-                Ok(())
+        let query = format!(
+            "SELECT
+              operation
+            FROM TRANSPARENCYLOG
+            WHERE (operation = '{}' or operation = '{}') and node_id = '{}'
+            ORDER BY timestamp DESC limit 1",
+            Operation::AddNode,
+            Operation::RemoveNode,
+            peer_id
+        );
+
+        let res = self
+            .open_db()?
+            .query_row(query.as_str(), [], |row| row.get::<usize, String>(0));
+
+        if let Ok(val) = res {
+            if val.eq("AddNode") {
+                return Err(TransparencyLogError::NodeAlreadyExists {
+                    node_id: peer_id.to_owned(),
+                });
             }
         }
+        Ok(())
     }
 
     fn open_db(&self) -> Result<Connection, TransparencyLogError> {
@@ -1079,8 +1085,9 @@ mod tests {
             .to_string()
         );
 
-        let transparency_log3 = new_auth_node_transparency_log(Operation::RemoveNode, node_id);
+        std::thread::sleep(Duration::from_secs(1));
 
+        let transparency_log3 = new_auth_node_transparency_log(Operation::RemoveNode, node_id);
         assert!(log.write_transparency_log(&transparency_log3).is_ok());
 
         assert!(log
