@@ -39,7 +39,7 @@ derive_builder = "0.12.0"
 env_logger = "0.10.0"
 filename = "0.1.1"
 fs_extra = "1.2.0"
-futures = "0.3.25"
+futures = "0.3.26"
 hex = "0.4.3"
 hyper = { version = "0.14", features = ["full"] }
 if-watch = "3.0.0"
