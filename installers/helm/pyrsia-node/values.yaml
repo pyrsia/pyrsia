@@ -10,5 +10,3 @@ image:
 keys:
   p2p: ""
   blockchain: ""
-
-k8s_provider: gke # "gke, oke, aks, eks"
