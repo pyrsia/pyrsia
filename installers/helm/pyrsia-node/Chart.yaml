@@ -6,7 +6,7 @@ appVersion: 0.1.0+2305
 version: 0.1.0+2305
 home: https://pyrsia.io
 icon: https://raw.githubusercontent.com/pyrsia/pyrsia.github.io/main/static/img/icon-pyrsia-torch.svg
-keywords: 
+keywords:
   - peer-to-peer
   - blockchain
   - decentralized

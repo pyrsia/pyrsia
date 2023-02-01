@@ -40,9 +40,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: external-dns
-  namespace: {{ .Values.external_dns_ns | default "external-dns"  }}  
+  namespace: {{ .Values.external_dns_ns | default "external-dns"  }}
   labels:
-    app.kubernetes.io/name: external-dns  
+    app.kubernetes.io/name: external-dns
 spec:
   strategy:
     type: Recreate
@@ -56,17 +56,17 @@ spec:
     spec:
       serviceAccountName: external-dns
       {{- $hldomain := "pyrsia.link" -}}
-      {{ if .Values.dnsname }}
-        {{- $hldomain = (join "." (reverse (slice (reverse (splitList "." .Values.dnsname)) 0 2 ))) -}}       
+      {{ if .Values.domain }}
+        {{- $hldomain = (join "." (reverse (slice (reverse (splitList "." .Values.domain)) 0 2 ))) -}}
       {{ end }}
       containers:
         - name: external-dns
           image: k8s.gcr.io/external-dns/external-dns:v0.11.0
-          {{- if eq .Values.k8s_provider "gke" }}
+          {{- if contains "gke" (.Capabilities.KubeVersion.Version | toString) }}
           args:
             - --source=service
             - --source=ingress
-            - --domain-filter={{ $hldomain }} 
+            - --domain-filter={{ $hldomain }}
             - --provider=google
             - --log-format=json # google cloud logs parses severity of the "text" log format incorrectly
             - --google-zone-visibility=public # Use this to filter to only zones with this visibility. Set to either 'public' or 'private'. Omitting will match public and private zones
@@ -74,7 +74,7 @@ spec:
             - --registry=txt
             - --txt-owner-id=pyrsia-node
           {{- end }}
-          {{- if eq .Values.k8s_provider "eks" }}
+          {{- if contains "eks" (.Capabilities.KubeVersion.Version | toString) }}
           args:
             - --source=service
             - --source=ingress
@@ -86,5 +86,5 @@ spec:
             - --txt-owner-id=pyrsia-node
           env:
             - name: AWS_DEFAULT_REGION
-              value: us-east-1          
+              value: us-east-1
           {{- end }}
