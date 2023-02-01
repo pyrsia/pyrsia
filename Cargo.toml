@@ -64,7 +64,7 @@ sha2 = { version = "0.10.6" }
 stringreader = "0.1.1"
 strum = "0.24.1"
 strum_macros = "0.24.3"
-sysinfo = "0.27.1"
+sysinfo = "0.27.7"
 test-log = "0.2.8"
 thiserror = "1.0.35"
 tokio = { version = "1.24.2", features = [ "macros", "rt-multi-thread", "io-std" ] }
