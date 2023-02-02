@@ -4,7 +4,7 @@ apiVersion: v1
 metadata:
   name: {{ printf "%s-0" (include "pyrsia-node.name" .) }}
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: {{ printf "%s-0.%s" (include "pyrsia-node.name" .) (.Values.dnsname | default "pyrsia.link")  }} 
+    external-dns.alpha.kubernetes.io/hostname: {{ printf "%s-0.%s" (include "pyrsia-node.name" .) (.Values.domain | default "pyrsia.link")  }}
     external-dns.alpha.kubernetes.io/ttl: "60"
 spec:
   type: LoadBalancer
@@ -27,8 +27,8 @@ apiVersion: v1
 metadata:
   name: {{ printf "%s-1" (include "pyrsia-node.name" .) }}
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: {{ printf "%s-1.%s" (include "pyrsia-node.name" .) (.Values.dnsname | default "pyrsia.link")  }}
-    external-dns.alpha.kubernetes.io/ttl: "60"     
+    external-dns.alpha.kubernetes.io/hostname: {{ printf "%s-1.%s" (include "pyrsia-node.name" .) (.Values.domain | default "pyrsia.link")  }}
+    external-dns.alpha.kubernetes.io/ttl: "60"
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
@@ -51,8 +51,8 @@ apiVersion: v1
 metadata:
   name: {{ printf "%s-2" (include "pyrsia-node.name" .) }}
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: {{ printf "%s-2.%s" (include "pyrsia-node.name" .) (.Values.dnsname | default "pyrsia.link") }} 
-    external-dns.alpha.kubernetes.io/ttl: "60"   
+    external-dns.alpha.kubernetes.io/hostname: {{ printf "%s-2.%s" (include "pyrsia-node.name" .) (.Values.domain | default "pyrsia.link") }}
+    external-dns.alpha.kubernetes.io/ttl: "60"
 spec:
   type: LoadBalancer
   selector:

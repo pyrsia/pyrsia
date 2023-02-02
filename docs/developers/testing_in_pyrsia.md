@@ -21,7 +21,7 @@ Depending on the purpose, Pyrsia uses several methods and tools for testing as f
 All contributors are required to keep 'unit tests' and 'integration tests' green when making some changes to code base.
 
 Other methods introduced below are mainly operated by the Pyrsia team
-(You can reach out in [#pyrsia-team of CDF Slack](https://cdeliveryfdn.slack.com/join/shared_invite/zt-1eryue9cw-9YpgrfIfsTcDS~hGHchURg))
+(You can reach out in [#pyrsia-team of CD Foundation Slack](https://cdeliveryfdn.slack.com/join/shared_invite/zt-1eryue9cw-9YpgrfIfsTcDS~hGHchURg))
 for now.
 
 ### Unit tests in the Pyrsia repository
