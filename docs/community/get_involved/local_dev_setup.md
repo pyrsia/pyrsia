@@ -67,6 +67,7 @@ if you are looking to make code changes.
     ```
 
     You can also run the following commands ([protobuf releases page](https://github.com/protocolbuffers/protobuf/releases)):
+
     ```sh
     PROTOC_ZIP=protoc-3.14.0-linux-x86_64.zip
     curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.14.0/$PROTOC_ZIP
