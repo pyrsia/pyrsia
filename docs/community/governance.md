@@ -69,7 +69,7 @@ The committee MUST define a contribution process that:
   * Who is authorized to release and when.
   * Frequency limits
 * Defines the documentation process
-* Defines what Contributor License Agreement (CLA) process is required and how it is programmatically enforced before code is merged
+* Defines what Contributor License Agreement (CLA) process is required and how it is enforced through automation before code is merged
 
 ### Security/Vulnerability Reporting and Response Process
 
@@ -84,7 +84,7 @@ The code of conduct MUST set expectations for contributors on expected behavior,
 The [Contributor Covenant](https://www.contributor-covenant.org) has become the de facto standard for this language.
 
 Members of the governance committee will be responsible for handling [Pyrsia's code of conduct](https://github.com/pyrsia/.github/blob/main/code-of-conduct.md)
-violations via [conduct@openssf.org](mailto:conduct@openssf.org).
+violations via [conduct@cd.foundation](mailto:conduct@cd.foundation).
 
 ## Project Communication Channels
 

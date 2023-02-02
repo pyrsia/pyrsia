@@ -80,4 +80,4 @@ For answers to common questions about this code of conduct, see
 
 ## Events Code of Conduct
 
-Official CDF events are governed by the Linux Foundation [Linux Foundation Code of Conduct](https://events.linuxfoundation.org/code-of-conduct/) available on the event page. The Events Code of Conduct supports the above policy and also includes more details on responding to incidents.
+Official CD Foundation events are governed by the Linux Foundation [Linux Foundation Code of Conduct](https://events.linuxfoundation.org/code-of-conduct/) available on the event page. The Events Code of Conduct supports the above policy and also includes more details on responding to incidents.
