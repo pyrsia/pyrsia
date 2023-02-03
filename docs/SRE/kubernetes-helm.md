@@ -276,11 +276,13 @@ Details about the Chart Values and Installation steps are documented in the char
             PYRSIA_BOOTDNS=boot.${PYRSIA_DOMAIN}
             ```
 
-        ```bash
-        helm config use-context ${CLUSTER_CONFIG}
-        helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --version "${CHART_VERSION}"
-        helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
-        ```
+        - Deploy
+
+            ```bash
+            helm config use-context ${CLUSTER_CONFIG}
+            helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --version "${CHART_VERSION}"
+            helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
+            ```
 
     - Staging for EKS
         - Setup Environment Variables
@@ -295,11 +297,13 @@ Details about the Chart Values and Installation steps are documented in the char
             PYRSIA_BOOTDNS=boot.${PYRSIA_DOMAIN}
             ```
 
-        ```bash
-        helm config use-context ${CLUSTER_CONFIG}
-        helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node  --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --version "${CHART_VERSION}"
-        helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
-        ```
+        - Deploy
+
+            ```bash
+            helm config use-context ${CLUSTER_CONFIG}
+            helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node  --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --version "${CHART_VERSION}"
+            helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
+            ```
 
     - Staging for GKE from branch
 
@@ -317,17 +321,19 @@ Details about the Chart Values and Installation steps are documented in the char
             IMAGE_TAG=1.0
             ```
 
-        From the root of your Pyrsia repo:
+        - Deploy
 
-        ```bash
-        docker login
-        docker build --tag ${IMAGE_REPO}:${IMAGE_TAG}
-        docker push ${IMAGE_REPO}:${IMAGE_TAG}
+            From the root of your Pyrsia repo:
 
-        helm config use-context ${CLUSTER_CONFIG}
-        helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --version "${CHART_VERSION}" --set "image.repository=${IMAGE_REPO}" --set "image.tag=${IMAGE_TAG}"
-        helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
-        ```
+            ```bash
+            docker login
+            docker build --tag ${IMAGE_REPO}:${IMAGE_TAG}
+            docker push ${IMAGE_REPO}:${IMAGE_TAG}
+
+            helm config use-context ${CLUSTER_CONFIG}
+            helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --version "${CHART_VERSION}" --set "image.repository=${IMAGE_REPO}" --set "image.tag=${IMAGE_TAG}"
+            helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
+            ```
 
     - Staging for EKS from branch
 
@@ -345,17 +351,19 @@ Details about the Chart Values and Installation steps are documented in the char
             IMAGE_TAG=1.0
             ```
 
-        From the root of your Pyrsia repo:
+        - Deploy
 
-        ```bash
-        docker login
-        docker build --tag ${IMAGE_REPO}:${IMAGE_TAG}
-        docker push ${IMAGE_REPO}:${IMAGE_TAG}
+            From the root of your Pyrsia repo:
 
-        helm config use-context ${CLUSTER_CONFIG}
-        helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --version "${CHART_VERSION}" --set "image.repository=${IMAGE_REPO}" --set "image.tag=${IMAGE_TAG}"
-        helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
-        ```
+            ```bash
+            docker login
+            docker build --tag ${IMAGE_REPO}:${IMAGE_TAG}
+            docker push ${IMAGE_REPO}:${IMAGE_TAG}
+
+            helm config use-context ${CLUSTER_CONFIG}
+            helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --version "${CHART_VERSION}" --set "image.repository=${IMAGE_REPO}" --set "image.tag=${IMAGE_TAG}"
+            helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
+            ```
 
     - Production for GKE
 
@@ -368,10 +376,12 @@ Details about the Chart Values and Installation steps are documented in the char
             PYRSIA_NAMESPACE=pyrsia-node
             ```
 
-        ```bash
-        helm upgrade --install node1 -n ${PYRSIA_NAMESPACE} pyrsia-nightly/pyrsia-node --version "${CHART_VERSION}"
-        helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --version "${BUILD_CHART_VERSION}"
-        ```
+        - Deploy
+
+            ```bash
+            helm upgrade --install node1 -n ${PYRSIA_NAMESPACE} pyrsia-nightly/pyrsia-node --version "${CHART_VERSION}"
+            helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --version "${BUILD_CHART_VERSION}"
+            ```
 
     - Production for EKS
 
@@ -384,10 +394,12 @@ Details about the Chart Values and Installation steps are documented in the char
             PYRSIA_NAMESPACE=pyrsia-node
             ```
 
-        ```bash
-        helm upgrade --install node1 -n ${PYRSIA_NAMESPACE} pyrsia-nightly/pyrsia-node --version "${CHART_VERSION}"
-        helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --version "${BUILD_CHART_VERSION}"
-        ```
+        - Deploy
+
+            ```bash
+            helm upgrade --install node1 -n ${PYRSIA_NAMESPACE} pyrsia-nightly/pyrsia-node --version "${CHART_VERSION}"
+            helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --version "${BUILD_CHART_VERSION}"
+            ```
 
 Verify the deployments using `kubectl` commands.
 
