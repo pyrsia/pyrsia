@@ -46,6 +46,9 @@ spec:
             {{- if .Values.buildnode }}
             - name: PYRSIA_BUILDNODE
               value: {{ .Values.buildnode }}
+            {{- else }}
+            - name: PYRSIA_BUILDNODE
+              value: {{ printf "http://pyrsia-build-service.%s.svc.cluster.local" .Release.Namespace }}
             {{- end }}
           livenessProbe:
             httpGet:
