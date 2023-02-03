@@ -214,7 +214,7 @@ impl TransparencyLogService {
     /// Remove a known authorized node from the p2p network.
     pub fn remove_authorized_node(&self, peer_id: PeerId) -> Result<(), TransparencyLogError> {
         if self.verify_node_does_not_exist(&peer_id.to_string()).is_ok() {
-            return Err(TransparencyLogError::NodeDoesNotExistsOrRemoved {
+            return Err(TransparencyLogError::NodeDoesNotExistOrRemoved {
                 node_id: peer_id.to_string(),
             });
         }
