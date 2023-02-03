@@ -114,6 +114,29 @@ pub mod tests {
         )
     }
 
+    pub fn create_transparency_log_service_default_blockchain_handler<P: AsRef<path::Path>>(
+        repository_path: P,
+    ) -> TransparencyLogService {
+        let (blockchain_event_client, mut blockchain_event_receiver) =
+            create_blockchain_event_client();
+
+        tokio::spawn(async move {
+            loop {
+                match blockchain_event_receiver.recv().await {
+                    Some(BlockchainEvent::AddBlock { sender, .. }) => {
+                        let _ = sender.send(Ok(()));
+                    }
+                    other => panic!(
+                        "BlockchainEvent must match BlockchainEvent::AddBlock, was: {:?}",
+                        other
+                    ),
+                }
+            }
+        });
+
+        TransparencyLogService::new(&repository_path, blockchain_event_client).unwrap()
+    }
+
     pub fn create_verification_service() -> (VerificationService, Receiver<BuildEvent>) {
         let (build_event_client, build_event_receiver) = create_build_event_client();
 
