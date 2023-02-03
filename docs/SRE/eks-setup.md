@@ -113,9 +113,9 @@
 
 12. Deploy Pyrsia via Helm
 
-   - `helm repo update pyrsia-nightly`
-   - `helm upgrade node1 --install -n pyrsia-node pyrsia-staging/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set bootdns=${PYRSIA_BOOTDNS} --set keys.p2p=$(cat ed25519.ser | base64) --set keys.blockchain=$(cat ed25519.ser | base64)  --version "${CHART_VERSION}"`
+- `helm repo update pyrsia-nightly`
+- `helm upgrade node1 --install -n pyrsia-node pyrsia-staging/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set bootdns=${PYRSIA_BOOTDNS} --set keys.p2p=$(cat ed25519.ser | base64) --set keys.blockchain=$(cat ed25519.ser | base64)  --version "${CHART_VERSION}"`
 
 13. (Optional) Deploy Build Service via Helm
 
-   - `helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set bootdns=${PYRSIA_BOOTDNS} --version "${BUILD_ChART_VERSION}"`
+- `helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set bootdns=${PYRSIA_BOOTDNS} --version "${BUILD_ChART_VERSION}"`
