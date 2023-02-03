@@ -182,7 +182,7 @@ impl TransparencyLogService {
 
     /// Add a new authorized node to the p2p network.
     pub async fn add_authorized_node(&self, peer_id: PeerId) -> Result<(), TransparencyLogError> {
-        self.verify_node_exists(&peer_id.to_string())?;
+        self.verify_node_does_not_exist(&peer_id.to_string())?;
 
         let transparency_log = TransparencyLog {
             id: Uuid::new_v4().to_string(),
@@ -213,7 +213,7 @@ impl TransparencyLogService {
 
     /// Remove a known authorized node from the p2p network.
     pub fn remove_authorized_node(&self, peer_id: PeerId) -> Result<(), TransparencyLogError> {
-        if self.verify_node_exists(&peer_id.to_string()).is_ok() {
+        if self.verify_node_does_not_exist(&peer_id.to_string()).is_ok() {
             return Err(TransparencyLogError::NodeDoesNotExistsOrRemoved {
                 node_id: peer_id.to_string(),
             });
@@ -326,7 +326,7 @@ impl TransparencyLogService {
 
     /// Verifies that the database does not contain the node yet or node was removed.
     /// If that is not the case, an NodeAlreadyExists error is returned.
-    pub fn verify_node_exists(&self, peer_id: &str) -> Result<(), TransparencyLogError> {
+    pub fn verify_node_does_not_exist(&self, peer_id: &str) -> Result<(), TransparencyLogError> {
         let query = format!(
             "SELECT
               operation
@@ -1131,12 +1131,12 @@ mod tests {
         let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let node_id: &str = &PeerId::random().to_string();
-        assert!(log.verify_node_exists(node_id).is_ok());
+        assert!(log.verify_node_does_not_exist(node_id).is_ok());
 
         let transparency_log1 = new_auth_node_transparency_log(Operation::AddNode, node_id);
         assert!(log.write_transparency_log(&transparency_log1).is_ok());
 
-        let result2 = log.verify_node_exists(node_id);
+        let result2 = log.verify_node_does_not_exist(node_id);
         assert!(result2.is_err());
         assert_eq!(
             result2.err().unwrap().to_string(),
@@ -1151,7 +1151,7 @@ mod tests {
         let transparency_log3 = new_auth_node_transparency_log(Operation::RemoveNode, node_id);
         assert!(log.write_transparency_log(&transparency_log3).is_ok());
 
-        assert!(log.verify_node_exists(node_id).is_ok());
+        assert!(log.verify_node_does_not_exist(node_id).is_ok());
 
         test_util::tests::teardown(tmp_dir);
     }
