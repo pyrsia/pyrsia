@@ -52,7 +52,7 @@ pub enum TransparencyLogError {
     #[error("Node with node ID {node_id} already exists in transparency log")]
     NodeAlreadyExists { node_id: String },
     #[error("Node with node ID {node_id} does not exists in transparency log or was removed")]
-    NodeDoesNotExistsOrRemoved { node_id: String },
+    NodeDoesNotExistOrRemoved { node_id: String },
     #[error("Hash Verification failed for ID {id}: {invalid_hash} vs {actual_hash}")]
     InvalidHash {
         id: String,
