@@ -41,6 +41,9 @@ Please find and install the appropriate [JDK11](https://www.openlogic.com/openjd
 
 ## Compile Pyrsia
 
+> If you build for the first time or face any issues at this step,
+see the [Development Environment](../community/get_involved/local_dev_setup.md) document.
+
 Download a fresh copy of the codebase by cloning the repo or updating to the
 HEAD of `main`.
 
@@ -57,9 +60,6 @@ Build binaries by running:
 cd $PYRSIA_HOME
 cargo build --workspace
 ```
-
-See the [Development Environment](../community/get_involved/local_dev_setup.md)
-document for more information.
 
 ## Run the Pyrsia node
 
