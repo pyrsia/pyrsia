@@ -45,8 +45,8 @@ impl Serialize for OutputTransparencyLog<'_> {
         S: Serializer,
     {
         let mut s = serializer.serialize_struct("TransparencyLog", self.output_fields.size())?;
-        for fld in &self.output_fields.fields {
-            match fld {
+        for field in &self.output_fields.fields {
+            match field {
                 TransparencyLogField::Id => s.serialize_field("id", &self.origin.id)?,
                 TransparencyLogField::PackageType => {
                     s.serialize_field("package_type", &self.origin.package_type)?
