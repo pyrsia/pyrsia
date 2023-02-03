@@ -4,15 +4,43 @@
 # the entire content from cloud bucket everytime. genlisting.py script only needs
 # the directory and file to be placed in the same hierarchical fashion to generate
 # listing in index.html
+# The program is expected to work with the output of "gsutil ls -lr gs://<bucket_name>"
 import sys
 import os
+import re
+import datetime
+import calendar
+
+class Listing:
+    def __init__(self, size: int, timestamp: str, name: str, is_dir: bool):
+        self.size = size
+        self.timestamp = timestamp
+        self.name = name
+        self.is_dir = is_dir
+
+    @staticmethod
+    def from_listing_text(listing_text: str, drop_name_prefix: str):
+        datalist = re.split('\s+', listing_text.strip())
+        if len(datalist) > 1:
+            size = datalist[0]
+            timestamp = datalist[1]
+            name = datalist[2][len(drop_name_prefix):]
+            is_dir = False
+        else:
+            size = 0
+            timestamp = ""
+            name = datalist[0][len(drop_name_prefix):][0:-1]
+            is_dir = True
+        return Listing(size, timestamp, name, is_dir)
+    def __str__(self):
+        return "size: "+ self.size + ", timestamp:" + self.timestamp + ", name:" + self.name + ", is_dir:" + self.is_dir
 
 def cleanListing(filenames: str) -> list[str]:
     """Expect to receive listing of a cloud bucket from shell output and convert it to a python list"""
     filenames = filenames.splitlines()
     return list(filter(lambda filename: (filename != ""), filenames))
 
-def getDirListAndFileList(filenames: list[str], str_to_drop: str) -> tuple[list[str], list[str]]:
+def getDirListAndFileList(filenames: list[str], str_to_drop: str) -> tuple[list[Listing], list[Listing]]:
     """
     Expect to receive listing of a cloud bucket from shell output and convert it to a python list
     Attributes
@@ -23,28 +51,35 @@ def getDirListAndFileList(filenames: list[str], str_to_drop: str) -> tuple[list[
     dir_list = []
     file_list = []
     for filename in filenames:
-        filename = filename[len(str_to_drop):]
-        if filename.endswith(":"):
-            dir_list.append(filename[0:-1])
+        listing = Listing.from_listing_text(filename, str_to_drop)
+        if listing.is_dir:
+            dir_list.append(listing)
         else:
-            file_list.append(filename)
+            file_list.append(listing)
     return dir_list, file_list
 
-def createDir(dir_list: list[str], syncdir: str) -> None:
+def createDir(dir_list: list[Listing], syncdir: str) -> None:
     """
     Creates directories if doesn't exist from a list while prepending the value from syncdir
     """
     for dir in dir_list:
-        if not os.path.exists(syncdir+"/"+dir):
-            os.makedirs(syncdir+"/"+dir, exist_ok=True)
+        dirpath = syncdir+"/"+dir.name
+        if not os.path.exists(dirpath):
+            os.makedirs(dirpath, exist_ok=True)
 
-# Create files
-def createFile(file_list: list[str], syncdir: str) -> None:
+def createFile(file_list: list[Listing], syncdir: str) -> None:
     """Creates files if doesn't exist from a list while prepending the value from syncdir"""
     for file in file_list:
-        if not os.path.exists(syncdir+"/"+file):
-            f = open(syncdir+"/"+file, 'w+')
-            f.close()
+        filepath = syncdir+"/"+file.name
+        if not os.path.exists(filepath):
+            with open(filepath, 'w+') as f:
+                f.write("file_size===="+file.size)
+            file_timestamp = epoch_time_from_dateime_str(file.timestamp)
+            os.utime(filepath, (file_timestamp, file_timestamp))
+
+def epoch_time_from_dateime_str(date_time_str: str) -> int:
+    date_time = datetime.datetime.strptime(date_time_str, '%Y-%m-%dT%H:%M:%SZ')
+    return calendar.timegm(date_time.utctimetuple())
 
 def main(argv):
     if len(argv) != 3:
