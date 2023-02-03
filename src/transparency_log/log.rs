@@ -481,29 +481,24 @@ impl TransparencyLogService {
     }
 
     fn find_added_nodes(&self) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
-        let query = [
-            "SELECT * FROM TRANSPARENCYLOG WHERE operation = '",
-            &Operation::AddNode.to_string(),
-            "' OR operation = '",
-            &Operation::RemoveNode.to_string(),
-            "';",
-        ];
-        let results = self.process_query(query.join("").as_str())?;
+        let select = format!(
+            "SELECT * FROM (
+              SELECT
+               id, package_type, package_specific_id,
+               num_artifacts, package_specific_artifact_id, artifact_hash, source_hash, artifact_id,
+               source_id, max(timestamp), operation, node_id, node_public_key
+              FROM TRANSPARENCYLOG
+              WHERE operation = '{}' or operation = '{}'
+              GROUP BY node_id
+            ) WHERE operation = '{}'",
+            Operation::AddNode,
+            Operation::RemoveNode,
+            Operation::AddNode
+        );
 
-        let mut vector_added: Vec<TransparencyLog> = Vec::new();
-        let mut vector_removed: Vec<TransparencyLog> = Vec::new();
-        for record in results {
-            if record.operation == Operation::AddNode {
-                vector_added.push(record);
-            } else if record.operation == Operation::RemoveNode {
-                vector_removed.push(record);
-            }
-        }
-        for removed_record in vector_removed {
-            vector_added.retain(|x| x.node_id != removed_record.node_id)
-        }
+        let res = self.process_query(select.as_str())?;
 
-        Ok(vector_added)
+        Ok(res)
     }
 
     fn process_query(&self, query: &str) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
@@ -1011,7 +1006,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_authorized_nodes_add_and_remove() {
+    async fn test_get_authorized_nodes_add_remove() {
         let tmp_dir = test_util::tests::setup();
 
         let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
@@ -1038,6 +1033,30 @@ mod tests {
             .get(0)
             .unwrap()
             .eq(&PeerId::from_str(second_node_id).unwrap()));
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_get_authorized_nodes_add_remove_add() {
+        let tmp_dir = test_util::tests::setup();
+        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
+
+        let node_id: &str = &PeerId::random().to_string();
+        let tl_add_1 = new_auth_node_transparency_log(Operation::AddNode, node_id);
+        assert!(log.write_transparency_log(&tl_add_1).is_ok());
+
+        let tl_remove = new_auth_node_transparency_log(Operation::RemoveNode, node_id);
+        assert!(log.write_transparency_log(&tl_remove).is_ok());
+
+        let res = log.get_authorized_nodes().unwrap();
+        assert_eq!(res.len(), 0);
+
+        let tl_add_2 = new_auth_node_transparency_log(Operation::AddNode, node_id);
+        assert!(log.write_transparency_log(&tl_add_2).is_ok());
+
+        let res = log.get_authorized_nodes().unwrap();
+        assert!(res.iter().any(|peer_id| peer_id.to_string().eq(node_id)));
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -1141,6 +1160,10 @@ mod tests {
     }
 
     fn new_auth_node_transparency_log(op: Operation, node_id: &str) -> TransparencyLog {
+        // To simulate a network communication latency,
+        // at least 1 sec (min difference between log records)
+        std::thread::sleep(Duration::from_secs(1));
+
         TransparencyLog {
             id: Uuid::new_v4().to_string(),
             package_type: None,
