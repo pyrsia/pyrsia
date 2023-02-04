@@ -2,6 +2,12 @@
 
 Pyrsia uses [Rust programming language](https://www.rust-lang.org/) and will require you to setup Rust and it's dependencies.
 
+> **For Windows users:** For development of Pyrsia, Windows Subsystem for Linux (WSL) is required.
+Follow [the install guide](https://learn.microsoft.com/en-us/windows/wsl/install)
+and set up your environment in WSL.
+[The page for getting started with Docker](https://learn.microsoft.com/en-us/windows/wsl/tutorials/wsl-containers)
+should help you as well.
+
 ## Download the Source Code
 
 Clone the project repo
@@ -54,7 +60,13 @@ if you are looking to make code changes.
     ```
 
   - Linux
-    Run the following commands ([protobuf releases page](https://github.com/protocolbuffers/protobuf/releases)):
+    Use `apt` like this:
+
+    ```shell
+    apt install protobuf-compiler
+    ```
+
+    You can also run the following commands ([protobuf releases page](https://github.com/protocolbuffers/protobuf/releases)):
 
     ```sh
     PROTOC_ZIP=protoc-3.14.0-linux-x86_64.zip

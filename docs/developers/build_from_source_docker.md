@@ -53,6 +53,9 @@ document for more information.
 
 ## Compile Pyrsia
 
+> If you build for the first time or face any issues at this step,
+see the [Development Environment](../community/get_involved/local_dev_setup.md) document.
+
 Download a fresh copy of the codebase by cloning the repo or updating to the
 HEAD of `main`.
 
@@ -69,9 +72,6 @@ Build binaries by running:
 cd $PYRSIA_HOME
 cargo build --workspace
 ```
-
-See the [Development Environment](../community/get_involved/local_dev_setup.md)
-document for more information.
 
 ## Run Pyrsia node A
 
@@ -160,19 +160,7 @@ running, run:
 
 ```sh
 cd $PYRSIA_HOME/target/debug
-./pyrsia config -e
-```
-
-And enter the correct values or accept the default:
-
-```text
-Enter host: [localhost]
-
-Enter port: [7888]
-7889
-Enter disk space to be allocated to pyrsia(Please enter with units ex: 10 GB): [10 GB]
-
-Node configuration saved !!
+./pyrsia config -e --port 7889
 ```
 
 Next you'll need to find out the peer id of node A. You can see that in its logs
