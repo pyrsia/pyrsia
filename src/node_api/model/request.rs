@@ -228,6 +228,36 @@ impl Clone for TransparencyLogField {
     }
 }
 
+impl TransparencyLogField {
+    pub fn aaa(&self) -> (&str, &str) {
+        match self {
+            TransparencyLogField::Id => ("Id", "TransparencyLog record identity"),
+            TransparencyLogField::PackageType => {
+                ("PackageType", "Package type (maven, docker and so on)")
+            }
+            TransparencyLogField::PackageSpecificId => {
+                ("PackageSpecificId", "Package specific identity")
+            }
+            TransparencyLogField::NumArtifacts => ("NumArtifacts", "Number of artifacts"),
+            TransparencyLogField::PackageSpecificArtifactId => (
+                "PackageSpecificArtifactId",
+                "Package specific artifact identity",
+            ),
+            TransparencyLogField::ArtifactHash => ("ArtifactHash", "Artifact hash"),
+            TransparencyLogField::SourceHash => ("SourceHash", "Source hash"),
+            TransparencyLogField::ArtifactId => ("ArtifactId", "Artifact identity"),
+            TransparencyLogField::SourceId => ("SourceId", "Source identity"),
+            TransparencyLogField::Timestamp => ("Timestamp", "Timestamp"),
+            TransparencyLogField::Operation => (
+                "Operation",
+                "Operation (AddArtifact, RemoveArtifact, AddNode, RemoveNode)",
+            ),
+            TransparencyLogField::NodeId => ("NodeId", "Peer node identity"),
+            TransparencyLogField::NodePublicKey => ("NodePublicKey", "Node public key"),
+        }
+    }
+}
+
 impl Default for Content {
     fn default() -> Self {
         Content {

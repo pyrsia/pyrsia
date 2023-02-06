@@ -16,6 +16,7 @@
 
 use clap::{arg, command, crate_version, ArgGroup, ArgMatches, Command};
 use const_format::formatcp;
+use pyrsia::node_api::model::request::Content;
 
 pub fn cli_parser() -> ArgMatches {
     let version_string: &str = formatcp!("{} ({})", crate_version!(), env!("VERGEN_GIT_SHA"));
@@ -86,7 +87,8 @@ pub fn cli_parser() -> ArgMatches {
                             arg!(--format <FORMAT> "The output format")
                                 .value_parser(["json", "csv"])
                                 .default_value("json"),
-                            arg!(--fields <FIELDS> "The list of output fields separated by comma ','. Available fields: id, package_type, package_specific_id, num_artifacts, package_specific_artifact_id, artifact_hash, source_hash, artifact_id, source_id, timestamp, operation, node_id, node_public_key"),
+                            arg!(--fields <FIELDS>)
+                                .help(inspect_log_fields_help_string()),
                         ]),
                     Command::new("maven")
                         .about("Show transparency logs for a maven artifact")
@@ -97,7 +99,8 @@ pub fn cli_parser() -> ArgMatches {
                             arg!(--format <FORMAT> "The output format")
                                 .value_parser(["json", "csv"])
                                 .default_value("json"),
-                            arg!(--fields <FIELDS> "The list of output fields separated by comma ','. Available fields: id, package_type, package_specific_id, num_artifacts, package_specific_artifact_id, artifact_hash, source_hash, artifact_id, source_id, timestamp, operation, node_id, node_public_key"),
+                            arg!(--fields <FIELDS>)
+                                .help(inspect_log_fields_help_string()),
                         ]),
                 ]),
             Command::new("list")
@@ -110,4 +113,18 @@ pub fn cli_parser() -> ArgMatches {
         ])
         .version(version_string)
         .get_matches()
+}
+
+fn inspect_log_fields_help_string() -> String {
+    let content: Content = Default::default();
+    let mut res = String::new();
+    for field in content.fields {
+        let (name, description) = field.aaa();
+        res = res + format!("\t- field: '{}',\tdescription: {}\n", name, description).as_str();
+    }
+
+    format!(
+        "The list of output fields separated by comma ','.\nAvailable fields:\n{}",
+        res
+    )
 }
