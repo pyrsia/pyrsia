@@ -246,17 +246,17 @@ pub async fn inspect_maven_transparency_log(
 fn parse_arg_fields(
     arg_fields: Option<String>,
 ) -> Result<Option<Content>, ParseTransparencyLogFieldError> {
-    Ok(if let Some(val) = arg_fields {
-        let fields: Vec<TransparencyLogField> = val
+    Ok(arg_fields.map(|f| {
+        let transparency_log_fields = f
             .split(',')
             .map(|s| s.trim())
             .map(|s| s.parse::<TransparencyLogField>().unwrap())
-            .collect();
+            .collect::<Vec<TransparencyLogField>>();
 
-        Some(Content { fields })
-    } else {
-        None
-    })
+        Content {
+            fields: transparency_log_fields,
+        }
+    }))
 }
 
 /// Read user input interactively until the validation passed
