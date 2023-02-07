@@ -489,7 +489,7 @@ mod tests {
     async fn inspect_log_maven_json_partial_output() {
         setup_and_execute(|ctx| async {
             let ps_id = "pyrsia:adapter:0.1";
-            let log = add_artifact(&ctx.log, PackageType::Maven2, ps_id);
+            let log = add_artifact(&ctx.log, PackageType::Maven2, ps_id).await;
             let request = RequestMavenLog {
                 gav: ps_id.to_string(),
                 output_params: Some(TransparencyLogOutputParams {
@@ -541,7 +541,7 @@ mod tests {
     async fn inspect_log_docker_csv_partial_output() {
         setup_and_execute(|ctx| async {
             let ps_id = "library/artipie:0.0.7";
-            let log = add_artifact(&ctx.log, PackageType::Docker, ps_id);
+            let log = add_artifact(&ctx.log, PackageType::Docker, ps_id).await;
             let request = RequestDockerLog {
                 image: ps_id.to_string(),
                 output_params: Some(TransparencyLogOutputParams {
