@@ -11,10 +11,10 @@ fi
 WORKSPACE=$PWD
 cd installers/helm
 mkdir -p repos/$RELTYPE
-gsutil -m cp pyrsia-node*.tgz  gs://helmrepo/repos/${RELTYPE}/
-listing="$(gsutil ls -lr gs://helmrepo/repos)"
 helm package pyrsia-node
 mv pyrsia-node*.tgz repos/$RELTYPE
+gsutil -m cp pyrsia-node*.tgz  gs://helmrepo/repos/${RELTYPE}/
+listing="$(gsutil ls -lr gs://helmrepo/repos)"
 cd repos/$RELTYPE
 helm repo index --url https://helmrepo.pyrsia.io/repos/$RELTYPE .
 cp ../../pyrsia-node/artifacthub-repo.yaml .
