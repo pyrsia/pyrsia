@@ -20,7 +20,7 @@ use reqwest::Response;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::node_api::model::cli::{
+use crate::node_api::model::request::{
     RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
     RequestMavenBuild, RequestMavenLog, Status,
 };

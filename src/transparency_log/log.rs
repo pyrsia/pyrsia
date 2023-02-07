@@ -97,7 +97,7 @@ impl ToSql for Operation {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct TransparencyLog {
     pub id: String,
     pub package_type: Option<PackageType>,
@@ -105,13 +105,13 @@ pub struct TransparencyLog {
     pub num_artifacts: u32,
     pub package_specific_artifact_id: String,
     pub artifact_hash: String,
-    source_hash: String,
+    pub source_hash: String,
     pub artifact_id: String,
-    source_id: String,
-    timestamp: u64,
+    pub source_id: String,
+    pub timestamp: u64,
     pub operation: Operation,
     pub node_id: String,
-    node_public_key: String,
+    pub node_public_key: String,
 }
 
 #[derive(Debug)]
