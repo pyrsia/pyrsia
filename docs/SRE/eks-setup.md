@@ -14,6 +14,7 @@
 
    ```bash
    CHART_VERSION=0.2.4+2856
+   BUILD_CHART_VERSION=0.1.0+7
    CLUSTER_NAME=pyrsia-staging
    EXTERNALDNS_NAMESPACE=external-dns
    PYRSIA_NAMESPACE=pyrsia-node
@@ -112,7 +113,9 @@
 
 12. Deploy Pyrsia via Helm
 
-- `helm repo update pyrsia-nightly`
-- `helm upgrade node1 --install -n pyrsia-node pyrsia-staging/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set bootdns=${PYRSIA_BOOTDNS} --set keys.p2p=$(cat ed25519.ser | base64) --set keys.blockchain=$(cat ed25519.ser | base64)  --version "${CHART_VERSION}"`
+      - `helm repo update pyrsia-nightly`
+      - `helm upgrade node1 --install -n pyrsia-node pyrsia-staging/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set bootdns=${PYRSIA_BOOTDNS} --set keys.p2p=$(cat ed25519.ser | base64) --set keys.blockchain=$(cat ed25519.ser | base64)  --version "${CHART_VERSION}"`
 
-   > Note: The above helm command does not setup the Pyrsia Node to use a Build Node.  `--set "buildnode=http://35.193.148.20:8080"` parameter is needed for build node configuration.
+13. Deploy Build Service via Helm (Optional)
+
+      - `helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set bootdns=${PYRSIA_BOOTDNS} --version "${BUILD_ChART_VERSION}"`

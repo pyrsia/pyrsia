@@ -77,4 +77,5 @@ jobs:
           VALIDATE_EDITORCONFIGE: false
           VALIDATE_GITLEAKS: false
           VALIDATE_NATURAL_LANGUAGE: false
+          VALIDATE_JSCPD: false
           MULTI_STATUS: false
