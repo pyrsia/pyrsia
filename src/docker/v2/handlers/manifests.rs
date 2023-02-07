@@ -202,7 +202,7 @@ mod tests {
         let package_specific_id = format!("{}:{}", name, tag);
         let package_specific_artifact_id = get_package_specific_artifact_id(name, tag);
 
-        let (mut artifact_service, mut blockchain_event_receiver, _, mut p2p_command_receiver) =
+        let (artifact_service, mut blockchain_event_receiver, _, mut p2p_command_receiver) =
             test_util::tests::create_artifact_service(&tmp_dir);
 
         tokio::spawn(async move {
@@ -237,10 +237,6 @@ mod tests {
                 artifact_hash: hash.to_owned(),
             })
             .await
-            .unwrap();
-        artifact_service
-            .transparency_log_service
-            .write_transparency_log(&transparency_log)
             .unwrap();
 
         create_artifact(
