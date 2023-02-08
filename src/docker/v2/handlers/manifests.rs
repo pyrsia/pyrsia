@@ -239,7 +239,7 @@ mod tests {
             .await
             .unwrap();
         let transparency_log = transparency_log_tuple.0;
-        
+
         create_artifact(
             &artifact_service.artifact_storage,
             &transparency_log.artifact_id,
