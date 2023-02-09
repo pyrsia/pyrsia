@@ -22,7 +22,7 @@ use crate::network::build_protocol::{BuildRequest, BuildResponse};
 use crate::network::build_status_protocol::{BuildStatusRequest, BuildStatusResponse};
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
-use crate::node_api::model::cli::Status;
+use crate::node_api::model::request::Status;
 use crate::util::env_util::read_var;
 use libp2p::autonat::{Event as AutonatEvent, NatStatus};
 use libp2p::core::PeerId;

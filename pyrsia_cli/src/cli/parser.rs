@@ -16,6 +16,7 @@
 
 use clap::{arg, command, crate_version, ArgGroup, ArgMatches, Command};
 use const_format::formatcp;
+use pyrsia::node_api::model::request::Content;
 
 pub fn cli_parser() -> ArgMatches {
     let version_string: &str = formatcp!("{} ({})", crate_version!(), env!("VERGEN_GIT_SHA"));
@@ -81,19 +82,25 @@ pub fn cli_parser() -> ArgMatches {
                         .about("Show transparency logs for a Docker image")
                         .arg_required_else_help(true)
                         .args(&[
-                            arg!(--image <IMAGE> "The docker image (e.g. alpine:3.15.3 or alpine@sha256:1e014f84205d569a5cc3be4e108ca614055f7e21d11928946113ab3f36054801"),
+                            arg!(--image <IMAGE> "The docker image (e.g. alpine:3.15.3 or alpine@sha256:1e014f84205d569a5cc3be4e108ca614055f7e21d11928946113ab3f36054801")
+                                .required(true),
                             arg!(--format <FORMAT> "The output format")
                                 .value_parser(["json", "csv"])
                                 .default_value("json"),
+                            arg!(--fields <FIELDS>)
+                                .help(inspect_log_fields_help_string()),
                         ]),
                     Command::new("maven")
                         .about("Show transparency logs for a maven artifact")
                         .arg_required_else_help(true)
                         .args(&[
-                            arg!(--gav <GAV> "The maven GAV (e.g. org.myorg:my-artifact:1.1.0)"),
+                            arg!(--gav <GAV> "The maven GAV (e.g. org.myorg:my-artifact:1.1.0)")
+                                .required(true),
                             arg!(--format <FORMAT> "The output format")
                                 .value_parser(["json", "csv"])
                                 .default_value("json"),
+                            arg!(--fields <FIELDS>)
+                                .help(inspect_log_fields_help_string()),
                         ]),
                 ]),
             Command::new("list")
@@ -106,4 +113,18 @@ pub fn cli_parser() -> ArgMatches {
         ])
         .version(version_string)
         .get_matches()
+}
+
+fn inspect_log_fields_help_string() -> String {
+    let content: Content = Default::default();
+    let mut res = String::new();
+    for field in content.fields {
+        let (name, description) = field.aaa();
+        res = res + format!("\t- field: '{}',\tdescription: {}\n", name, description).as_str();
+    }
+
+    format!(
+        "The list of output fields separated by comma ','.\nAvailable fields:\n{}",
+        res
+    )
 }
