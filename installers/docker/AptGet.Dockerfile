@@ -1,5 +1,10 @@
 FROM ubuntu:focal
 
+ARG GIT_REPO
+ARG GIT_BRANCH
+ARG GIT_COMMIT
+ARG PYRSIA_VERSION
+
 # Default Ports
 EXPOSE 7888
 EXPOSE 44000
@@ -8,12 +13,16 @@ EXPOSE 44000
 ENV RUST_LOG=info
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYRSIA_BOOTDNS=boot.pyrsia.link
+ENV GIT_REPO=${GIT_REPO}
+ENV GIT_BRANCH=${GIT_BRANCH}
+ENV GIT_COMMIT=${GIT_COMMIT}
+ENV PYRSIA_VERSION=${PYRSIA_VERSION}
 
 RUN apt-get update; \
     apt-get -y install ca-certificates wget gnupg2 jq curl dnsutils; \
     curl --fail https://pyrsia.io/install.sh -o ./install.sh; \
     chmod 755 ./install.sh; \
-    ./install.sh; 
+    ./install.sh;
 
 # Need to run an entrypoint script that will determine if the docker container
 # is running under Kubernetes or not.  This is done to derive the external ip address
