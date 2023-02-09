@@ -22,8 +22,10 @@ use crate::node_api::model::cli::{
     RequestMavenBuild, RequestMavenLog,
 };
 use crate::transparency_log::log::TransparencyLog;
+use std::future::Future;
 
 use crate::artifact_service::service::ArtifactService;
+use crate::build_service::error::BuildError;
 use libp2p::PeerId;
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -148,16 +150,36 @@ pub async fn handle_add_authorized_node(
         .body(""))
 }
 
+/// Special handle for Artifact Already Exist before responding to build request result
+async fn handle_err_artifact_already_exists<F>(
+    f: impl FnOnce() -> F,
+) -> Result<String, RegistryError>
+where
+    F: Future<Output = Result<String, BuildError>>,
+{
+    let request_build_result = f().await;
+    match request_build_result {
+        Ok(build_result_str) => Ok(build_result_str),
+        Err(err) => match err {
+            BuildError::ArtifactAlreadyExists(_) => Ok(err.to_string()),
+            _ => Err(RegistryError::from(err)),
+        },
+    }
+}
+
 pub async fn handle_build_docker(
     request_docker_build: RequestDockerBuild,
     artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
-    let build_id = artifact_service
-        .request_build(PackageType::Docker, {
-            get_package_specific_id(&request_docker_build.image)
-        })
-        .await
-        .map_err(RegistryError::from)?;
+    let request_build_result = || async {
+        artifact_service
+            .request_build(PackageType::Docker, {
+                get_package_specific_id(&request_docker_build.image)
+            })
+            .await
+    };
+
+    let build_id = handle_err_artifact_already_exists(request_build_result).await?;
 
     let build_id_as_json = serde_json::to_string(&build_id).map_err(RegistryError::from)?;
 
@@ -171,10 +193,13 @@ pub async fn handle_build_maven(
     request_maven_build: RequestMavenBuild,
     artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
-    let build_id = artifact_service
-        .request_build(PackageType::Maven2, request_maven_build.gav)
-        .await
-        .map_err(RegistryError::from)?;
+    let request_build_result = || async {
+        artifact_service
+            .request_build(PackageType::Maven2, request_maven_build.gav)
+            .await
+    };
+
+    let build_id = handle_err_artifact_already_exists(request_build_result).await?;
 
     let build_id_as_json = serde_json::to_string(&build_id).map_err(RegistryError::from)?;
 
