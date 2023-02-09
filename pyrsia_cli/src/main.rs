@@ -101,6 +101,7 @@ async fn main() {
                     docker_matches.get_one::<String>("image").unwrap(),
                     docker_matches.get_one::<String>("format").cloned(),
                     docker_matches.get_one::<String>("fields").cloned(),
+                    docker_matches.get_one::<bool>("latest").cloned(),
                 )
                 .await;
             }
@@ -109,6 +110,7 @@ async fn main() {
                     maven_matches.get_one::<String>("gav").unwrap(),
                     maven_matches.get_one::<String>("format").cloned(),
                     maven_matches.get_one::<String>("fields").cloned(),
+                    maven_matches.get_one::<bool>("latest").cloned(),
                 )
                 .await;
             }

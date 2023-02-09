@@ -259,7 +259,7 @@ impl TransparencyLogService {
 
     /// Adds a transparency log with the RemoveArtifact operation.
     pub fn remove_artifact(
-        &mut self,
+        &self,
         _package_type: &PackageType,
         _package_specific_id: &str,
     ) -> Result<(), TransparencyLogError> {
@@ -283,8 +283,13 @@ impl TransparencyLogService {
         &self,
         package_type: &PackageType,
         package_specific_id: &str,
+        latest: bool,
     ) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
-        self.read_transparency_logs(package_type, package_specific_id)
+        if latest {
+            self.read_last_transparency_log(package_type, package_specific_id)
+        } else {
+            self.read_transparency_logs(package_type, package_specific_id)
+        }
     }
 
     /// Verifies that a specified package can be added to the transparency log database.
@@ -296,25 +301,19 @@ impl TransparencyLogService {
         package_type: &PackageType,
         package_specific_id: &str,
     ) -> Result<(), TransparencyLogError> {
-        let result = self.read_transparency_logs(package_type, package_specific_id);
-        match result.as_ref().ok().and(result.as_ref().unwrap().last()) {
-            None => {
-                // no logs or error, can be added
-                Ok(())
-            }
-            Some(t) => {
-                if t.operation == Operation::RemoveArtifact {
-                    // was removed, can be added
-                    Ok(())
-                } else {
-                    // the artifact exists, can't be added again
-                    Err(TransparencyLogError::ArtifactAlreadyExists {
-                        package_type: package_type.to_owned(),
-                        package_specific_id: package_specific_id.to_owned(),
-                    })
-                }
+        let res = self.read_last_transparency_log(package_type, package_specific_id)?;
+
+        if !res.is_empty() {
+            let log = res.first().unwrap();
+            if log.operation == Operation::AddArtifact {
+                return Err(TransparencyLogError::ArtifactAlreadyExists {
+                    package_type: package_type.to_owned(),
+                    package_specific_id: package_specific_id.to_owned(),
+                });
             }
         }
+
+        Ok(())
     }
 
     /// Get a list of auth node PeerID. Return an error when no PeerID could be found.
@@ -476,32 +475,47 @@ impl TransparencyLogService {
         Ok(latest_record)
     }
 
+    /// Reads a transparency log with max timestamp for given `package_type` and `package_specific_id`.
+    fn read_last_transparency_log(
+        &self,
+        package_type: &PackageType,
+        package_specific_id: &str,
+    ) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
+        let query = format!(
+            "SELECT *
+            FROM TRANSPARENCYLOG
+            WHERE operation in ('{}', '{}') and package_type = '{}' and package_specific_id = '{}'
+            ORDER BY timestamp DESC LIMIT 1",
+            Operation::AddArtifact,
+            Operation::RemoveArtifact,
+            package_type,
+            package_specific_id
+        );
+
+        let res = self.process_query(query.as_str())?;
+
+        Ok(res)
+    }
+
     fn read_transparency_logs(
         &self,
         package_type: &PackageType,
         package_specific_id: &str,
     ) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
-        let query = [
-            "SELECT * FROM TRANSPARENCYLOG WHERE package_type = '",
-            &*package_type.to_string(),
-            "' AND package_specific_id = '",
-            package_specific_id,
-            "';",
-        ];
-        let results = self.process_query(query.join("").as_str())?;
+        let query = format!(
+            "SELECT *
+            FROM TRANSPARENCYLOG
+            WHERE operation in ('{}', '{}') and package_type = '{}' and package_specific_id = '{}'
+            ORDER BY timestamp ASC",
+            Operation::AddArtifact,
+            Operation::RemoveArtifact,
+            package_type,
+            package_specific_id
+        );
 
-        let mut vector: Vec<TransparencyLog> = Vec::new();
-        for record in results {
-            if record.operation == Operation::AddArtifact
-                || record.operation == Operation::RemoveArtifact
-            {
-                vector.push(record);
-            }
-        }
+        let res = self.process_query(query.as_str())?;
 
-        vector.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
-
-        Ok(vector)
+        Ok(res)
     }
 
     fn find_added_nodes(&self) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
@@ -899,6 +913,54 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_read_last_transparency_log() {
+        let tmp_dir = test_util::tests::setup();
+        let (service, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
+
+        let pack_type = PackageType::Docker;
+        let ps_id = "test:image:9.1.1";
+
+        // No records
+        let res = service
+            .read_last_transparency_log(&pack_type, ps_id)
+            .unwrap();
+        assert!(res.is_empty(), "{:?}", res);
+
+        let test_read_latest_record = |log: TransparencyLog| {
+            assert!(service.write_transparency_log(&log).is_ok());
+
+            let res = service
+                .read_last_transparency_log(&pack_type, ps_id)
+                .unwrap();
+            assert_eq!(res.len(), 1, "{:?}", res);
+            assert_eq!(res.first().unwrap().id, log.id);
+        };
+
+        test_read_latest_record(new_artifact_transparency_log(
+            Some(pack_type),
+            Operation::AddArtifact,
+            Some(ps_id),
+            Some("package_specific_artifact_id"),
+        ));
+
+        test_read_latest_record(new_artifact_transparency_log(
+            Some(pack_type),
+            Operation::RemoveArtifact,
+            Some(ps_id),
+            Some("package_specific_artifact_id"),
+        ));
+
+        test_read_latest_record(new_artifact_transparency_log(
+            Some(pack_type),
+            Operation::AddArtifact,
+            Some(ps_id),
+            Some("package_specific_artifact_id"),
+        ));
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
     async fn test_read_remove_artifact_transparency_log() {
         let tmp_dir = test_util::tests::setup();
 
@@ -1201,6 +1263,10 @@ mod tests {
         ps_id: Option<&str>,
         ps_artifact_id: Option<&str>,
     ) -> TransparencyLog {
+        // To simulate a network communication latency,
+        // at least 1 sec (min difference between log records)
+        std::thread::sleep(Duration::from_secs(1));
+
         TransparencyLog {
             id,
             package_type: pack_type,

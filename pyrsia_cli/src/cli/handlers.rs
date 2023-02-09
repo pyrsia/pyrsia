@@ -195,6 +195,7 @@ pub async fn inspect_docker_transparency_log(
     image: &str,
     arg_format: Option<String>,
     arg_fields: Option<String>,
+    arg_latest: Option<bool>,
 ) {
     let content_type = ContentType::from(arg_format.as_ref()).unwrap();
     let fields = parse_arg_fields(arg_fields).unwrap();
@@ -205,6 +206,7 @@ pub async fn inspect_docker_transparency_log(
             format: Some(content_type),
             content: fields,
         }),
+        latest: arg_latest,
     })
     .await;
     match result {
@@ -221,6 +223,7 @@ pub async fn inspect_maven_transparency_log(
     gav: &str,
     arg_format: Option<String>,
     arg_fields: Option<String>,
+    arg_latest: Option<bool>,
 ) {
     let content_type = ContentType::from(arg_format.as_ref()).unwrap();
     let content = parse_arg_fields(arg_fields).unwrap();
@@ -231,6 +234,7 @@ pub async fn inspect_maven_transparency_log(
             format: Some(content_type),
             content,
         }),
+        latest: arg_latest,
     })
     .await;
     match result {

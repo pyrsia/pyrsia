@@ -310,9 +310,11 @@ impl ArtifactService {
         package_type: PackageType,
         package_specific_id: &str,
     ) -> anyhow::Result<Vec<TransparencyLog>> {
-        let transparency_logs = self
-            .transparency_log_service
-            .search_transparency_logs(&package_type, package_specific_id)?;
+        let transparency_logs = self.transparency_log_service.search_transparency_logs(
+            &package_type,
+            package_specific_id,
+            false,
+        )?;
 
         Ok(transparency_logs)
     }
@@ -845,7 +847,7 @@ mod tests {
 
         let result = artifact_service
             .transparency_log_service
-            .search_transparency_logs(&package_type, package_specific_id);
+            .search_transparency_logs(&package_type, package_specific_id, false);
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap().len(), 1);

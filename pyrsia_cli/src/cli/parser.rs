@@ -89,6 +89,7 @@ pub fn cli_parser() -> ArgMatches {
                                 .default_value("json"),
                             arg!(--fields <FIELDS>)
                                 .help(inspect_log_fields_help_string()),
+                            arg!(--latest "Show only the latest transparency log."),
                         ]),
                     Command::new("maven")
                         .about("Show transparency logs for a maven artifact")
@@ -101,6 +102,7 @@ pub fn cli_parser() -> ArgMatches {
                                 .default_value("json"),
                             arg!(--fields <FIELDS>)
                                 .help(inspect_log_fields_help_string()),
+                            arg!(--latest "Show only the latest transparency log."),
                         ]),
                 ]),
             Command::new("list")
