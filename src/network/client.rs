@@ -23,7 +23,7 @@ use crate::network::build_protocol::BuildResponse;
 use crate::network::build_status_protocol::BuildStatusResponse;
 use crate::network::client::command::Command;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
-use crate::node_api::model::cli::Status;
+use crate::node_api::model::request::Status;
 use libp2p::core::{Multiaddr, PeerId};
 use libp2p::gossipsub;
 use libp2p::request_response::ResponseChannel;

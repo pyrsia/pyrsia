@@ -100,6 +100,7 @@ async fn main() {
                 inspect_docker_transparency_log(
                     docker_matches.get_one::<String>("image").unwrap(),
                     docker_matches.get_one::<String>("format").cloned(),
+                    docker_matches.get_one::<String>("fields").cloned(),
                 )
                 .await;
             }
@@ -107,6 +108,7 @@ async fn main() {
                 inspect_maven_transparency_log(
                     maven_matches.get_one::<String>("gav").unwrap(),
                     maven_matches.get_one::<String>("format").cloned(),
+                    maven_matches.get_one::<String>("fields").cloned(),
                 )
                 .await;
             }
