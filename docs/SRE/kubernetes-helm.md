@@ -86,6 +86,7 @@ Details about the Chart Values and Installation steps are documented in the char
             CHART_VERSION=0.2.4+2856
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=gke_pyrsia-sandbox_us-central1_pyrsia-staging
+            kubectl config use-context ${CLUSTER_CONFIG}
             PYRSIA_NAMESPACE=pyrsia-node
             PYRSIA_BASE_DOMAIN=pyrsia.link
             PYRSIA_DOMAIN=staging.${PYRSIA_BASE_DOMAIN}
@@ -100,7 +101,6 @@ Details about the Chart Values and Installation steps are documented in the char
             openssl pkey -in ${PYRSIA_KEYPAIR}.pem -out - -outform DER | tail -c +17 > ${PYRSIA_KEYPAIR}.ser
             openssl pkey -in ${PYRSIA_KEYPAIR}.pem -pubout -outform DER | tail -c +13 >> ${PYRSIA_KEYPAIR}.ser
 
-            helm config use-context ${CLUSTER_CONFIG}
             helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --set keys.p2p=$(cat ${PYRSIA_KEYPAIR}.ser | base64) --set keys.blockchain=$(cat ${PYRSIA_KEYPAIR}.ser | base64) --version "${CHART_VERSION}"
             helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
             ```
@@ -112,6 +112,7 @@ Details about the Chart Values and Installation steps are documented in the char
             CHART_VERSION=0.2.4+2856
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=sbtaylor@pyrsia-staging.us-east-1.eksctl.io
+            kubectl config use-context ${CLUSTER_CONFIG}
             PYRSIA_NAMESPACE=pyrsia-node
             PYRSIA_BASE_DOMAIN=pyrsia-aws.link
             PYRSIA_DOMAIN=staging.${PYRSIA_BASE_DOMAIN}
@@ -126,7 +127,6 @@ Details about the Chart Values and Installation steps are documented in the char
             openssl pkey -in ${PYRSIA_KEYPAIR}.pem -out - -outform DER | tail -c +17 > ${PYRSIA_KEYPAIR}.ser
             openssl pkey -in ${PYRSIA_KEYPAIR}.pem -pubout -outform DER | tail -c +13 >> ${PYRSIA_KEYPAIR}.ser
 
-            helm config use-context ${CLUSTER_CONFIG}
             helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node  --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --set keys.p2p=$(cat ${PYRSIA_KEYPAIR}.ser | base64) --set keys.blockchain=$(cat ${PYRSIA_KEYPAIR}.ser | base64) --version "${CHART_VERSION}"
             helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
             ```
@@ -139,6 +139,7 @@ Details about the Chart Values and Installation steps are documented in the char
             CHART_VERSION=0.2.4+2856
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=gke_pyrsia-sandbox_us-central1_pyrsia-staging
+            kubectl config use-context ${CLUSTER_CONFIG}
             PYRSIA_NAMESPACE=pyrsia-node
             PYRSIA_BASE_DOMAIN=pyrsia.link
             PYRSIA_DOMAIN=staging.${PYRSIA_BASE_DOMAIN}
@@ -160,7 +161,6 @@ Details about the Chart Values and Installation steps are documented in the char
             openssl pkey -in ${PYRSIA_KEYPAIR}.pem -out - -outform DER | tail -c +17 > ${PYRSIA_KEYPAIR}.ser
             openssl pkey -in ${PYRSIA_KEYPAIR}.pem -pubout -outform DER | tail -c +13 >> ${PYRSIA_KEYPAIR}.ser
 
-            helm config use-context ${CLUSTER_CONFIG}
             helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --set keys.p2p=$(cat ${PYRSIA_KEYPAIR}.ser | base64) --set keys.blockchain=$(cat ${PYRSIA_KEYPAIR}.ser | base64) --version "${CHART_VERSION}" --set "image.repository=${IMAGE_REPO}" --set "image.tag=${IMAGE_TAG}"
             helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
             ```
@@ -173,6 +173,7 @@ Details about the Chart Values and Installation steps are documented in the char
             CHART_VERSION=0.2.4+2856
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=sbtaylor@pyrsia-staging.us-east-1.eksctl.io
+            kubectl config use-context ${CLUSTER_CONFIG}
             PYRSIA_NAMESPACE=pyrsia-node
             PYRSIA_BASE_DOMAIN=pyrsia.link
             PYRSIA_DOMAIN=staging.${PYRSIA_BASE_DOMAIN}
@@ -195,7 +196,6 @@ Details about the Chart Values and Installation steps are documented in the char
             openssl pkey -in ${PYRSIA_KEYPAIR}.pem -out - -outform DER | tail -c +17 > ${PYRSIA_KEYPAIR}.ser
             openssl pkey -in ${PYRSIA_KEYPAIR}.pem -pubout -outform DER | tail -c +13 >> ${PYRSIA_KEYPAIR}.ser
 
-            helm config use-context ${CLUSTER_CONFIG}
             helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --set keys.p2p=$(cat ${PYRSIA_KEYPAIR}.ser | base64) --set keys.blockchain=$(cat ${PYRSIA_KEYPAIR}.ser | base64) --version "${CHART_VERSION}" --set "image.repository=${IMAGE_REPO}" --set "image.tag=${IMAGE_TAG}"
             helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
             ```
@@ -208,6 +208,7 @@ Details about the Chart Values and Installation steps are documented in the char
             CHART_VERSION=0.2.4+2856
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=gke_pyrsia-sandbox_us-central1-c_pyrsia-cluster-1
+            kubectl config use-context ${CLUSTER_CONFIG}
             PYRSIA_NAMESPACE=pyrsia-node
             PYRSIA_KEYPAIR=prod_gke_ed25519
             ```
@@ -231,6 +232,7 @@ Details about the Chart Values and Installation steps are documented in the char
             CHART_VERSION=0.2.4+2856
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=sbtaylor@pyrsia-prod.us-east-1.eksctl.io
+            kubectl config use-context ${CLUSTER_CONFIG}
             PYRSIA_NAMESPACE=pyrsia-node
             PYRSIA_KEYPAIR=prod_eks_ed25519
             ```
@@ -270,6 +272,7 @@ Details about the Chart Values and Installation steps are documented in the char
             CHART_VERSION=0.2.4+2856
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=gke_pyrsia-sandbox_us-central1_pyrsia-staging
+            kubectl config use-context ${CLUSTER_CONFIG}
             PYRSIA_NAMESPACE=pyrsia-node
             PYRSIA_BASE_DOMAIN=pyrsia.link
             PYRSIA_DOMAIN=staging.${PYRSIA_BASE_DOMAIN}
@@ -281,8 +284,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Deploy
 
             ```bash
-            helm config use-context ${CLUSTER_CONFIG}
-            helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" -set "keys.p2p=${PYRSIA_P2P_KEYPAIR}" --set "keys.blockchain=${PYRSIA_P2P_KEYPAIR}" --version "${CHART_VERSION}"
+            helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --set "keys.p2p=${PYRSIA_P2P_KEYPAIR}" --set "keys.blockchain=${PYRSIA_P2P_KEYPAIR}" --version "${CHART_VERSION}"
             helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
             ```
 
@@ -293,6 +295,7 @@ Details about the Chart Values and Installation steps are documented in the char
             CHART_VERSION=0.2.4+2856
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=sbtaylor@pyrsia-staging.us-east-1.eksctl.io
+            kubectl config use-context ${CLUSTER_CONFIG}
             PYRSIA_NAMESPACE=pyrsia-node
             PYRSIA_BASE_DOMAIN=pyrsia-aws.link
             PYRSIA_DOMAIN=staging.${PYRSIA_BASE_DOMAIN}
@@ -304,8 +307,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Deploy
 
             ```bash
-            helm config use-context ${CLUSTER_CONFIG}
-            helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node  --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" -set "keys.p2p=${PYRSIA_P2P_KEYPAIR}" --set "keys.blockchain=${PYRSIA_P2P_KEYPAIR}" --version "${CHART_VERSION}"
+            helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node  --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --set "keys.p2p=${PYRSIA_P2P_KEYPAIR}" --set "keys.blockchain=${PYRSIA_P2P_KEYPAIR}" --version "${CHART_VERSION}"
             helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
             ```
 
@@ -317,6 +319,7 @@ Details about the Chart Values and Installation steps are documented in the char
             CHART_VERSION=0.2.4+2856
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=gke_pyrsia-sandbox_us-central1_pyrsia-staging
+            kubectl config use-context ${CLUSTER_CONFIG}
             PYRSIA_NAMESPACE=pyrsia-node
             PYRSIA_BASE_DOMAIN=pyrsia.link
             PYRSIA_DOMAIN=staging.${PYRSIA_BASE_DOMAIN}
@@ -336,8 +339,7 @@ Details about the Chart Values and Installation steps are documented in the char
             docker build --tag ${IMAGE_REPO}:${IMAGE_TAG}
             docker push ${IMAGE_REPO}:${IMAGE_TAG}
 
-            helm config use-context ${CLUSTER_CONFIG}
-            helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" -set "keys.p2p=${PYRSIA_P2P_KEYPAIR}" --set "keys.blockchain=${PYRSIA_P2P_KEYPAIR}" --version "${CHART_VERSION}" --set "image.repository=${IMAGE_REPO}" --set "image.tag=${IMAGE_TAG}"
+            helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --set "keys.p2p=${PYRSIA_P2P_KEYPAIR}" --set "keys.blockchain=${PYRSIA_P2P_KEYPAIR}" --version "${CHART_VERSION}" --set "image.repository=${IMAGE_REPO}" --set "image.tag=${IMAGE_TAG}"
             helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
             ```
 
@@ -349,6 +351,7 @@ Details about the Chart Values and Installation steps are documented in the char
             CHART_VERSION=0.2.4+2856
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=sbtaylor@pyrsia-staging.us-east-1.eksctl.io
+            kubectl config use-context ${CLUSTER_CONFIG}
             PYRSIA_NAMESPACE=pyrsia-node
             PYRSIA_BASE_DOMAIN=pyrsia.link
             PYRSIA_DOMAIN=staging.${PYRSIA_BASE_DOMAIN}
@@ -368,8 +371,7 @@ Details about the Chart Values and Installation steps are documented in the char
             docker build --tag ${IMAGE_REPO}:${IMAGE_TAG}
             docker push ${IMAGE_REPO}:${IMAGE_TAG}
 
-            helm config use-context ${CLUSTER_CONFIG}
-            helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" -set "keys.p2p=${PYRSIA_P2P_KEYPAIR}" --set "keys.blockchain=${PYRSIA_P2P_KEYPAIR}" --version "${CHART_VERSION}" --set "image.repository=${IMAGE_REPO}" --set "image.tag=${IMAGE_TAG}"
+            helm upgrade --install node1 -n "${PYRSIA_NAMESPACE}" pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --set "keys.p2p=${PYRSIA_P2P_KEYPAIR}" --set "keys.blockchain=${PYRSIA_P2P_KEYPAIR}" --version "${CHART_VERSION}" --set "image.repository=${IMAGE_REPO}" --set "image.tag=${IMAGE_TAG}"
             helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
             ```
 
@@ -381,6 +383,7 @@ Details about the Chart Values and Installation steps are documented in the char
             CHART_VERSION=0.2.4+2856
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=gke_pyrsia-sandbox_us-central1-c_pyrsia-cluster-1
+            kubectl config use-context ${CLUSTER_CONFIG}
             PYRSIA_NAMESPACE=pyrsia-node
             PYRSIA_P2P_KEYPAIR=$(kubectl get secret pyrsia-keys -n ${PYRSIA_NAMESPACE} -o json | jq -r '.data."ed25519.ser"')
             PYRSIA_BLOCKCHAIN_KEYPAIR=$(kubectl get secret pyrsia-keys -n ${PYRSIA_NAMESPACE} -o json | jq -r '.data."blockchain_ed25519.ser"')
@@ -389,7 +392,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Deploy
 
             ```bash
-            helm upgrade --install node1 -n ${PYRSIA_NAMESPACE} pyrsia-nightly/pyrsia-node -set "keys.p2p=${PYRSIA_P2P_KEYPAIR}" --set "keys.blockchain=${PYRSIA_P2P_KEYPAIR}" --version "${CHART_VERSION}"
+            helm upgrade --install node1 -n ${PYRSIA_NAMESPACE} pyrsia-nightly/pyrsia-node --set "keys.p2p=${PYRSIA_P2P_KEYPAIR}" --set "keys.blockchain=${PYRSIA_P2P_KEYPAIR}" --version "${CHART_VERSION}"
             helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --version "${BUILD_CHART_VERSION}"
             ```
 
@@ -401,6 +404,7 @@ Details about the Chart Values and Installation steps are documented in the char
             CHART_VERSION=0.2.4+2856
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=sbtaylor@pyrsia-prod.us-east-1.eksctl.io
+            kubectl config use-context ${CLUSTER_CONFIG}
             PYRSIA_NAMESPACE=pyrsia-node
             PYRSIA_BASE_DOMAIN=pyrsia-aws.link
             PYRSIA_DOMAIN=${PYRSIA_BASE_DOMAIN}
