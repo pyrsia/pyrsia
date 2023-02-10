@@ -19,6 +19,7 @@ use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::node;
 use pyrsia::node_api::model::request::*;
 use std::collections::HashSet;
+use std::future::Future;
 use std::io;
 use std::io::BufRead;
 
@@ -196,25 +197,16 @@ pub async fn inspect_docker_transparency_log(
     arg_format: Option<String>,
     arg_fields: Option<String>,
 ) {
-    let content_type = ContentType::from(arg_format.as_ref()).unwrap();
-    let fields = parse_arg_fields(arg_fields).unwrap();
-
-    let result = node::inspect_docker_transparency_log(RequestDockerLog {
-        image: image.to_owned(),
-        output_params: Some(TransparencyLogOutputParams {
-            format: Some(content_type),
-            content: fields,
-        }),
+    inspect_transparency_log(arg_format, arg_fields, |content_type, content| {
+        node::inspect_docker_transparency_log(RequestDockerLog {
+            image: image.to_owned(),
+            output_params: Some(TransparencyLogOutputParams {
+                format: content_type,
+                content,
+            }),
+        })
     })
     .await;
-    match result {
-        Ok(logs) => {
-            content_type.print_logs(logs);
-        }
-        Err(error) => {
-            println!("Inspect log request failed with error: {:?}", error);
-        }
-    };
 }
 
 pub async fn inspect_maven_transparency_log(
@@ -222,17 +214,38 @@ pub async fn inspect_maven_transparency_log(
     arg_format: Option<String>,
     arg_fields: Option<String>,
 ) {
-    let content_type = ContentType::from(arg_format.as_ref()).unwrap();
-    let content = parse_arg_fields(arg_fields).unwrap();
-
-    let result = node::inspect_maven_transparency_log(RequestMavenLog {
-        gav: gav.to_owned(),
-        output_params: Some(TransparencyLogOutputParams {
-            format: Some(content_type),
-            content,
-        }),
+    inspect_transparency_log(arg_format, arg_fields, |content_type, content| {
+        node::inspect_maven_transparency_log(RequestMavenLog {
+            gav: gav.to_owned(),
+            output_params: Some(TransparencyLogOutputParams {
+                format: content_type,
+                content,
+            }),
+        })
     })
     .await;
+}
+
+async fn inspect_transparency_log<F, R>(
+    arg_format: Option<String>,
+    arg_fields: Option<String>,
+    request: F,
+) where
+    F: FnOnce(Option<ContentType>, Option<Content>) -> R,
+    R: Future<Output = anyhow::Result<String>>,
+{
+    let content_type = ContentType::from(arg_format.as_ref()).unwrap();
+    let res_content = parse_arg_fields(arg_fields);
+    let content = match res_content {
+        Ok(content) => content,
+        Err(error) => {
+            println!("Parsing of arguments failed with error: {:?}", error);
+            return;
+        }
+    };
+
+    let result = request(Some(content_type), content).await;
+
     match result {
         Ok(logs) => {
             content_type.print_logs(logs);
@@ -246,17 +259,19 @@ pub async fn inspect_maven_transparency_log(
 fn parse_arg_fields(
     arg_fields: Option<String>,
 ) -> Result<Option<Content>, ParseTransparencyLogFieldError> {
-    Ok(arg_fields.map(|f| {
-        let transparency_log_fields = f
-            .split(',')
-            .map(|s| s.trim())
-            .map(|s| s.parse::<TransparencyLogField>().unwrap())
-            .collect::<Vec<TransparencyLogField>>();
-
-        Content {
-            fields: transparency_log_fields,
+    let res = if let Some(names) = arg_fields {
+        let mut fields = Vec::new();
+        for field_name in names.split(',').map(|s| s.trim()) {
+            let field = field_name.parse::<TransparencyLogField>()?;
+            fields.push(field);
         }
-    }))
+
+        Some(Content { fields })
+    } else {
+        None
+    };
+
+    Ok(res)
 }
 
 /// Read user input interactively until the validation passed
