@@ -23,6 +23,7 @@ use std::future::Future;
 
 use crate::artifact_service::service::ArtifactService;
 use crate::build_service::error::BuildError;
+use crate::node_api::model::response::BuildSuccessResponse;
 use libp2p::PeerId;
 use log::debug;
 use serde::ser::SerializeStruct;
@@ -154,15 +155,23 @@ pub async fn handle_add_authorized_node(
 /// Special handle for Artifact Already Exist before responding to build request result
 async fn handle_err_artifact_already_exists<F>(
     f: impl FnOnce() -> F,
-) -> Result<String, RegistryError>
+) -> Result<BuildSuccessResponse, RegistryError>
 where
     F: Future<Output = Result<String, BuildError>>,
 {
     let request_build_result = f().await;
     match request_build_result {
-        Ok(build_result_str) => Ok(build_result_str),
+        Ok(build_result_str) => Ok(BuildSuccessResponse {
+            build_id: Some(build_result_str),
+            message: None,
+            success_status_code: StatusCode::OK,
+        }),
         Err(err) => match err {
-            BuildError::ArtifactAlreadyExists(_) => Ok(err.to_string()),
+            BuildError::ArtifactAlreadyExists(_) => Ok(BuildSuccessResponse {
+                build_id: None,
+                message: Some(err.to_string()),
+                success_status_code: StatusCode::FOUND,
+            }),
             _ => Err(RegistryError::from(err)),
         },
     }
@@ -186,7 +195,7 @@ pub async fn handle_build_docker(
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/json")
-        .status(StatusCode::OK)
+        .status(build_id.success_status_code)
         .body(build_id_as_json))
 }
 
@@ -206,7 +215,7 @@ pub async fn handle_build_maven(
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/json")
-        .status(StatusCode::OK)
+        .status(build_id.success_status_code)
         .body(build_id_as_json))
 }
 
