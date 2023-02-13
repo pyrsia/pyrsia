@@ -174,14 +174,7 @@ impl ErrorResponseWithBody for Response {
         R: DeserializeOwned,
     {
         match self.error_for_status_with_body().await {
-            Ok(r) => {
-                /*let res_text = r.text().await?;
-                let t: &'de str = (res_text.to_owned()).deref();
-                let de_obj: R = serde_json::from_str(t)?;
-                r.json::<R>().await?
-                Ok(de_obj)*/
-                Ok(r.json::<R>().await?)
-            }
+            Ok(r) => Ok(r.json::<R>().await?),
             Err(e) => Err(e),
         }
     }
