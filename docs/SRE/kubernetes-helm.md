@@ -5,7 +5,7 @@
 ### GKE - Google
 
 - [Install gcloud](https://cloud.google.com/sdk/docs/install-sdk)
-- Set your gcloud config
+- Set your gcloud config (Refer to [gcloud documentation](https://cloud.google.com/sdk/gcloud/reference/config/set) for how-to)
 
     ```toml
     [compute]
