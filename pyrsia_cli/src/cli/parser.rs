@@ -91,7 +91,7 @@ pub fn cli_parser() -> ArgMatches {
                                 .help(inspect_log_fields_help_string()),
                         ]),
                     Command::new("maven")
-                        .about("Show transparency logs for a maven artifact")
+                        .about("Show transparency logs for a Maven artifact")
                         .arg_required_else_help(true)
                         .args(&[
                             arg!(--gav <GAV> "The maven GAV (e.g. org.myorg:my-artifact:1.1.0)")
@@ -102,6 +102,18 @@ pub fn cli_parser() -> ArgMatches {
                             arg!(--fields <FIELDS>)
                                 .help(inspect_log_fields_help_string()),
                         ]),
+                ]),
+            Command::new("add-mapping")
+                .about("Add a mapping file for build")
+                .subcommand_required(true)
+                .arg_required_else_help(true)
+                .subcommands(vec![
+                    Command::new("maven")
+                        .about("Add mapping file for Maven build")
+                        .arg_required_else_help(true)
+                        .args(&[
+                            arg!(-p --path <PATH> "Path to a mapping file to add")
+                        ])
                 ]),
             Command::new("list")
                 .short_flag('l')

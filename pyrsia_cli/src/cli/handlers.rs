@@ -249,6 +249,10 @@ pub async fn inspect_maven_transparency_log(
     };
 }
 
+pub async fn add_maven_mapping(file_path: &str) {
+    println!("{} {}", "WIP", file_path);
+}
+
 fn parse_arg_fields(
     arg_fields: Option<String>,
 ) -> Result<Option<Content>, ParseTransparencyLogFieldError> {
