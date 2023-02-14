@@ -14,10 +14,13 @@
    limitations under the License.
 */
 
+use std::str::FromStr;
+
+use serde::{Deserialize, Serialize};
+
+use crate::artifact_service::model::PackageType;
 use crate::docker::error_util::RegistryError;
 use crate::node_api::handlers::swarm::OutputTransparencyLog;
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct Status {
@@ -100,6 +103,20 @@ pub struct Content {
 #[derive(Debug, PartialEq, Eq)]
 pub struct ParseTransparencyLogFieldError {
     invalid_field: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct MavenMapping {
+    pub package_type: PackageType,
+    pub package_specific_id: String,
+    pub source_repository: SourceRepository,
+    pub build_spec_url: String,
+    pub source_git_sha: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum SourceRepository {
+    Git { url: String, tag: String },
 }
 
 impl Clone for ContentType {

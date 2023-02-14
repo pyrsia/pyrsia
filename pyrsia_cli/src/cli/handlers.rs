@@ -14,14 +14,17 @@
    limitations under the License.
 */
 
-use crate::CONF_FILE_PATH_MSG_STARTER;
+use std::collections::HashSet;
+use std::fs::File;
+use std::io;
+use std::io::{BufRead, Read};
+
 use pyrsia::cli_commands::config;
 use pyrsia::cli_commands::model::BuildResultResponse;
 use pyrsia::cli_commands::node;
 use pyrsia::node_api::model::request::*;
-use std::collections::HashSet;
-use std::io;
-use std::io::BufRead;
+
+use crate::CONF_FILE_PATH_MSG_STARTER;
 
 const CONF_REMINDER_MESSAGE: &str = "Please make sure the pyrsia CLI config is up to date and matches the node configuration. For more information, run 'pyrsia config --show'";
 
@@ -249,8 +252,17 @@ pub async fn inspect_maven_transparency_log(
     };
 }
 
-pub async fn add_maven_mapping(file_path: &str) {
-    println!("{} {}", "WIP", file_path);
+pub fn add_maven_mapping(file_path: &str) {
+    let mut file =
+        File::open(file_path).expect(format!("File not found at {}", file_path).as_str());
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)
+        .expect(format!("Failed to read the file at {}", file_path).as_str());
+    let input_mapping = deserialize_maven_mapping(contents).expect("Failed to parse JSON");
+    println!(
+        "Note: This feature is not implemented. The JSON to be posted to the node is {}",
+        serde_json::to_string(&input_mapping).unwrap()
+    )
 }
 
 fn parse_arg_fields(
@@ -292,13 +304,73 @@ fn read_interactive_input(
     }
 }
 
+fn deserialize_maven_mapping(json: String) -> serde_json::Result<MavenMapping> {
+    serde_json::from_str::<MavenMapping>(json.as_str())
+}
+
 #[cfg(test)]
 #[cfg(not(tarpaulin_include))]
 mod tests {
-    use crate::cli::handlers::config_show;
+    use pyrsia::artifact_service::model::PackageType;
+    use pyrsia::node_api::model::request::{MavenMapping, SourceRepository};
+
+    use crate::cli::handlers::{config_show, deserialize_maven_mapping};
 
     #[test]
     fn test_config_show() {
         config_show();
+    }
+
+    #[test]
+    fn test_deserialize_maven_mapping() {
+        let json = "{
+  \"package_type\":\"Maven2\",
+  \"package_specific_id\":\"commons-codec:commons-codec:1.15\",
+  \"source_repository\":{
+    \"Git\":{
+      \"url\":\"https://github.com/apache/commons-codec\",
+        \"tag\":\"rel/commons-codec-1.15\"
+    }
+},
+\"build_spec_url\":\"https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.buildspec\",
+\"source_git_sha\":\"https://github.com/pyrsia/pyrsia-mappings/blob/6961b5bb62f01361fcd52559ef14644e53660053/Maven2/example/example/1.0/example-1.0.mapping\"
+}".to_string();
+
+        let expected = MavenMapping {
+            package_type: PackageType::Maven2,
+            package_specific_id: "commons-codec:commons-codec:1.15".to_string(),
+            source_repository: SourceRepository::Git {
+                url: "https://github.com/apache/commons-codec".to_string(),
+                tag: "rel/commons-codec-1.15".to_string(),
+            },
+            build_spec_url: "https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.buildspec".to_string(),
+            source_git_sha: "https://github.com/pyrsia/pyrsia-mappings/blob/6961b5bb62f01361fcd52559ef14644e53660053/Maven2/example/example/1.0/example-1.0.mapping".to_string(),
+        };
+        let maven_mapping_from_input = deserialize_maven_mapping(json);
+        assert_eq!(expected, maven_mapping_from_input.unwrap())
+    }
+
+    #[test]
+    fn test_deserialize_maven_mapping_when_not_json_is_passed() {
+        let not_json_string = "content".to_string();
+        let maven_mapping_from_input = deserialize_maven_mapping(not_json_string);
+        assert!(maven_mapping_from_input.is_err())
+    }
+
+    #[test]
+    fn test_deserialize_maven_mapping_when_a_field_is_missing() {
+        let json_without_package_specific_id = "{
+  \"package_type\":\"Maven2\",
+  \"source_repository\":{
+    \"Git\":{
+      \"url\":\"https://github.com/apache/commons-codec\",
+        \"tag\":\"rel/commons-codec-1.15\"
+    }
+},
+\"build_spec_url\":\"https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.buildspec\",
+\"source_git_sha\":\"https://github.com/pyrsia/pyrsia-mappings/blob/6961b5bb62f01361fcd52559ef14644e53660053/Maven2/example/example/1.0/example-1.0.mapping\"
+}".to_string();
+        let maven_mapping_from_input = deserialize_maven_mapping(json_without_package_specific_id);
+        assert!(maven_mapping_from_input.is_err())
     }
 }

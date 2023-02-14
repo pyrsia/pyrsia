@@ -113,12 +113,10 @@ async fn main() {
                 .await;
             }
             _ => {}
-        }
+        },
         Some(("add-mapping", add_mapping_matches)) => match add_mapping_matches.subcommand() {
             Some(("maven", maven_matches)) => {
-                add_maven_mapping(
-                    maven_matches.get_one::<String>("path").unwrap()
-                ).await;
+                add_maven_mapping(maven_matches.get_one::<String>("path").unwrap())
             }
             _ => {}
         },
