@@ -235,11 +235,6 @@ impl TransparencyLogService {
         let transparency_log = TransparencyLog::from(add_artifact_request);
 
         let payload = serde_json::to_string(&transparency_log)?;
-        /*
-        self.blockchain_event_client
-            .add_block(payload.into_bytes())
-            .await?;
-        */
         self.write_transparency_log(&transparency_log)?;
 
         Ok((transparency_log, payload))
