@@ -111,6 +111,7 @@ mod tests {
     use crate::build_service::event::BuildEvent;
     use crate::network::client::command::Command;
     use crate::node_api::model::request::*;
+    use crate::node_api::model::response::BuildSuccessResponse;
     use crate::transparency_log::log::{
         AddArtifactRequest, TransparencyLog, TransparencyLogService,
     };
@@ -232,8 +233,9 @@ mod tests {
 
         assert_eq!(response.status(), 200);
 
-        let build_id_result: String = serde_json::from_slice(response.body()).unwrap();
-        assert_eq!(build_id_result, build_id.to_string());
+        let build_id_result: BuildSuccessResponse =
+            serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(build_id_result.build_id.unwrap(), build_id.to_string());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -301,8 +303,9 @@ mod tests {
 
         assert_eq!(response.status(), 200);
 
-        let build_id_result: String = serde_json::from_slice(response.body()).unwrap();
-        assert_eq!(build_id_result, build_id.to_string());
+        let build_id_result: BuildSuccessResponse =
+            serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(build_id_result.build_id.unwrap(), build_id.to_string());
 
         test_util::tests::teardown(tmp_dir);
     }
