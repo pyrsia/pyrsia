@@ -111,6 +111,7 @@ mod tests {
     use crate::build_service::event::BuildEvent;
     use crate::network::client::command::Command;
     use crate::node_api::model::request::*;
+    use crate::node_api::model::response::BuildSuccessResponse;
     use crate::transparency_log::log::{
         AddArtifactRequest, TransparencyLog, TransparencyLogService,
     };
@@ -231,8 +232,9 @@ mod tests {
 
         assert_eq!(response.status(), 200);
 
-        let build_id_result: String = serde_json::from_slice(response.body()).unwrap();
-        assert_eq!(build_id_result, build_id.to_string());
+        let build_id_result: BuildSuccessResponse =
+            serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(build_id_result.build_id.unwrap(), build_id.to_string());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -300,8 +302,9 @@ mod tests {
 
         assert_eq!(response.status(), 200);
 
-        let build_id_result: String = serde_json::from_slice(response.body()).unwrap();
-        assert_eq!(build_id_result, build_id.to_string());
+        let build_id_result: BuildSuccessResponse =
+            serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(build_id_result.build_id.unwrap(), build_id.to_string());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -489,7 +492,7 @@ mod tests {
     async fn inspect_log_maven_json_partial_output() {
         setup_and_execute(|ctx| async {
             let ps_id = "pyrsia:adapter:0.1";
-            let log = add_artifact(&ctx.log, PackageType::Maven2, ps_id);
+            let log = add_artifact(&ctx.log, PackageType::Maven2, ps_id).await;
             let request = RequestMavenLog {
                 gav: ps_id.to_string(),
                 output_params: Some(TransparencyLogOutputParams {
@@ -541,7 +544,7 @@ mod tests {
     async fn inspect_log_docker_csv_partial_output() {
         setup_and_execute(|ctx| async {
             let ps_id = "library/artipie:0.0.7";
-            let log = add_artifact(&ctx.log, PackageType::Docker, ps_id);
+            let log = add_artifact(&ctx.log, PackageType::Docker, ps_id).await;
             let request = RequestDockerLog {
                 image: ps_id.to_string(),
                 output_params: Some(TransparencyLogOutputParams {
