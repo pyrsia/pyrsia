@@ -16,6 +16,7 @@
 
 use crate::CONF_FILE_PATH_MSG_STARTER;
 use pyrsia::cli_commands::config;
+use pyrsia::cli_commands::model::BuildResultResponse;
 use pyrsia::cli_commands::node;
 use pyrsia::node_api::model::request::*;
 use std::collections::HashSet;
@@ -135,13 +136,18 @@ Additional info related to the build might be available via 'pyrsia inspect-log'
     }
 }
 
-fn handle_request_build_result(build_result: Result<String, anyhow::Error>) {
-    match build_result {
-        Ok(build_id) => {
-            println!(
-                "Build request successfully handled. Build with ID '{}' has been started.",
-                build_id
-            );
+fn handle_request_build_result(result: Result<BuildResultResponse, anyhow::Error>) {
+    match result {
+        Ok(build_result_response) => {
+            if let Some(build_id) = build_result_response.build_id {
+                println!(
+                    "Build request successfully handled. Build with ID '{}' has been started.",
+                    build_id
+                );
+            }
+            if let Some(message) = build_result_response.message {
+                println!("{}", message);
+            }
         }
         Err(error_message) => {
             println!("Build request failed with error: {}", error_message);

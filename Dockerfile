@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4.1
 
-FROM rust:1.64-buster AS builder
+FROM rust:1.66.1-buster AS builder
 ENV CARGO_TARGET_DIR=/target
 WORKDIR /src
 RUN apt-get update && apt-get install -y \
