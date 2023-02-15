@@ -310,7 +310,7 @@ fn deserialize_maven_mapping(json: String) -> serde_json::Result<MavenMapping> {
 #[cfg(not(tarpaulin_include))]
 mod tests {
     use pyrsia::artifact_service::model::PackageType;
-    use pyrsia::node_api::model::request::{MavenMapping, SourceRepository};
+    use pyrsia::node_api::model::request::{MavenMapping, SourceCode};
 
     use crate::cli::handlers::{config_show, deserialize_maven_mapping};
 
@@ -324,25 +324,25 @@ mod tests {
         let json = "{
   \"package_type\":\"Maven2\",
   \"package_specific_id\":\"commons-codec:commons-codec:1.15\",
-  \"source_repository\":{
-    \"Git\":{
+  \"source_code\":{
+    \"git\":{
       \"url\":\"https://github.com/apache/commons-codec\",
         \"tag\":\"rel/commons-codec-1.15\"
     }
 },
 \"build_spec_url\":\"https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.buildspec\",
-\"source_git_sha\":\"https://github.com/pyrsia/pyrsia-mappings/blob/6961b5bb62f01361fcd52559ef14644e53660053/Maven2/example/example/1.0/example-1.0.mapping\"
+\"mapping_source_git_sha\":\"6961b5bb62f01361fcd52559ef14644e53660053\"
 }".to_string();
 
         let expected = MavenMapping {
             package_type: PackageType::Maven2,
             package_specific_id: "commons-codec:commons-codec:1.15".to_string(),
-            source_repository: SourceRepository::Git {
+            source_code: SourceCode::Git {
                 url: "https://github.com/apache/commons-codec".to_string(),
                 tag: "rel/commons-codec-1.15".to_string(),
             },
             build_spec_url: "https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.buildspec".to_string(),
-            source_git_sha: "https://github.com/pyrsia/pyrsia-mappings/blob/6961b5bb62f01361fcd52559ef14644e53660053/Maven2/example/example/1.0/example-1.0.mapping".to_string(),
+            mapping_source_git_sha: "6961b5bb62f01361fcd52559ef14644e53660053".to_string(),
         };
         let maven_mapping_from_input = deserialize_maven_mapping(json);
         assert_eq!(expected, maven_mapping_from_input.unwrap())
@@ -359,14 +359,14 @@ mod tests {
     fn test_deserialize_maven_mapping_when_a_field_is_missing() {
         let json_without_package_specific_id = "{
   \"package_type\":\"Maven2\",
-  \"source_repository\":{
-    \"Git\":{
+  \"source_code\":{
+    \"git\":{
       \"url\":\"https://github.com/apache/commons-codec\",
         \"tag\":\"rel/commons-codec-1.15\"
     }
 },
 \"build_spec_url\":\"https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.buildspec\",
-\"source_git_sha\":\"https://github.com/pyrsia/pyrsia-mappings/blob/6961b5bb62f01361fcd52559ef14644e53660053/Maven2/example/example/1.0/example-1.0.mapping\"
+\"mapping_source_git_sha\":\"6961b5bb62f01361fcd52559ef14644e53660053\"
 }".to_string();
         let maven_mapping_from_input = deserialize_maven_mapping(json_without_package_specific_id);
         assert!(maven_mapping_from_input.is_err())

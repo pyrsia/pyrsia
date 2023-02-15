@@ -109,13 +109,14 @@ pub struct ParseTransparencyLogFieldError {
 pub struct MavenMapping {
     pub package_type: PackageType,
     pub package_specific_id: String,
-    pub source_repository: SourceRepository,
+    pub source_code: SourceCode,
     pub build_spec_url: String,
-    pub source_git_sha: String,
+    pub mapping_source_git_sha: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub enum SourceRepository {
+#[serde(rename_all = "snake_case")]
+pub enum SourceCode {
     Git { url: String, tag: String },
 }
 
