@@ -31,63 +31,62 @@ use super::config::get_config;
 
 pub async fn ping() -> Result<String> {
     //TODO: implement ping api in Node
-    let node_url = format!("http://{}/v2", get_url());
-    let response = reqwest::get(node_url).await?.text().await?;
+    let response = reqwest::get(get_url("/v2")).await?.text().await?;
     Ok(response)
 }
 
 pub async fn peers_connected() -> Result<String> {
-    let node_url = format!("http://{}/peers", get_url());
-    let response = reqwest::get(node_url).await?.text().await?;
+    let response = reqwest::get(get_url("/peers")).await?.text().await?;
     Ok(response)
 }
 
 pub async fn status() -> Result<Status> {
-    let node_url = format!("http://{}/status", get_url());
-
-    let response = reqwest::get(node_url).await?.json::<Status>().await?;
+    let response = reqwest::get(get_url("/status"))
+        .await?
+        .json::<Status>()
+        .await?;
     Ok(response)
 }
 
 pub async fn add_authorized_node(request: RequestAddAuthorizedNode) -> Result<()> {
-    post_and_parse_result_as_text(format!("http://{}/authorized_node", get_url()), request)
+    post_and_parse_result_as_text(get_url("/authorized_node"), request)
         .await
         .map(|_| ())
 }
 
 pub async fn request_docker_build(request: RequestDockerBuild) -> Result<BuildResultResponse> {
     post_and_parse_json_result_as_object::<RequestDockerBuild, BuildResultResponse>(
-        format!("http://{}/build/docker", get_url()),
+        get_url("/build/docker"),
         request,
     )
     .await
 }
 
 pub async fn request_build_status(request: RequestBuildStatus) -> Result<String> {
-    post_and_parse_result_as_json(format!("http://{}/build/status", get_url()), request).await
+    post_and_parse_result_as_json(get_url("/build/status"), request).await
 }
 
 pub async fn request_maven_build(request: RequestMavenBuild) -> Result<BuildResultResponse> {
     post_and_parse_json_result_as_object::<RequestMavenBuild, BuildResultResponse>(
-        format!("http://{}/build/docker", get_url()),
+        get_url("/build/docker"),
         request,
     )
     .await
 }
 
 pub async fn inspect_docker_transparency_log(request: RequestDockerLog) -> Result<String> {
-    post_and_parse_result_as_text(format!("http://{}/inspect/docker", get_url()), request).await
+    post_and_parse_result_as_text(get_url("/inspect/docker"), request).await
 }
 
 pub async fn inspect_maven_transparency_log(request: RequestMavenLog) -> Result<String> {
-    post_and_parse_result_as_text(format!("http://{}/inspect/maven", get_url()), request).await
+    post_and_parse_result_as_text(get_url("/inspect/maven"), request).await
 }
 
 pub async fn add_maven_mapping(request: MavenMapping) -> Result<String> {
-    post_and_parse_result_as_json(format!("http://{}/add-mapping/maven", get_url()), request).await
+    post_and_parse_result_as_json(get_url("/add-mapping/maven"), request).await
 }
 
-pub fn get_url() -> String {
+pub fn get_url(path: &str) -> String {
     let result = get_config();
     let mut host = String::new();
     let mut port = String::new();
@@ -101,7 +100,7 @@ pub fn get_url() -> String {
         }
     };
 
-    format!("{}:{}", host, port)
+    format!("http://{}:{}{}", host, port, path)
 }
 
 async fn post_and_parse_result_as_json<T: Serialize>(
