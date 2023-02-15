@@ -252,17 +252,15 @@ pub async fn inspect_maven_transparency_log(
     };
 }
 
-pub fn add_maven_mapping(file_path: &str) {
+pub async fn add_maven_mapping(file_path: &str) {
     let mut file =
         File::open(file_path).expect(format!("File not found at {}", file_path).as_str());
     let mut contents = String::new();
     file.read_to_string(&mut contents)
         .expect(format!("Failed to read the file at {}", file_path).as_str());
     let input_mapping = deserialize_maven_mapping(contents).expect("Failed to parse JSON");
-    println!(
-        "Note: This feature is not implemented. The JSON to be posted to the node is {}",
-        serde_json::to_string(&input_mapping).unwrap()
-    )
+
+    let result = node::add_maven_mapping(input_mapping).await;
 }
 
 fn parse_arg_fields(

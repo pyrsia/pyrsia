@@ -116,7 +116,7 @@ async fn main() {
         },
         Some(("add-mapping", add_mapping_matches)) => match add_mapping_matches.subcommand() {
             Some(("maven", maven_matches)) => {
-                add_maven_mapping(maven_matches.get_one::<String>("path").unwrap())
+                add_maven_mapping(maven_matches.get_one::<String>("path").unwrap()).await;
             }
             _ => {}
         },

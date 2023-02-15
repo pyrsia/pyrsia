@@ -23,8 +23,8 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::node_api::model::request::{
-    RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
-    RequestMavenBuild, RequestMavenLog, Status,
+    MavenMapping, RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild,
+    RequestDockerLog, RequestMavenBuild, RequestMavenLog, Status,
 };
 
 use super::config::get_config;
@@ -81,6 +81,10 @@ pub async fn inspect_docker_transparency_log(request: RequestDockerLog) -> Resul
 
 pub async fn inspect_maven_transparency_log(request: RequestMavenLog) -> Result<String> {
     post_and_parse_result_as_text(format!("http://{}/inspect/maven", get_url()), request).await
+}
+
+pub async fn add_maven_mapping(request: MavenMapping) -> Result<String> {
+    post_and_parse_result_as_json(format!("http://{}/add-mapping/maven", get_url()), request).await
 }
 
 pub fn get_url() -> String {
