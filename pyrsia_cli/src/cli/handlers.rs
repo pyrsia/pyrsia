@@ -260,7 +260,7 @@ pub async fn add_maven_mapping(file_path: &str) {
         .expect(format!("Failed to read the file at {}", file_path).as_str());
     let input_mapping = deserialize_maven_mapping(contents).expect("Failed to parse JSON");
 
-    let result = node::add_maven_mapping(input_mapping).await;
+    let _result = node::add_maven_mapping(input_mapping).await;
 }
 
 fn parse_arg_fields(

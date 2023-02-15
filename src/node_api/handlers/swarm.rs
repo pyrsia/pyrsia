@@ -291,6 +291,20 @@ pub async fn handle_inspect_log_maven(
     ResponseBuilder::from(request_maven_log.output_params).create_response(&result)
 }
 
+pub async fn handle_add_maven_mapping(
+    request: MavenMapping,
+    _artifact_service: ArtifactService,
+) -> Result<impl Reply, Rejection> {
+    // TODO: Implement - Add a mapping file to block chain
+    let sent_mapping_date = serde_json::to_string(&request).unwrap();
+    debug!("Mapping file received: {}", sent_mapping_date);
+    Ok(warp::http::response::Builder::new()
+        .header("Content-Type", "application/json")
+        .status(StatusCode::OK)
+        .body(sent_mapping_date)
+        .unwrap())
+}
+
 fn get_package_specific_id(package_specific_id: &str) -> String {
     match package_specific_id.contains('/') {
         true => package_specific_id.to_owned(),
