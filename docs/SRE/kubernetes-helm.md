@@ -5,7 +5,7 @@
 ### GKE - Google
 
 - [Install gcloud](https://cloud.google.com/sdk/docs/install-sdk)
-- Set your gcloud config
+- Set your gcloud config (Refer to [gcloud documentation](https://cloud.google.com/sdk/gcloud/reference/config/set) for how-to)
 
     ```toml
     [compute]
@@ -242,8 +242,8 @@ Details about the Chart Values and Installation steps are documented in the char
             openssl pkey -in ${PYRSIA_KEYPAIR}.pem -out - -outform DER | tail -c +17 > ${PYRSIA_KEYPAIR}.ser
             openssl pkey -in ${PYRSIA_KEYPAIR}.pem -pubout -outform DER | tail -c +13 >> ${PYRSIA_KEYPAIR}.ser
 
-            helm upgrade --install node1 -n ${PYRSIA_NAMESPACE} pyrsia-nightly/pyrsia-node --set keys.p2p=$(cat ${PYRSIA_KEYPAIR}.ser | base64) --set keys.blockchain=$(cat ${PYRSIA_KEYPAIR}.ser | base64) --version "${CHART_VERSION}"
-            helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --version "${BUILD_CHART_VERSION}"
+            helm upgrade --install node1 -n ${PYRSIA_NAMESPACE} pyrsia-nightly/pyrsia-node --set keys.p2p=$(cat ${PYRSIA_KEYPAIR}.ser | base64) --set keys.blockchain=$(cat ${PYRSIA_KEYPAIR}.ser | base64) --set "domain=${PYRSIA_DOMAIN}" --set "bootdns=${PYRSIA_BOOTDNS}" --version "${CHART_VERSION}"
+            helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --set "bootdns=${PYRSIA_BOOTDNS}" --version "${BUILD_CHART_VERSION}"
             ```
 
 ## Using helm to deploy updates
@@ -397,7 +397,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Deploy
 
             ```bash
-            helm upgrade --install node1 -n ${PYRSIA_NAMESPACE} pyrsia-nightly/pyrsia-node --version "${CHART_VERSION}"
+            helm upgrade --install node1 -n ${PYRSIA_NAMESPACE} pyrsia-nightly/pyrsia-node --set "domain=${PYRSIA_DOMAIN}" --version "${CHART_VERSION}"
             helm upgrade build1 --install -n pyrsia-node pyrsia-nightly/pyrsia-build-service --version "${BUILD_CHART_VERSION}"
             ```
 

@@ -159,7 +159,7 @@ mod tests {
             }
         });
 
-        let transparency_log = artifact_service
+        let transparency_log_tuple = artifact_service
             .transparency_log_service
             .add_artifact(AddArtifactRequest {
                 package_type,
@@ -170,6 +170,8 @@ mod tests {
             })
             .await
             .unwrap();
+
+        let transparency_log = transparency_log_tuple.0;
 
         create_artifact(
             &artifact_service.artifact_storage,
