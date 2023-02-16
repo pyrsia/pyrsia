@@ -11,16 +11,18 @@ fi
 WORKSPACE=$PWD
 cd installers/helm
 mkdir -p repos/$RELTYPE
-gsutil -m rsync -r gs://helmrepo/repos repos
 helm package pyrsia-node
 mv pyrsia-node*.tgz repos/$RELTYPE
+gsutil -m cp pyrsia-node*.tgz  gs://helmrepo/repos/${RELTYPE}/
+listing="$(gsutil ls -lr gs://helmrepo/repos)"
 cd repos/$RELTYPE
 helm repo index --url https://helmrepo.pyrsia.io/repos/$RELTYPE .
 cp ../../pyrsia-node/artifacthub-repo.yaml .
 cd ../..
 
+python3 $WORKSPACE/.github/workflows/genlistingsyncoptimized.py ${listing} gs://helmrepo/repos repos
 # Generate pretty directory listing web pages
-python3 $WORKSPACE/.github/workflows/genlisting.py -r
+python3 $WORKSPACE/.github/workflows/genlisting.py -r -d
 
-# copy new public repo to GCS
-gsutil -m rsync -r repos gs://helmrepo/repos
+# copy new public repo to GCS. Excluding all *.tgz files from sync back
+gsutil -m rsync -r -x ".*\.tgz$" repos gs://helmrepo/repos
