@@ -27,7 +27,7 @@ To install the chart with the release name `node1`:
 kubectl create namespace pyrsia-node
 helm repo add pyrsiaoss https://helmrepo.pyrsia.io/repos/nightly
 helm repo update
-helm upgrade --install node1 -n pyrsia-node pyrsiaoss/pyrsia-node --version "0.2.4+2856"
+helm upgrade --install node1 -n pyrsia-node pyrsiaoss/pyrsia-node --version "0.2.4+3003"
 ```
 
 [Further details](https://pyrsia.io/docs/SRE/kubernetes-helm) on deploying to multiple cloud providers
