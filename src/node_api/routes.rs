@@ -685,6 +685,7 @@ mod tests {
             .add_artifact(add_art_req)
             .await
             .unwrap()
+            .0
     }
 
     async fn setup_and_execute<P, F>(op: P)

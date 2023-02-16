@@ -231,17 +231,25 @@ impl TransparencyLogService {
     pub async fn add_artifact(
         &self,
         add_artifact_request: AddArtifactRequest,
-    ) -> Result<TransparencyLog, TransparencyLogError> {
+    ) -> Result<(TransparencyLog, String), TransparencyLogError> {
         let transparency_log = TransparencyLog::from(add_artifact_request);
 
         let payload = serde_json::to_string(&transparency_log)?;
-        self.blockchain_event_client
-            .add_block(payload.into_bytes())
-            .await?;
-
         self.write_transparency_log(&transparency_log)?;
 
-        Ok(transparency_log)
+        Ok((transparency_log, payload))
+    }
+
+    pub async fn broadcast_artifacts(
+        &mut self,
+        payloads: Vec<String>,
+    ) -> Result<(), TransparencyLogError> {
+        for payload in payloads {
+            self.blockchain_event_client
+                .add_block(payload.into_bytes())
+                .await?;
+        }
+        Ok(())
     }
 
     /// Write the transparency log
