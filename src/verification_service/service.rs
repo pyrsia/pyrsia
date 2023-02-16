@@ -320,7 +320,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let payload = serde_json::to_string(&transparency_log).unwrap();
+        let payload = serde_json::to_string(&transparency_log.0).unwrap();
 
         let (verification_result_sender, _verification_result_receiver) = oneshot::channel();
 
@@ -380,7 +380,7 @@ mod tests {
                 })
                 .await
                 .unwrap();
-            let payload = serde_json::to_string(&transparency_log).unwrap();
+            let payload = serde_json::to_string(&transparency_log.0).unwrap();
             payloads.push(payload);
         }
 
@@ -460,7 +460,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let payload = serde_json::to_string(&transparency_log).unwrap();
+        let payload = serde_json::to_string(&transparency_log.0).unwrap();
 
         let (verification_result_sender, verification_result_receiver) = oneshot::channel();
 
@@ -539,7 +539,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let payload = serde_json::to_string(&transparency_log).unwrap();
+        let payload = serde_json::to_string(&transparency_log.0).unwrap();
 
         let (verification_result_sender, verification_result_receiver) = oneshot::channel();
 
@@ -626,7 +626,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let payload = serde_json::to_string(&transparency_log).unwrap();
+        let payload = serde_json::to_string(&transparency_log.0).unwrap();
 
         let (verification_result_sender, verification_result_receiver) = oneshot::channel();
 
@@ -713,7 +713,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let payload = serde_json::to_string(&transparency_log).unwrap();
+        let payload = serde_json::to_string(&transparency_log.0).unwrap();
 
         let (verification_result_sender, verification_result_receiver) = oneshot::channel();
 

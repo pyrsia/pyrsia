@@ -135,6 +135,7 @@ impl ArtifactService {
             build_id, build_result.package_type, package_specific_id
         );
 
+        let mut payloads: Vec<String> = Vec::new();
         for artifact in build_result.artifacts.iter() {
             let add_artifact_request = AddArtifactRequest {
                 package_type: build_result.package_type,
@@ -149,11 +150,13 @@ impl ArtifactService {
                 add_artifact_request
             );
 
-            let add_artifact_transparency_log = self
+            let add_artifact_transparency_tuple = self
                 .transparency_log_service
                 .add_artifact(add_artifact_request)
                 .await?;
 
+            let add_artifact_transparency_log = add_artifact_transparency_tuple.0;
+            payloads.push(add_artifact_transparency_tuple.1);
             info!(
                 "Transparency Log for build with ID {} successfully created.",
                 build_id
@@ -170,6 +173,9 @@ impl ArtifactService {
                 .await?;
         }
 
+        self.transparency_log_service
+            .broadcast_artifacts(payloads)
+            .await?;
         Ok(())
     }
 
@@ -439,7 +445,7 @@ mod tests {
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
         let package_specific_artifact_id = "package_specific_artifact_id";
-        let transparency_log = artifact_service
+        let transparency_log_tuple = artifact_service
             .transparency_log_service
             .add_artifact(AddArtifactRequest {
                 package_type,
@@ -450,6 +456,7 @@ mod tests {
             })
             .await
             .unwrap();
+        let transparency_log = transparency_log_tuple.0;
 
         //put the artifact
         artifact_service
@@ -517,7 +524,7 @@ mod tests {
         let package_type = PackageType::Docker;
         let package_specific_id = "package_specific_id";
         let package_specific_artifact_id = "package_specific_artifact_id";
-        let transparency_log = artifact_service
+        let transparency_log_tuple = artifact_service
             .transparency_log_service
             .add_artifact(AddArtifactRequest {
                 package_type,
@@ -529,6 +536,7 @@ mod tests {
             .await
             .unwrap();
 
+        let transparency_log = transparency_log_tuple.0;
         //put the artifact
         artifact_service
             .put_artifact(
