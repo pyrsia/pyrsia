@@ -22,7 +22,6 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
 
-
 use crate::build_service::model::BuildStatus;
 use crate::node_api::model::request::{
     RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
