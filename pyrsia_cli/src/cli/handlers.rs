@@ -322,13 +322,14 @@ mod tests {
     #[test]
     fn test_deserialize_maven_mapping() {
         let json = "{
-  \"package_type\":\"Maven2\",
-  \"package_specific_id\":\"commons-codec:commons-codec:1.15\",
-  \"source_code\":{
-    \"git\":{
-      \"url\":\"https://github.com/apache/commons-codec\",
-        \"tag\":\"rel/commons-codec-1.15\"
-    }
+\"package_type\":\"Maven2\",
+\"package_specific_id\":\"commons-codec:commons-codec:1.15\",
+\"source_code\":{
+  \"git\":{
+    \"url\":\"https://github.com/apache/commons-codec\",
+    \"tag\":\"rel/commons-codec-1.15\",
+    \"sha\":\"1c1dd831f6a83569da46a6eef68a148fa4fd9f9e\"
+  }
 },
 \"build_spec_url\":\"https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.buildspec\",
 \"mapping_source_git_sha\":\"6961b5bb62f01361fcd52559ef14644e53660053\"
@@ -340,6 +341,7 @@ mod tests {
             source_code: SourceCode::Git {
                 url: "https://github.com/apache/commons-codec".to_string(),
                 tag: "rel/commons-codec-1.15".to_string(),
+                sha: "1c1dd831f6a83569da46a6eef68a148fa4fd9f9e".to_string()
             },
             build_spec_url: "https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.buildspec".to_string(),
             mapping_source_git_sha: "6961b5bb62f01361fcd52559ef14644e53660053".to_string(),
@@ -358,12 +360,13 @@ mod tests {
     #[test]
     fn test_deserialize_maven_mapping_when_a_field_is_missing() {
         let json_without_package_specific_id = "{
-  \"package_type\":\"Maven2\",
-  \"source_code\":{
-    \"git\":{
-      \"url\":\"https://github.com/apache/commons-codec\",
-        \"tag\":\"rel/commons-codec-1.15\"
-    }
+\"package_type\":\"Maven2\",
+\"source_code\":{
+  \"git\":{
+    \"url\":\"https://github.com/apache/commons-codec\",
+    \"tag\":\"rel/commons-codec-1.15\",
+    \"sha\":\"1c1dd831f6a83569da46a6eef68a148fa4fd9f9e\"
+  }
 },
 \"build_spec_url\":\"https://raw.githubusercontent.com/pyrsia/pyrsia-mappings/main/Maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.buildspec\",
 \"mapping_source_git_sha\":\"6961b5bb62f01361fcd52559ef14644e53660053\"

@@ -117,7 +117,11 @@ pub struct MavenMapping {
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceCode {
-    Git { url: String, tag: String },
+    Git {
+        url: String,
+        tag: String,
+        sha: String,
+    },
 }
 
 impl Clone for ContentType {
