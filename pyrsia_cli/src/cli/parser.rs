@@ -19,12 +19,25 @@ use const_format::formatcp;
 use pyrsia::node_api::model::request::Content;
 
 pub fn cli_parser() -> ArgMatches {
+    static AUTH_NODE_ONLY_NOTE: &str = "<Only for authority nodes>";
     let version_string: &str = formatcp!("{} ({})", crate_version!(), env!("VERGEN_GIT_SHA"));
     command!()
         .arg_required_else_help(true)
         .propagate_version(false)
         // Config subcommand
         .subcommands(vec![
+            Command::new("add-mapping")
+                .about(format!("{} Add a mapping file for build", AUTH_NODE_ONLY_NOTE))
+                .subcommand_required(true)
+                .arg_required_else_help(true)
+                .subcommands(vec![
+                    Command::new("maven")
+                        .about("Add mapping file for Maven build")
+                        .arg_required_else_help(true)
+                        .args(&[
+                            arg!(-p --path <PATH> "Path to a mapping file to add")
+                        ])
+                ]),
             Command::new("authorize")
                 .about("Add an authorized node")
                 .arg_required_else_help(true)
@@ -102,18 +115,6 @@ pub fn cli_parser() -> ArgMatches {
                             arg!(--fields <FIELDS>)
                                 .help(inspect_log_fields_help_string()),
                         ]),
-                ]),
-            Command::new("add-mapping")
-                .about("Add a mapping file for build")
-                .subcommand_required(true)
-                .arg_required_else_help(true)
-                .subcommands(vec![
-                    Command::new("maven")
-                        .about("Add mapping file for Maven build")
-                        .arg_required_else_help(true)
-                        .args(&[
-                            arg!(-p --path <PATH> "Path to a mapping file to add")
-                        ])
                 ]),
             Command::new("list")
                 .short_flag('l')
