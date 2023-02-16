@@ -150,7 +150,7 @@ services:
       - "8080:8080"
     container_name: build-pipeline-prototype
   authorize-node:
-    image: pyrsiaoss/pyrsia-node:0.2.3-2805
+    image: pyrsiaoss/pyrsia-node:0.2.4-3003
     environment:
       RUST_LOG: "info,pyrsia=debug"
     entrypoint: [ "pyrsia_node", "--pipeline-service-endpoint", "http://build-pipeline-prototype:8080", "--listen-only", "-H", "0.0.0.0", "-p", "7881", "--listen", "/ip4/0.0.0.0/tcp/44001", "--init-blockchain" ]
@@ -161,7 +161,7 @@ services:
       - "44001:44001"
     container_name: authorize-node
   agent-node:
-    image: pyrsiaoss/pyrsia-node:0.2.3-2805
+    image: pyrsiaoss/pyrsia-node:0.2.4-3003
     environment:
       RUST_LOG: "info,pyrsia=debug"
     entrypoint: [ "pyrsia_node", "--bootstrap-url", "http://authorize-node:7881/status", "-H", "0.0.0.0", "-p", "7882", "--listen", "/ip4/0.0.0.0/tcp/44002" ]

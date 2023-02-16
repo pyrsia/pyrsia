@@ -83,7 +83,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Setup Environment Variables
 
             ```bash
-            CHART_VERSION=0.2.4+2856
+            CHART_VERSION=0.2.4+3003
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=gke_pyrsia-sandbox_us-central1_pyrsia-staging
             PYRSIA_NAMESPACE=pyrsia-node
@@ -109,7 +109,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Setup Environment Variables
 
             ```bash
-            CHART_VERSION=0.2.4+2856
+            CHART_VERSION=0.2.4+3003
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=sbtaylor@pyrsia-staging.us-east-1.eksctl.io
             PYRSIA_NAMESPACE=pyrsia-node
@@ -136,7 +136,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Setup Environment Variables
 
             ```bash
-            CHART_VERSION=0.2.4+2856
+            CHART_VERSION=0.2.4+3003
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=gke_pyrsia-sandbox_us-central1_pyrsia-staging
             PYRSIA_NAMESPACE=pyrsia-node
@@ -170,7 +170,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Setup Environment Variables
 
             ```bash
-            CHART_VERSION=0.2.4+2856
+            CHART_VERSION=0.2.4+3003
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=sbtaylor@pyrsia-staging.us-east-1.eksctl.io
             PYRSIA_NAMESPACE=pyrsia-node
@@ -205,7 +205,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Setup Environment Variables
 
             ```bash
-            CHART_VERSION=0.2.4+2856
+            CHART_VERSION=0.2.4+3003
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=gke_pyrsia-sandbox_us-central1-c_pyrsia-cluster-1
             PYRSIA_NAMESPACE=pyrsia-node
@@ -228,7 +228,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Setup Environment Variables
 
             ```bash
-            CHART_VERSION=0.2.4+2856
+            CHART_VERSION=0.2.4+3003
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=sbtaylor@pyrsia-prod.us-east-1.eksctl.io
             PYRSIA_NAMESPACE=pyrsia-node
@@ -267,7 +267,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Setup Environment Variables
 
             ```bash
-            CHART_VERSION=0.2.4+2856
+            CHART_VERSION=0.2.4+3003
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=gke_pyrsia-sandbox_us-central1_pyrsia-staging
             PYRSIA_NAMESPACE=pyrsia-node
@@ -288,7 +288,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Setup Environment Variables
 
             ```bash
-            CHART_VERSION=0.2.4+2856
+            CHART_VERSION=0.2.4+3003
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=sbtaylor@pyrsia-staging.us-east-1.eksctl.io
             PYRSIA_NAMESPACE=pyrsia-node
@@ -310,7 +310,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Setup Environment Variables
 
             ```bash
-            CHART_VERSION=0.2.4+2856
+            CHART_VERSION=0.2.4+3003
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=gke_pyrsia-sandbox_us-central1_pyrsia-staging
             PYRSIA_NAMESPACE=pyrsia-node
@@ -340,7 +340,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Setup Environment Variables
 
             ```bash
-            CHART_VERSION=0.2.4+2856
+            CHART_VERSION=0.2.4+3003
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=sbtaylor@pyrsia-staging.us-east-1.eksctl.io
             PYRSIA_NAMESPACE=pyrsia-node
@@ -370,7 +370,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Setup Environment Variables
 
             ```bash
-            CHART_VERSION=0.2.4+2856
+            CHART_VERSION=0.2.4+3003
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=gke_pyrsia-sandbox_us-central1-c_pyrsia-cluster-1
             PYRSIA_NAMESPACE=pyrsia-node
@@ -388,7 +388,7 @@ Details about the Chart Values and Installation steps are documented in the char
         - Setup Environment Variables
 
             ```bash
-            CHART_VERSION=0.2.4+2856
+            CHART_VERSION=0.2.4+3003
             BUILD_CHART_VERSION=0.1.0+7
             CLUSTER_CONFIG=sbtaylor@pyrsia-prod.us-east-1.eksctl.io
             PYRSIA_NAMESPACE=pyrsia-node
