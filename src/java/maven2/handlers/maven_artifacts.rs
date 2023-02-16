@@ -174,7 +174,7 @@ mod tests {
     async fn handle_get_maven_artifact_test() {
         let tmp_dir = test_util::tests::setup();
 
-        let (mut artifact_service, mut blockchain_event_receiver, _, mut p2p_command_receiver) =
+        let (artifact_service, mut blockchain_event_receiver, _, mut p2p_command_receiver) =
             test_util::tests::create_artifact_service(&tmp_dir);
 
         tokio::spawn(async move {
@@ -199,7 +199,7 @@ mod tests {
             }
         });
 
-        let transparency_log = artifact_service
+        let transparency_log_tuple = artifact_service
             .transparency_log_service
             .add_artifact(AddArtifactRequest {
                 package_type: PackageType::Maven2,
@@ -210,10 +210,7 @@ mod tests {
             })
             .await
             .unwrap();
-        artifact_service
-            .transparency_log_service
-            .write_transparency_log(&transparency_log)
-            .unwrap();
+        let transparency_log = transparency_log_tuple.0;
 
         create_artifact(
             &artifact_service.artifact_storage,

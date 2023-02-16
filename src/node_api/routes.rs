@@ -15,10 +15,10 @@
 */
 
 use super::handlers::swarm::*;
-use super::model::cli::{RequestDockerBuild, RequestMavenBuild};
+use super::model::request::{RequestDockerBuild, RequestMavenBuild};
 use crate::artifact_service::service::ArtifactService;
 use crate::network::client::Client;
-use crate::node_api::model::cli::{
+use crate::node_api::model::request::{
     RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerLog, RequestMavenLog,
 };
 use warp::Filter;
@@ -110,7 +110,8 @@ mod tests {
     use crate::blockchain_service::event::BlockchainEvent;
     use crate::build_service::event::BuildEvent;
     use crate::network::client::command::Command;
-    use crate::node_api::model::cli::{Status, TransparencyLogOutputParams};
+    use crate::node_api::model::request::*;
+    use crate::node_api::model::response::BuildSuccessResponse;
     use crate::transparency_log::log::{
         AddArtifactRequest, TransparencyLog, TransparencyLogService,
     };
@@ -231,8 +232,9 @@ mod tests {
 
         assert_eq!(response.status(), 200);
 
-        let build_id_result: String = serde_json::from_slice(response.body()).unwrap();
-        assert_eq!(build_id_result, build_id.to_string());
+        let build_id_result: BuildSuccessResponse =
+            serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(build_id_result.build_id.unwrap(), build_id.to_string());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -300,8 +302,9 @@ mod tests {
 
         assert_eq!(response.status(), 200);
 
-        let build_id_result: String = serde_json::from_slice(response.body()).unwrap();
-        assert_eq!(build_id_result, build_id.to_string());
+        let build_id_result: BuildSuccessResponse =
+            serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(build_id_result.build_id.unwrap(), build_id.to_string());
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -393,7 +396,7 @@ mod tests {
     async fn inspect_log_docker_json() {
         setup_and_execute(|ctx| async {
             let ps_id = "library/artipie:0.0.7";
-            let transparency_log = add_artifact(&ctx.log, PackageType::Docker, ps_id);
+            let transparency_log = add_artifact(&ctx.log, PackageType::Docker, ps_id).await;
             let request = RequestDockerLog {
                 image: ps_id.to_string(),
                 output_params: Default::default(),
@@ -417,11 +420,12 @@ mod tests {
     async fn inspect_log_docker_csv() {
         setup_and_execute(|ctx| async {
             let ps_id = "library/artipie:0.0.7";
-            let transparency_log = add_artifact(&ctx.log, PackageType::Docker, ps_id);
+            let transparency_log = add_artifact(&ctx.log, PackageType::Docker, ps_id).await;
             let request = RequestDockerLog {
                 image: ps_id.to_string(),
                 output_params: Some(TransparencyLogOutputParams {
                     format: Some(ContentType::CSV),
+                    content: None,
                 }),
             };
             let filter = ctx.create_route();
@@ -441,7 +445,7 @@ mod tests {
     async fn inspect_log_maven_json() {
         setup_and_execute(|ctx| async {
             let ps_id = "pyrsia:adapter:0.1";
-            let transparency_log = add_artifact(&ctx.log, PackageType::Maven2, ps_id);
+            let transparency_log = add_artifact(&ctx.log, PackageType::Maven2, ps_id).await;
             let request = RequestMavenLog {
                 gav: ps_id.to_string(),
                 output_params: None,
@@ -463,11 +467,12 @@ mod tests {
     async fn inspect_log_maven_csv() {
         setup_and_execute(|ctx| async {
             let ps_id = "pyrsia:adapter:0.1";
-            let transparency_log = add_artifact(&ctx.log, PackageType::Maven2, ps_id);
+            let transparency_log = add_artifact(&ctx.log, PackageType::Maven2, ps_id).await;
             let request = RequestMavenLog {
                 gav: ps_id.to_string(),
                 output_params: Some(TransparencyLogOutputParams {
                     format: Some(ContentType::CSV),
+                    content: None,
                 }),
             };
             let filter = ctx.create_route();
@@ -479,6 +484,108 @@ mod tests {
                 .await;
 
             assert_response_csv(response, transparency_log);
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn inspect_log_maven_json_partial_output() {
+        setup_and_execute(|ctx| async {
+            let ps_id = "pyrsia:adapter:0.1";
+            let log = add_artifact(&ctx.log, PackageType::Maven2, ps_id).await;
+            let request = RequestMavenLog {
+                gav: ps_id.to_string(),
+                output_params: Some(TransparencyLogOutputParams {
+                    format: Some(ContentType::JSON),
+                    content: Some(Content {
+                        fields: vec![
+                            TransparencyLogField::Id,
+                            TransparencyLogField::PackageType,
+                            TransparencyLogField::PackageSpecificArtifactId,
+                            TransparencyLogField::Timestamp,
+                            TransparencyLogField::Operation,
+                            TransparencyLogField::NodeId,
+                        ],
+                    }),
+                }),
+            };
+            let filter = ctx.create_route();
+            let response = warp::test::request()
+                .method("POST")
+                .path("/inspect/maven")
+                .json(&request)
+                .reply(&filter)
+                .await;
+
+            let expected = [
+                "[{\"id\":\"",
+                log.id.as_str(),
+                "\",\"package_type\":\"",
+                log.package_type.unwrap().to_string().as_str(),
+                "\",\"package_specific_artifact_id\":\"",
+                log.package_specific_artifact_id.as_str(),
+                "\",\"timestamp\":",
+                log.timestamp.to_string().as_str(),
+                ",\"operation\":\"",
+                log.operation.to_string().as_str(),
+                "\",\"node_id\":\"",
+                log.node_id.as_str(),
+                "\"}]",
+            ]
+            .join("");
+
+            let actual = String::from_utf8(response.body().to_vec()).unwrap();
+            assert_eq!(expected, actual);
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn inspect_log_docker_csv_partial_output() {
+        setup_and_execute(|ctx| async {
+            let ps_id = "library/artipie:0.0.7";
+            let log = add_artifact(&ctx.log, PackageType::Docker, ps_id).await;
+            let request = RequestDockerLog {
+                image: ps_id.to_string(),
+                output_params: Some(TransparencyLogOutputParams {
+                    format: Some(ContentType::CSV),
+                    content: Some(Content {
+                        fields: vec![
+                            TransparencyLogField::PackageType,
+                            TransparencyLogField::PackageSpecificArtifactId,
+                            TransparencyLogField::Timestamp,
+                            TransparencyLogField::Id,
+                            TransparencyLogField::Operation,
+                            TransparencyLogField::NodeId,
+                        ],
+                    }),
+                }),
+            };
+            let filter = ctx.create_route();
+            let response = warp::test::request()
+                .method("POST")
+                .path("/inspect/docker")
+                .json(&request)
+                .reply(&filter)
+                .await;
+
+            let expected = [
+                "package_type,package_specific_artifact_id,timestamp,id,operation,node_id\n",
+                format!(
+                    "{},{},{},{},{},{}\n",
+                    log.package_type.unwrap().to_string().as_str(),
+                    log.package_specific_artifact_id.as_str(),
+                    log.timestamp.to_string().as_str(),
+                    log.id.as_str(),
+                    log.operation.to_string().as_str(),
+                    log.node_id.as_str(),
+                )
+                .as_str(),
+            ]
+            .join("");
+
+            let actual = String::from_utf8(response.body().to_vec()).unwrap();
+            assert_eq!(expected, actual);
         })
         .await;
     }
@@ -525,7 +632,7 @@ mod tests {
         assert_eq!(actual_content_length, body.len().to_string());
     }
 
-    fn add_artifact(
+    async fn add_artifact(
         transparency_log_service: &TransparencyLogService,
         package_type: PackageType,
         ps_id: &str,
@@ -537,12 +644,11 @@ mod tests {
             package_specific_artifact_id: ps_id.to_string(),
             artifact_hash: "test_hash".to_string(),
         };
-        let res = TransparencyLog::from(add_art_req);
         transparency_log_service
-            .write_transparency_log(&res)
-            .unwrap();
-
-        res
+            .add_artifact(add_art_req)
+            .await
+            .unwrap()
+            .0
     }
 
     async fn setup_and_execute<P, F>(op: P)
@@ -554,7 +660,8 @@ mod tests {
         let (p2p_client, _) = test_util::tests::create_p2p_client();
         let (artifact_service, ..) =
             test_util::tests::create_artifact_service_with_p2p_client(&tmp_dir, p2p_client.clone());
-        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
+        let log =
+            test_util::tests::create_transparency_log_service_default_blockchain_handler(&tmp_dir);
 
         op(TestContext {
             artifact_service,

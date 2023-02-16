@@ -308,6 +308,11 @@ jobs:
           push: true
           file: installers/docker/AptGet.Dockerfile
           tags: pyrsiaoss/pyrsia-node:${{ env.PKG_VERSION }}-${{ github.run_number }}
+          build-args: |
+            GIT_REPO=${{ github.repository }}
+            GIT_COMMIT=${{ github.sha }}
+            GIT_BRANCH=${{ github.ref_name }}
+            PYRSIA_VERSION=${{ env.PKG_VERSION }}+${{ github.run_number }}
 
       # Update the helm chart values with the image tag
       - name: Add Build to Version Number in Chart and Values files

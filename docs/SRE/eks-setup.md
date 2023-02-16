@@ -13,7 +13,7 @@
 3. Setup Environment Variables
 
    ```bash
-   CHART_VERSION=0.2.4+2856
+   CHART_VERSION=0.2.4+3003
    BUILD_CHART_VERSION=0.1.0+7
    CLUSTER_NAME=pyrsia-staging
    EXTERNALDNS_NAMESPACE=external-dns
@@ -32,29 +32,29 @@
    apiVersion: eksctl.io/v1alpha5
    kind: ClusterConfig
    metadata:
-   name: ${CLUSTER_NAME}
-   region: us-east-1
+     name: ${CLUSTER_NAME}
+     region: us-east-1
    cloudWatch:
-   clusterLogging:
-      enableTypes:
+     clusterLogging:
+       enableTypes:
          - audit
          - authenticator
    managedNodeGroups:
-   - name: ng-1
-      amiFamily: AmazonLinux2
-      instanceSelector:
+     - name: ng-1
+       amiFamily: AmazonLinux2
+       instanceSelector:
          cpuArchitecture: x86_64
          memory: 2GiB
          vCPUs: 2
-      instanceTypes:
+       instanceTypes:
          - t3.small
          - t3a.small
    iam:
-   withOIDC: true
+     withOIDC: true
    addons:
-   - name: aws-ebs-csi-driver
-      version: v1.13.0-eksbuild.3
-      attachPolicyARNs:
+     - name: aws-ebs-csi-driver
+       version: v1.13.0-eksbuild.3
+       attachPolicyARNs:
          - arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
    EOF
    ```

@@ -217,12 +217,12 @@ def process_dir(top_dir, opts):
         margin-right: 5px;
     }
 
-    tr.clickable { 
-        cursor: pointer; 
-    } 
-    tr.clickable a { 
-        display: block; 
-    } 
+    tr.clickable {
+        cursor: pointer;
+    }
+    tr.clickable a {
+        display: block;
+    }
 
     @media (max-width: 600px) {
 
@@ -330,7 +330,7 @@ def process_dir(top_dir, opts):
     # sort dirs first
     sorted_entries = sorted(path_top_dir.glob(glob_patt), key=lambda p: (p.is_file(), p.name))
     sorted_entries.reverse()
-    
+
     entry: Path
     for entry in sorted_entries:
 
@@ -339,7 +339,7 @@ def process_dir(top_dir, opts):
             continue
 
         #  skip .hidden dot files unless explicitly requested
-        if not opts.include_hidden and entry.name.startswith('.'): 
+        if not opts.include_hidden and entry.name.startswith('.'):
             continue
 
         if 'genlisting.py' in entry.name:
@@ -362,7 +362,7 @@ def process_dir(top_dir, opts):
         last_modified_iso = ''
         try:
             if entry.is_file():
-                size_bytes = entry.stat().st_size
+                size_bytes = read_file_size(entry, opts.dummysync)
                 size_pretty = pretty_size(size_bytes)
 
             if entry.is_dir() or entry.is_file():
@@ -448,6 +448,14 @@ def pretty_size(bytes, units=UNITS_MAPPING):
             suffix = multiple
     return str(amount) + suffix
 
+def read_file_size(entry: Path, dummysync: bool) -> int:
+    if dummysync:
+        try:
+            if entry.read_text().startswith("file_size===="):
+                return int(entry.read_text().split("file_size====")[1])
+        except:
+            print("Exception found while reading file size from the file content")
+    return entry.stat().st_size
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='''DESCRIPTION:
@@ -485,6 +493,12 @@ if __name__ == "__main__":
                         action='store_true',
                         help='***WARNING: can take longer time with complex file tree structures on slow terminals***'
                              ' verbosely list every processed file',
+                        required=False)
+
+    parser.add_argument('--dummysync', '-d',
+                        action='store_true',
+                        help="program assumes instead of rsync, directory and files hierarchy got created "
+                             "synthetically from dir/file listing command (FALSE by default)",
                         required=False)
 
     config = parser.parse_args(sys.argv[1:])

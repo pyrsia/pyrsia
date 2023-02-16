@@ -30,7 +30,7 @@ pub enum BuildError {
     TransparencyLogFailure(#[from] TransparencyLogError),
     #[error("Unauthorized PeerId: {0}")]
     UnauthorizedPeerId(PeerId),
-    #[error("Failed to start a build: {0}")]
+    #[error("Artifact already exists. Fresh build not required: {0}")]
     ArtifactAlreadyExists(String),
     #[error("Invalid response from mapping service endpoint: {0}")]
     InvalidMappingResponse(String),

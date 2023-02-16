@@ -3,7 +3,7 @@
 1. Generate Access keys for CLI, SDK, & API access
 
    - [Install gcloud](https://cloud.google.com/sdk/docs/install-sdk)
-   - Set your gcloud config
+   - Set your gcloud config (Refer to [gcloud documentation](https://cloud.google.com/sdk/gcloud/reference/config/set) for how-to)
 
       ```toml
       [compute]
@@ -18,7 +18,7 @@
 2. Setup Environment Variables
 
    ```bash
-   CHART_VERSION=0.2.4+2856
+   CHART_VERSION=0.2.4+3003
    BUILD_CHART_VERSION=0.1.0+7
    CLUSTER_NAME=pyrsia-staging
    EXTERNALDNS_NAMESPACE=external-dns

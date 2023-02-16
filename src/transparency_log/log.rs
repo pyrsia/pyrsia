@@ -51,6 +51,8 @@ pub enum TransparencyLogError {
     },
     #[error("Node with node ID {node_id} already exists in transparency log")]
     NodeAlreadyExists { node_id: String },
+    #[error("Node with node ID {node_id} does not exists in transparency log or was removed")]
+    NodeDoesNotExistOrRemoved { node_id: String },
     #[error("Hash Verification failed for ID {id}: {invalid_hash} vs {actual_hash}")]
     InvalidHash {
         id: String,
@@ -97,7 +99,7 @@ impl ToSql for Operation {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct TransparencyLog {
     pub id: String,
     pub package_type: Option<PackageType>,
@@ -105,13 +107,13 @@ pub struct TransparencyLog {
     pub num_artifacts: u32,
     pub package_specific_artifact_id: String,
     pub artifact_hash: String,
-    source_hash: String,
+    pub source_hash: String,
     pub artifact_id: String,
-    source_id: String,
-    timestamp: u64,
+    pub source_id: String,
+    pub timestamp: u64,
     pub operation: Operation,
     pub node_id: String,
-    node_public_key: String,
+    pub node_public_key: String,
 }
 
 #[derive(Debug)]
@@ -180,7 +182,7 @@ impl TransparencyLogService {
 
     /// Add a new authorized node to the p2p network.
     pub async fn add_authorized_node(&self, peer_id: PeerId) -> Result<(), TransparencyLogError> {
-        self.verify_node_can_be_added_to_transparency_logs(&peer_id.to_string())?;
+        self.verify_node_does_not_exist(&peer_id.to_string())?;
 
         let transparency_log = TransparencyLog {
             id: Uuid::new_v4().to_string(),
@@ -210,23 +212,57 @@ impl TransparencyLogService {
     }
 
     /// Remove a known authorized node from the p2p network.
-    pub fn remove_authorized_node(&self, _peer_id: PeerId) -> Result<(), TransparencyLogError> {
+    pub fn remove_authorized_node(&self, peer_id: PeerId) -> Result<(), TransparencyLogError> {
+        if self
+            .verify_node_does_not_exist(&peer_id.to_string())
+            .is_ok()
+        {
+            return Err(TransparencyLogError::NodeDoesNotExistOrRemoved {
+                node_id: peer_id.to_string(),
+            });
+        }
+        //todo write remove logic here
+
         Ok(())
     }
 
-    /// Adds a transparency log with the AddArtifact operation.
+    /// Adds a transparency log with the AddArtifact operation
+    /// and inserts according TransparencyLog record into the database.
     pub async fn add_artifact(
-        &mut self,
+        &self,
         add_artifact_request: AddArtifactRequest,
-    ) -> Result<TransparencyLog, TransparencyLogError> {
+    ) -> Result<(TransparencyLog, String), TransparencyLogError> {
         let transparency_log = TransparencyLog::from(add_artifact_request);
 
         let payload = serde_json::to_string(&transparency_log)?;
-        self.blockchain_event_client
-            .add_block(payload.into_bytes())
-            .await?;
+        self.write_transparency_log(&transparency_log)?;
 
-        Ok(transparency_log)
+        Ok((transparency_log, payload))
+    }
+
+    pub async fn broadcast_artifacts(
+        &mut self,
+        payloads: Vec<String>,
+    ) -> Result<(), TransparencyLogError> {
+        for payload in payloads {
+            self.blockchain_event_client
+                .add_block(payload.into_bytes())
+                .await?;
+        }
+        Ok(())
+    }
+
+    /// Write the transparency log
+    /// only if a record with the same `id` is not found in the database.
+    pub async fn write_if_not_exists(
+        &mut self,
+        log: &TransparencyLog,
+    ) -> Result<(), TransparencyLogError> {
+        if let Err(TransparencyLogError::LogNotFound { .. }) = self.find_transparency_log(&log.id) {
+            self.write_transparency_log(log)?;
+        };
+
+        Ok(())
     }
 
     /// Adds a transparency log with the RemoveArtifact operation.
@@ -299,13 +335,9 @@ impl TransparencyLogService {
             .collect::<Vec<PeerId>>())
     }
 
-    /// Verifies that a specified node can be added to the transparency log database.
-    /// For that, the database should not contain the node yet. If that is not the case,
-    /// an NodeAlreadyExists error is returned
-    pub fn verify_node_can_be_added_to_transparency_logs(
-        &self,
-        peer_id: &str,
-    ) -> Result<(), TransparencyLogError> {
+    /// Verifies that the database does not contain the node yet or node was removed.
+    /// If that is not the case, an NodeAlreadyExists error is returned.
+    pub fn verify_node_does_not_exist(&self, peer_id: &str) -> Result<(), TransparencyLogError> {
         let query = format!(
             "SELECT
               operation
@@ -374,7 +406,7 @@ impl TransparencyLogService {
         }
     }
 
-    pub fn write_transparency_log(
+    fn write_transparency_log(
         &self,
         transparency_log: &TransparencyLog,
     ) -> Result<(), TransparencyLogError> {
@@ -908,19 +940,8 @@ mod tests {
     async fn test_add_artifact() {
         let tmp_dir = test_util::tests::setup();
 
-        let (mut log, mut build_event_receiver) =
-            test_util::tests::create_transparency_log_service(&tmp_dir);
-
-        tokio::spawn(async move {
-            loop {
-                match build_event_receiver.recv().await {
-                    Some(BlockchainEvent::AddBlock { sender, .. }) => {
-                        let _ = sender.send(Ok(()));
-                    }
-                    _ => panic!("BlockchainEvent must match BlockchainEvent::AddBlock"),
-                }
-            }
-        });
+        let log =
+            test_util::tests::create_transparency_log_service_default_blockchain_handler(&tmp_dir);
 
         let result = log
             .add_artifact(AddArtifactRequest {
@@ -1040,7 +1061,8 @@ mod tests {
     #[tokio::test]
     async fn test_get_authorized_nodes_add_remove_add() {
         let tmp_dir = test_util::tests::setup();
-        let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
+        let log =
+            test_util::tests::create_transparency_log_service_default_blockchain_handler(&tmp_dir);
 
         let node_id: &str = &PeerId::random().to_string();
         let tl_add_1 = new_auth_node_transparency_log(Operation::AddNode, node_id);
@@ -1062,20 +1084,70 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_add_already_existed_node() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log =
+            test_util::tests::create_transparency_log_service_default_blockchain_handler(&tmp_dir);
+        let node_id = PeerId::random();
+
+        let res = log.add_authorized_node(node_id.clone()).await;
+        assert!(res.is_ok());
+
+        let res = log.add_authorized_node(node_id).await;
+        assert!(res.is_err());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_remove_not_existed_node() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log =
+            test_util::tests::create_transparency_log_service_default_blockchain_handler(&tmp_dir);
+        let node_id = PeerId::random();
+
+        let res = log.remove_authorized_node(node_id);
+        assert!(res.is_err());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_remove_already_removed_node() {
+        let tmp_dir = test_util::tests::setup();
+
+        let log =
+            test_util::tests::create_transparency_log_service_default_blockchain_handler(&tmp_dir);
+        let node_id = PeerId::random();
+
+        let res = log.add_authorized_node(node_id.clone()).await;
+        assert!(res.is_ok());
+
+        let tl_remove =
+            new_auth_node_transparency_log(Operation::RemoveNode, node_id.to_string().as_str());
+        log.write_transparency_log(&tl_remove).unwrap();
+
+        let res = log.remove_authorized_node(node_id);
+        assert!(res.is_err());
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
     async fn test_verify_authorized_node_can_be_added() {
         let tmp_dir = test_util::tests::setup();
 
         let (log, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
 
         let node_id: &str = &PeerId::random().to_string();
-        assert!(log
-            .verify_node_can_be_added_to_transparency_logs(node_id)
-            .is_ok());
+        assert!(log.verify_node_does_not_exist(node_id).is_ok());
 
         let transparency_log1 = new_auth_node_transparency_log(Operation::AddNode, node_id);
         assert!(log.write_transparency_log(&transparency_log1).is_ok());
 
-        let result2 = log.verify_node_can_be_added_to_transparency_logs(node_id);
+        let result2 = log.verify_node_does_not_exist(node_id);
         assert!(result2.is_err());
         assert_eq!(
             result2.err().unwrap().to_string(),
@@ -1090,9 +1162,7 @@ mod tests {
         let transparency_log3 = new_auth_node_transparency_log(Operation::RemoveNode, node_id);
         assert!(log.write_transparency_log(&transparency_log3).is_ok());
 
-        assert!(log
-            .verify_node_can_be_added_to_transparency_logs(node_id)
-            .is_ok());
+        assert!(log.verify_node_does_not_exist(node_id).is_ok());
 
         test_util::tests::teardown(tmp_dir);
     }

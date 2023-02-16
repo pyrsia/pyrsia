@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use crate::cli_commands::model::BuildResultResponse;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use reqwest::Response;
@@ -21,8 +22,9 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
 
+
 use crate::build_service::model::BuildStatus;
-use crate::node_api::model::cli::{
+use crate::node_api::model::request::{
     RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
     RequestMavenBuild, RequestMavenLog, Status,
 };
@@ -55,16 +57,24 @@ pub async fn add_authorized_node(request: RequestAddAuthorizedNode) -> Result<()
         .map(|_| ())
 }
 
-pub async fn request_docker_build(request: RequestDockerBuild) -> Result<String> {
-    post_and_parse_result_as_json(format!("http://{}/build/docker", get_url()), request).await
+pub async fn request_docker_build(request: RequestDockerBuild) -> Result<BuildResultResponse> {
+    post_and_parse_json_result_as_object::<RequestDockerBuild, BuildResultResponse>(
+        format!("http://{}/build/docker", get_url()),
+        request,
+    )
+    .await
 }
 
 pub async fn request_build_status(request: RequestBuildStatus) -> Result<BuildStatus> {
     post_and_parse_result_as_json(format!("http://{}/build/status", get_url()), request).await
 }
 
-pub async fn request_maven_build(request: RequestMavenBuild) -> Result<String> {
-    post_and_parse_result_as_json(format!("http://{}/build/maven", get_url()), request).await
+pub async fn request_maven_build(request: RequestMavenBuild) -> Result<BuildResultResponse> {
+    post_and_parse_json_result_as_object::<RequestMavenBuild, BuildResultResponse>(
+        format!("http://{}/build/docker", get_url()),
+        request,
+    )
+    .await
 }
 
 pub async fn inspect_docker_transparency_log(request: RequestDockerLog) -> Result<String> {
@@ -120,10 +130,28 @@ async fn post_and_parse_result_as_text<T: Serialize>(
         .await
 }
 
+async fn post_and_parse_json_result_as_object<T, R>(node_url: String, request: T) -> Result<R>
+where
+    T: Serialize,
+    R: DeserializeOwned,
+{
+    let client = reqwest::Client::new();
+    client
+        .post(node_url)
+        .json(&request)
+        .send()
+        .await?
+        .object_or_error_with_body::<R>()
+        .await
+}
+
 #[async_trait]
 trait ErrorResponseWithBody {
     async fn json_or_error_with_body<R: DeserializeOwned>(self) -> Result<R>;
     async fn text_or_error_with_body(self) -> Result<String>;
+    async fn object_or_error_with_body<R>(self) -> Result<R>
+    where
+        R: DeserializeOwned;
     async fn error_for_status_with_body(self) -> Result<Response>;
 }
 
@@ -139,6 +167,16 @@ impl ErrorResponseWithBody for Response {
     async fn text_or_error_with_body(self) -> Result<String> {
         match self.error_for_status_with_body().await {
             Ok(r) => Ok(r.text().await?),
+            Err(e) => Err(e),
+        }
+    }
+
+    async fn object_or_error_with_body<R>(self) -> Result<R>
+    where
+        R: DeserializeOwned,
+    {
+        match self.error_for_status_with_body().await {
+            Ok(r) => Ok(r.json::<R>().await?),
             Err(e) => Err(e),
         }
     }

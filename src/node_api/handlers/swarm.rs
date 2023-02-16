@@ -17,111 +17,115 @@
 use crate::artifact_service::model::PackageType;
 use crate::docker::error_util::{RegistryError, RegistryErrorCode};
 use crate::network::client::Client;
-use crate::node_api::model::cli::{
-    RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
-    RequestMavenBuild, RequestMavenLog,
-};
+use crate::node_api::model::request::*;
 use crate::transparency_log::log::TransparencyLog;
+use std::future::Future;
 
 use crate::artifact_service::service::ArtifactService;
+use crate::build_service::error::BuildError;
+use crate::node_api::model::response::BuildSuccessResponse;
 use libp2p::PeerId;
 use log::debug;
-use serde::{Deserialize, Serialize};
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 use std::str::FromStr;
 use warp::{http::StatusCode, Rejection, Reply};
 
-#[derive(Debug, Deserialize, Serialize)]
-pub enum ContentType {
-    JSON,
-    CSV,
+#[derive(Default)]
+struct ResponseBuilder {
+    format: ContentType,
+    output_fields: Content,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct ParseContentTypeError {
-    invalid_type: String,
+pub struct OutputTransparencyLog<'a> {
+    output_fields: &'a Content,
+    origin: &'a TransparencyLog,
 }
 
-impl Clone for ContentType {
-    fn clone(&self) -> Self {
-        match self {
-            ContentType::JSON => ContentType::JSON,
-            ContentType::CSV => ContentType::CSV,
-        }
-    }
-}
-
-impl Copy for ContentType {}
-
-impl FromStr for ContentType {
-    type Err = ParseContentTypeError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "json" => Ok(ContentType::JSON),
-            "csv" => Ok(ContentType::CSV),
-            _ => Err(ParseContentTypeError {
-                invalid_type: s.to_owned(),
-            }),
-        }
-    }
-}
-
-impl Default for ContentType {
-    fn default() -> Self {
-        ContentType::JSON
-    }
-}
-
-impl ContentType {
-    pub fn from(format: Option<&String>) -> Result<Self, ParseContentTypeError> {
-        if let Some(val) = format {
-            val.as_str().parse::<ContentType>()
-        } else {
-            Ok(Default::default())
-        }
-    }
-
-    pub fn print_logs(&self, logs: String) {
-        match self {
-            ContentType::JSON => {
-                let logs_as_json: serde_json::Value = serde_json::from_str(logs.as_str()).unwrap();
-                println!("{}", serde_json::to_string_pretty(&logs_as_json).unwrap());
-            }
-            ContentType::CSV => {
-                println!("{}", logs);
-            }
-        }
-    }
-
-    pub fn create_response(&self, records: Vec<TransparencyLog>) -> Result<impl Reply, Rejection> {
-        let body = match self {
-            ContentType::JSON => serde_json::to_string(&records).map_err(RegistryError::from)?,
-            ContentType::CSV => {
-                let mut writer = csv::Writer::from_writer(vec![]);
-                for transparency_log in records {
-                    writer
-                        .serialize(transparency_log)
-                        .map_err(RegistryError::from)?;
+impl Serialize for OutputTransparencyLog<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut s = serializer.serialize_struct("TransparencyLog", self.output_fields.size())?;
+        for field in &self.output_fields.fields {
+            match field {
+                TransparencyLogField::Id => s.serialize_field("id", &self.origin.id)?,
+                TransparencyLogField::PackageType => {
+                    s.serialize_field("package_type", &self.origin.package_type)?
                 }
+                TransparencyLogField::PackageSpecificId => {
+                    s.serialize_field("package_specific_id", &self.origin.package_specific_id)?
+                }
+                TransparencyLogField::NumArtifacts => {
+                    s.serialize_field("num_artifacts", &self.origin.num_artifacts)?
+                }
+                TransparencyLogField::PackageSpecificArtifactId => s.serialize_field(
+                    "package_specific_artifact_id",
+                    &self.origin.package_specific_artifact_id,
+                )?,
+                TransparencyLogField::ArtifactHash => {
+                    s.serialize_field("artifact_hash", &self.origin.artifact_hash)?
+                }
+                TransparencyLogField::SourceHash => {
+                    s.serialize_field("source_hash", &self.origin.source_hash)?
+                }
+                TransparencyLogField::ArtifactId => {
+                    s.serialize_field("artifact_id", &self.origin.artifact_id)?
+                }
+                TransparencyLogField::SourceId => {
+                    s.serialize_field("source_id", &self.origin.source_id)?
+                }
+                TransparencyLogField::Timestamp => {
+                    s.serialize_field("timestamp", &self.origin.timestamp)?
+                }
+                TransparencyLogField::Operation => {
+                    s.serialize_field("operation", &self.origin.operation)?
+                }
+                TransparencyLogField::NodeId => {
+                    s.serialize_field("node_id", &self.origin.node_id)?
+                }
+                TransparencyLogField::NodePublicKey => {
+                    s.serialize_field("node_public_key", &self.origin.node_public_key)?
+                }
+            };
+        }
 
-                let res = writer.into_inner().map_err(RegistryError::from)?;
-                String::from_utf8(res).map_err(RegistryError::from)?
+        s.end()
+    }
+}
+
+impl ResponseBuilder {
+    pub fn from(output_params: Option<TransparencyLogOutputParams>) -> Self {
+        if let Some(params) = output_params {
+            ResponseBuilder {
+                format: params.format.unwrap_or_default(),
+                output_fields: params.content.unwrap_or_default(),
             }
-        };
+        } else {
+            Default::default()
+        }
+    }
+
+    fn wrap<'a>(&'a self, logs: &'a [TransparencyLog]) -> Vec<OutputTransparencyLog> {
+        logs.iter()
+            .map(|l| OutputTransparencyLog {
+                output_fields: &self.output_fields,
+                origin: l,
+            })
+            .collect()
+    }
+
+    pub fn create_response(&self, logs: &[TransparencyLog]) -> Result<impl Reply, Rejection> {
+        let wrapped_logs = self.wrap(logs);
+        let body = self.format.as_string(&wrapped_logs)?;
 
         Ok(warp::http::response::Builder::new()
             .status(StatusCode::OK)
-            .header("Content-Type", self.response_content_type())
+            .header("Content-Type", self.format.response_content_type())
             .header("Content-Length", body.as_bytes().len())
             .body(body)
             .map_err(RegistryError::from)?)
-    }
-
-    fn response_content_type(&self) -> String {
-        match self {
-            ContentType::JSON => "application/json".to_owned(),
-            ContentType::CSV => "text/csv".to_owned(),
-        }
     }
 }
 
@@ -148,22 +152,50 @@ pub async fn handle_add_authorized_node(
         .body(""))
 }
 
+/// Special handle for Artifact Already Exist before responding to build request result
+async fn handle_err_artifact_already_exists<F>(
+    f: impl FnOnce() -> F,
+) -> Result<BuildSuccessResponse, RegistryError>
+where
+    F: Future<Output = Result<String, BuildError>>,
+{
+    let request_build_result = f().await;
+    match request_build_result {
+        Ok(build_result_str) => Ok(BuildSuccessResponse {
+            build_id: Some(build_result_str),
+            message: None,
+            success_status_code: StatusCode::OK,
+        }),
+        Err(err) => match err {
+            BuildError::ArtifactAlreadyExists(_) => Ok(BuildSuccessResponse {
+                build_id: None,
+                message: Some(err.to_string()),
+                success_status_code: StatusCode::FOUND,
+            }),
+            _ => Err(RegistryError::from(err)),
+        },
+    }
+}
+
 pub async fn handle_build_docker(
     request_docker_build: RequestDockerBuild,
     artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
-    let build_id = artifact_service
-        .request_build(PackageType::Docker, {
-            get_package_specific_id(&request_docker_build.image)
-        })
-        .await
-        .map_err(RegistryError::from)?;
+    let request_build_result = || async {
+        artifact_service
+            .request_build(PackageType::Docker, {
+                get_package_specific_id(&request_docker_build.image)
+            })
+            .await
+    };
+
+    let build_id = handle_err_artifact_already_exists(request_build_result).await?;
 
     let build_id_as_json = serde_json::to_string(&build_id).map_err(RegistryError::from)?;
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/json")
-        .status(StatusCode::OK)
+        .status(build_id.success_status_code)
         .body(build_id_as_json))
 }
 
@@ -171,16 +203,19 @@ pub async fn handle_build_maven(
     request_maven_build: RequestMavenBuild,
     artifact_service: ArtifactService,
 ) -> Result<impl Reply, Rejection> {
-    let build_id = artifact_service
-        .request_build(PackageType::Maven2, request_maven_build.gav)
-        .await
-        .map_err(RegistryError::from)?;
+    let request_build_result = || async {
+        artifact_service
+            .request_build(PackageType::Maven2, request_maven_build.gav)
+            .await
+    };
+
+    let build_id = handle_err_artifact_already_exists(request_build_result).await?;
 
     let build_id_as_json = serde_json::to_string(&build_id).map_err(RegistryError::from)?;
 
     Ok(warp::http::response::Builder::new()
         .header("Content-Type", "application/json")
-        .status(StatusCode::OK)
+        .status(build_id.success_status_code)
         .body(build_id_as_json))
 }
 
@@ -241,7 +276,7 @@ pub async fn handle_inspect_log_docker(
         )
         .map_err(RegistryError::from)?;
 
-    request_docker_log.format().create_response(result)
+    ResponseBuilder::from(request_docker_log.output_params).create_response(&result)
 }
 
 pub async fn handle_inspect_log_maven(
@@ -253,7 +288,7 @@ pub async fn handle_inspect_log_maven(
         .search_transparency_logs(&PackageType::Maven2, &request_maven_log.gav)
         .map_err(RegistryError::from)?;
 
-    request_maven_log.format().create_response(result)
+    ResponseBuilder::from(request_maven_log.output_params).create_response(&result)
 }
 
 fn get_package_specific_id(package_specific_id: &str) -> String {
@@ -263,21 +298,26 @@ fn get_package_specific_id(package_specific_id: &str) -> String {
     }
 }
 
-#[test]
-fn test_get_package_specific_id() {
-    let package_specific_id = "library/alpine:3.16.2";
-    assert_eq!(
-        package_specific_id,
-        get_package_specific_id(package_specific_id)
-    )
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[test]
-fn test_get_package_specific_id_as_official_image() {
-    let package_specific_id = "alpine:3.16.2";
-    let official_image_tag = "library/alpine:3.16.2";
-    assert_eq!(
-        official_image_tag,
-        get_package_specific_id(package_specific_id)
-    )
+    #[test]
+    fn test_get_package_specific_id() {
+        let package_specific_id = "library/alpine:3.16.2";
+        assert_eq!(
+            package_specific_id,
+            get_package_specific_id(package_specific_id)
+        )
+    }
+
+    #[test]
+    fn test_get_package_specific_id_as_official_image() {
+        let package_specific_id = "alpine:3.16.2";
+        let official_image_tag = "library/alpine:3.16.2";
+        assert_eq!(
+            official_image_tag,
+            get_package_specific_id(package_specific_id)
+        )
+    }
 }

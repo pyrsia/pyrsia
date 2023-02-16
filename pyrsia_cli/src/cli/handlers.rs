@@ -16,12 +16,9 @@
 
 use crate::CONF_FILE_PATH_MSG_STARTER;
 use pyrsia::cli_commands::config;
+use pyrsia::cli_commands::model::BuildResultResponse;
 use pyrsia::cli_commands::node;
-use pyrsia::node_api::handlers::swarm;
-use pyrsia::node_api::model::cli::{
-    RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
-    RequestMavenBuild, RequestMavenLog, TransparencyLogOutputParams,
-};
+use pyrsia::node_api::model::request::*;
 use std::collections::HashSet;
 use std::io;
 use std::io::BufRead;
@@ -139,13 +136,18 @@ Additional info related to the build might be available via 'pyrsia inspect-log'
     }
 }
 
-fn handle_request_build_result(build_result: Result<String, anyhow::Error>) {
-    match build_result {
-        Ok(build_id) => {
-            println!(
-                "Build request successfully handled. Build with ID '{}' has been started.",
-                build_id
-            );
+fn handle_request_build_result(result: Result<BuildResultResponse, anyhow::Error>) {
+    match result {
+        Ok(build_result_response) => {
+            if let Some(build_id) = build_result_response.build_id {
+                println!(
+                    "Build request successfully handled. Build with ID '{}' has been started.",
+                    build_id
+                );
+            }
+            if let Some(message) = build_result_response.message {
+                println!("{}", message);
+            }
         }
         Err(error_message) => {
             println!("Build request failed with error: {}", error_message);
@@ -195,13 +197,19 @@ pub async fn node_list() {
     }
 }
 
-pub async fn inspect_docker_transparency_log(image: &str, format: Option<String>) {
-    let content_type = swarm::ContentType::from(format.as_ref()).unwrap();
+pub async fn inspect_docker_transparency_log(
+    image: &str,
+    arg_format: Option<String>,
+    arg_fields: Option<String>,
+) {
+    let content_type = ContentType::from(arg_format.as_ref()).unwrap();
+    let fields = parse_arg_fields(arg_fields).unwrap();
 
     let result = node::inspect_docker_transparency_log(RequestDockerLog {
         image: image.to_owned(),
         output_params: Some(TransparencyLogOutputParams {
             format: Some(content_type),
+            content: fields,
         }),
     })
     .await;
@@ -215,13 +223,19 @@ pub async fn inspect_docker_transparency_log(image: &str, format: Option<String>
     };
 }
 
-pub async fn inspect_maven_transparency_log(gav: &str, format: Option<String>) {
-    let content_type = swarm::ContentType::from(format.as_ref()).unwrap();
+pub async fn inspect_maven_transparency_log(
+    gav: &str,
+    arg_format: Option<String>,
+    arg_fields: Option<String>,
+) {
+    let content_type = ContentType::from(arg_format.as_ref()).unwrap();
+    let content = parse_arg_fields(arg_fields).unwrap();
 
     let result = node::inspect_maven_transparency_log(RequestMavenLog {
         gav: gav.to_owned(),
         output_params: Some(TransparencyLogOutputParams {
             format: Some(content_type),
+            content,
         }),
     })
     .await;
@@ -233,6 +247,22 @@ pub async fn inspect_maven_transparency_log(gav: &str, format: Option<String>) {
             println!("Inspect log request failed with error: {:?}", error);
         }
     };
+}
+
+fn parse_arg_fields(
+    arg_fields: Option<String>,
+) -> Result<Option<Content>, ParseTransparencyLogFieldError> {
+    Ok(arg_fields.map(|f| {
+        let transparency_log_fields = f
+            .split(',')
+            .map(|s| s.trim())
+            .map(|s| s.parse::<TransparencyLogField>().unwrap())
+            .collect::<Vec<TransparencyLogField>>();
+
+        Content {
+            fields: transparency_log_fields,
+        }
+    }))
 }
 
 /// Read user input interactively until the validation passed

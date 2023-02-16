@@ -24,7 +24,7 @@ use crate::network::build_status_protocol::{BuildStatusRequest, BuildStatusRespo
 use crate::network::client::command::Command;
 use crate::network::client::VerifyBuildData;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
-use crate::node_api::model::cli::Status;
+use crate::node_api::model::request::Status;
 use crate::util::env_util::read_var;
 use bincode::{deserialize, serialize};
 use libp2p::autonat::{Event as AutonatEvent, NatStatus};
