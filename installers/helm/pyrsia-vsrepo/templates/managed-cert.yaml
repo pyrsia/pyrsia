@@ -1,0 +1,8 @@
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: managed-cert-vsrepo
+spec:
+  domains:
+    - vscode.pyrsia.io
