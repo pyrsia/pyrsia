@@ -1,0 +1,7 @@
+---
+replicaCount: 1
+
+image:
+  repository: sbtaylor15/nginx-gcsfuse
+  tag: latest
+  pullPolicy: Always
