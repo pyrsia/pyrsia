@@ -1,0 +1,14 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ include "vsrepo-nginx.name" . }}
+spec:
+  selector:
+    app: {{ include "vsrepo-nginx.name" . }}
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  type: NodePort
