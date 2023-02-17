@@ -362,7 +362,7 @@ def process_dir(top_dir, opts):
         last_modified_iso = ''
         try:
             if entry.is_file():
-                size_bytes = read_file_size(entry, opts.dummysync)
+                size_bytes = read_file_size(entry, opts.placeholdersync)
                 size_pretty = pretty_size(size_bytes)
 
             if entry.is_dir() or entry.is_file():
@@ -448,8 +448,8 @@ def pretty_size(bytes, units=UNITS_MAPPING):
             suffix = multiple
     return str(amount) + suffix
 
-def read_file_size(entry: Path, dummysync: bool) -> int:
-    if dummysync:
+def read_file_size(entry: Path, placeholdersync: bool) -> int:
+    if placeholdersync:
         try:
             if entry.read_text().startswith("file_size===="):
                 return int(entry.read_text().split("file_size====")[1])
@@ -495,7 +495,7 @@ if __name__ == "__main__":
                              ' verbosely list every processed file',
                         required=False)
 
-    parser.add_argument('--dummysync', '-d',
+    parser.add_argument('--placeholdersync', '-p',
                         action='store_true',
                         help="program assumes instead of rsync, directory and files hierarchy got created "
                              "synthetically from dir/file listing command (FALSE by default)",

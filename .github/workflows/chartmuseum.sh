@@ -22,7 +22,7 @@ cd ../..
 
 python3 $WORKSPACE/.github/workflows/genlistingsyncoptimized.py ${listing} gs://helmrepo/repos repos
 # Generate pretty directory listing web pages
-python3 $WORKSPACE/.github/workflows/genlisting.py -r -d
+python3 $WORKSPACE/.github/workflows/genlisting.py -r -p
 
 # copy new public repo to GCS. Excluding all *.tgz files from sync back
 gsutil -m rsync -r -x ".*\.tgz$" repos gs://helmrepo/repos
