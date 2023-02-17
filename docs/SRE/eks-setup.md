@@ -13,7 +13,7 @@
 3. Setup Environment Variables
 
    ```bash
-   CHART_VERSION=0.2.4+2856
+   CHART_VERSION=0.2.4+3003
    BUILD_CHART_VERSION=0.1.0+7
    CLUSTER_NAME=pyrsia-staging
    EXTERNALDNS_NAMESPACE=external-dns
