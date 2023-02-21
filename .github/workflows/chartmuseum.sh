@@ -19,8 +19,8 @@ cd repos/$RELTYPE
 helm repo index --url https://helmrepo.pyrsia.io/repos/$RELTYPE .
 cp ../../pyrsia-node/artifacthub-repo.yaml .
 cd ../..
-
-python3 $WORKSPACE/.github/workflows/genlistingsyncoptimized.py ${listing} gs://helmrepo/repos repos
+python3 --version
+python3 $WORKSPACE/.github/workflows/genlistingsyncoptimized.py "${listing}" gs://helmrepo/repos repos
 # Generate pretty directory listing web pages
 python3 $WORKSPACE/.github/workflows/genlisting.py -r -p
 
