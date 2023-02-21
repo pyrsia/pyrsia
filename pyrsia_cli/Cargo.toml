@@ -27,3 +27,8 @@ path = "src/main.rs"
 anyhow = "1.0"
 vergen = "7.5.0"
 
+[dev-dependencies]
+testcontainers = "0.14.0"
+assert_cmd = "2.0.8"
+predicates = "2.1.5"
+

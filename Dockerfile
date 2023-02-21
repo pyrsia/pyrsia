@@ -31,7 +31,7 @@ ENV PYRSIA_BLOCKCHAIN_PATH=pyrsia/blockchain
 RUN curl -sL https://deb.nodesource.com/setup_18.x | bash -; \
     apt-get install -y -q nodejs; \
     npm i -g toml-cli; \
-    rustup default $(cat Cargo.toml | toml | jq -r 'try(.package."rust-version") // "stable"') 
+    rustup default $(cat Cargo.toml | toml | jq -r 'try(.package."rust-version") // "stable"')
 RUN --mount=target=/src \
     --mount=type=cache,target=/target \
     --mount=type=cache,target=/usr/local/cargo/git/db \
@@ -53,6 +53,9 @@ COPY --from=dbuild /out/pyrsia_node /usr/bin/
 
 COPY installers/docker/node-entrypoint.sh /tmp/entrypoint.sh
 RUN chmod 755 /tmp/entrypoint.sh; mkdir -p /usr/local/var/pyrsia
+
+COPY installers/docker/test-listen-only-node-entrypoint.sh /tmp/test-listen-only-node-entrypoint.sh
+RUN chmod 755 /tmp/test-listen-only-node-entrypoint.sh;
 
 WORKDIR /usr/local/var
 
