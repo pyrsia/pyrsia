@@ -273,7 +273,6 @@ mod tests {
     use super::*;
     use crate::network::client::command::Command;
     use crate::util::test_util;
-    use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::{self, Keypair};
     use pyrsia_blockchain_network::crypto::hash_algorithm::HashDigest;
     use tokio::sync::mpsc;
@@ -281,15 +280,9 @@ mod tests {
     async fn create_blockchain_service(
         tmp_dir: impl AsRef<Path>,
     ) -> (BlockchainService, mpsc::Receiver<Command>) {
-        let (sender, receiver) = mpsc::channel(1);
-        let ed25519_keypair = identity::ed25519::Keypair::generate();
-        let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
-        let client = Client::new(
-            sender,
-            local_peer_id,
-            IdentTopic::new("pyrsia-blockchain-topic"),
-        );
+        let (client, receiver) = test_util::tests::create_p2p_client();
 
+        let ed25519_keypair = identity::ed25519::Keypair::generate();
         (
             BlockchainService::init_first_blockchain_node(
                 &ed25519_keypair,
@@ -304,15 +297,9 @@ mod tests {
     }
 
     fn create_other_blockchain_service(tmp_dir: impl AsRef<Path>) -> BlockchainService {
-        let (sender, _) = mpsc::channel(1);
-        let ed25519_keypair = identity::ed25519::Keypair::generate();
-        let local_peer_id = identity::PublicKey::Ed25519(ed25519_keypair.public()).to_peer_id();
-        let client = Client::new(
-            sender,
-            local_peer_id,
-            IdentTopic::new("pyrsia-blockchain-topic"),
-        );
+        let (client, _) = test_util::tests::create_p2p_client();
 
+        let ed25519_keypair = identity::ed25519::Keypair::generate();
         BlockchainService::init_other_blockchain_node(&ed25519_keypair, client, tmp_dir)
             .expect("BlockchainService should be created.")
     }
