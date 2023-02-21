@@ -222,10 +222,11 @@ mod tests {
             .start_build(mapping_info)
             .await
             .unwrap_err();
-        assert_eq!(
-            error,
-            BuildError::PipelineServiceEndpointFailure(StatusCode::BAD_REQUEST)
-        );
+
+        match error {
+            BuildError::PipelineServiceEndpointFailure(StatusCode::BAD_REQUEST) => {}
+            _ => panic!("Invalid BuildError: {}", error),
+        }
     }
 
     #[tokio::test]
@@ -306,10 +307,11 @@ mod tests {
             .get_build_status(&build_id)
             .await
             .unwrap_err();
-        assert_eq!(
-            error,
-            BuildError::PipelineServiceEndpointFailure(StatusCode::BAD_REQUEST)
-        );
+
+        match error {
+            BuildError::PipelineServiceEndpointFailure(StatusCode::BAD_REQUEST) => {}
+            _ => panic!("Invalid BuildError: {}", error),
+        }
     }
 
     #[tokio::test]
@@ -359,10 +361,11 @@ mod tests {
             .download_artifact(artifact_url)
             .await
             .unwrap_err();
-        assert_eq!(
-            error,
-            BuildError::PipelineServiceEndpointFailure(StatusCode::BAD_REQUEST)
-        );
+
+        match error {
+            BuildError::PipelineServiceEndpointFailure(StatusCode::BAD_REQUEST) => {}
+            _ => panic!("Invalid BuildError: {}", error),
+        }
     }
 
     #[tokio::test]

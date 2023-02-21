@@ -14,7 +14,9 @@
    limitations under the License.
 */
 
+use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use std::path::PathBuf;
 
 use crate::artifact_service::model::PackageType;
@@ -26,23 +28,34 @@ pub enum BuildStatus {
     Failure(String),
 }
 
+impl Display for BuildStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let build_status = match self {
+            BuildStatus::Running => String::from("RUNNING"),
+            BuildStatus::Success { .. } => String::from("SUCCESS"),
+            BuildStatus::Failure(message) => format!("FAILED - (Error: {})", message),
+        };
+        write!(f, "{}", build_status)
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct BuildInfo {
     pub id: String,
     pub status: BuildStatus,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BuildResultArtifact {
     pub artifact_specific_id: String,
     pub artifact_location: PathBuf,
     pub artifact_hash: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub enum BuildTrigger {
     FromSource,
-    Verification,
+    Verification(PeerId),
 }
 
 #[derive(Debug)]
