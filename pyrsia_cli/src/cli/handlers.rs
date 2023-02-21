@@ -245,7 +245,10 @@ async fn inspect_transparency_log<F, R>(
     let content = match res_content {
         Ok(content) => content,
         Err(error) => {
-            println!("Parsing of arguments failed with error: {:?}", error);
+            println!(
+                "Parsing of arguments failed with error: {:?}\nFor more information, try '--help'.",
+                error
+            );
             return;
         }
     };
