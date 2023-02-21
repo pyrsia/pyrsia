@@ -22,6 +22,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::build_service::model::BuildStatus;
 use crate::node_api::model::request::{
     RequestAddAuthorizedNode, RequestBuildStatus, RequestDockerBuild, RequestDockerLog,
     RequestMavenBuild, RequestMavenLog, Status,
@@ -63,7 +64,7 @@ pub async fn request_docker_build(request: RequestDockerBuild) -> Result<BuildRe
     .await
 }
 
-pub async fn request_build_status(request: RequestBuildStatus) -> Result<String> {
+pub async fn request_build_status(request: RequestBuildStatus) -> Result<BuildStatus> {
     post_and_parse_result_as_json(format!("http://{}/build/status", get_url()), request).await
 }
 
@@ -100,10 +101,10 @@ pub fn get_url() -> String {
     format!("{}:{}", host, port)
 }
 
-async fn post_and_parse_result_as_json<T: Serialize>(
+async fn post_and_parse_result_as_json<R: DeserializeOwned, T: Serialize>(
     node_url: String,
     request: T,
-) -> Result<String> {
+) -> Result<R> {
     let client = reqwest::Client::new();
     client
         .post(node_url)
@@ -145,7 +146,7 @@ where
 
 #[async_trait]
 trait ErrorResponseWithBody {
-    async fn json_or_error_with_body(self) -> Result<String>;
+    async fn json_or_error_with_body<R: DeserializeOwned>(self) -> Result<R>;
     async fn text_or_error_with_body(self) -> Result<String>;
     async fn object_or_error_with_body<R>(self) -> Result<R>
     where
@@ -155,9 +156,9 @@ trait ErrorResponseWithBody {
 
 #[async_trait]
 impl ErrorResponseWithBody for Response {
-    async fn json_or_error_with_body(self) -> Result<String> {
+    async fn json_or_error_with_body<R: DeserializeOwned>(self) -> Result<R> {
         match self.error_for_status_with_body().await {
-            Ok(r) => Ok(r.json::<String>().await?),
+            Ok(r) => Ok(r.json::<R>().await?),
             Err(e) => Err(e),
         }
     }

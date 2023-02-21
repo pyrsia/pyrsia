@@ -15,15 +15,18 @@
 */
 
 use crate::artifact_service::model::PackageType;
+use crate::build_service::model::BuildStatus;
 use crate::network::artifact_protocol::{ArtifactRequest, ArtifactResponse};
 use crate::network::behaviour::{PyrsiaNetworkBehaviour, PyrsiaNetworkEvent};
 use crate::network::blockchain_protocol::{BlockchainRequest, BlockchainResponse};
 use crate::network::build_protocol::{BuildRequest, BuildResponse};
 use crate::network::build_status_protocol::{BuildStatusRequest, BuildStatusResponse};
 use crate::network::client::command::Command;
+use crate::network::client::VerifyBuildData;
 use crate::network::idle_metric_protocol::{IdleMetricRequest, IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::request::Status;
 use crate::util::env_util::read_var;
+use bincode::{deserialize, serialize};
 use libp2p::autonat::{Event as AutonatEvent, NatStatus};
 use libp2p::core::PeerId;
 use libp2p::futures::StreamExt;
@@ -49,7 +52,7 @@ type PendingRequestArtifactMap = HashMap<RequestId, oneshot::Sender<anyhow::Resu
 type PendingRequestBuildMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<String>>>;
 type PendingRequestIdleMetricMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<PeerMetrics>>>;
 type PendingRequestBlockchainMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<Vec<u8>>>>;
-type PendingBuildStatusMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<String>>>;
+type PendingBuildStatusMap = HashMap<RequestId, oneshot::Sender<anyhow::Result<BuildStatus>>>;
 
 struct PendingListProviders {
     sender: oneshot::Sender<HashSet<PeerId>>,
@@ -73,6 +76,8 @@ pub struct PyrsiaEventLoop {
     swarm: Swarm<PyrsiaNetworkBehaviour>,
     command_receiver: mpsc::Receiver<Command>,
     event_sender: mpsc::Sender<PyrsiaEvent>,
+    blockchain_topic: gossipsub::IdentTopic,
+    build_topic: gossipsub::IdentTopic,
     bootstrapped: bool,
     pending_bootstrap: PendingBootstrapMap,
     pending_dial: PendingDialMap,
@@ -95,6 +100,8 @@ impl PyrsiaEventLoop {
             swarm,
             command_receiver,
             event_sender,
+            blockchain_topic: gossipsub::IdentTopic::new("pyrsia-blockchain-topic"),
+            build_topic: gossipsub::IdentTopic::new("pyrsia-build-topic"),
             bootstrapped: false,
             pending_bootstrap: Default::default(),
             pending_dial: Default::default(),
@@ -106,6 +113,19 @@ impl PyrsiaEventLoop {
             pending_blockchain_requests: Default::default(),
             pending_build_status_requests: Default::default(),
         }
+    }
+
+    pub fn initialize(&mut self) -> anyhow::Result<()> {
+        self.swarm
+            .behaviour_mut()
+            .gossipsub
+            .subscribe(&self.blockchain_topic)?;
+        self.swarm
+            .behaviour_mut()
+            .gossipsub
+            .subscribe(&self.build_topic)?;
+
+        Ok(())
     }
 
     /// Creates the actual event loop to begin listening for
@@ -164,14 +184,38 @@ impl PyrsiaEventLoop {
     // Handles events from the `GossipSub` network behaviour.
     async fn handle_gossipsub_event(&mut self, event: gossipsub::GossipsubEvent) {
         trace!("Handle GossipsubEvent: {:?}", event);
+        let event_str = format!("{:#?}", event);
         if let gossipsub::GossipsubEvent::Message { message, .. } = event {
-            self.event_sender
-                .send(PyrsiaEvent::BlockchainRequest {
-                    data: message.data,
-                    channel: None,
-                })
-                .await
-                .expect("Event receiver not to be dropped.");
+            if message.topic == self.build_topic.hash() {
+                if let Some(source) = message.source {
+                    match deserialize::<VerifyBuildData>(&message.data) {
+                        Ok(verify_build_data) => {
+                            self.event_sender
+                                .send(PyrsiaEvent::VerifyBuild {
+                                    peer_id: source,
+                                    package_type: verify_build_data.package_type,
+                                    package_specific_id: verify_build_data.package_specific_id,
+                                })
+                                .await
+                                .expect("Event receiver not to be dropped.");
+                        }
+                        Err(e) => {
+                            error!(
+                                "Handle GossipsubEvent match arm: {:#?}. Error: {:?}",
+                                event_str, e
+                            );
+                        }
+                    }
+                }
+            } else if message.topic == self.blockchain_topic.hash() {
+                self.event_sender
+                    .send(PyrsiaEvent::BlockchainRequest {
+                        data: message.data,
+                        channel: None,
+                    })
+                    .await
+                    .expect("Event receiver not to be dropped.");
+            }
         }
     }
 
@@ -759,6 +803,37 @@ impl PyrsiaEventLoop {
                     .send_response(channel, BuildResponse(build_id))
                     .expect("Connection to peer to be still open.");
             }
+            Command::VerifyBuild {
+                package_type,
+                package_specific_id,
+                sender,
+            } => {
+                let verify_build_data = VerifyBuildData {
+                    package_type,
+                    package_specific_id,
+                };
+                match serialize(&verify_build_data) {
+                    Ok(serialized_data) => {
+                        sender
+                            .send(
+                                self.swarm
+                                    .behaviour_mut()
+                                    .gossipsub
+                                    .publish(self.build_topic.clone(), serialized_data)
+                                    .map(|_| ())
+                                    .map_err(|e| e.into()),
+                            )
+                            .unwrap_or_else(|_e| {
+                                error!("Handle Command match arm: {}.", command_str);
+                            });
+                    }
+                    Err(e) => {
+                        sender.send(Err(e.into())).unwrap_or_else(|_e| {
+                            error!("Handle Command match arm: {}.", command_str);
+                        });
+                    }
+                };
+            }
             Command::RequestArtifact {
                 artifact_id,
                 peer,
@@ -808,17 +883,13 @@ impl PyrsiaEventLoop {
                     .send_response(channel, BlockchainResponse(data))
                     .expect("Connection to peer to be still open.");
             }
-            Command::BroadcastBlock {
-                topic,
-                block,
-                sender,
-            } => {
+            Command::BroadcastBlock { block, sender } => {
                 sender
                     .send(
                         self.swarm
                             .behaviour_mut()
                             .gossipsub
-                            .publish(topic, block)
+                            .publish(self.blockchain_topic.clone(), block)
                             .map(|_| ())
                             .map_err(|e| e.into()),
                     )
@@ -862,6 +933,11 @@ pub enum PyrsiaEvent {
         package_specific_id: String,
         channel: ResponseChannel<BuildResponse>,
     },
+    VerifyBuild {
+        peer_id: PeerId,
+        package_type: PackageType,
+        package_specific_id: String,
+    },
     IdleMetricRequest {
         channel: ResponseChannel<IdleMetricResponse>,
     },
@@ -895,20 +971,15 @@ mod tests {
     use libp2p::core::upgrade;
     use libp2p::core::Transport;
     use libp2p::dns::TokioDnsConfig;
-    use libp2p::gossipsub::IdentTopic;
     use libp2p::identity::Keypair;
     use libp2p::swarm::SwarmBuilder;
     use libp2p::yamux::YamuxConfig;
-    use libp2p::{autonat, identify, kad, noise, request_response, tcp};
+    use libp2p::{autonat, gossipsub, identify, kad, noise, request_response, tcp};
     use std::iter;
     use std::time::Duration;
     use tokio_stream::wrappers::ReceiverStream;
 
     fn create_test_swarm() -> (Client, PyrsiaEventLoop, ReceiverStream<PyrsiaEvent>) {
-        use libp2p::gossipsub::MessageId;
-        use libp2p::gossipsub::{
-            Gossipsub, GossipsubMessage, IdentTopic as Topic, MessageAuthenticity, ValidationMode,
-        };
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
 
@@ -931,28 +1002,24 @@ mod tests {
             .boxed();
 
         // To content-address message, we can take the hash of message and use it as an ID.
-        let message_id_fn = |message: &GossipsubMessage| {
+        let message_id_fn = |message: &gossipsub::GossipsubMessage| {
             let mut s = DefaultHasher::new();
             message.data.hash(&mut s);
-            MessageId::from(s.finish().to_string())
+            gossipsub::MessageId::from(s.finish().to_string())
         };
 
         let gossipsub_config = gossipsub::GossipsubConfigBuilder::default()
             .heartbeat_interval(Duration::from_secs(10)) // This is set to aid debugging by not cluttering the log space
-            .validation_mode(ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
+            .validation_mode(gossipsub::ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
             .message_id_fn(message_id_fn) // content-address messages. No two messages of the same content will be propagated.
             .support_floodsub()
             .build()
             .expect("Valid config");
-        let mut gossip_sub = Gossipsub::new(
-            MessageAuthenticity::Signed(id_keys.clone()),
+        let gossip_sub = gossipsub::Gossipsub::new(
+            gossipsub::MessageAuthenticity::Signed(id_keys.clone()),
             gossipsub_config,
         )
         .expect("Correct configuration");
-        let pyrsia_topic: Topic = Topic::new("pyrsia-blockchain-topic");
-        gossip_sub
-            .subscribe(&pyrsia_topic)
-            .expect("Could not connect to pyrsia blockchain topic");
 
         let behaviour = PyrsiaNetworkBehaviour {
             auto_nat: autonat::Behaviour::new(
@@ -1023,16 +1090,20 @@ mod tests {
         let (command_sender, command_receiver) = mpsc::channel(1);
         let (event_sender, event_receiver) = mpsc::channel(1);
 
-        let p2p_client = Client::new(command_sender, peer_id, IdentTopic::new("pyrsia-topic"));
-        let event_loop = PyrsiaEventLoop::new(swarm, command_receiver, event_sender);
+        let p2p_client = Client::new(command_sender, peer_id);
+        let mut event_loop = PyrsiaEventLoop::new(swarm, command_receiver, event_sender);
+
+        event_loop
+            .initialize()
+            .expect("EventLoop initialization should succeed.");
 
         (p2p_client, event_loop, ReceiverStream::new(event_receiver))
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dial_address_with_listener() {
-        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2, _) = create_test_swarm();
+        let (p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (p2p_client_2, event_loop_2, _) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
         tokio::spawn(event_loop_2.run());
@@ -1057,8 +1128,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dial_address_without_listener() {
-        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2, _) = create_test_swarm();
+        let (p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (p2p_client_2, event_loop_2, _) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
         tokio::spawn(event_loop_2.run());
@@ -1083,7 +1154,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dial_with_invalid_peer_id() {
-        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (p2p_client_1, event_loop_1, _) = create_test_swarm();
         let (p2p_client_2, _, _) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
@@ -1104,8 +1175,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_request_build_loop() {
-        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2, mut event_receiver_2) = create_test_swarm();
+        let (p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (p2p_client_2, event_loop_2, mut event_receiver_2) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
         tokio::spawn(event_loop_2.run());
@@ -1147,11 +1218,7 @@ mod tests {
         });
 
         let result = p2p_client_1
-            .request_build(
-                &p2p_client_2_peer_id,
-                package_type,
-                package_specific_id.to_string(),
-            )
+            .request_build(&p2p_client_2_peer_id, package_type, package_specific_id)
             .await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), expected_build_id.to_string());
@@ -1159,9 +1226,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_list_providers_with_interconnected_peer() {
-        let (mut p2p_client_1, event_loop_1, _) = create_test_swarm();
-        let (mut p2p_client_2, event_loop_2, _) = create_test_swarm();
-        let (mut p2p_client_3, event_loop_3, _) = create_test_swarm();
+        let (p2p_client_1, event_loop_1, _) = create_test_swarm();
+        let (p2p_client_2, event_loop_2, _) = create_test_swarm();
+        let (p2p_client_3, event_loop_3, _) = create_test_swarm();
 
         tokio::spawn(event_loop_1.run());
         tokio::spawn(event_loop_2.run());
