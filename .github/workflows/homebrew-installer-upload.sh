@@ -27,6 +27,9 @@ esac
 
 mkdir -p syncdir
 gsutil -m cp pyrsia-${FQBVN}.tar.gz  gs://homebrewrepo/${RELTYPE}/${ARCHTYPE}/pyrsia-${FQBVN}.tar.gz
-gsutil -m -o "GSUtil:parallel_process_count=1" rsync -r -i gs://homebrewrepo syncdir
-python3 .github/workflows/genlisting.py syncdir -r
-gsutil -m -o "GSUtil:parallel_process_count=1" rsync -r syncdir gs://homebrewrepo
+listing="$(gsutil ls -lr gs://homebrewrepo)"
+python3 --version
+python3 .github/workflows/genlistingsyncoptimized.py "${listing}" gs://homebrewrepo syncdir
+python3 .github/workflows/genlisting.py syncdir -r -p
+# sync back directory to Cloud Bucket excluding all .*.tar.gz files
+gsutil -m -o "GSUtil:parallel_process_count=1" rsync -r -x ".*\.tar\.gz$" syncdir gs://homebrewrepo

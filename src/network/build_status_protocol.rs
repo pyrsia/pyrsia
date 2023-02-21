@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+use crate::build_service::model::BuildStatus;
 use async_trait::async_trait;
 use futures::prelude::*;
 use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed, ProtocolName};
@@ -28,7 +29,7 @@ pub struct BuildStatusExchangeCodec();
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BuildStatusRequest(pub String);
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BuildStatusResponse(pub String);
+pub struct BuildStatusResponse(pub BuildStatus);
 
 impl ProtocolName for BuildStatusExchangeProtocol {
     fn protocol_name(&self) -> &[u8] {
@@ -76,7 +77,7 @@ impl RequestResponseCodec for BuildStatusExchangeCodec {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
 
-        let status = String::from_utf8(hash_vec).unwrap();
+        let status: BuildStatus = bincode::deserialize(&hash_vec).unwrap();
 
         Ok(BuildStatusResponse(status))
     }
@@ -107,9 +108,10 @@ impl RequestResponseCodec for BuildStatusExchangeCodec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        debug!("Write BuildStatusResponse: {}", status);
+        debug!("Write BuildStatusResponse: {:?}", status);
 
-        write_length_prefixed(io, status).await?;
+        let data = bincode::serialize(&status).unwrap();
+        write_length_prefixed(io, data).await?;
 
         Ok(())
     }

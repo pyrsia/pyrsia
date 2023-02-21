@@ -121,21 +121,18 @@ pub fn setup_libp2p_swarm(
 > {
     let local_keypair = keypair_util::load_or_generate_ed25519(KEYPAIR_FILENAME.as_str());
 
-    let (mut swarm, local_peer_id) = create_swarm(local_keypair.clone(), max_provided_keys)?;
+    let (swarm, local_peer_id) = create_swarm(local_keypair.clone(), max_provided_keys)?;
     let (command_sender, command_receiver) = mpsc::channel(32);
     let (event_sender, event_receiver) = mpsc::channel(32);
 
-    // EDF: Two types of implemented Topic. Example uses IdentTopic. Let's start with that.
-    // https://docs.rs/libp2p/latest/libp2p/gossipsub/type.IdentTopic.html
-    // https://docs.rs/libp2p/latest/libp2p/gossipsub/type.Sha256Topic.html
-    let pyrsia_topic = gossipsub::IdentTopic::new("pyrsia-topic");
-    swarm.behaviour_mut().gossipsub.subscribe(&pyrsia_topic)?;
+    let mut pyrsia_event_loop = PyrsiaEventLoop::new(swarm, command_receiver, event_sender);
+    pyrsia_event_loop.initialize()?;
 
     Ok((
-        Client::new(command_sender, local_peer_id, pyrsia_topic),
+        Client::new(command_sender, local_peer_id),
         local_keypair,
         ReceiverStream::new(event_receiver),
-        PyrsiaEventLoop::new(swarm, command_receiver, event_sender),
+        pyrsia_event_loop,
     ))
 }
 

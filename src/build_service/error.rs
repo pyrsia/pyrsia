@@ -15,15 +15,21 @@
 */
 
 use crate::artifact_service::model::PackageType;
+use crate::transparency_log::log::TransparencyLogError;
 use hyper::StatusCode;
+use libp2p::PeerId;
 use thiserror::Error;
 
-#[derive(Clone, Debug, Error, Eq, PartialEq)]
+#[derive(Debug, Error)]
 pub enum BuildError {
     #[error("Build with ID {0} failed with error: {1}")]
     Failure(String, String),
     #[error("Failed to initialize a build: {0}")]
     InitializationFailed(String),
+    #[error("Failure while accessing underlying storage: {0}")]
+    TransparencyLogFailure(#[from] TransparencyLogError),
+    #[error("Unauthorized PeerId: {0}")]
+    UnauthorizedPeerId(PeerId),
     #[error("Artifact already exists. Fresh build not required: {0}")]
     ArtifactAlreadyExists(String),
     #[error("Invalid response from mapping service endpoint: {0}")]

@@ -220,13 +220,17 @@ mod tests {
             .get_mapping(package_type, package_specific_id)
             .await
             .unwrap_err();
-        assert_eq!(
-            error,
+
+        match error {
             BuildError::MappingNotFound {
-                package_type,
-                package_specific_id: package_specific_id.to_owned(),
+                package_type: expected_package_type,
+                package_specific_id: expected_package_specific_id,
+            } => {
+                assert_eq!(package_type, expected_package_type);
+                assert_eq!(package_specific_id, expected_package_specific_id);
             }
-        );
+            _ => panic!("Invalid BuildError: {}", error),
+        }
     }
 
     #[tokio::test]
@@ -249,10 +253,11 @@ mod tests {
             .get_mapping(package_type, package_specific_id)
             .await
             .unwrap_err();
-        assert_eq!(
-            error,
-            BuildError::MappingServiceEndpointFailure(StatusCode::BAD_REQUEST)
-        );
+
+        match error {
+            BuildError::MappingServiceEndpointFailure(StatusCode::BAD_REQUEST) => {}
+            _ => panic!("Invalid BuildError: {}", error),
+        }
     }
 
     #[tokio::test]

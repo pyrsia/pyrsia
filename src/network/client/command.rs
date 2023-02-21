@@ -15,6 +15,7 @@
 */
 
 use crate::artifact_service::model::PackageType;
+use crate::build_service::model::BuildStatus;
 use crate::network::artifact_protocol::ArtifactResponse;
 use crate::network::blockchain_protocol::BlockchainResponse;
 use crate::network::build_protocol::BuildResponse;
@@ -22,7 +23,6 @@ use crate::network::build_status_protocol::BuildStatusResponse;
 use crate::network::idle_metric_protocol::{IdleMetricResponse, PeerMetrics};
 use crate::node_api::model::request::Status;
 use libp2p::core::{Multiaddr, PeerId};
-use libp2p::gossipsub;
 use libp2p::request_response::ResponseChannel;
 use std::collections::HashSet;
 use strum_macros::Display;
@@ -39,7 +39,6 @@ pub enum Command {
         sender: oneshot::Sender<anyhow::Result<()>>,
     },
     BroadcastBlock {
-        topic: gossipsub::IdentTopic,
         block: Vec<u8>,
         sender: oneshot::Sender<anyhow::Result<()>>,
     },
@@ -79,6 +78,11 @@ pub enum Command {
         build_id: String,
         channel: ResponseChannel<BuildResponse>,
     },
+    VerifyBuild {
+        package_type: PackageType,
+        package_specific_id: String,
+        sender: oneshot::Sender<anyhow::Result<()>>,
+    },
     RequestArtifact {
         artifact_id: String,
         peer: PeerId,
@@ -108,10 +112,10 @@ pub enum Command {
     RequestBuildStatus {
         peer: PeerId,
         build_id: String,
-        sender: oneshot::Sender<anyhow::Result<String>>,
+        sender: oneshot::Sender<anyhow::Result<BuildStatus>>,
     },
     RespondBuildStatus {
-        status: String,
+        status: BuildStatus,
         channel: ResponseChannel<BuildStatusResponse>,
     },
 }
