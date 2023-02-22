@@ -181,8 +181,7 @@ impl FromStr for TransparencyLogField {
     type Err = ParseTransparencyLogFieldError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let field_name = s.to_lowercase();
-        let res = match field_name.as_str() {
+        let res = match s.to_lowercase().as_str() {
             "id" => TransparencyLogField::Id,
             "package_type" => TransparencyLogField::PackageType,
             "package_specific_id" => TransparencyLogField::PackageSpecificId,
