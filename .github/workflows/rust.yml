@@ -304,6 +304,23 @@ jobs:
         with:
           packages: cargo-tarpaulin
 
+      # Build docker image to use in integration tests
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and Push Docker Image for Pyrsia Node
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: false
+          file: ./Dockerfile
+          tags: pyrsia/test-node:latest
+          build-args: |
+            GIT_REPO=${{ github.repository }}
+            GIT_COMMIT=${{ github.sha }}
+            GIT_BRANCH=${{ github.ref_name }}
+            PYRSIA_VERSION=${{ env.PKG_VERSION }}+${{ github.run_number }}
+
       - name: Run cargo-tarpaulin
         run: |
           cargo tarpaulin --workspace --lib --bins --tests --benches --out Lcov --output-dir ./coverage
