@@ -61,26 +61,10 @@ jobs:
           .github/workflows/build.sh
           sccache --show-stats
 
-      # Build docker image to use in integration tests
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Build and Push Docker Image for Pyrsia Node
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          push: false
-          file: ./Dockerfile
-          tags: pyrsia/test-node:latest
-          build-args: |
-            GIT_REPO=${{ github.repository }}
-            GIT_COMMIT=${{ github.sha }}
-            GIT_BRANCH=${{ github.ref_name }}
-            PYRSIA_VERSION=${{ env.PKG_VERSION }}+${{ github.run_number }}
-
       - name: Execute Test Cases
         run: |
-          cargo test --workspace --verbose --release
+          cargo test --lib --workspace --verbose --release
+          cargo test --doc --workspace --verbose --release
 
       # Creates installer archive of pyrsia and pyrsia_node
       - id: generate-homebrew-archives
@@ -170,7 +154,8 @@ jobs:
 
       - name: Execute Test Cases
         run: |
-          cargo test --workspace --verbose --release
+          cargo test --lib --workspace --verbose --release
+          cargo test --doc --workspace --verbose --release
 
       # Create installers
       - name: Create MSIs
