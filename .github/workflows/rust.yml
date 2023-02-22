@@ -62,6 +62,9 @@ jobs:
           sccache --show-stats
 
       # Build docker image to use in integration tests
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
       - name: Build and Push Docker Image for Pyrsia Node
         uses: docker/build-push-action@v4
         with:
@@ -237,6 +240,9 @@ jobs:
           sccache --show-stats
 
       # Build docker image to use in integration tests
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
       - name: Build and Push Docker Image for Pyrsia Node
         uses: docker/build-push-action@v4
         with:
