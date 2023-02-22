@@ -238,7 +238,7 @@ pub async fn handle_build_status(
         .body(build_status))
 }
 
-pub async fn handle_get_peers(mut p2p_client: Client) -> Result<impl Reply, Rejection> {
+pub async fn handle_get_peers(p2p_client: Client) -> Result<impl Reply, Rejection> {
     let peers = p2p_client.list_peers().await.map_err(RegistryError::from)?;
     debug!("Got received_peers: {:?}", peers);
 
@@ -252,7 +252,7 @@ pub async fn handle_get_peers(mut p2p_client: Client) -> Result<impl Reply, Reje
         .unwrap())
 }
 
-pub async fn handle_get_status(mut p2p_client: Client) -> Result<impl Reply, Rejection> {
+pub async fn handle_get_status(p2p_client: Client) -> Result<impl Reply, Rejection> {
     let status = p2p_client.status().await.map_err(RegistryError::from)?;
 
     let status_as_json = serde_json::to_string(&status).unwrap();

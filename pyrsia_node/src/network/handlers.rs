@@ -35,7 +35,7 @@ use pyrsia_blockchain_network::structures::block::Block;
 use pyrsia_blockchain_network::structures::header::Ordinal;
 
 /// Reach out to another node with the specified address
-pub async fn dial_other_peer(mut p2p_client: Client, to_dial: &Multiaddr) -> anyhow::Result<()> {
+pub async fn dial_other_peer(p2p_client: Client, to_dial: &Multiaddr) -> anyhow::Result<()> {
     match to_dial.iter().last() {
         Some(Protocol::P2p(hash)) => match PeerId::from_multihash(hash) {
             Ok(peer_id) => p2p_client.dial(&peer_id, to_dial).await,
@@ -46,7 +46,7 @@ pub async fn dial_other_peer(mut p2p_client: Client, to_dial: &Multiaddr) -> any
 }
 
 /// AutoNAT probe another node with the specified address
-pub async fn probe_other_peer(mut p2p_client: Client, to_probe: &Multiaddr) -> anyhow::Result<()> {
+pub async fn probe_other_peer(p2p_client: Client, to_probe: &Multiaddr) -> anyhow::Result<()> {
     match to_probe.iter().last() {
         Some(Protocol::P2p(hash)) => match PeerId::from_multihash(hash) {
             Ok(peer_id) => p2p_client.add_probe_address(&peer_id, to_probe).await,
@@ -73,10 +73,10 @@ pub async fn handle_request_artifact(
         .await
 }
 
-/// Respond to a RequestBuild event by getting the build
-/// based on the provided package_type and package_specific_id.
+/// Respond to a RequestBuild event by starting a build from
+/// source based on the provided package_type and package_specific_id.
 pub async fn handle_request_build(
-    mut p2p_client: Client,
+    p2p_client: Client,
     build_event_client: BuildEventClient,
     package_type: PackageType,
     package_specific_id: &str,
@@ -88,15 +88,35 @@ pub async fn handle_request_build(
     );
 
     let build_id = build_event_client
-        .start_build(package_type, package_specific_id.to_string())
+        .start_build(package_type, package_specific_id)
         .await?;
 
     p2p_client.respond_build(&build_id, channel).await
 }
 
+/// Respond to a VerifyBuild event by starting a verification
+/// build based on the provided package_type and package_specific_id.
+pub async fn handle_verify_build(
+    peer_id: PeerId,
+    build_event_client: BuildEventClient,
+    package_type: PackageType,
+    package_specific_id: &str,
+) -> anyhow::Result<()> {
+    debug!(
+        "Handling verify build: {:?} : {}",
+        package_type, package_specific_id
+    );
+
+    build_event_client
+        .verify_build(peer_id, package_type, package_specific_id)
+        .await
+        .map(|_| ())
+        .map_err(|e| e.into())
+}
+
 //Respond to the IdleMetricRequest event
 pub async fn handle_request_idle_metric(
-    mut p2p_client: Client,
+    p2p_client: Client,
     peer_metrics: &mut metrics::PeerMetrics,
     channel: ResponseChannel<IdleMetricResponse>,
 ) -> anyhow::Result<()> {
@@ -146,13 +166,13 @@ pub async fn handle_incoming_blockchain_command(
 }
 
 pub async fn handle_request_build_status(
-    mut p2p_client: Client,
+    p2p_client: Client,
     build_event_client: BuildEventClient,
     build_id: &str,
     channel: ResponseChannel<BuildStatusResponse>,
 ) -> anyhow::Result<()> {
     debug!("Handling request build status: {:?}", build_id);
-    let build_id = build_event_client.get_build_status(build_id).await?;
+    let build_status = build_event_client.get_build_status(build_id).await?;
 
-    p2p_client.respond_build_status(&build_id, channel).await
+    p2p_client.respond_build_status(build_status, channel).await
 }
