@@ -299,7 +299,7 @@ jobs:
           context: .
           push: false
           file: ./Dockerfile
-          tags: pyrsia/test-node:latest
+          tags: pyrsia/test_node
           build-args: |
             GIT_REPO=${{ github.repository }}
             GIT_COMMIT=${{ github.sha }}
