@@ -39,7 +39,7 @@ function list_started_processes() {
         pidlist="$pidlist$pid";
     done
     echo -e "\nPyrsia processes:"
-    ps -u -q $pidlist
+    ps -p $pidlist
 }
 
 # Waits period of time until the peer's http status json-response contains peer_id
