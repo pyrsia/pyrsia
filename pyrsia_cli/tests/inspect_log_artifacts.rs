@@ -1,10 +1,26 @@
-use std::{thread, time};
-use testcontainers::images;
+/*
+   Copyright 2021 JFrog Ltd
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 use assert_cmd::Command;
 use predicates::prelude::predicate;
 use reqwest::StatusCode;
+use std::{thread, time};
 use testcontainers::clients::Cli;
 use testcontainers::core::WaitFor;
+use testcontainers::images;
 
 const NAME: &str = "pyrsia/test_node";
 const TAG: &str = "latest";
@@ -35,13 +51,15 @@ fn run_pyrsia_node_with_status_checks() {
     assert_eq!(res.unwrap().status(), StatusCode::OK);
 
     let client = reqwest::blocking::Client::new();
-    let resp = client.post(&format!("http://0.0.0.0:{}/inspect/docker", port))
+    let resp = client
+        .post(&format!("http://0.0.0.0:{}/inspect/docker", port))
         .body("{\"image\": \"alpine:3.16\"}")
         .send()
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    Command::cargo_bin("pyrsia").unwrap()
+    Command::cargo_bin("pyrsia")
+        .unwrap()
         .arg("-c")
         .arg("-e")
         .arg("-H")
@@ -51,7 +69,8 @@ fn run_pyrsia_node_with_status_checks() {
         .assert()
         .stdout(predicate::str::diff("Node configuration saved !!\n"));
 
-    let res = Command::cargo_bin("pyrsia").unwrap()
+    let res = Command::cargo_bin("pyrsia")
+        .unwrap()
         .arg("inspect-log")
         .arg("docker")
         .arg("--image")
@@ -59,7 +78,8 @@ fn run_pyrsia_node_with_status_checks() {
         .assert()
         .stdout(predicate::str::diff("[]\n"));
 
-    println!("Pyrsia: {}",
-             String::from_utf8_lossy(res.get_output().stdout.as_slice())
+    println!(
+        "Pyrsia: {}",
+        String::from_utf8_lossy(res.get_output().stdout.as_slice())
     );
 }

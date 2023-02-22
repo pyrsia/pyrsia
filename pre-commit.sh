@@ -27,7 +27,7 @@ fi
 cargo install cargo-audit || exit_on_error "Could not install cargo audit."
 cargo audit --ignore RUSTSEC-2022-0040 --ignore RUSTSEC-2020-0071 || exit_on_error "Cargo audit failed."
 cargo clippy || exit_on_error "Cargo clippy failed."
-#cargo fmt --check || exit_on_error "Cargo format failed."
+cargo fmt --check || exit_on_error "Cargo format failed."
 if [[ "$1" == "ignore-it" || $2 == "ignore-it" ]] ; then
     printf "Ignore integration tests.\n"
     cargo test --lib || exit_on_error "Cargo lib test failed."
