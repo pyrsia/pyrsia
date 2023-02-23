@@ -26,7 +26,7 @@ jobs:
         with:
           labels: triage
       - name: Moved issue to ${{ env.backlog }}
-        uses: leonsteinhaeuser/project-beta-automations@v2.0.1
+        uses: leonsteinhaeuser/project-beta-automations@v2.1.0
         with:
           action: add
           status_value: ${{ env.backlog }}
@@ -43,7 +43,7 @@ jobs:
       github.event_name == 'pull_request' &&
       (github.event.action == 'opened' || github.event.action == 'reopened')
     steps:
-      - uses: leonsteinhaeuser/project-beta-automations@v2.0.1
+      - uses: leonsteinhaeuser/project-beta-automations@v2.1.0
         with:
           status_value: ${{ env.in_progress }}
           project_id: 3
@@ -69,7 +69,7 @@ jobs:
       (github.event_name == 'issues' ||  github.event_name == 'pull_request_target') &&
       github.event.action == 'labeled' && github.event.label.name == 'blocked'
     steps:
-      - uses: leonsteinhaeuser/project-beta-automations@v2.0.1
+      - uses: leonsteinhaeuser/project-beta-automations@v2.1.0
         with:
           status_value: ${{ env.blocked }}
           project_id: 3
@@ -92,7 +92,7 @@ jobs:
       github.repository_owner == 'pyrsia' &&
       github.event_name == 'pull_request_target' && github.event.action == 'closed'
     steps:
-      - uses: leonsteinhaeuser/project-beta-automations@v2.0.1
+      - uses: leonsteinhaeuser/project-beta-automations@v2.1.0
         with:
           status_value: ${{ env.done }}
           project_id: 3
