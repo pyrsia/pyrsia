@@ -19,12 +19,13 @@ use crate::build_service::error::BuildError;
 use crate::build_service::event::BuildEventClient;
 use crate::build_service::model::BuildResult;
 use crate::transparency_log::log::{Operation, TransparencyLog};
+use libp2p::PeerId;
 use log::{error, info};
 use std::collections::HashMap;
 use thiserror::Error;
 use tokio::sync::oneshot;
 
-#[derive(Clone, Debug, Error, Eq, PartialEq)]
+#[derive(Debug, Error)]
 pub enum VerificationError {
     #[error("Artifact with specific id {artifact_specific_id} was not found in build {build_id}.")]
     ArtifactNotFound {
@@ -43,12 +44,12 @@ pub enum VerificationError {
     #[error("Verification service does not support transparency logs with operation {0}")]
     UnsupportedOperation(Operation),
     #[error("Failed to verify build: {0}")]
-    VerifyBuildError(BuildError),
+    VerifyBuildError(String),
 }
 
 impl From<BuildError> for VerificationError {
-    fn from(build_error: BuildError) -> Self {
-        Self::VerifyBuildError(build_error)
+    fn from(value: BuildError) -> Self {
+        Self::VerifyBuildError(value.to_string())
     }
 }
 
@@ -154,12 +155,11 @@ impl VerificationService {
                 let build_id = self
                     .build_event_client
                     .verify_build(
+                        PeerId::random(),
                         transparency_log
                             .package_type
                             .expect("Package type should not be empty"),
-                        transparency_log.package_specific_id.clone(),
-                        transparency_log.package_specific_artifact_id.clone(),
-                        transparency_log.artifact_hash.clone(),
+                        &transparency_log.package_specific_id,
                     )
                     .await?;
 
@@ -179,12 +179,12 @@ impl VerificationService {
     }
 
     pub fn handle_build_failed(&mut self, build_id: &str, build_error: BuildError) {
+        let build_error_string = build_error.to_string();
         if let Some(verification_artifacts) = self.verifying_info.remove(build_id) {
-            let verification_error = VerificationError::from(build_error);
             for verification_artifact in verification_artifacts {
                 verification_artifact
                     .sender
-                    .send(Err(verification_error.clone()))
+                    .send(Err(VerificationError::VerifyBuildError(String::from(&build_error_string))))
                     .unwrap_or_else(|e| {
                         error!("Verification Artifact verification_error send. Verification error {:#?}", e);
                     });
@@ -293,10 +293,11 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::Verify {
+                    Some(BuildEvent::Start {
                         package_type: sent_package_type,
                         package_specific_id: sent_package_specific_id,
                         sender,
+                        ..
                     }) => {
                         let build_id = uuid::Uuid::new_v4().to_string();
                         assert_eq!(sent_package_type, package_type);
@@ -304,7 +305,7 @@ mod tests {
                         let _ = sender.send(Ok(build_id));
                     }
                     _ => {
-                        panic!("BuildEvent must match BuildEvent::Verify")
+                        panic!("BuildEvent must match BuildEvent::Start")
                     }
                 }
             }
@@ -358,11 +359,11 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::Verify { sender, .. }) => {
+                    Some(BuildEvent::Start { sender, .. }) => {
                         let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => {
-                        panic!("BuildEvent must match BuildEvent::Verify")
+                        panic!("BuildEvent must match BuildEvent::Start")
                     }
                 }
             }
@@ -436,11 +437,11 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::Verify { sender, .. }) => {
+                    Some(BuildEvent::Start { sender, .. }) => {
                         let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => {
-                        panic!("BuildEvent must match BuildEvent::Verify")
+                        panic!("BuildEvent must match BuildEvent::Start")
                     }
                 }
             }
@@ -515,11 +516,11 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::Verify { sender, .. }) => {
+                    Some(BuildEvent::Start { sender, .. }) => {
                         let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => {
-                        panic!("BuildEvent must match BuildEvent::Verify")
+                        panic!("BuildEvent must match BuildEvent::Start")
                     }
                 }
             }
@@ -566,13 +567,17 @@ mod tests {
 
         let verification_result = verification_result_receiver.await.unwrap();
         assert!(verification_result.is_err());
-        assert_eq!(
-            verification_result.unwrap_err(),
+
+        match verification_result.unwrap_err() {
             VerificationError::ArtifactNotFound {
-                build_id: build_id.to_string(),
-                artifact_specific_id: package_specific_artifact_id.to_owned()
+                build_id: expected_build_id,
+                artifact_specific_id: expected_artifact_specific_id,
+            } => {
+                assert_eq!(build_id.to_string(), expected_build_id);
+                assert_eq!(package_specific_artifact_id, expected_artifact_specific_id);
             }
-        );
+            error => panic!("Invalid VerificationError: {}", error),
+        }
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -602,11 +607,11 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::Verify { sender, .. }) => {
+                    Some(BuildEvent::Start { sender, .. }) => {
                         let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => {
-                        panic!("BuildEvent must match BuildEvent::Verify")
+                        panic!("BuildEvent must match BuildEvent::Start")
                     }
                 }
             }
@@ -653,15 +658,21 @@ mod tests {
 
         let verification_result = verification_result_receiver.await.unwrap();
         assert!(verification_result.is_err());
-        assert_eq!(
-            verification_result.unwrap_err(),
+
+        match verification_result.unwrap_err() {
             VerificationError::NonMatchingHash {
-                build_id: build_id.to_string(),
-                artifact_specific_id: package_specific_artifact_id.to_owned(),
-                expected_hash: artifact_hash.to_string(),
-                hash_from_build: different_artifact_hash.to_string()
+                build_id: expected_build_id,
+                artifact_specific_id: expected_artifact_specific_id,
+                expected_hash,
+                hash_from_build,
+            } => {
+                assert_eq!(build_id.to_string(), expected_build_id);
+                assert_eq!(package_specific_artifact_id, expected_artifact_specific_id);
+                assert_eq!(artifact_hash.to_string(), expected_hash);
+                assert_eq!(different_artifact_hash.to_string(), hash_from_build);
             }
-        );
+            error => panic!("Invalid VerificationError: {}", error),
+        }
 
         test_util::tests::teardown(tmp_dir);
     }
@@ -691,11 +702,11 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 match build_event_receiver.recv().await {
-                    Some(BuildEvent::Verify { sender, .. }) => {
+                    Some(BuildEvent::Start { sender, .. }) => {
                         let _ = sender.send(Ok(build_id.to_string()));
                     }
                     _ => {
-                        panic!("BuildEvent must match BuildEvent::Verify")
+                        panic!("BuildEvent must match BuildEvent::Start")
                     }
                 }
             }
@@ -723,15 +734,18 @@ mod tests {
         assert!(verify_transaction_result.is_ok());
 
         let build_error = BuildError::InitializationFailed("error".to_owned());
-        verification_service
-            .handle_build_failed(build_id.to_string().as_str(), build_error.clone());
+        let build_error_str = build_error.to_string();
+        verification_service.handle_build_failed(build_id.to_string().as_str(), build_error);
 
         let verification_result = verification_result_receiver.await.unwrap();
         assert!(verification_result.is_err());
-        assert_eq!(
-            verification_result.unwrap_err(),
-            VerificationError::from(build_error)
-        );
+
+        match verification_result.unwrap_err() {
+            VerificationError::VerifyBuildError(msg) => {
+                assert_eq!(msg, build_error_str)
+            }
+            error => panic!("Invalid VerificationError: {}", error),
+        }
 
         test_util::tests::teardown(tmp_dir);
     }

@@ -454,7 +454,8 @@ def read_file_size(entry: Path, placeholdersync: bool) -> int:
             if entry.read_text().startswith("file_size===="):
                 return int(entry.read_text().split("file_size====")[1])
         except:
-            print("Exception found while reading file size from the file content")
+            print("Trying to read file size from file content. Unsuccessful. Will return filesize from system file "
+                  "stat.")
     return entry.stat().st_size
 
 if __name__ == "__main__":

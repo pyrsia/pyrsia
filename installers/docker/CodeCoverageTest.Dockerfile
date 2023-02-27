@@ -1,4 +1,4 @@
-FROM rust:1.66.1-buster
+FROM rust:1.67.1-buster
 
 RUN apt-get update && apt-get -y -q install clang llvm libclang-dev jq protobuf-compiler
 

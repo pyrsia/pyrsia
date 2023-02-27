@@ -74,6 +74,7 @@ EOL
 
 # Generate pretty directory listing web pages
 cd /tmp/aptly/public/$RELTYPE
+python3 --version
 python3 /home/runner/work/pyrsia/pyrsia/.github/workflows/genlisting.py -r
 
 # copy new public repo to GCS
