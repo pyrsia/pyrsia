@@ -175,9 +175,9 @@ function trigger_build() {
     local config_port=$1
     local docker_image=$2
 
-    ./target/debug/pyrsia config -e --port ${config_port}
+    $PYRSIA_HOME/target/debug/pyrsia config -e --port ${config_port}
     sleep $SLEEP_DURATION
-    local text=$(./target/debug/pyrsia build docker --image ${docker_image})
+    local text=$($PYRSIA_HOME/target/debug/pyrsia build docker --image ${docker_image})
     echo "$text"
     sleep $SLEEP_DURATION
 
@@ -199,14 +199,14 @@ function inspect_logs_of_all_nodes() {
 
     for port in 7881 7882 7883 7884
     do
-        ./target/debug/pyrsia config -e --port ${port}
+        $PYRSIA_HOME/target/debug/pyrsia config -e --port ${port}
         sleep 3
 
         local time_counter=$MAX_WAITING_TIME
     
         while [ $time_counter -ne 0 ]
         do
-            local text=$(./target/debug/pyrsia inspect-log docker --image ${docker_image})
+            local text=$($PYRSIA_HOME/target/debug/pyrsia inspect-log docker --image ${docker_image})
             if  [[ $text =~ 'artifact_hash' ]]; then
                 break
             else
@@ -255,10 +255,10 @@ function abs_path() {
 ####################### CONSTANTS #######################################
 
 # This constants specifies maximum period of awating something and is used in functions that await some condition, for example show up message in some file
-MAX_WAITING_TIME=5
+MAX_WAITING_TIME=30
 
 # sleep duration
-SLEEP_DURATION=3
+SLEEP_DURATION=5
 
 # working directory for test
 TEST_DIR=/tmp/pyrsia-manual-tests
