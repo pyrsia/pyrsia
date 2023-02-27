@@ -7,7 +7,7 @@ description = "Pyrsia Node and CLI"
 authors = ["pyrsiaoss <pyrsiaopensource@gmail.com>"]
 license = "Apache-2"
 repository = "https://github.com/pyrsia/pyrsia"
-rust-version = "1.66.1"
+rust-version = "1.67.1"
 
 [package.metadata.deb]
 assets = [
