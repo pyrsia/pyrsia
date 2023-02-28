@@ -211,6 +211,7 @@ pub async fn inspect_docker_transparency_log(
                 format: content_type,
                 content,
             }),
+            latest: arg_latest,
         })
     })
     .await;
@@ -229,6 +230,7 @@ pub async fn inspect_maven_transparency_log(
                 format: content_type,
                 content,
             }),
+            latest: arg_latest,
         })
     })
     .await;

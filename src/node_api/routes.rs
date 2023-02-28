@@ -121,7 +121,6 @@ mod tests {
     use std::collections::HashSet;
     use std::future::Future;
     use std::str;
-    use std::time::Duration;
 
     #[tokio::test]
     async fn node_routes_add_authorized_node() {
@@ -602,10 +601,6 @@ mod tests {
         setup_and_execute(|ctx| async {
             let ps_id = "library/artipie:0.0.7";
 
-            add_artifact(&ctx.log, PackageType::Docker, ps_id).await;
-
-            std::thread::sleep(Duration::from_secs(1));
-
             let transparency_log = add_artifact(&ctx.log, PackageType::Docker, ps_id).await;
             let request = RequestDockerLog {
                 image: ps_id.to_string(),
@@ -677,7 +672,7 @@ mod tests {
         let add_art_req = AddArtifactRequest {
             package_type,
             package_specific_id: ps_id.to_string(),
-            num_artifacts: 5,
+            num_artifacts: 1,
             package_specific_artifact_id: ps_id.to_string(),
             artifact_hash: "test_hash".to_string(),
         };

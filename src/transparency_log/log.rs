@@ -19,6 +19,7 @@ use crate::blockchain_service::event::BlockchainEventClient;
 use libp2p::core::ParseError;
 use libp2p::PeerId;
 use log::{debug, error};
+use num_traits::ToPrimitive;
 use pyrsia_blockchain_network::error::BlockchainError;
 use rusqlite::types::{ToSqlOutput, Value};
 use rusqlite::{params, Connection, ToSql};
@@ -48,6 +49,15 @@ pub enum TransparencyLogError {
     ArtifactAlreadyExists {
         package_type: PackageType,
         package_specific_id: String,
+    },
+    #[error(
+        "For artifact ID {package_specific_id} and type {package_type} {num_artifacts} is more than {actual} the number of records in the database. Perhaps, not all log records have been inserted into the database yet."
+    )]
+    ArtifactLogIsNotConsistentState {
+        package_type: PackageType,
+        package_specific_id: String,
+        num_artifacts: u32,
+        actual: u32,
     },
     #[error("Node with node ID {node_id} already exists in transparency log")]
     NodeAlreadyExists { node_id: String },
@@ -483,15 +493,15 @@ impl TransparencyLogService {
         Ok(latest_record)
     }
 
-    /// Reads a transparency log with max timestamp for given `package_type` and `package_specific_id`.
+    /// Reads the latest transparency log with max timestamp for given `package_type` and `package_specific_id`.
     fn read_last_transparency_log(
         &self,
         package_type: &PackageType,
         package_specific_id: &str,
     ) -> Result<Vec<TransparencyLog>, TransparencyLogError> {
+        // Get еру first record for given package_type and package_specific_id
         let query = format!(
-            "SELECT *
-            FROM TRANSPARENCYLOG
+            "SELECT * FROM TRANSPARENCYLOG
             WHERE operation in ('{}', '{}') and package_type = '{}' and package_specific_id = '{}'
             ORDER BY timestamp DESC LIMIT 1",
             Operation::AddArtifact,
@@ -500,7 +510,48 @@ impl TransparencyLogService {
             package_specific_id
         );
 
-        let res = self.process_query(query.as_str())?;
+        let mut res = self.process_query(query.as_str())?;
+        if let Some(log) = res.first() {
+            // If the record is not at `removed` status and there are several artifacts
+            // related to given `package_type` and `package_specific_id`,
+            // then we try to get all records
+            let num_artifacts = log.num_artifacts;
+            if log.operation == Operation::AddArtifact && log.num_artifacts > 1 {
+                let query = format!(
+                    "SELECT * FROM TRANSPARENCYLOG
+                    WHERE operation = '{}' and package_type = '{}' and
+                    package_specific_id = '{}' and id != '{}'
+                    ORDER BY timestamp DESC LIMIT {}",
+                    Operation::AddArtifact,
+                    package_type,
+                    package_specific_id,
+                    log.id,
+                    num_artifacts - 1
+                );
+                let second_res = self.process_query(query.as_str())?;
+                for rec in second_res {
+                    // Operation of all records must be `AddArtifact`
+                    if rec.operation.clone() != Operation::AddArtifact {
+                        return Err(TransparencyLogError::ArtifactLogIsNotConsistentState {
+                            package_type: package_type.to_owned(),
+                            package_specific_id: package_specific_id.to_owned(),
+                            num_artifacts,
+                            actual: res.len().to_u32().unwrap(),
+                        });
+                    }
+                    res.push(rec);
+                }
+                let actual_artifact_num = res.len().to_u32().unwrap();
+                if actual_artifact_num != num_artifacts {
+                    return Err(TransparencyLogError::ArtifactLogIsNotConsistentState {
+                        package_type: package_type.to_owned(),
+                        package_specific_id: package_specific_id.to_owned(),
+                        num_artifacts,
+                        actual: actual_artifact_num,
+                    });
+                }
+            }
+        }
 
         Ok(res)
     }
@@ -886,13 +937,7 @@ mod tests {
             .verify_package_can_be_added_to_transparency_logs(&PackageType::Docker, ps_id)
             .is_ok());
 
-        let transparency_log1 = new_artifact_transparency_log(
-            Some(PackageType::Docker),
-            Operation::AddArtifact,
-            Some(ps_id),
-            Some("package_specific_artifact_id"),
-        );
-        assert!(log.write_transparency_log(&transparency_log1).is_ok());
+        write_docker_artifacts(&log, ps_id, 2, 2, Operation::AddArtifact);
 
         let result2 =
             log.verify_package_can_be_added_to_transparency_logs(&PackageType::Docker, ps_id);
@@ -934,38 +979,99 @@ mod tests {
             .unwrap();
         assert!(res.is_empty(), "{:?}", res);
 
-        let test_read_latest_record = |log: TransparencyLog| {
-            assert!(service.write_transparency_log(&log).is_ok());
-
+        let test_read_latest_record = |package_specific_id: &str, num_artifacts: u32| {
             let res = service
-                .read_last_transparency_log(&pack_type, ps_id)
+                .read_last_transparency_log(&pack_type, package_specific_id)
                 .unwrap();
-            assert_eq!(res.len(), 1, "{:?}", res);
-            assert_eq!(res.first().unwrap().id, log.id);
+
+            assert_eq!(res.len(), num_artifacts as usize, "{:?}", res);
+            assert_eq!(
+                res.first().unwrap().package_specific_id,
+                package_specific_id
+            );
         };
 
-        test_read_latest_record(new_artifact_transparency_log(
-            Some(pack_type),
-            Operation::AddArtifact,
-            Some(ps_id),
-            Some("package_specific_artifact_id"),
-        ));
+        write_docker_artifacts(&service, ps_id, 3, 3, Operation::AddArtifact);
+        test_read_latest_record(ps_id, 3);
 
-        test_read_latest_record(new_artifact_transparency_log(
-            Some(pack_type),
-            Operation::RemoveArtifact,
-            Some(ps_id),
-            Some("package_specific_artifact_id"),
-        ));
+        write_docker_artifacts(&service, ps_id, 1, 1, Operation::RemoveArtifact);
+        test_read_latest_record(ps_id, 1);
 
-        test_read_latest_record(new_artifact_transparency_log(
-            Some(pack_type),
-            Operation::AddArtifact,
-            Some(ps_id),
-            Some("package_specific_artifact_id"),
-        ));
+        let ps_id = "test:image:99.10.10";
+
+        write_docker_artifacts(&service, ps_id, 5, 5, Operation::AddArtifact);
+        test_read_latest_record(ps_id, 5);
 
         test_util::tests::teardown(tmp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_read_last_inconsistent_transparency_log() {
+        let tmp_dir = test_util::tests::setup();
+        let (service, _) = test_util::tests::create_transparency_log_service(&tmp_dir);
+
+        let assert_error = |res: Result<_, TransparencyLogError>, ps_id: &str| {
+            assert!(res.is_err());
+            assert_eq!(
+                res.err().unwrap().to_string(),
+                TransparencyLogError::ArtifactLogIsNotConsistentState {
+                    package_type: PackageType::Docker,
+                    package_specific_id: ps_id.to_string(),
+                    num_artifacts: 2,
+                    actual: 1,
+                }
+                .to_string()
+            );
+        };
+
+        // Tests the case when `num_artifacts` more than records count
+        let pack_type = PackageType::Docker;
+        let ps_id = "test:image:9.1.1";
+
+        write_docker_artifacts(&service, ps_id, 1, 2, Operation::AddArtifact);
+        assert_error(service.read_last_transparency_log(&pack_type, ps_id), ps_id);
+
+        // Tests the case when not all operations with the same ps_id are on `AddArtifact` state
+        let ps_id = "test:image:9.2.2";
+
+        write_docker_artifacts(&service, ps_id, 1, 1, Operation::RemoveArtifact);
+        write_docker_artifacts(&service, ps_id, 1, 2, Operation::AddArtifact);
+        assert_error(service.read_last_transparency_log(&pack_type, ps_id), ps_id);
+
+        test_util::tests::teardown(tmp_dir);
+    }
+
+    fn write_docker_artifacts(
+        service: &TransparencyLogService,
+        package_specific_id: &str,
+        records_count: u32,
+        num_artifacts: u32,
+        operation: Operation,
+    ) {
+        for _ in 0..records_count {
+            std::thread::sleep(Duration::from_secs(1));
+
+            let log = TransparencyLog {
+                id: Uuid::new_v4().to_string(),
+                package_type: Some(PackageType::Docker),
+                package_specific_id: package_specific_id.to_owned(),
+                num_artifacts,
+                package_specific_artifact_id: "ps_artifact_id".to_owned(),
+                artifact_hash: "artifact_hash".to_owned(),
+                source_hash: "source_hash".to_owned(),
+                artifact_id: Uuid::new_v4().to_string(),
+                source_id: Uuid::new_v4().to_string(),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+                operation: operation.clone(),
+                node_id: Uuid::new_v4().to_string(),
+                node_public_key: Uuid::new_v4().to_string(),
+            };
+
+            assert!(service.write_transparency_log(&log).is_ok());
+        }
     }
 
     #[tokio::test]
@@ -1279,7 +1385,7 @@ mod tests {
             id,
             package_type: pack_type,
             package_specific_id: ps_id.unwrap_or("ps_id").to_owned(),
-            num_artifacts: 8,
+            num_artifacts: 3,
             package_specific_artifact_id: ps_artifact_id.unwrap_or("ps_artifact_id").to_owned(),
             artifact_hash: "artifact_hash".to_owned(),
             source_hash: "source_hash".to_owned(),
