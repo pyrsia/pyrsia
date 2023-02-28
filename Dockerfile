@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4.1
 
-FROM rust:1.66.1-buster AS builder
+FROM rust:1.67.1-buster AS builder
 ENV CARGO_TARGET_DIR=/target
 WORKDIR /src
 RUN apt-get update && apt-get install -y \
@@ -31,7 +31,7 @@ ENV PYRSIA_BLOCKCHAIN_PATH=pyrsia/blockchain
 RUN curl -sL https://deb.nodesource.com/setup_18.x | bash -; \
     apt-get install -y -q nodejs; \
     npm i -g toml-cli; \
-    rustup default $(cat Cargo.toml | toml | jq -r 'try(.package."rust-version") // "stable"') 
+    rustup default $(cat Cargo.toml | toml | jq -r 'try(.package."rust-version") // "stable"')
 RUN --mount=target=/src \
     --mount=type=cache,target=/target \
     --mount=type=cache,target=/usr/local/cargo/git/db \

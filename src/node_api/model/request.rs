@@ -189,7 +189,7 @@ impl FromStr for TransparencyLogField {
     type Err = ParseTransparencyLogFieldError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let res = match s {
+        let res = match s.to_lowercase().as_str() {
             "id" => TransparencyLogField::Id,
             "package_type" => TransparencyLogField::PackageType,
             "package_specific_id" => TransparencyLogField::PackageSpecificId,
@@ -239,29 +239,29 @@ impl Clone for TransparencyLogField {
 impl TransparencyLogField {
     pub fn aaa(&self) -> (&str, &str) {
         match self {
-            TransparencyLogField::Id => ("Id", "TransparencyLog record identity"),
+            TransparencyLogField::Id => ("id", "TransparencyLog record identity"),
             TransparencyLogField::PackageType => {
-                ("PackageType", "Package type (maven, docker and so on)")
+                ("package_type", "Package type (maven, docker and so on)")
             }
             TransparencyLogField::PackageSpecificId => {
-                ("PackageSpecificId", "Package specific identity")
+                ("package_specific_id", "Package specific identity")
             }
-            TransparencyLogField::NumArtifacts => ("NumArtifacts", "Number of artifacts"),
+            TransparencyLogField::NumArtifacts => ("num_artifacts", "Number of artifacts"),
             TransparencyLogField::PackageSpecificArtifactId => (
-                "PackageSpecificArtifactId",
+                "package_specific_artifact_id",
                 "Package specific artifact identity",
             ),
-            TransparencyLogField::ArtifactHash => ("ArtifactHash", "Artifact hash"),
-            TransparencyLogField::SourceHash => ("SourceHash", "Source hash"),
-            TransparencyLogField::ArtifactId => ("ArtifactId", "Artifact identity"),
-            TransparencyLogField::SourceId => ("SourceId", "Source identity"),
-            TransparencyLogField::Timestamp => ("Timestamp", "Timestamp"),
+            TransparencyLogField::ArtifactHash => ("artifact_hash", "Artifact hash"),
+            TransparencyLogField::SourceHash => ("source_hash", "Source hash"),
+            TransparencyLogField::ArtifactId => ("artifact_id", "Artifact identity"),
+            TransparencyLogField::SourceId => ("source_id", "Source identity"),
+            TransparencyLogField::Timestamp => ("timestamp", "Timestamp"),
             TransparencyLogField::Operation => (
-                "Operation",
+                "operation",
                 "Operation (AddArtifact, RemoveArtifact, AddNode, RemoveNode)",
             ),
-            TransparencyLogField::NodeId => ("NodeId", "Peer node identity"),
-            TransparencyLogField::NodePublicKey => ("NodePublicKey", "Node public key"),
+            TransparencyLogField::NodeId => ("node_id", "Peer node identity"),
+            TransparencyLogField::NodePublicKey => ("node_public_key", "Node public key"),
         }
     }
 }
