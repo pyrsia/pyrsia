@@ -273,6 +273,7 @@ pub async fn handle_inspect_log_docker(
         .search_transparency_logs(
             &PackageType::Docker,
             get_package_specific_id(&request_docker_log.image).as_str(),
+            request_docker_log.latest.unwrap_or(false),
         )
         .map_err(RegistryError::from)?;
 
@@ -285,7 +286,11 @@ pub async fn handle_inspect_log_maven(
 ) -> Result<impl Reply, Rejection> {
     let result = artifact_service
         .transparency_log_service
-        .search_transparency_logs(&PackageType::Maven2, &request_maven_log.gav)
+        .search_transparency_logs(
+            &PackageType::Maven2,
+            &request_maven_log.gav,
+            request_maven_log.latest.unwrap_or(false),
+        )
         .map_err(RegistryError::from)?;
 
     ResponseBuilder::from(request_maven_log.output_params).create_response(&result)

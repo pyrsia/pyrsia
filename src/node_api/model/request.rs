@@ -36,9 +36,11 @@ pub struct RequestDockerBuild {
     pub image: String,
 }
 
+/// Defines how `TransparencyLog` items should be present to a client.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TransparencyLogOutputParams {
     pub format: Option<ContentType>,
+    /// Output will contain only fields defined in `Content` struct.
     pub content: Option<Content>,
 }
 
@@ -46,6 +48,9 @@ pub struct TransparencyLogOutputParams {
 pub struct RequestDockerLog {
     pub image: String,
     pub output_params: Option<TransparencyLogOutputParams>,
+    /// Only the last `TransparencyLog` item, this means with max timestamp.
+    /// Default value is false.
+    pub latest: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -57,6 +62,9 @@ pub struct RequestMavenBuild {
 pub struct RequestMavenLog {
     pub gav: String,
     pub output_params: Option<TransparencyLogOutputParams>,
+    /// Only the last `TransparencyLog` item, this means with max timestamp.
+    /// Default value is false.
+    pub latest: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

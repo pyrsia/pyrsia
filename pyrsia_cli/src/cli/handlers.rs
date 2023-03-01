@@ -202,6 +202,7 @@ pub async fn inspect_docker_transparency_log(
     image: &str,
     arg_format: Option<String>,
     arg_fields: Option<String>,
+    arg_latest: Option<bool>,
 ) {
     inspect_transparency_log(arg_format, arg_fields, |content_type, content| {
         node::inspect_docker_transparency_log(RequestDockerLog {
@@ -210,6 +211,7 @@ pub async fn inspect_docker_transparency_log(
                 format: content_type,
                 content,
             }),
+            latest: arg_latest,
         })
     })
     .await;
@@ -219,6 +221,7 @@ pub async fn inspect_maven_transparency_log(
     gav: &str,
     arg_format: Option<String>,
     arg_fields: Option<String>,
+    arg_latest: Option<bool>,
 ) {
     inspect_transparency_log(arg_format, arg_fields, |content_type, content| {
         node::inspect_maven_transparency_log(RequestMavenLog {
@@ -227,6 +230,7 @@ pub async fn inspect_maven_transparency_log(
                 format: content_type,
                 content,
             }),
+            latest: arg_latest,
         })
     })
     .await;

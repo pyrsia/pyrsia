@@ -400,6 +400,7 @@ mod tests {
             let request = RequestDockerLog {
                 image: ps_id.to_string(),
                 output_params: Default::default(),
+                latest: None,
             };
 
             let filter = ctx.create_route();
@@ -427,6 +428,7 @@ mod tests {
                     format: Some(ContentType::CSV),
                     content: None,
                 }),
+                latest: None,
             };
             let filter = ctx.create_route();
             let response = warp::test::request()
@@ -449,6 +451,7 @@ mod tests {
             let request = RequestMavenLog {
                 gav: ps_id.to_string(),
                 output_params: None,
+                latest: None,
             };
             let filter = ctx.create_route();
             let response = warp::test::request()
@@ -474,6 +477,7 @@ mod tests {
                     format: Some(ContentType::CSV),
                     content: None,
                 }),
+                latest: Some(false),
             };
             let filter = ctx.create_route();
             let response = warp::test::request()
@@ -508,6 +512,7 @@ mod tests {
                         ],
                     }),
                 }),
+                latest: None,
             };
             let filter = ctx.create_route();
             let response = warp::test::request()
@@ -560,6 +565,7 @@ mod tests {
                         ],
                     }),
                 }),
+                latest: Some(false),
             };
             let filter = ctx.create_route();
             let response = warp::test::request()
@@ -586,6 +592,32 @@ mod tests {
 
             let actual = String::from_utf8(response.body().to_vec()).unwrap();
             assert_eq!(expected, actual);
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn inspect_log_latest() {
+        setup_and_execute(|ctx| async {
+            let ps_id = "library/artipie:0.0.7";
+
+            let transparency_log = add_artifact(&ctx.log, PackageType::Docker, ps_id).await;
+            let request = RequestDockerLog {
+                image: ps_id.to_string(),
+                output_params: Default::default(),
+                latest: Some(true),
+            };
+
+            let filter = ctx.create_route();
+
+            let response = warp::test::request()
+                .method("POST")
+                .path("/inspect/docker")
+                .json(&request)
+                .reply(&filter)
+                .await;
+
+            assert_response_json(response, transparency_log);
         })
         .await;
     }
@@ -640,7 +672,7 @@ mod tests {
         let add_art_req = AddArtifactRequest {
             package_type,
             package_specific_id: ps_id.to_string(),
-            num_artifacts: 5,
+            num_artifacts: 1,
             package_specific_artifact_id: ps_id.to_string(),
             artifact_hash: "test_hash".to_string(),
         };
