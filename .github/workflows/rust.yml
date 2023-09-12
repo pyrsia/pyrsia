@@ -296,7 +296,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: pyrsia/rust-toolchain@v2  # Setup toolchain to pull version info from Cargo.toml
       - name: Login to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
