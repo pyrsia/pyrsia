@@ -28,7 +28,7 @@ jobs:
       RUSTC_WRAPPER: /Users/runner/.cargo/bin/sccache
       CARGO_INCREMENTAL: 0
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # Use sscache store in GitHub cache
       - uses: actions/cache@v3
@@ -121,7 +121,7 @@ jobs:
       RUSTC_WRAPPER: C:\Users\runneradmin\.cargo\bin\sccache.exe
       CARGO_INCREMENTAL: 0
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # Use sscache store in GitHub cache
       - uses: actions/cache@v3
@@ -192,7 +192,7 @@ jobs:
       RUSTC_WRAPPER: /home/runner/.cargo/bin/sccache
       CARGO_INCREMENTAL: 0
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # Use sscache store in GitHub cache
       - uses: actions/cache@v3
@@ -265,7 +265,7 @@ jobs:
   coverage:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: pyrsia/rust-toolchain@v2
         with:
           packages: cargo-tarpaulin
@@ -293,7 +293,7 @@ jobs:
     needs: [build-push-linux]
     if: github.repository_owner == 'pyrsia' && (github.event_name == 'push' || github.event_name == 'release')
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: pyrsia/rust-toolchain@v2  # Setup toolchain to pull version info from Cargo.toml
       - name: Login to DockerHub
         uses: docker/login-action@v2

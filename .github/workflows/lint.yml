@@ -17,7 +17,7 @@ jobs:
   security-audit:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: pyrsia/rust-toolchain@v2
         with:
           packages: cargo-audit
@@ -27,7 +27,7 @@ jobs:
   rustfmt:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: pyrsia/rust-toolchain@v2
         with:
           components: rustfmt
@@ -37,7 +37,7 @@ jobs:
   clippy:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: pyrsia/rust-toolchain@v2
         with:
           components: clippy
@@ -48,7 +48,7 @@ jobs:
   license-header:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: viperproject/check-license-header@v2
         with:
           path: .
@@ -57,7 +57,7 @@ jobs:
   inclusive-lint:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run Woke for Inclusive Linting
         run: |
             curl -sSfL https://git.io/getwoke | bash -s --
@@ -67,7 +67,7 @@ jobs:
   markdown-docs:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: github/super-linter/slim@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
