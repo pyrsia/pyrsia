@@ -6,13 +6,9 @@
 
 ## Current Development Phase
 
-_📢 We are looking for your feedback!_
+_📢 This project is in archival phase_
 
-This project is currently in "early alpha". We are actively building on our minimal viable product which will continue
-to evolve over time as we add new features and support more workflows.
-
-Have a use case or workflow you would like to see supported? Open an issue or share on [Slack](https://cdeliveryfdn.slack.com/join/shared_invite/zt-1eryue9cw-9YpgrfIfsTcDS~hGHchURg).
-Check out our [Get Involved](/docs/get_involved/) page for more ways to connect.
+We appreciate all the contributions to Pyrsia and enthusiasm from the community in the past couple years. Unfortunately, all of the core maintainers have moved on so we are no longer able to continue development. The public instance of Pyrsia is also no longer going to be kept running. If you are interested to carry forward the project feel free to fork this project and continue the effort.
 
 ### Primary Focus
 
